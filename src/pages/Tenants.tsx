@@ -310,13 +310,28 @@ export default function Tenants() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => navigate(`/tenants/${tenant.id}`)}>
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        navigate(`/tenants/${tenant.id}`);
+                      }}
+                    >
                       <Eye className="h-4 w-4 mr-2" /> View Profile
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate(`/tenants/${tenant.id}?edit=true`)}>
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        navigate(`/tenants/${tenant.id}?edit=true`);
+                      }}
+                    >
                       <Edit className="h-4 w-4 mr-2" /> Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate(`/tenants/${tenant.id}?tab=messages`)}>
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        navigate(`/tenants/${tenant.id}?tab=messages`);
+                      }}
+                    >
                       <Mail className="h-4 w-4 mr-2" /> Send Message
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />

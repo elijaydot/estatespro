@@ -1,7 +1,7 @@
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  Home, 
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Home,
   Bed,
   Bath,
   Square,
@@ -29,6 +29,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from '@/components/ui/use-toast';
 import { UnitStatus } from '@/types';
 
 // Mock unit data
@@ -95,7 +107,27 @@ const getMaintenanceStatusIcon = (status: string) => {
 export default function UnitDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const unit = mockUnit;
+
+  const isEditOpen = searchParams.get('edit') === 'true';
+  const closeEdit = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('edit');
+    setSearchParams(next, { replace: true });
+  };
+  const openEdit = () => {
+    const next = new URLSearchParams(searchParams);
+    next.set('edit', 'true');
+    setSearchParams(next, { replace: true });
+  };
+
+  const handleNotImplemented = (feature: string) => {
+    toast({
+      title: 'Coming soon',
+      description: `${feature} will be enabled once we connect the backend.`,
+    });
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -113,16 +145,13 @@ export default function UnitDetail() {
               <h1 className="text-2xl font-bold text-foreground">Unit {unit.unitNumber}</h1>
               {getStatusBadge(unit.status)}
             </div>
-            <Link 
-              to={`/properties/${unit.propertyId}`}
-              className="text-muted-foreground hover:text-primary transition-colors"
-            >
+            <Link to={`/properties/${unit.propertyId}`} className="text-muted-foreground hover:text-primary transition-colors">
               {unit.property}
             </Link>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={openEdit}>
             <Edit className="h-4 w-4" />
             Edit
           </Button>
@@ -133,10 +162,30 @@ export default function UnitDetail() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Create Listing</DropdownMenuItem>
-              <DropdownMenuItem>Schedule Inspection</DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleNotImplemented('Create listing');
+                }}
+              >
+                <FileText className="h-4 w-4 mr-2" /> Create Listing
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleNotImplemented('Schedule inspection');
+                }}
+              >
+                <Calendar className="h-4 w-4 mr-2" /> Schedule Inspection
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem
+                className="text-destructive"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleNotImplemented('Delete unit');
+                }}
+              >
                 <Trash2 className="h-4 w-4 mr-2" /> Delete Unit
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -216,7 +265,7 @@ export default function UnitDetail() {
                 <CardTitle className="text-lg">Current Tenant</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Link 
+                <Link
                   to={`/tenants/${unit.tenant.id}`}
                   className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
                 >
@@ -247,7 +296,7 @@ export default function UnitDetail() {
               <CardContent className="py-8 text-center">
                 <User className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
                 <p className="text-muted-foreground mb-4">This unit is currently vacant</p>
-                <Button className="gap-2">
+                <Button className="gap-2" onClick={() => handleNotImplemented('Assign tenant')}>
                   <Plus className="h-4 w-4" />
                   Assign Tenant
                 </Button>
@@ -269,7 +318,7 @@ export default function UnitDetail() {
               <Card className="card-shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Maintenance History</CardTitle>
-                  <Button variant="outline" className="gap-2">
+                  <Button variant="outline" className="gap-2" onClick={() => handleNotImplemented('New maintenance request')}>
                     <Wrench className="h-4 w-4" />
                     New Request
                   </Button>
@@ -279,17 +328,13 @@ export default function UnitDetail() {
                     {mockMaintenance.map((request) => (
                       <div key={request.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-background">
-                            {getMaintenanceStatusIcon(request.status)}
-                          </div>
+                          <div className="p-2 rounded-lg bg-background">{getMaintenanceStatusIcon(request.status)}</div>
                           <div>
                             <p className="font-medium">{request.title}</p>
                             <p className="text-sm text-muted-foreground">{request.date}</p>
                           </div>
                         </div>
-                        <Badge className="bg-success/10 text-success border-success/20 capitalize">
-                          {request.status}
-                        </Badge>
+                        <Badge className="bg-success/10 text-success border-success/20 capitalize">{request.status}</Badge>
                       </div>
                     ))}
                   </div>
@@ -308,11 +353,13 @@ export default function UnitDetail() {
                       <div key={lease.id} className="p-4 rounded-lg bg-secondary/50">
                         <div className="flex items-center justify-between mb-2">
                           <p className="font-medium">{lease.tenant}</p>
-                          <Badge className={
-                            lease.status === 'active' 
-                              ? 'bg-success/10 text-success border-success/20' 
-                              : 'bg-muted text-muted-foreground'
-                          }>
+                          <Badge
+                            className={
+                              lease.status === 'active'
+                                ? 'bg-success/10 text-success border-success/20'
+                                : 'bg-muted text-muted-foreground'
+                            }
+                          >
                             {lease.status}
                           </Badge>
                         </div>
@@ -337,7 +384,7 @@ export default function UnitDetail() {
               <Card className="card-shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Documents</CardTitle>
-                  <Button variant="outline" className="gap-2">
+                  <Button variant="outline" className="gap-2" onClick={() => handleNotImplemented('Upload document')}>
                     <Plus className="h-4 w-4" />
                     Upload
                   </Button>
@@ -351,6 +398,75 @@ export default function UnitDetail() {
           </Tabs>
         </div>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={(open) => !open && closeEdit()}>
+        <DialogContent className="sm:max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle>Edit Unit</DialogTitle>
+            <DialogDescription>Update unit details (mock UI).</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="unitNumber">Unit Number</Label>
+                <Input id="unitNumber" defaultValue={unit.unitNumber} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="unitFloor">Floor</Label>
+                <Input id="unitFloor" defaultValue={String(unit.floor)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="unitBeds">Bedrooms</Label>
+                <Input id="unitBeds" defaultValue={String(unit.bedrooms)} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="unitBaths">Bathrooms</Label>
+                <Input id="unitBaths" defaultValue={String(unit.bathrooms)} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="unitSqft">Sqft</Label>
+                <Input id="unitSqft" defaultValue={String(unit.sqft)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="unitRent">Monthly Rent</Label>
+                <Input id="unitRent" defaultValue={String(unit.rent)} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="unitStatus">Status</Label>
+                <Input id="unitStatus" defaultValue={unit.status} />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="unitDesc">Description</Label>
+              <Textarea id="unitDesc" defaultValue={unit.description} rows={4} />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeEdit}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                toast({ title: 'Saved', description: 'Unit updated (mock).' });
+                closeEdit();
+              }}
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

@@ -283,10 +283,20 @@ export default function Units() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => navigate(`/units/${unit.id}`)}>
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        navigate(`/units/${unit.id}`);
+                      }}
+                    >
                       <Eye className="h-4 w-4 mr-2" /> View Details
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate(`/units/${unit.id}?edit=true`)}>
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        navigate(`/units/${unit.id}?edit=true`);
+                      }}
+                    >
                       <Edit className="h-4 w-4 mr-2" /> Edit Unit
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />

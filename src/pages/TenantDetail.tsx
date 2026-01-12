@@ -1,9 +1,10 @@
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  User, 
-  Mail, 
-  Phone, 
+import { useState } from 'react';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import {
+  ArrowLeft,
+  User,
+  Mail,
+  Phone,
   Home,
   Calendar,
   DollarSign,
@@ -14,7 +15,7 @@ import {
   Wrench,
   AlertCircle,
   CheckCircle,
-  Clock,
+  Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from '@/components/ui/use-toast';
+import { downloadCsv } from '@/lib/download';
 
 // Mock tenant data
 const mockTenant = {
@@ -102,7 +116,7 @@ const getPaymentStatusBadge = (status: string) => {
 const getInitials = (name: string) => {
   return name
     .split(' ')
-    .map(n => n[0])
+    .map((n) => n[0])
     .join('')
     .toUpperCase();
 };
@@ -110,7 +124,62 @@ const getInitials = (name: string) => {
 export default function TenantDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const tenant = mockTenant;
+
+  const isEditOpen = searchParams.get('edit') === 'true';
+  const isMessageOpen = searchParams.get('tab') === 'messages';
+
+  const closeEdit = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('edit');
+    setSearchParams(next, { replace: true });
+  };
+  const openEdit = () => {
+    const next = new URLSearchParams(searchParams);
+    next.set('edit', 'true');
+    setSearchParams(next, { replace: true });
+  };
+
+  const closeMessage = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('tab');
+    setSearchParams(next, { replace: true });
+  };
+  const openMessage = () => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', 'messages');
+    setSearchParams(next, { replace: true });
+  };
+
+  const [messageSubject, setMessageSubject] = useState('');
+  const [messageBody, setMessageBody] = useState('');
+
+  const handleNotImplemented = (feature: string) => {
+    toast({
+      title: 'Coming soon',
+      description: `${feature} will be enabled once we connect the backend.`,
+    });
+  };
+
+  const handleGenerateStatement = () => {
+    downloadCsv(
+      `tenant-${tenant.id}-statement.csv`,
+      mockPayments.map((p) => ({
+        payment_id: p.id,
+        date: p.date,
+        description: p.description,
+        amount: p.amount,
+        status: p.status,
+      })),
+    );
+
+    toast({
+      title: 'Statement generated',
+      description: 'Downloaded a CSV statement for this tenant.',
+    });
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -121,9 +190,7 @@ export default function TenantDetail() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <Avatar className="h-16 w-16">
-            <AvatarFallback className="bg-primary/10 text-primary text-xl">
-              {getInitials(tenant.name)}
-            </AvatarFallback>
+            <AvatarFallback className="bg-primary/10 text-primary text-xl">{getInitials(tenant.name)}</AvatarFallback>
           </Avatar>
           <div>
             <div className="flex items-center gap-2">
@@ -139,11 +206,11 @@ export default function TenantDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={openMessage}>
             <Mail className="h-4 w-4" />
             Send Message
           </Button>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={openEdit}>
             <Edit className="h-4 w-4" />
             Edit
           </Button>
@@ -154,10 +221,30 @@ export default function TenantDetail() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Generate Statement</DropdownMenuItem>
-              <DropdownMenuItem>Renew Lease</DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleGenerateStatement();
+                }}
+              >
+                <FileText className="h-4 w-4 mr-2" /> Generate Statement
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleNotImplemented('Renew lease');
+                }}
+              >
+                <Calendar className="h-4 w-4 mr-2" /> Renew Lease
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem
+                className="text-destructive"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleNotImplemented('Remove tenant');
+                }}
+              >
                 <Trash2 className="h-4 w-4 mr-2" /> Remove Tenant
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -278,7 +365,7 @@ export default function TenantDetail() {
               <Card className="card-shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Payment History</CardTitle>
-                  <Button className="gap-2">
+                  <Button className="gap-2" onClick={() => handleNotImplemented('Record payment')}>
                     <DollarSign className="h-4 w-4" />
                     Record Payment
                   </Button>
@@ -326,9 +413,7 @@ export default function TenantDetail() {
                             <p className="text-sm text-muted-foreground">{request.date}</p>
                           </div>
                         </div>
-                        <Badge className="bg-success/10 text-success border-success/20">
-                          {request.status}
-                        </Badge>
+                        <Badge className="bg-success/10 text-success border-success/20">{request.status}</Badge>
                       </div>
                     ))}
                   </div>
@@ -347,6 +432,118 @@ export default function TenantDetail() {
           </Tabs>
         </div>
       </div>
+
+      {/* Send Message Dialog */}
+      <Dialog
+        open={isMessageOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMessageSubject('');
+            setMessageBody('');
+            closeMessage();
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle>Message {tenant.name}</DialogTitle>
+            <DialogDescription>Compose a message (mock UI).</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="subject">Subject</Label>
+              <Input
+                id="subject"
+                value={messageSubject}
+                onChange={(e) => setMessageSubject(e.target.value)}
+                placeholder="e.g., Rent reminder"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="message">Message</Label>
+              <Textarea
+                id="message"
+                value={messageBody}
+                onChange={(e) => setMessageBody(e.target.value)}
+                placeholder="Type your message…"
+                rows={6}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeMessage}>
+              Cancel
+            </Button>
+            <Button
+              className="gap-2"
+              onClick={() => {
+                toast({ title: 'Sent', description: 'Message sent (mock).' });
+                setMessageSubject('');
+                setMessageBody('');
+                closeMessage();
+              }}
+              disabled={!messageBody.trim()}
+            >
+              <Send className="h-4 w-4" />
+              Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={(open) => !open && closeEdit()}>
+        <DialogContent className="sm:max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle>Edit Tenant</DialogTitle>
+            <DialogDescription>Update tenant details (mock UI).</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="tenantName">Name</Label>
+                <Input id="tenantName" defaultValue={tenant.name} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tenantEmail">Email</Label>
+                <Input id="tenantEmail" defaultValue={tenant.email} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="tenantPhone">Phone</Label>
+                <Input id="tenantPhone" defaultValue={tenant.phone} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tenantEmployer">Employer</Label>
+                <Input id="tenantEmployer" defaultValue={tenant.employer} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="tenantOccupation">Occupation</Label>
+              <Input id="tenantOccupation" defaultValue={tenant.occupation} />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeEdit}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                toast({ title: 'Saved', description: 'Tenant updated (mock).' });
+                closeEdit();
+              }}
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

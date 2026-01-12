@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { 
-  DollarSign, 
-  CreditCard, 
+import {
+  DollarSign,
+  CreditCard,
   Download,
   CheckCircle,
   Clock,
@@ -31,6 +31,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { toast } from '@/components/ui/use-toast';
+import { downloadCsv } from '@/lib/download';
 
 // Mock payment data
 const upcomingPayment = {
@@ -41,12 +43,54 @@ const upcomingPayment = {
 };
 
 const paymentHistory = [
-  { id: '1', date: 'Jan 01, 2025', description: 'Monthly Rent - January 2025', amount: 1500, status: 'paid', method: 'Card ending 4242' },
-  { id: '2', date: 'Dec 01, 2024', description: 'Monthly Rent - December 2024', amount: 1500, status: 'paid', method: 'Card ending 4242' },
-  { id: '3', date: 'Nov 01, 2024', description: 'Monthly Rent - November 2024', amount: 1500, status: 'paid', method: 'Bank Transfer' },
-  { id: '4', date: 'Oct 01, 2024', description: 'Monthly Rent - October 2024', amount: 1500, status: 'paid', method: 'Card ending 4242' },
-  { id: '5', date: 'Sep 01, 2024', description: 'Monthly Rent - September 2024', amount: 1500, status: 'paid', method: 'Card ending 4242' },
-  { id: '6', date: 'Aug 01, 2024', description: 'Monthly Rent - August 2024', amount: 1500, status: 'paid', method: 'Bank Transfer' },
+  {
+    id: '1',
+    date: 'Jan 01, 2025',
+    description: 'Monthly Rent - January 2025',
+    amount: 1500,
+    status: 'paid',
+    method: 'Card ending 4242',
+  },
+  {
+    id: '2',
+    date: 'Dec 01, 2024',
+    description: 'Monthly Rent - December 2024',
+    amount: 1500,
+    status: 'paid',
+    method: 'Card ending 4242',
+  },
+  {
+    id: '3',
+    date: 'Nov 01, 2024',
+    description: 'Monthly Rent - November 2024',
+    amount: 1500,
+    status: 'paid',
+    method: 'Bank Transfer',
+  },
+  {
+    id: '4',
+    date: 'Oct 01, 2024',
+    description: 'Monthly Rent - October 2024',
+    amount: 1500,
+    status: 'paid',
+    method: 'Card ending 4242',
+  },
+  {
+    id: '5',
+    date: 'Sep 01, 2024',
+    description: 'Monthly Rent - September 2024',
+    amount: 1500,
+    status: 'paid',
+    method: 'Card ending 4242',
+  },
+  {
+    id: '6',
+    date: 'Aug 01, 2024',
+    description: 'Monthly Rent - August 2024',
+    amount: 1500,
+    status: 'paid',
+    method: 'Bank Transfer',
+  },
 ];
 
 const getStatusBadge = (status: string) => {
@@ -77,6 +121,41 @@ const getStatusBadge = (status: string) => {
 export default function TenantPayments() {
   const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('card');
+
+  const handleExportHistory = () => {
+    downloadCsv(
+      'payment-history.csv',
+      paymentHistory.map((p) => ({
+        payment_id: p.id,
+        date: p.date,
+        description: p.description,
+        method: p.method,
+        amount: p.amount,
+        status: p.status,
+      })),
+    );
+
+    toast({ title: 'Export complete', description: 'Downloaded payment history as CSV.' });
+  };
+
+  const handleDownloadReceipt = (paymentId: string) => {
+    const payment = paymentHistory.find((p) => p.id === paymentId);
+    if (!payment) return;
+
+    downloadCsv(`receipt-${payment.id}.csv`, [
+      {
+        payment_id: payment.id,
+        date: payment.date,
+        description: payment.description,
+        method: payment.method,
+        amount: payment.amount,
+        status: payment.status,
+        downloaded_at: new Date().toISOString(),
+      },
+    ]);
+
+    toast({ title: 'Receipt downloaded', description: `Downloaded receipt for ${payment.date}.` });
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -155,7 +234,7 @@ export default function TenantPayments() {
       <Card className="card-shadow-md">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Payment History</CardTitle>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleExportHistory}>
             <Download className="h-4 w-4" />
             Export
           </Button>
@@ -181,7 +260,12 @@ export default function TenantPayments() {
                   <TableCell className="font-medium">${payment.amount.toLocaleString()}</TableCell>
                   <TableCell>{getStatusBadge(payment.status)}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleDownloadReceipt(payment.id)}
+                    >
                       <Download className="h-4 w-4" />
                     </Button>
                   </TableCell>
@@ -197,9 +281,7 @@ export default function TenantPayments() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Make Payment</DialogTitle>
-            <DialogDescription>
-              Pay your rent securely using your preferred payment method.
-            </DialogDescription>
+            <DialogDescription>Pay your rent securely using your preferred payment method.</DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             <div className="p-4 rounded-lg bg-secondary/50">
@@ -239,7 +321,13 @@ export default function TenantPayments() {
             <Button variant="outline" onClick={() => setIsPayDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => setIsPayDialogOpen(false)} className="gap-2">
+            <Button
+              onClick={() => {
+                toast({ title: 'Payment submitted', description: 'This is a mock payment flow for now.' });
+                setIsPayDialogOpen(false);
+              }}
+              className="gap-2"
+            >
               <CreditCard className="h-4 w-4" />
               Pay ${upcomingPayment.amount.toLocaleString()}
             </Button>
@@ -249,3 +337,4 @@ export default function TenantPayments() {
     </div>
   );
 }
+

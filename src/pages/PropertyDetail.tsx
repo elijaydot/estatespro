@@ -1,18 +1,18 @@
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  Building2, 
-  MapPin, 
-  Home, 
-  Users, 
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Building2,
+  MapPin,
+  Home,
+  Users,
   DollarSign,
   Edit,
   Trash2,
   Plus,
   MoreHorizontal,
   Calendar,
-  TrendingUp,
   Wrench,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from '@/components/ui/use-toast';
+import { downloadCsv } from '@/lib/download';
 import { Property, PropertyType, UnitStatus } from '@/types';
 
 // Mock property data
@@ -39,7 +52,8 @@ const mockProperty: Property = {
   zipCode: '90028',
   country: 'USA',
   type: 'apartment',
-  description: 'Modern apartment complex with luxury amenities including swimming pool, gym, and 24/7 security. Located in a prime location with easy access to shopping centers and public transportation.',
+  description:
+    'Modern apartment complex with luxury amenities including swimming pool, gym, and 24/7 security. Located in a prime location with easy access to shopping centers and public transportation.',
   images: [],
   totalUnits: 24,
   occupiedUnits: 21,
@@ -48,12 +62,48 @@ const mockProperty: Property = {
 
 // Mock units for this property
 const mockPropertyUnits = [
-  { id: '1', unitNumber: '101', bedrooms: 2, bathrooms: 1, sqft: 850, rent: 1500, status: 'occupied' as UnitStatus, tenant: 'Sarah Johnson' },
+  {
+    id: '1',
+    unitNumber: '101',
+    bedrooms: 2,
+    bathrooms: 1,
+    sqft: 850,
+    rent: 1500,
+    status: 'occupied' as UnitStatus,
+    tenant: 'Sarah Johnson',
+  },
   { id: '2', unitNumber: '102', bedrooms: 1, bathrooms: 1, sqft: 650, rent: 1100, status: 'vacant' as UnitStatus },
-  { id: '3', unitNumber: '103', bedrooms: 3, bathrooms: 2, sqft: 1200, rent: 2200, status: 'occupied' as UnitStatus, tenant: 'Michael Brown' },
+  {
+    id: '3',
+    unitNumber: '103',
+    bedrooms: 3,
+    bathrooms: 2,
+    sqft: 1200,
+    rent: 2200,
+    status: 'occupied' as UnitStatus,
+    tenant: 'Michael Brown',
+  },
   { id: '4', unitNumber: '201', bedrooms: 2, bathrooms: 2, sqft: 950, rent: 1700, status: 'maintenance' as UnitStatus },
-  { id: '5', unitNumber: '202', bedrooms: 2, bathrooms: 1, sqft: 850, rent: 1500, status: 'occupied' as UnitStatus, tenant: 'Emma Wilson' },
-  { id: '6', unitNumber: '203', bedrooms: 1, bathrooms: 1, sqft: 650, rent: 1100, status: 'occupied' as UnitStatus, tenant: 'David Lee' },
+  {
+    id: '5',
+    unitNumber: '202',
+    bedrooms: 2,
+    bathrooms: 1,
+    sqft: 850,
+    rent: 1500,
+    status: 'occupied' as UnitStatus,
+    tenant: 'Emma Wilson',
+  },
+  {
+    id: '6',
+    unitNumber: '203',
+    bedrooms: 1,
+    bathrooms: 1,
+    sqft: 650,
+    rent: 1100,
+    status: 'occupied' as UnitStatus,
+    tenant: 'David Lee',
+  },
 ];
 
 // Mock recent activity
@@ -88,13 +138,74 @@ const getStatusBadge = (status: UnitStatus) => {
 export default function PropertyDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const property = mockProperty;
+
+  const isEditOpen = searchParams.get('edit') === 'true';
+  const closeEdit = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('edit');
+    setSearchParams(next, { replace: true });
+  };
+  const openEdit = () => {
+    const next = new URLSearchParams(searchParams);
+    next.set('edit', 'true');
+    setSearchParams(next, { replace: true });
+  };
 
   const occupancyRate = Math.round((property.occupiedUnits / property.totalUnits) * 100);
   const vacantUnits = property.totalUnits - property.occupiedUnits;
-  const monthlyRevenue = mockPropertyUnits
-    .filter(u => u.status === 'occupied')
-    .reduce((sum, u) => sum + u.rent, 0);
+  const monthlyRevenue = mockPropertyUnits.filter((u) => u.status === 'occupied').reduce((sum, u) => sum + u.rent, 0);
+
+  const handleGenerateReport = () => {
+    downloadCsv(`property-${property.id}-report.csv`, [
+      {
+        property_id: property.id,
+        property_name: property.name,
+        property_type: property.type,
+        total_units: property.totalUnits,
+        occupied_units: property.occupiedUnits,
+        occupancy_rate_percent: occupancyRate,
+        vacant_units: vacantUnits,
+        monthly_revenue: monthlyRevenue,
+        generated_at: new Date().toISOString(),
+      },
+    ]);
+
+    toast({
+      title: 'Report generated',
+      description: 'Downloaded a CSV report for this property.',
+    });
+  };
+
+  const handleExportData = () => {
+    downloadCsv(
+      `property-${property.id}-units.csv`,
+      mockPropertyUnits.map((u) => ({
+        unit_id: u.id,
+        unit_number: u.unitNumber,
+        bedrooms: u.bedrooms,
+        bathrooms: u.bathrooms,
+        sqft: u.sqft,
+        rent: u.rent,
+        status: u.status,
+        tenant: u.tenant ?? '',
+      })),
+    );
+
+    toast({
+      title: 'Export complete',
+      description: 'Downloaded units data as CSV.',
+    });
+  };
+
+  const handleNotImplemented = (feature: string) => {
+    toast({
+      title: 'Coming soon',
+      description: `${feature} will be enabled once we connect the backend.`,
+    });
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -107,18 +218,18 @@ export default function PropertyDetail() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-foreground">{property.name}</h1>
-              <Badge className={getPropertyTypeBadge(property.type)}>
-                {property.type}
-              </Badge>
+              <Badge className={getPropertyTypeBadge(property.type)}>{property.type}</Badge>
             </div>
             <div className="flex items-center gap-1 text-muted-foreground mt-1">
               <MapPin className="h-4 w-4" />
-              <span>{property.address}, {property.city}, {property.state} {property.zipCode}</span>
+              <span>
+                {property.address}, {property.city}, {property.state} {property.zipCode}
+              </span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={openEdit}>
             <Edit className="h-4 w-4" />
             Edit
           </Button>
@@ -129,10 +240,30 @@ export default function PropertyDetail() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Generate Report</DropdownMenuItem>
-              <DropdownMenuItem>Export Data</DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleGenerateReport();
+                }}
+              >
+                <FileText className="h-4 w-4 mr-2" /> Generate Report
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleExportData();
+                }}
+              >
+                <FileText className="h-4 w-4 mr-2" /> Export Data
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem
+                className="text-destructive"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleNotImplemented('Delete property');
+                }}
+              >
                 <Trash2 className="h-4 w-4 mr-2" /> Delete Property
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -208,7 +339,10 @@ export default function PropertyDetail() {
         <TabsContent value="units" className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">Property Units</h2>
-            <Button className="gap-2">
+            <Button
+              className="gap-2"
+              onClick={() => handleNotImplemented('Add unit')}
+            >
               <Plus className="h-4 w-4" />
               Add Unit
             </Button>
@@ -229,9 +363,7 @@ export default function PropertyDetail() {
                     </div>
                     <div className="mt-4 flex items-center justify-between">
                       <span className="font-semibold text-foreground">${unit.rent.toLocaleString()}/mo</span>
-                      {unit.tenant && (
-                        <span className="text-sm text-muted-foreground">{unit.tenant}</span>
-                      )}
+                      {unit.tenant && <span className="text-sm text-muted-foreground">{unit.tenant}</span>}
                     </div>
                   </CardContent>
                 </Card>
@@ -246,12 +378,21 @@ export default function PropertyDetail() {
             <CardContent className="pt-6">
               <div className="space-y-4">
                 {mockActivity.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-4 pb-4 border-b border-border last:border-0 last:pb-0">
-                    <div className={`p-2 rounded-lg ${
-                      activity.type === 'payment' ? 'bg-success/10' :
-                      activity.type === 'maintenance' ? 'bg-warning/10' :
-                      activity.type === 'lease' ? 'bg-info/10' : 'bg-primary/10'
-                    }`}>
+                  <div
+                    key={activity.id}
+                    className="flex items-start gap-4 pb-4 border-b border-border last:border-0 last:pb-0"
+                  >
+                    <div
+                      className={`p-2 rounded-lg ${
+                        activity.type === 'payment'
+                          ? 'bg-success/10'
+                          : activity.type === 'maintenance'
+                            ? 'bg-warning/10'
+                            : activity.type === 'lease'
+                              ? 'bg-info/10'
+                              : 'bg-primary/10'
+                      }`}
+                    >
                       {activity.type === 'payment' && <DollarSign className="h-4 w-4 text-success" />}
                       {activity.type === 'maintenance' && <Wrench className="h-4 w-4 text-warning" />}
                       {activity.type === 'lease' && <Calendar className="h-4 w-4 text-info" />}
@@ -271,7 +412,11 @@ export default function PropertyDetail() {
         <TabsContent value="documents" className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">Documents</h2>
-            <Button variant="outline" className="gap-2">
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => handleNotImplemented('Upload document')}
+            >
               <Plus className="h-4 w-4" />
               Upload Document
             </Button>
@@ -284,6 +429,63 @@ export default function PropertyDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={(open) => !open && closeEdit()}>
+        <DialogContent className="sm:max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle>Edit Property</DialogTitle>
+            <DialogDescription>Update property details (mock UI).</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="propertyName">Name</Label>
+              <Input id="propertyName" defaultValue={property.name} />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="propertyAddress">Address</Label>
+              <Input id="propertyAddress" defaultValue={property.address} />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="propertyCity">City</Label>
+                <Input id="propertyCity" defaultValue={property.city} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="propertyState">State</Label>
+                <Input id="propertyState" defaultValue={property.state} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="propertyZip">Zip</Label>
+                <Input id="propertyZip" defaultValue={property.zipCode} />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="propertyDesc">Description</Label>
+              <Textarea id="propertyDesc" defaultValue={property.description} rows={4} />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeEdit}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                toast({ title: 'Saved', description: 'Property updated (mock).' });
+                closeEdit();
+              }}
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
