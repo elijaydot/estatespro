@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   Plus, 
@@ -133,6 +134,7 @@ const getInitials = (name: string) => {
 };
 
 export default function Tenants() {
+  const navigate = useNavigate();
   const [tenants] = useState<TenantRow[]>(mockTenants);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -308,20 +310,20 @@ export default function Tenants() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Eye className="h-4 w-4 mr-2" /> View Profile
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Edit className="h-4 w-4 mr-2" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Mail className="h-4 w-4 mr-2" /> Send Message
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive">
-                        <Trash2 className="h-4 w-4 mr-2" /> Remove
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => navigate(`/tenants/${tenant.id}`)}>
+                      <Eye className="h-4 w-4 mr-2" /> View Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate(`/tenants/${tenant.id}?edit=true`)}>
+                      <Edit className="h-4 w-4 mr-2" /> Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate(`/tenants/${tenant.id}?tab=messages`)}>
+                      <Mail className="h-4 w-4 mr-2" /> Send Message
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-destructive">
+                      <Trash2 className="h-4 w-4 mr-2" /> Remove
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
