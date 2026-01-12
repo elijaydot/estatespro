@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Building2, 
   Plus, 
@@ -124,6 +125,7 @@ const getPropertyTypeBadge = (type: PropertyType) => {
 };
 
 export default function Properties() {
+  const navigate = useNavigate();
   const [properties] = useState<Property[]>(mockProperties);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -272,10 +274,10 @@ export default function Properties() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate(`/properties/${property.id}`)}>
                       <Eye className="h-4 w-4 mr-2" /> View Details
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate(`/properties/${property.id}?edit=true`)}>
                       <Edit className="h-4 w-4 mr-2" /> Edit Property
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Home, 
   Plus, 
@@ -135,6 +136,7 @@ const getStatusBadge = (status: UnitStatus) => {
 };
 
 export default function Units() {
+  const navigate = useNavigate();
   const [units] = useState<UnitRow[]>(mockUnits);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -281,17 +283,17 @@ export default function Units() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem>
-                    <Eye className="h-4 w-4 mr-2" /> View Details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Edit className="h-4 w-4 mr-2" /> Edit Unit
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-destructive">
-                    <Trash2 className="h-4 w-4 mr-2" /> Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => navigate(`/units/${unit.id}`)}>
+                      <Eye className="h-4 w-4 mr-2" /> View Details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate(`/units/${unit.id}?edit=true`)}>
+                      <Edit className="h-4 w-4 mr-2" /> Edit Unit
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-destructive">
+                      <Trash2 className="h-4 w-4 mr-2" /> Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
               </DropdownMenu>
             </div>
 
