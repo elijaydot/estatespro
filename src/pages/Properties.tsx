@@ -274,10 +274,20 @@ export default function Properties() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => navigate(`/properties/${property.id}`)}>
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        navigate(`/properties/${property.id}`);
+                      }}
+                    >
                       <Eye className="h-4 w-4 mr-2" /> View Details
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate(`/properties/${property.id}?edit=true`)}>
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        navigate(`/properties/${property.id}?edit=true`);
+                      }}
+                    >
                       <Edit className="h-4 w-4 mr-2" /> Edit Property
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
