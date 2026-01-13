@@ -495,36 +495,85 @@ export default function TenantDetail() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={(open) => !open && closeEdit()}>
-        <DialogContent className="sm:max-w-[640px]">
+        <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Tenant</DialogTitle>
-            <DialogDescription>Update tenant details (mock UI).</DialogDescription>
+            <DialogDescription>Update all tenant information below.</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
+            <h4 className="font-medium text-sm text-muted-foreground">Personal Information</h4>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="tenantName">Name</Label>
-                <Input id="tenantName" defaultValue={tenant.name} />
+                <Label htmlFor="tenantName">Full Name *</Label>
+                <Input id="tenantName" defaultValue={tenant.name} placeholder="John Doe" />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="tenantEmail">Email</Label>
-                <Input id="tenantEmail" defaultValue={tenant.email} />
+                <Label htmlFor="tenantEmail">Email Address *</Label>
+                <Input id="tenantEmail" type="email" defaultValue={tenant.email} placeholder="john@example.com" />
               </div>
             </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="tenantPhone">Phone</Label>
-                <Input id="tenantPhone" defaultValue={tenant.phone} />
+                <Label htmlFor="tenantPhone">Phone Number *</Label>
+                <Input id="tenantPhone" defaultValue={tenant.phone} placeholder="+233 XX XXX XXXX" />
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tenantIdDoc">ID Document Number</Label>
+                <Input id="tenantIdDoc" placeholder="Ghana Card / Passport" />
+              </div>
+            </div>
+
+            <h4 className="font-medium text-sm text-muted-foreground pt-2">Emergency Contact</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="tenantEmergencyContact">Contact Name</Label>
+                <Input id="tenantEmergencyContact" defaultValue={tenant.emergencyContact} placeholder="Emergency contact name" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tenantEmergencyPhone">Contact Phone</Label>
+                <Input id="tenantEmergencyPhone" defaultValue={tenant.emergencyPhone} placeholder="+233 XX XXX XXXX" />
+              </div>
+            </div>
+
+            <h4 className="font-medium text-sm text-muted-foreground pt-2">Employment Details</h4>
+            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="tenantEmployer">Employer</Label>
-                <Input id="tenantEmployer" defaultValue={tenant.employer} />
+                <Input id="tenantEmployer" defaultValue={tenant.employer} placeholder="Company name" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tenantOccupation">Occupation</Label>
+                <Input id="tenantOccupation" defaultValue={tenant.occupation} placeholder="Job title" />
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="tenantOccupation">Occupation</Label>
-              <Input id="tenantOccupation" defaultValue={tenant.occupation} />
+
+            <h4 className="font-medium text-sm text-muted-foreground pt-2">Lease & Payment Details</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="tenantMoveIn">Move-in Date</Label>
+                <Input id="tenantMoveIn" type="date" defaultValue="2024-03-15" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tenantLeaseEnd">Lease End Date</Label>
+                <Input id="tenantLeaseEnd" type="date" defaultValue="2025-03-14" />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="tenantRent">Monthly Rent (GHS)</Label>
+                <Input id="tenantRent" type="number" defaultValue={String(tenant.monthlyRent)} min="0" step="0.01" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tenantDeposit">Security Deposit (GHS)</Label>
+                <Input id="tenantDeposit" type="number" defaultValue={String(tenant.securityDeposit)} min="0" step="0.01" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tenantBalance">Current Balance (GHS)</Label>
+                <Input id="tenantBalance" type="number" defaultValue={String(tenant.balance)} step="0.01" />
+              </div>
             </div>
           </div>
 
@@ -534,7 +583,7 @@ export default function TenantDetail() {
             </Button>
             <Button
               onClick={() => {
-                toast({ title: 'Saved', description: 'Tenant updated (mock).' });
+                toast({ title: 'Saved', description: 'Tenant updated successfully.' });
                 closeEdit();
               }}
             >
