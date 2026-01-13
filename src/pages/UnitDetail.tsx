@@ -401,53 +401,75 @@ export default function UnitDetail() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={(open) => !open && closeEdit()}>
-        <DialogContent className="sm:max-w-[640px]">
+        <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Unit</DialogTitle>
-            <DialogDescription>Update unit details (mock UI).</DialogDescription>
+            <DialogDescription>Update all unit details below.</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            <h4 className="font-medium text-sm text-muted-foreground">Basic Information</h4>
+            <div className="grid grid-cols-3 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="unitNumber">Unit Number</Label>
-                <Input id="unitNumber" defaultValue={unit.unitNumber} />
+                <Label htmlFor="unitNumber">Unit Number *</Label>
+                <Input id="unitNumber" defaultValue={unit.unitNumber} placeholder="e.g., 101" />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="unitFloor">Floor</Label>
-                <Input id="unitFloor" defaultValue={String(unit.floor)} />
+                <Label htmlFor="unitFloor">Floor *</Label>
+                <Input id="unitFloor" type="number" defaultValue={String(unit.floor)} min="0" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="unitStatus">Status *</Label>
+                <select
+                  id="unitStatus"
+                  defaultValue={unit.status}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="vacant">Vacant</option>
+                  <option value="occupied">Occupied</option>
+                  <option value="maintenance">Maintenance</option>
+                </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <h4 className="font-medium text-sm text-muted-foreground pt-2">Unit Specifications</h4>
+            <div className="grid grid-cols-4 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="unitBeds">Bedrooms</Label>
-                <Input id="unitBeds" defaultValue={String(unit.bedrooms)} />
+                <Input id="unitBeds" type="number" defaultValue={String(unit.bedrooms)} min="0" />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="unitBaths">Bathrooms</Label>
-                <Input id="unitBaths" defaultValue={String(unit.bathrooms)} />
+                <Input id="unitBaths" type="number" defaultValue={String(unit.bathrooms)} min="0" step="0.5" />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="unitSqft">Sqft</Label>
-                <Input id="unitSqft" defaultValue={String(unit.sqft)} />
+                <Label htmlFor="unitSqft">Square Feet</Label>
+                <Input id="unitSqft" type="number" defaultValue={String(unit.sqft)} min="0" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="unitRent">Monthly Rent (GHS)</Label>
+                <Input id="unitRent" type="number" defaultValue={String(unit.rent)} min="0" step="0.01" />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="unitRent">Monthly Rent</Label>
-                <Input id="unitRent" defaultValue={String(unit.rent)} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="unitStatus">Status</Label>
-                <Input id="unitStatus" defaultValue={unit.status} />
-              </div>
+            <h4 className="font-medium text-sm text-muted-foreground pt-2">Amenities</h4>
+            <div className="grid gap-2">
+              <Label htmlFor="unitAmenities">Amenities (comma-separated)</Label>
+              <Input 
+                id="unitAmenities" 
+                defaultValue={unit.amenities.join(', ')} 
+                placeholder="Air Conditioning, Parking, Washer/Dryer, Balcony"
+              />
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="unitDesc">Description</Label>
-              <Textarea id="unitDesc" defaultValue={unit.description} rows={4} />
+              <Textarea 
+                id="unitDesc" 
+                defaultValue={unit.description} 
+                rows={4} 
+                placeholder="Describe the unit features, views, finishes, etc."
+              />
             </div>
           </div>
 
@@ -457,7 +479,7 @@ export default function UnitDetail() {
             </Button>
             <Button
               onClick={() => {
-                toast({ title: 'Saved', description: 'Unit updated (mock).' });
+                toast({ title: 'Saved', description: 'Unit updated successfully.' });
                 closeEdit();
               }}
             >

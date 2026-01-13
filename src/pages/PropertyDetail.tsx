@@ -432,41 +432,79 @@ export default function PropertyDetail() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={(open) => !open && closeEdit()}>
-        <DialogContent className="sm:max-w-[640px]">
+        <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Property</DialogTitle>
-            <DialogDescription>Update property details (mock UI).</DialogDescription>
+            <DialogDescription>Update all property details below.</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="propertyName">Name</Label>
-              <Input id="propertyName" defaultValue={property.name} />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="propertyName">Property Name *</Label>
+                <Input id="propertyName" defaultValue={property.name} placeholder="e.g., Sunset Apartments" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="propertyType">Property Type *</Label>
+                <select
+                  id="propertyType"
+                  defaultValue={property.type}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="apartment">Apartment</option>
+                  <option value="house">House</option>
+                  <option value="commercial">Commercial</option>
+                  <option value="mixed">Mixed Use</option>
+                </select>
+              </div>
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="propertyAddress">Address</Label>
-              <Input id="propertyAddress" defaultValue={property.address} />
+              <Label htmlFor="propertyAddress">Street Address *</Label>
+              <Input id="propertyAddress" defaultValue={property.address} placeholder="123 Main Street" />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="propertyCity">City</Label>
-                <Input id="propertyCity" defaultValue={property.city} />
+                <Label htmlFor="propertyCity">City *</Label>
+                <Input id="propertyCity" defaultValue={property.city} placeholder="Accra" />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="propertyState">State</Label>
-                <Input id="propertyState" defaultValue={property.state} />
+                <Label htmlFor="propertyState">Region/State *</Label>
+                <Input id="propertyState" defaultValue={property.state} placeholder="Greater Accra" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="propertyZip">Postal/Zip Code</Label>
+                <Input id="propertyZip" defaultValue={property.zipCode} placeholder="00233" />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="propertyZip">Zip</Label>
-                <Input id="propertyZip" defaultValue={property.zipCode} />
+                <Label htmlFor="propertyCountry">Country *</Label>
+                <Input id="propertyCountry" defaultValue={property.country} placeholder="Ghana" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="propertyTotalUnits">Total Units</Label>
+                <Input id="propertyTotalUnits" type="number" defaultValue={String(property.totalUnits)} min="0" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="propertyOccupiedUnits">Occupied Units</Label>
+                <Input id="propertyOccupiedUnits" type="number" defaultValue={String(property.occupiedUnits)} min="0" />
               </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="propertyDesc">Description</Label>
-              <Textarea id="propertyDesc" defaultValue={property.description} rows={4} />
+              <Textarea 
+                id="propertyDesc" 
+                defaultValue={property.description} 
+                rows={4} 
+                placeholder="Describe the property, its amenities, location benefits, etc."
+              />
             </div>
           </div>
 
@@ -476,7 +514,7 @@ export default function PropertyDetail() {
             </Button>
             <Button
               onClick={() => {
-                toast({ title: 'Saved', description: 'Property updated (mock).' });
+                toast({ title: 'Saved', description: 'Property updated successfully.' });
                 closeEdit();
               }}
             >

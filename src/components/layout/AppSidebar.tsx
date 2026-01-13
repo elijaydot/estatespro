@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Home,
+  Receipt,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -27,7 +28,8 @@ const navItems = [
   { icon: Home, label: 'Units', href: '/units' },
   { icon: Users, label: 'Tenants', href: '/tenants' },
   { icon: FileText, label: 'Leases', href: '/leases' },
-  { icon: CreditCard, label: 'Financials', href: '/financials' },
+  { icon: Receipt, label: 'Invoices', href: '/invoices' },
+  { icon: CreditCard, label: 'Payments', href: '/payments' },
   { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
   { icon: MessageSquare, label: 'Messages', href: '/messages' },
   { icon: Bell, label: 'Notifications', href: '/notifications' },
@@ -36,6 +38,7 @@ const navItems = [
 const bottomNavItems = [
   { icon: Settings, label: 'Settings', href: '/settings' },
 ];
+
 
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);

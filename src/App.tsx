@@ -16,7 +16,9 @@ import Units from "./pages/Units";
 import UnitDetail from "./pages/UnitDetail";
 import Tenants from "./pages/Tenants";
 import TenantDetail from "./pages/TenantDetail";
-import { Leases, Financials, Maintenance, Messages, Notifications, Settings } from "./pages/Placeholders";
+import Payments from "./pages/Payments";
+import Invoices from "./pages/Invoices";
+import { Leases, Maintenance, Messages, Notifications, Settings } from "./pages/Placeholders";
 import NotFound from "./pages/NotFound";
 
 // Tenant Portal
@@ -74,7 +76,8 @@ function AppRoutes() {
       <Route path="/tenants" element={<PrivateRoute><Tenants /></PrivateRoute>} />
       <Route path="/tenants/:id" element={<PrivateRoute><TenantDetail /></PrivateRoute>} />
       <Route path="/leases" element={<PrivateRoute><Leases /></PrivateRoute>} />
-      <Route path="/financials" element={<PrivateRoute><Financials /></PrivateRoute>} />
+      <Route path="/invoices" element={<PrivateRoute><Invoices /></PrivateRoute>} />
+      <Route path="/payments" element={<PrivateRoute><Payments /></PrivateRoute>} />
       <Route path="/maintenance" element={<PrivateRoute><Maintenance /></PrivateRoute>} />
       <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
