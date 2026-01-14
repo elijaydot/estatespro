@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+// profile comes from useAuth
 import {
   LayoutDashboard,
   Building2,
@@ -135,18 +136,18 @@ export function AppSidebar() {
           {/* User Profile */}
           <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
             <Avatar className="h-9 w-9 border-2 border-sidebar-border">
-              <AvatarImage src={user?.avatar} />
+              <AvatarImage src={profile?.avatar_url || undefined} />
               <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs">
-                {user?.name ? getInitials(user.name) : 'U'}
+                {profile?.name ? getInitials(profile.name) : 'U'}
               </AvatarFallback>
             </Avatar>
             {!collapsed && (
               <div className="flex-1 overflow-hidden">
                 <p className="text-sm font-medium text-sidebar-foreground truncate">
-                  {user?.name}
+                  {profile?.name || user?.email}
                 </p>
                 <p className="text-xs text-sidebar-foreground/60 truncate">
-                  {user?.role === 'property_manager' ? 'Property Manager' : user?.role}
+                  {profile?.role === 'property_manager' ? 'Property Manager' : profile?.role || 'User'}
                 </p>
               </div>
             )}

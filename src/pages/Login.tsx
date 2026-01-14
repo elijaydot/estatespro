@@ -5,18 +5,37 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isLoading } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(email, password);
+    setIsSubmitting(true);
+    
+    const { error } = await login(email, password);
+    
+    if (error) {
+      toast({
+        title: 'Login failed',
+        description: error.message || 'Invalid email or password',
+        variant: 'destructive',
+      });
+      setIsSubmitting(false);
+      return;
+    }
+    
+    toast({
+      title: 'Welcome back!',
+      description: 'You have successfully logged in.',
+    });
     navigate('/dashboard');
   };
 
@@ -45,7 +64,7 @@ export default function Login() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@estatepro.com"
+                  placeholder="your@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -83,8 +102,8 @@ export default function Login() {
                   </Button>
                 </div>
               </div>
-              <Button type="submit" className="w-full h-11" disabled={isLoading}>
-                {isLoading ? (
+              <Button type="submit" className="w-full h-11" disabled={isSubmitting}>
+                {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Signing in...
@@ -103,14 +122,6 @@ export default function Login() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Demo Credentials */}
-        <div className="mt-4 p-4 rounded-lg bg-secondary/50 text-center">
-          <p className="text-xs text-muted-foreground mb-1">Demo credentials</p>
-          <p className="text-sm font-mono text-foreground">
-            admin@estatepro.com / password
-          </p>
-        </div>
       </div>
     </div>
   );
