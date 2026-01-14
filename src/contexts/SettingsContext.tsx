@@ -1,0 +1,126 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './AuthContext';
+
+export interface AppSettings {
+  id?: string;
+  currencyCode: string;
+  currencySymbol: string;
+  defaultCountry: string;
+  timezone: string;
+  dateFormat: string;
+}
+
+interface SettingsContextType {
+  settings: AppSettings;
+  isLoading: boolean;
+  updateSettings: (newSettings: Partial<AppSettings>) => Promise<void>;
+  formatCurrency: (amount: number) => string;
+}
+
+const defaultSettings: AppSettings = {
+  currencyCode: 'RWF',
+  currencySymbol: 'RWF',
+  defaultCountry: 'Rwanda',
+  timezone: 'Africa/Kigali',
+  dateFormat: 'DD/MM/YYYY',
+};
+
+const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
+
+export function SettingsProvider({ children }: { children: ReactNode }) {
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [isLoading, setIsLoading] = useState(true);
+  const { user, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      fetchSettings();
+    } else {
+      setSettings(defaultSettings);
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, user]);
+
+  const fetchSettings = async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        setIsLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching settings:', error);
+      }
+
+      if (data) {
+        setSettings({
+          id: data.id,
+          currencyCode: data.currency_code,
+          currencySymbol: data.currency_symbol,
+          defaultCountry: data.default_country,
+          timezone: data.timezone,
+          dateFormat: data.date_format,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateSettings = async (newSettings: Partial<AppSettings>) => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      const updateData: Record<string, unknown> = {};
+      if (newSettings.currencyCode !== undefined) updateData.currency_code = newSettings.currencyCode;
+      if (newSettings.currencySymbol !== undefined) updateData.currency_symbol = newSettings.currencySymbol;
+      if (newSettings.defaultCountry !== undefined) updateData.default_country = newSettings.defaultCountry;
+      if (newSettings.timezone !== undefined) updateData.timezone = newSettings.timezone;
+      if (newSettings.dateFormat !== undefined) updateData.date_format = newSettings.dateFormat;
+
+      const { error } = await supabase
+        .from('app_settings')
+        .update(updateData)
+        .eq('user_id', authUser.id);
+
+      if (error) {
+        console.error('Error updating settings:', error);
+        throw error;
+      }
+
+      setSettings(prev => ({ ...prev, ...newSettings }));
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      throw error;
+    }
+  };
+
+  const formatCurrency = (amount: number): string => {
+    return `${settings.currencySymbol} ${amount.toLocaleString()}`;
+  };
+
+  return (
+    <SettingsContext.Provider value={{ settings, isLoading, updateSettings, formatCurrency }}>
+      {children}
+    </SettingsContext.Provider>
+  );
+}
+
+export function useSettings() {
+  const context = useContext(SettingsContext);
+  if (context === undefined) {
+    throw new Error('useSettings must be used within a SettingsProvider');
+  }
+  return context;
+}
