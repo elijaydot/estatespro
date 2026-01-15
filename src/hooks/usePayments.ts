@@ -58,50 +58,38 @@ export function usePayment(id: string) {
   });
 }
 
+export interface CreatePaymentInput {
+  invoice_id: string;
+  tenant_id: string;
+  amount: number;
+  method: string;
+  momo_phone?: string | null;
+  momo_transaction_id?: string | null;
+  reference?: string | null;
+  notes?: string | null;
+}
+
 export function useCreatePayment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payment: Omit<Payment, 'id' | 'created_at' | 'user_id' | 'receipt_number'>) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data, error } = await supabase
-        .from('payments')
-        .insert({ 
-          ...payment, 
-          user_id: user.id 
-        })
-        .select()
-        .single();
+    mutationFn: async (payment: CreatePaymentInput) => {
+      // Use the secure server-side process_payment function
+      // This ensures atomic transaction, proper validation, and prevents race conditions
+      const { data, error } = await supabase.rpc('process_payment', {
+        p_invoice_id: payment.invoice_id,
+        p_tenant_id: payment.tenant_id,
+        p_amount: payment.amount,
+        p_method: payment.method,
+        p_momo_phone: payment.momo_phone || null,
+        p_momo_transaction_id: payment.momo_transaction_id || null,
+        p_reference: payment.reference || null,
+        p_notes: payment.notes || null,
+      });
 
       if (error) throw error;
 
-      // Update invoice paid_amount
-      if (payment.status === 'completed') {
-        const { data: invoice } = await supabase
-          .from('invoices')
-          .select('paid_amount, amount')
-          .eq('id', payment.invoice_id)
-          .single();
-
-        if (invoice) {
-          const newPaidAmount = invoice.paid_amount + payment.amount;
-          const newStatus = newPaidAmount >= invoice.amount ? 'paid' : 
-                           newPaidAmount > 0 ? 'partial' : 'pending';
-          
-          await supabase
-            .from('invoices')
-            .update({ 
-              paid_amount: newPaidAmount,
-              status: newStatus,
-              paid_at: newStatus === 'paid' ? new Date().toISOString() : null
-            })
-            .eq('id', payment.invoice_id);
-        }
-      }
-
-      return data;
+      return data; // Returns the new payment ID
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });

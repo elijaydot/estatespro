@@ -551,7 +551,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      process_payment: {
+        Args: {
+          p_amount: number
+          p_invoice_id: string
+          p_method: string
+          p_momo_phone?: string
+          p_momo_transaction_id?: string
+          p_notes?: string
+          p_reference?: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
