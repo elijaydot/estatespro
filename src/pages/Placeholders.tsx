@@ -9,7 +9,5 @@ const Placeholder = ({ title }: { title: string }) => (
 
 export const Leases = () => <Placeholder title="Lease Management" />;
 export const Financials = () => <Placeholder title="Financial Management" />;
-export const Maintenance = () => <Placeholder title="Maintenance Requests" />;
 export const Messages = () => <Placeholder title="Communication Portal" />;
 export const Notifications = () => <Placeholder title="Notifications" />;
-export const Settings = () => <Placeholder title="Settings" />;
