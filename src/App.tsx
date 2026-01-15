@@ -19,10 +19,12 @@ import Tenants from "./pages/Tenants";
 import TenantDetail from "./pages/TenantDetail";
 import Payments from "./pages/Payments";
 import Invoices from "./pages/Invoices";
-import { Leases, Messages, Notifications } from "./pages/Placeholders";
+import { Messages } from "./pages/Placeholders";
 import MaintenancePage from "./pages/Maintenance";
 import Settings from "./pages/Settings";
 import RecurringBills from "./pages/RecurringBills";
+import Leases from "./pages/Leases";
+import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 
 // Tenant Portal
