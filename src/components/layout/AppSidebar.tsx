@@ -44,7 +44,7 @@ const bottomNavItems = [
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
 
   const getInitials = (name: string) => {
     return name
