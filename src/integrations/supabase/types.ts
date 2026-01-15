@@ -123,6 +123,105 @@ export type Database = {
           },
         ]
       }
+      lease_templates: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      leases: {
+        Row: {
+          created_at: string
+          document_url: string | null
+          end_date: string
+          id: string
+          landlord_signature_url: string | null
+          landlord_signed_at: string | null
+          lease_number: string
+          monthly_rent: number
+          property_id: string
+          security_deposit: number
+          special_conditions: string | null
+          start_date: string
+          status: string
+          tenant_id: string
+          tenant_signature_url: string | null
+          tenant_signed_at: string | null
+          terms: string | null
+          unit_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_url?: string | null
+          end_date: string
+          id?: string
+          landlord_signature_url?: string | null
+          landlord_signed_at?: string | null
+          lease_number: string
+          monthly_rent?: number
+          property_id: string
+          security_deposit?: number
+          special_conditions?: string | null
+          start_date: string
+          status?: string
+          tenant_id: string
+          tenant_signature_url?: string | null
+          tenant_signed_at?: string | null
+          terms?: string | null
+          unit_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          document_url?: string | null
+          end_date?: string
+          id?: string
+          landlord_signature_url?: string | null
+          landlord_signed_at?: string | null
+          lease_number?: string
+          monthly_rent?: number
+          property_id?: string
+          security_deposit?: number
+          special_conditions?: string | null
+          start_date?: string
+          status?: string
+          tenant_id?: string
+          tenant_signature_url?: string | null
+          tenant_signed_at?: string | null
+          terms?: string | null
+          unit_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       maintenance_requests: {
         Row: {
           assigned_to: string | null
@@ -192,6 +291,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          link: string | null
+          message: string
+          metadata: Json | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message: string
+          metadata?: Json | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message?: string
+          metadata?: Json | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       payments: {
         Row: {
