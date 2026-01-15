@@ -21,6 +21,7 @@ import Invoices from "./pages/Invoices";
 import { Leases, Messages, Notifications } from "./pages/Placeholders";
 import MaintenancePage from "./pages/Maintenance";
 import Settings from "./pages/Settings";
+import RecurringBills from "./pages/RecurringBills";
 import NotFound from "./pages/NotFound";
 
 // Tenant Portal
@@ -81,6 +82,7 @@ function AppRoutes() {
       <Route path="/invoices" element={<PrivateRoute><Invoices /></PrivateRoute>} />
       <Route path="/payments" element={<PrivateRoute><Payments /></PrivateRoute>} />
       <Route path="/maintenance" element={<PrivateRoute><MaintenancePage /></PrivateRoute>} />
+      <Route path="/recurring-bills" element={<PrivateRoute><RecurringBills /></PrivateRoute>} />
       <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />

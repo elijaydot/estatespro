@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Home,
   Receipt,
+  RefreshCw,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ const navItems = [
   { icon: FileText, label: 'Leases', href: '/leases' },
   { icon: Receipt, label: 'Invoices', href: '/invoices' },
   { icon: CreditCard, label: 'Payments', href: '/payments' },
+  { icon: RefreshCw, label: 'Recurring Bills', href: '/recurring-bills' },
   { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
   { icon: MessageSquare, label: 'Messages', href: '/messages' },
   { icon: Bell, label: 'Notifications', href: '/notifications' },
