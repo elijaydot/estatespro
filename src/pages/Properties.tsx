@@ -12,6 +12,7 @@ import {
   Edit,
   Trash2,
   Eye,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,83 +31,24 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Property, PropertyType } from '@/types';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { toast } from '@/components/ui/use-toast';
+import { useProperties, useCreateProperty, useDeleteProperty } from '@/hooks/useProperties';
+import { useSettings } from '@/contexts/SettingsContext';
 
-// Mock data
-const mockProperties: Property[] = [
-  {
-    id: '1',
-    workspaceId: 'ws-1',
-    name: 'Sunset Apartments',
-    address: '123 Sunset Boulevard',
-    city: 'Los Angeles',
-    state: 'CA',
-    zipCode: '90028',
-    country: 'USA',
-    type: 'apartment',
-    description: 'Modern apartment complex with luxury amenities',
-    images: [],
-    totalUnits: 24,
-    occupiedUnits: 21,
-    createdAt: new Date(),
-  },
-  {
-    id: '2',
-    workspaceId: 'ws-1',
-    name: 'Oak Ridge Complex',
-    address: '456 Oak Street',
-    city: 'San Francisco',
-    state: 'CA',
-    zipCode: '94102',
-    country: 'USA',
-    type: 'mixed',
-    description: 'Mixed-use development with residential and commercial spaces',
-    images: [],
-    totalUnits: 48,
-    occupiedUnits: 42,
-    createdAt: new Date(),
-  },
-  {
-    id: '3',
-    workspaceId: 'ws-1',
-    name: 'Riverside Heights',
-    address: '789 River Road',
-    city: 'San Diego',
-    state: 'CA',
-    zipCode: '92101',
-    country: 'USA',
-    type: 'apartment',
-    description: 'Waterfront living with stunning views',
-    images: [],
-    totalUnits: 36,
-    occupiedUnits: 28,
-    createdAt: new Date(),
-  },
-  {
-    id: '4',
-    workspaceId: 'ws-1',
-    name: 'Downtown Business Center',
-    address: '321 Commerce Ave',
-    city: 'Sacramento',
-    state: 'CA',
-    zipCode: '95814',
-    country: 'USA',
-    type: 'commercial',
-    description: 'Premium office and retail spaces',
-    images: [],
-    totalUnits: 18,
-    occupiedUnits: 15,
-    createdAt: new Date(),
-  },
+const propertyTypeOptions = [
+  { value: 'apartment', label: 'Apartment', description: 'Multi-unit residential building' },
+  { value: 'house', label: 'House', description: 'Single family home' },
+  { value: 'commercial', label: 'Commercial', description: 'Office or retail space' },
+  { value: 'mixed', label: 'Mixed Use', description: 'Residential and commercial' },
 ];
 
 const getOccupancyColor = (occupied: number, total: number) => {
+  if (total === 0) return 'text-muted-foreground';
   const rate = (occupied / total) * 100;
   if (rate >= 90) return 'text-success';
   if (rate >= 70) return 'text-info';
@@ -114,27 +56,69 @@ const getOccupancyColor = (occupied: number, total: number) => {
   return 'text-destructive';
 };
 
-const getPropertyTypeBadge = (type: PropertyType) => {
-  const styles = {
+const getPropertyTypeBadge = (type: string) => {
+  const styles: Record<string, string> = {
     apartment: 'bg-info/10 text-info border-info/20',
     house: 'bg-success/10 text-success border-success/20',
     commercial: 'bg-accent/10 text-accent border-accent/20',
     mixed: 'bg-primary/10 text-primary border-primary/20',
   };
-  return styles[type];
+  return styles[type] || 'bg-muted text-muted-foreground';
 };
 
 export default function Properties() {
   const navigate = useNavigate();
-  const [properties] = useState<Property[]>(mockProperties);
+  const { settings } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    type: 'apartment',
+    address: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    country: settings.defaultCountry,
+    description: '',
+    total_units: 1,
+  });
 
-  const filteredProperties = properties.filter(property =>
+  const { data: properties = [], isLoading } = useProperties();
+  const createProperty = useCreateProperty();
+  const deleteProperty = useDeleteProperty();
+
+  const filteredProperties = properties.filter((property: any) =>
     property.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     property.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
     property.city.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleCreate = async () => {
+    if (!formData.name || !formData.address || !formData.city) {
+      toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
+      return;
+    }
+
+    await createProperty.mutateAsync({ ...formData, occupied_units: 0 });
+    setIsAddDialogOpen(false);
+    setFormData({
+      name: '',
+      type: 'apartment',
+      address: '',
+      city: '',
+      state: '',
+      zip_code: '',
+      country: settings.defaultCountry,
+      description: '',
+      total_units: 1,
+    });
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this property?')) {
+      await deleteProperty.mutateAsync(id);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -146,78 +130,10 @@ export default function Properties() {
             Manage your estates and properties
           </p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Property
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Add New Property</DialogTitle>
-              <DialogDescription>
-                Enter the details for the new property. You can add units after creating the property.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Property Name</Label>
-                <Input id="name" placeholder="e.g., Sunset Apartments" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="type">Property Type</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="apartment">Apartment</SelectItem>
-                      <SelectItem value="house">House</SelectItem>
-                      <SelectItem value="commercial">Commercial</SelectItem>
-                      <SelectItem value="mixed">Mixed Use</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="units">Total Units</Label>
-                  <Input id="units" type="number" placeholder="24" />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="address">Street Address</Label>
-                <Input id="address" placeholder="123 Main Street" />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input id="city" placeholder="Los Angeles" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="state">State</Label>
-                  <Input id="state" placeholder="CA" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="zip">ZIP Code</Label>
-                  <Input id="zip" placeholder="90028" />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea id="description" placeholder="Describe the property..." rows={3} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => setIsAddDialogOpen(false)}>
-                Create Property
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
+          <Plus className="h-4 w-4" />
+          Add Property
+        </Button>
       </div>
 
       {/* Filters */}
@@ -237,91 +153,105 @@ export default function Properties() {
         </Button>
       </div>
 
-      {/* Properties Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProperties.map((property, index) => (
-          <Card
-            key={property.id}
-            className="overflow-hidden card-shadow-md hover:card-shadow-lg transition-all duration-200 animate-fade-in"
-            style={{ animationDelay: `${index * 50}ms` }}
-          >
-            {/* Property Image/Placeholder */}
-            <div className="h-40 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center relative">
-              <Building2 className="h-16 w-16 text-primary/40" />
-              <Badge
-                className={`absolute top-3 right-3 ${getPropertyTypeBadge(property.type)}`}
-              >
-                {property.type}
-              </Badge>
-            </div>
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      )}
 
-            {/* Property Details */}
-            <div className="p-5">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="font-semibold text-lg text-foreground">
-                    {property.name}
-                  </h3>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                    <MapPin className="h-3.5 w-3.5" />
-                    <span>{property.city}, {property.state}</span>
+      {/* Properties Grid */}
+      {!isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredProperties.map((property: any, index: number) => (
+            <Card
+              key={property.id}
+              className="overflow-hidden card-shadow-md hover:card-shadow-lg transition-all duration-200 animate-fade-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              {/* Property Image/Placeholder */}
+              <div className="h-40 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center relative">
+                <Building2 className="h-16 w-16 text-primary/40" />
+                <Badge
+                  className={`absolute top-3 right-3 ${getPropertyTypeBadge(property.type)}`}
+                >
+                  {property.type}
+                </Badge>
+              </div>
+
+              {/* Property Details */}
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold text-lg text-foreground">
+                      {property.name}
+                    </h3>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                      <MapPin className="h-3.5 w-3.5" />
+                      <span>{property.city}, {property.state}</span>
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          navigate(`/properties/${property.id}`);
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-2" /> View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          navigate(`/properties/${property.id}?edit=true`);
+                        }}
+                      >
+                        <Edit className="h-4 w-4 mr-2" /> Edit Property
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onSelect={() => handleDelete(property.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                  {property.description || 'No description available'}
+                </p>
+
+                {/* Stats */}
+                <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border">
+                  <div className="flex items-center gap-2">
+                    <Home className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">{property.total_units} units</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className={`text-sm font-medium ${getOccupancyColor(property.occupied_units, property.total_units)}`}>
+                      {property.total_units > 0 
+                        ? Math.round((property.occupied_units / property.total_units) * 100) 
+                        : 0}% occupied
+                    </span>
                   </div>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        navigate(`/properties/${property.id}`);
-                      }}
-                    >
-                      <Eye className="h-4 w-4 mr-2" /> View Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        navigate(`/properties/${property.id}?edit=true`);
-                      }}
-                    >
-                      <Edit className="h-4 w-4 mr-2" /> Edit Property
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive">
-                      <Trash2 className="h-4 w-4 mr-2" /> Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </div>
-
-              <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                {property.description}
-              </p>
-
-              {/* Stats */}
-              <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border">
-                <div className="flex items-center gap-2">
-                  <Home className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{property.totalUnits} units</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className={`text-sm font-medium ${getOccupancyColor(property.occupiedUnits, property.totalUnits)}`}>
-                    {Math.round((property.occupiedUnits / property.totalUnits) * 100)}% occupied
-                  </span>
-                </div>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Empty State */}
-      {filteredProperties.length === 0 && (
+      {!isLoading && filteredProperties.length === 0 && (
         <div className="text-center py-12">
           <Building2 className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-foreground">No properties found</h3>
@@ -330,6 +260,117 @@ export default function Properties() {
           </p>
         </div>
       )}
+
+      {/* Add Property Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Property</DialogTitle>
+            <DialogDescription>
+              Enter the details for the new property. You can add units after creating the property.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Property Name *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Sunset Apartments"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Property Type *</Label>
+                <SearchableSelect
+                  options={propertyTypeOptions}
+                  value={formData.type}
+                  onValueChange={(value) => setFormData({ ...formData, type: value })}
+                  placeholder="Select type..."
+                  searchPlaceholder="Search types..."
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="units">Total Units</Label>
+                <Input
+                  id="units"
+                  type="number"
+                  value={formData.total_units}
+                  onChange={(e) => setFormData({ ...formData, total_units: parseInt(e.target.value) || 1 })}
+                  placeholder="24"
+                  min={1}
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="address">Street Address *</Label>
+              <Input
+                id="address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                placeholder="123 Main Street"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="city">City *</Label>
+                <Input
+                  id="city"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  placeholder="Kigali"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="state">State/Province</Label>
+                <Input
+                  id="state"
+                  value={formData.state}
+                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  placeholder="Kigali City"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="zip">ZIP/Postal Code</Label>
+                <Input
+                  id="zip"
+                  value={formData.zip_code}
+                  onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
+                  placeholder="00000"
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="country">Country</Label>
+              <Input
+                id="country"
+                value={formData.country}
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                placeholder="Rwanda"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Describe the property..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={createProperty.isPending}>
+              {createProperty.isPending ? 'Creating...' : 'Create Property'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

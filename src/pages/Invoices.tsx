@@ -14,11 +14,13 @@ import {
   AlertCircle,
   XCircle,
   DollarSign,
+  Edit,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -46,94 +48,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
-
-// Mock invoices data
-const mockInvoices = [
-  {
-    id: '1',
-    invoiceNumber: 'INV-20250101-0001',
-    tenantName: 'Sarah Johnson',
-    tenantId: '1',
-    propertyName: 'Sunset Apartments',
-    unitNumber: '204',
-    amount: 1500,
-    paidAmount: 1500,
-    dueDate: '2025-01-15',
-    status: 'paid',
-    description: 'Rent - January 2025',
-    createdAt: '2025-01-01',
-  },
-  {
-    id: '2',
-    invoiceNumber: 'INV-20250101-0002',
-    tenantName: 'Michael Brown',
-    tenantId: '2',
-    propertyName: 'Sunset Apartments',
-    unitNumber: '103',
-    amount: 2200,
-    paidAmount: 0,
-    dueDate: '2025-01-15',
-    status: 'pending',
-    description: 'Rent - January 2025',
-    createdAt: '2025-01-01',
-  },
-  {
-    id: '3',
-    invoiceNumber: 'INV-20250101-0003',
-    tenantName: 'Emma Wilson',
-    tenantId: '3',
-    propertyName: 'Harbor View',
-    unitNumber: '501',
-    amount: 1800,
-    paidAmount: 900,
-    dueDate: '2025-01-10',
-    status: 'partial',
-    description: 'Rent - January 2025',
-    createdAt: '2025-01-01',
-  },
-  {
-    id: '4',
-    invoiceNumber: 'INV-20241215-0001',
-    tenantName: 'David Lee',
-    tenantId: '4',
-    propertyName: 'Palm Heights',
-    unitNumber: '302',
-    amount: 1100,
-    paidAmount: 0,
-    dueDate: '2024-12-31',
-    status: 'overdue',
-    description: 'Rent - December 2024',
-    createdAt: '2024-12-15',
-  },
-  {
-    id: '5',
-    invoiceNumber: 'INV-20250101-0004',
-    tenantName: 'Lisa Chen',
-    tenantId: '5',
-    propertyName: 'Sunset Apartments',
-    unitNumber: '401',
-    amount: 1950,
-    paidAmount: 1950,
-    dueDate: '2025-01-15',
-    status: 'paid',
-    description: 'Rent - January 2025',
-    createdAt: '2025-01-01',
-  },
-  {
-    id: '6',
-    invoiceNumber: 'INV-20250101-0005',
-    tenantName: 'James Wilson',
-    tenantId: '6',
-    propertyName: 'Harbor View',
-    unitNumber: '301',
-    amount: 2100,
-    paidAmount: 0,
-    dueDate: '2025-01-20',
-    status: 'pending',
-    description: 'Rent - January 2025',
-    createdAt: '2025-01-01',
-  },
-];
+import { useSettings } from '@/contexts/SettingsContext';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { useInvoices, useCreateInvoice, useUpdateInvoice } from '@/hooks/useInvoices';
+import { useTenants } from '@/hooks/useTenants';
+import { format } from 'date-fns';
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -174,41 +93,128 @@ const getStatusBadge = (status: string) => {
 
 export default function Invoices() {
   const navigate = useNavigate();
+  const { formatCurrency } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [formData, setFormData] = useState({
+    tenant_id: '',
+    property_id: '',
+    unit_id: '',
+    description: '',
+    amount: 0,
+    due_date: '',
+  });
+
+  const { data: invoices = [], isLoading } = useInvoices();
+  const { data: tenants = [] } = useTenants();
+  const createInvoice = useCreateInvoice();
+  const updateInvoice = useUpdateInvoice();
+
+  const tenantOptions = tenants.map((tenant: any) => ({
+    value: tenant.id,
+    label: tenant.name,
+    description: tenant.units ? `Unit ${tenant.units.unit_number}` : tenant.email,
+  }));
 
   const stats = {
-    totalInvoiced: mockInvoices.reduce((sum, inv) => sum + inv.amount, 0),
-    totalPaid: mockInvoices.reduce((sum, inv) => sum + inv.paidAmount, 0),
-    overdueAmount: mockInvoices.filter((inv) => inv.status === 'overdue').reduce((sum, inv) => sum + inv.amount - inv.paidAmount, 0),
-    pendingCount: mockInvoices.filter((inv) => inv.status === 'pending' || inv.status === 'partial').length,
+    totalInvoiced: invoices.reduce((sum: number, inv: any) => sum + inv.amount, 0),
+    totalPaid: invoices.reduce((sum: number, inv: any) => sum + inv.paid_amount, 0),
+    overdueAmount: invoices
+      .filter((inv: any) => inv.status === 'overdue')
+      .reduce((sum: number, inv: any) => sum + inv.amount - inv.paid_amount, 0),
+    pendingCount: invoices.filter((inv: any) => inv.status === 'pending' || inv.status === 'partial').length,
   };
 
-  const filteredInvoices = mockInvoices.filter(
-    (invoice) =>
-      invoice.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.propertyName.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredInvoices = invoices.filter(
+    (invoice: any) =>
+      invoice.tenants?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      invoice.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      invoice.properties?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleExport = () => {
     downloadCsv(
       'invoices-export.csv',
-      mockInvoices.map((inv) => ({
-        invoice_number: inv.invoiceNumber,
-        tenant: inv.tenantName,
-        property: inv.propertyName,
-        unit: inv.unitNumber,
+      invoices.map((inv: any) => ({
+        invoice_number: inv.invoice_number,
+        tenant: inv.tenants?.name || '',
+        property: inv.properties?.name || '',
+        unit: inv.units?.unit_number || '',
         description: inv.description,
         amount: inv.amount,
-        paid_amount: inv.paidAmount,
-        balance: inv.amount - inv.paidAmount,
-        due_date: inv.dueDate,
+        paid_amount: inv.paid_amount,
+        balance: inv.amount - inv.paid_amount,
+        due_date: inv.due_date,
         status: inv.status,
-        created_at: inv.createdAt,
+        created_at: inv.created_at,
       }))
     );
     toast({ title: 'Export complete', description: 'Invoices exported as CSV.' });
+  };
+
+  const handleCreate = async () => {
+    if (!formData.tenant_id || !formData.description || !formData.amount || !formData.due_date) {
+      toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
+      return;
+    }
+
+    const selectedTenant = tenants.find((t: any) => t.id === formData.tenant_id);
+    
+    await createInvoice.mutateAsync({
+      tenant_id: formData.tenant_id,
+      property_id: selectedTenant?.property_id || null,
+      unit_id: selectedTenant?.unit_id || null,
+      description: formData.description,
+      amount: formData.amount,
+      due_date: formData.due_date,
+      status: 'pending',
+      paid_amount: 0,
+      paid_at: null,
+    });
+
+    setIsCreateOpen(false);
+    resetForm();
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedInvoice) return;
+
+    await updateInvoice.mutateAsync({
+      id: selectedInvoice.id,
+      description: formData.description,
+      amount: formData.amount,
+      due_date: formData.due_date,
+    });
+
+    setIsEditOpen(false);
+    setSelectedInvoice(null);
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setFormData({
+      tenant_id: '',
+      property_id: '',
+      unit_id: '',
+      description: '',
+      amount: 0,
+      due_date: '',
+    });
+  };
+
+  const openEdit = (invoice: any) => {
+    setSelectedInvoice(invoice);
+    setFormData({
+      tenant_id: invoice.tenant_id,
+      property_id: invoice.property_id || '',
+      unit_id: invoice.unit_id || '',
+      description: invoice.description,
+      amount: invoice.amount,
+      due_date: invoice.due_date,
+    });
+    setIsEditOpen(true);
   };
 
   return (
@@ -232,7 +238,7 @@ export default function Invoices() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Invoiced</p>
-                <p className="text-2xl font-bold text-foreground">GHS {stats.totalInvoiced.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-foreground">{formatCurrency(stats.totalInvoiced)}</p>
               </div>
               <div className="p-3 rounded-xl bg-primary/10">
                 <FileText className="h-6 w-6 text-primary" />
@@ -245,7 +251,7 @@ export default function Invoices() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Collected</p>
-                <p className="text-2xl font-bold text-success">GHS {stats.totalPaid.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-success">{formatCurrency(stats.totalPaid)}</p>
               </div>
               <div className="p-3 rounded-xl bg-success/10">
                 <CheckCircle className="h-6 w-6 text-success" />
@@ -258,7 +264,7 @@ export default function Invoices() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Overdue</p>
-                <p className="text-2xl font-bold text-destructive">GHS {stats.overdueAmount.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-destructive">{formatCurrency(stats.overdueAmount)}</p>
               </div>
               <div className="p-3 rounded-xl bg-destructive/10">
                 <AlertCircle className="h-6 w-6 text-destructive" />
@@ -304,86 +310,106 @@ export default function Invoices() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      )}
+
       {/* Invoices Table */}
-      <Card className="card-shadow-md">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice #</TableHead>
-                <TableHead>Tenant</TableHead>
-                <TableHead>Property / Unit</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Balance</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredInvoices.map((invoice) => (
-                <TableRow key={invoice.id}>
-                  <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
-                  <TableCell>
-                    <button
-                      className="hover:text-primary transition-colors"
-                      onClick={() => navigate(`/tenants/${invoice.tenantId}`)}
-                    >
-                      {invoice.tenantName}
-                    </button>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      <p>{invoice.propertyName}</p>
-                      <p className="text-muted-foreground">Unit {invoice.unitNumber}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="max-w-[200px] truncate">{invoice.description}</TableCell>
-                  <TableCell className="font-semibold">GHS {invoice.amount.toLocaleString()}</TableCell>
-                  <TableCell className={invoice.amount - invoice.paidAmount > 0 ? 'text-destructive font-semibold' : 'text-success'}>
-                    GHS {(invoice.amount - invoice.paidAmount).toLocaleString()}
-                  </TableCell>
-                  <TableCell>{invoice.dueDate}</TableCell>
-                  <TableCell>{getStatusBadge(invoice.status)}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={() => toast({ title: 'Download', description: 'Invoice downloaded.' })}
-                        >
-                          <Download className="h-4 w-4 mr-2" /> Download PDF
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() => toast({ title: 'Sent', description: 'Invoice sent to tenant.' })}
-                        >
-                          <Send className="h-4 w-4 mr-2" /> Send to Tenant
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() => toast({ title: 'Print', description: 'Opening print dialog...' })}
-                        >
-                          <Printer className="h-4 w-4 mr-2" /> Print
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onSelect={() => navigate('/payments')}
-                        >
-                          <DollarSign className="h-4 w-4 mr-2" /> Record Payment
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+      {!isLoading && (
+        <Card className="card-shadow-md">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice #</TableHead>
+                  <TableHead>Tenant</TableHead>
+                  <TableHead>Property / Unit</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Balance</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {filteredInvoices.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      No invoices found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredInvoices.map((invoice: any) => (
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                      <TableCell>
+                        <button
+                          className="hover:text-primary transition-colors"
+                          onClick={() => navigate(`/tenants/${invoice.tenant_id}`)}
+                        >
+                          {invoice.tenants?.name || 'Unknown'}
+                        </button>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <p>{invoice.properties?.name || '-'}</p>
+                          <p className="text-muted-foreground">
+                            {invoice.units ? `Unit ${invoice.units.unit_number}` : '-'}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate">{invoice.description}</TableCell>
+                      <TableCell className="font-semibold">{formatCurrency(invoice.amount)}</TableCell>
+                      <TableCell className={invoice.amount - invoice.paid_amount > 0 ? 'text-destructive font-semibold' : 'text-success'}>
+                        {formatCurrency(invoice.amount - invoice.paid_amount)}
+                      </TableCell>
+                      <TableCell>{format(new Date(invoice.due_date), 'MMM dd, yyyy')}</TableCell>
+                      <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEdit(invoice)}>
+                              <Edit className="h-4 w-4 mr-2" /> Edit Invoice
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => toast({ title: 'Download', description: 'Invoice downloaded.' })}
+                            >
+                              <Download className="h-4 w-4 mr-2" /> Download PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => toast({ title: 'Sent', description: 'Invoice sent to tenant.' })}
+                            >
+                              <Send className="h-4 w-4 mr-2" /> Send to Tenant
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => toast({ title: 'Print', description: 'Opening print dialog...' })}
+                            >
+                              <Printer className="h-4 w-4 mr-2" /> Print
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onSelect={() => navigate('/payments')}>
+                              <DollarSign className="h-4 w-4 mr-2" /> Record Payment
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Create Invoice Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -396,59 +422,47 @@ export default function Invoices() {
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="invoiceTenant">Tenant *</Label>
-                <select
-                  id="invoiceTenant"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="">Select tenant...</option>
-                  <option value="1">Sarah Johnson - Unit 204</option>
-                  <option value="2">Michael Brown - Unit 103</option>
-                  <option value="3">Emma Wilson - Unit 501</option>
-                  <option value="4">David Lee - Unit 302</option>
-                </select>
+                <Label>Tenant *</Label>
+                <SearchableSelect
+                  options={tenantOptions}
+                  value={formData.tenant_id}
+                  onValueChange={(value) => setFormData({ ...formData, tenant_id: value })}
+                  placeholder="Select tenant..."
+                  searchPlaceholder="Search tenants..."
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="invoiceDueDate">Due Date *</Label>
-                <Input id="invoiceDueDate" type="date" />
+                <Input
+                  id="invoiceDueDate"
+                  type="date"
+                  value={formData.due_date}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                />
               </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="invoiceDescription">Description *</Label>
-              <Input id="invoiceDescription" placeholder="e.g., Rent - January 2025" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="invoiceAmount">Amount (GHS) *</Label>
-                <Input id="invoiceAmount" type="number" placeholder="0.00" min="0" step="0.01" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="invoiceType">Invoice Type</Label>
-                <select
-                  id="invoiceType"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="rent">Rent</option>
-                  <option value="utility">Utility</option>
-                  <option value="maintenance">Maintenance</option>
-                  <option value="deposit">Security Deposit</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
+              <Input
+                id="invoiceDescription"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="e.g., Rent - January 2026"
+              />
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="invoiceNotes">Additional Notes</Label>
-              <Textarea id="invoiceNotes" placeholder="Any additional information..." rows={3} />
-            </div>
-
-            <div className="flex items-center gap-2 p-4 rounded-lg bg-info/10 border border-info/20">
-              <input type="checkbox" id="sendEmail" className="rounded" />
-              <Label htmlFor="sendEmail" className="text-sm cursor-pointer">
-                Send invoice to tenant via email
-              </Label>
+              <Label htmlFor="invoiceAmount">Amount *</Label>
+              <Input
+                id="invoiceAmount"
+                type="number"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+              />
             </div>
           </div>
 
@@ -456,13 +470,63 @@ export default function Invoices() {
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={() => {
-                toast({ title: 'Invoice created', description: 'The invoice has been created successfully.' });
-                setIsCreateOpen(false);
-              }}
-            >
-              Create Invoice
+            <Button onClick={handleCreate} disabled={createInvoice.isPending}>
+              {createInvoice.isPending ? 'Creating...' : 'Create Invoice'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Invoice Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Invoice</DialogTitle>
+            <DialogDescription>Update the invoice details.</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="editDescription">Description *</Label>
+              <Input
+                id="editDescription"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="e.g., Rent - January 2026"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="editAmount">Amount *</Label>
+                <Input
+                  id="editAmount"
+                  type="number"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="editDueDate">Due Date *</Label>
+                <Input
+                  id="editDueDate"
+                  type="date"
+                  value={formData.due_date}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdate} disabled={updateInvoice.isPending}>
+              {updateInvoice.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
