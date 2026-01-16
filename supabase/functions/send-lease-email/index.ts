@@ -24,18 +24,75 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+    // Validate authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Missing or invalid authorization header' }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Create authenticated client to verify user
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
+    
+    if (userError || !user) {
+      console.error("Auth verification failed:", userError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Invalid token' }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const userId = user.id;
+    console.log("Authenticated user:", userId);
+
+    // Parse and validate request body
     const { leaseId, type }: LeaseEmailRequest = await req.json();
+    
+    if (!leaseId || typeof leaseId !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request: leaseId is required' }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(leaseId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request: leaseId must be a valid UUID' }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Validate email type
+    const validTypes = ['signing_request', 'signed_notification', 'expiring_reminder'];
+    if (!type || !validTypes.includes(type)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request: type must be one of signing_request, signed_notification, expiring_reminder' }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     console.log("Processing email for lease:", leaseId, "type:", type);
+
+    // Use service role for data access after authorization check
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Fetch lease with related data
     const { data: lease, error: leaseError } = await supabase
       .from('leases')
       .select(`
         *,
-        tenants:tenant_id(id, name, email, phone),
+        tenants:tenant_id(id, name, email, phone, tenant_user_id),
         properties:property_id(id, name, address, city),
         units:unit_id(id, unit_number)
       `)
@@ -44,15 +101,32 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (leaseError || !lease) {
       console.error("Error fetching lease:", leaseError);
-      throw new Error(`Lease not found: ${leaseError?.message}`);
+      return new Response(
+        JSON.stringify({ error: 'Lease not found' }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
+
+    // Authorization check: Only landlord (owner) can send emails
+    if (lease.user_id !== userId) {
+      console.error("Forbidden: User is not the lease owner");
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: Only the property owner can send lease emails' }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("Authorization passed: landlord");
 
     const tenant = lease.tenants;
     const property = lease.properties;
     const unit = lease.units;
 
     if (!tenant?.email) {
-      throw new Error("Tenant email not found");
+      return new Response(
+        JSON.stringify({ error: 'Tenant email not found' }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
 
     // Get project URL from environment
@@ -208,7 +282,10 @@ const handler = async (req: Request): Promise<Response> => {
         break;
 
       default:
-        throw new Error(`Unknown email type: ${type}`);
+        return new Response(
+          JSON.stringify({ error: `Unknown email type: ${type}` }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
     }
 
     console.log("Sending email to:", tenant.email);
