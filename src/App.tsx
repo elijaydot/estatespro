@@ -19,12 +19,13 @@ import Tenants from "./pages/Tenants";
 import TenantDetail from "./pages/TenantDetail";
 import Payments from "./pages/Payments";
 import Invoices from "./pages/Invoices";
-import { Messages } from "./pages/Placeholders";
 import MaintenancePage from "./pages/Maintenance";
 import Settings from "./pages/Settings";
 import RecurringBills from "./pages/RecurringBills";
 import Leases from "./pages/Leases";
 import Notifications from "./pages/Notifications";
+import Reports from "./pages/Reports";
+import MessagesPage from "./pages/MessagesPage";
 import NotFound from "./pages/NotFound";
 
 // Tenant Portal
@@ -33,6 +34,7 @@ import TenantPayments from "./pages/tenant-portal/TenantPayments";
 import TenantMaintenance from "./pages/tenant-portal/TenantMaintenance";
 import TenantLease from "./pages/tenant-portal/TenantLease";
 import TenantMessages from "./pages/tenant-portal/TenantMessages";
+import TenantLeaseSign from "./pages/tenant-portal/TenantLeaseSign";
 
 const queryClient = new QueryClient();
 
@@ -86,8 +88,9 @@ function AppRoutes() {
       <Route path="/payments" element={<PrivateRoute><Payments /></PrivateRoute>} />
       <Route path="/maintenance" element={<PrivateRoute><MaintenancePage /></PrivateRoute>} />
       <Route path="/recurring-bills" element={<PrivateRoute><RecurringBills /></PrivateRoute>} />
-      <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
+      <Route path="/messages" element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
+      <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
       
       {/* Tenant Portal Routes */}
@@ -95,6 +98,7 @@ function AppRoutes() {
       <Route path="/portal/payments" element={<TenantPortalRoute><TenantPayments /></TenantPortalRoute>} />
       <Route path="/portal/maintenance" element={<TenantPortalRoute><TenantMaintenance /></TenantPortalRoute>} />
       <Route path="/portal/lease" element={<TenantPortalRoute><TenantLease /></TenantPortalRoute>} />
+      <Route path="/portal/lease/sign/:id" element={<TenantPortalRoute><TenantLeaseSign /></TenantPortalRoute>} />
       <Route path="/portal/messages" element={<TenantPortalRoute><TenantMessages /></TenantPortalRoute>} />
       
       {/* Redirects */}
