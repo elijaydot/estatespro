@@ -123,6 +123,53 @@ export type Database = {
           },
         ]
       }
+      lease_attachments: {
+        Row: {
+          created_at: string
+          description: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          file_url: string
+          id: string
+          lease_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          file_url: string
+          id?: string
+          lease_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          file_url?: string
+          id?: string
+          lease_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lease_attachments_lease_id_fkey"
+            columns: ["lease_id"]
+            isOneToOne: false
+            referencedRelation: "leases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lease_templates: {
         Row: {
           content: string
@@ -644,6 +691,7 @@ export type Database = {
           property_id: string | null
           security_deposit: number
           status: string
+          tenant_user_id: string | null
           unit_id: string | null
           updated_at: string
           user_id: string
@@ -666,6 +714,7 @@ export type Database = {
           property_id?: string | null
           security_deposit?: number
           status?: string
+          tenant_user_id?: string | null
           unit_id?: string | null
           updated_at?: string
           user_id: string
@@ -688,6 +737,7 @@ export type Database = {
           property_id?: string | null
           security_deposit?: number
           status?: string
+          tenant_user_id?: string | null
           unit_id?: string | null
           updated_at?: string
           user_id?: string

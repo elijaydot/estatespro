@@ -35,6 +35,7 @@ import TenantMaintenance from "./pages/tenant-portal/TenantMaintenance";
 import TenantLease from "./pages/tenant-portal/TenantLease";
 import TenantMessages from "./pages/tenant-portal/TenantMessages";
 import TenantLeaseSign from "./pages/tenant-portal/TenantLeaseSign";
+import TenantLogin from "./pages/tenant-portal/TenantLogin";
 
 const queryClient = new QueryClient();
 
@@ -52,7 +53,7 @@ function TenantPortalRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
   
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/tenant/login" replace />;
   }
   
   return <TenantPortalLayout>{children}</TenantPortalLayout>;
@@ -94,12 +95,17 @@ function AppRoutes() {
       <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
       
       {/* Tenant Portal Routes */}
-      <Route path="/portal" element={<TenantPortalRoute><TenantDashboard /></TenantPortalRoute>} />
-      <Route path="/portal/payments" element={<TenantPortalRoute><TenantPayments /></TenantPortalRoute>} />
-      <Route path="/portal/maintenance" element={<TenantPortalRoute><TenantMaintenance /></TenantPortalRoute>} />
-      <Route path="/portal/lease" element={<TenantPortalRoute><TenantLease /></TenantPortalRoute>} />
-      <Route path="/portal/lease/sign/:id" element={<TenantPortalRoute><TenantLeaseSign /></TenantPortalRoute>} />
-      <Route path="/portal/messages" element={<TenantPortalRoute><TenantMessages /></TenantPortalRoute>} />
+      <Route path="/tenant/login" element={<TenantLogin />} />
+      <Route path="/tenant" element={<TenantPortalRoute><TenantDashboard /></TenantPortalRoute>} />
+      <Route path="/tenant/payments" element={<TenantPortalRoute><TenantPayments /></TenantPortalRoute>} />
+      <Route path="/tenant/maintenance" element={<TenantPortalRoute><TenantMaintenance /></TenantPortalRoute>} />
+      <Route path="/tenant/lease" element={<TenantPortalRoute><TenantLease /></TenantPortalRoute>} />
+      <Route path="/tenant/lease/sign/:id" element={<TenantPortalRoute><TenantLeaseSign /></TenantPortalRoute>} />
+      <Route path="/tenant/messages" element={<TenantPortalRoute><TenantMessages /></TenantPortalRoute>} />
+      
+      {/* Legacy portal routes - redirect to new paths */}
+      <Route path="/portal" element={<Navigate to="/tenant" replace />} />
+      <Route path="/portal/*" element={<Navigate to="/tenant" replace />} />
       
       {/* Redirects */}
       <Route path="/" element={<Navigate to="/login" replace />} />

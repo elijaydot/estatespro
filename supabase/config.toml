@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.generate-lease-pdf]
 verify_jwt = false
+
+[functions.check-lease-renewals]
+verify_jwt = false

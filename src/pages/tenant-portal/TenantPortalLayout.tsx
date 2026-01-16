@@ -18,11 +18,11 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
-  { label: 'Dashboard', icon: LayoutDashboard, href: '/portal' },
-  { label: 'Payments', icon: DollarSign, href: '/portal/payments' },
-  { label: 'Maintenance', icon: Wrench, href: '/portal/maintenance' },
-  { label: 'Lease', icon: FileText, href: '/portal/lease' },
-  { label: 'Messages', icon: MessageSquare, href: '/portal/messages' },
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/tenant' },
+  { label: 'Payments', icon: DollarSign, href: '/tenant/payments' },
+  { label: 'Maintenance', icon: Wrench, href: '/tenant/maintenance' },
+  { label: 'Lease', icon: FileText, href: '/tenant/lease' },
+  { label: 'Messages', icon: MessageSquare, href: '/tenant/messages' },
 ];
 
 interface TenantPortalLayoutProps {
@@ -63,7 +63,7 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/tenant/login');
   };
 
   return (
