@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { format, differenceInDays } from 'date-fns';
 import { Plus, Pencil, Trash2, FileText, Eye, Send, CheckCircle, Clock, FileSignature, MoreHorizontal, Search, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { SignaturePad, SignaturePadRef } from '@/components/ui/signature-pad';
+import { LeaseAttachments } from '@/components/leases/LeaseAttachments';
 import { toast } from '@/components/ui/use-toast';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useLeases, useCreateLease, useUpdateLease, useDeleteLease, useSignLease, useUploadSignature, generateLeaseNumber } from '@/hooks/useLeases';
@@ -50,7 +51,6 @@ import { useUnits } from '@/hooks/useUnits';
 import { useTenants } from '@/hooks/useTenants';
 import { useCreateNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
-import { useRef } from 'react';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -677,6 +677,9 @@ export default function Leases() {
                   )}
                 </div>
               </div>
+              
+              {/* Attachments Section */}
+              <LeaseAttachments leaseId={viewingLease.id} />
             </div>
           )}
         </DialogContent>
