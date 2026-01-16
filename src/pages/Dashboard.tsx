@@ -13,6 +13,7 @@ import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { OccupancyChart } from '@/components/dashboard/OccupancyChart';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { UpcomingRenewals } from '@/components/dashboard/UpcomingRenewals';
+import { LeaseExpirationWidget } from '@/components/dashboard/LeaseExpirationWidget';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useSettings } from '@/contexts/SettingsContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -129,6 +130,11 @@ export default function Dashboard() {
       {/* Activity & Renewals Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <RecentActivity />
+        <LeaseExpirationWidget />
+      </div>
+
+      {/* Additional Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <UpcomingRenewals />
       </div>
     </div>

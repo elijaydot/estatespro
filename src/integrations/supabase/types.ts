@@ -276,6 +276,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          image_url: string | null
           priority: string
           property_id: string | null
           status: string
@@ -291,6 +292,7 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          image_url?: string | null
           priority?: string
           property_id?: string | null
           status?: string
@@ -306,6 +308,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          image_url?: string | null
           priority?: string
           property_id?: string | null
           status?: string
@@ -671,6 +674,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      tenant_invites: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          tenant_id: string
+          token: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          tenant_id: string
+          token: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          tenant_id?: string
+          token?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_invites_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenants: {
         Row: {
