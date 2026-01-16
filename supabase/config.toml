@@ -1,1 +1,7 @@
 project_id = "zuwpvevqijwkkucmpkkr"
+
+[functions.send-lease-email]
+verify_jwt = false
+
+[functions.generate-lease-pdf]
+verify_jwt = false

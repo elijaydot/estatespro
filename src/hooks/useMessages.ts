@@ -1,0 +1,214 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/use-toast';
+import { useEffect } from 'react';
+
+export interface Message {
+  id: string;
+  user_id: string;
+  sender_id: string;
+  recipient_id: string;
+  property_id: string | null;
+  subject: string;
+  content: string;
+  is_read: boolean;
+  parent_message_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useMessages() {
+  const queryClient = useQueryClient();
+
+  // Subscribe to realtime updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('messages-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['messages'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  return useQuery({
+    queryKey: ['messages'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as Message[];
+    },
+  });
+}
+
+export function useInboxMessages() {
+  return useQuery({
+    queryKey: ['messages', 'inbox'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('recipient_id', user.id)
+        .is('parent_message_id', null)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as Message[];
+    },
+  });
+}
+
+export function useSentMessages() {
+  return useQuery({
+    queryKey: ['messages', 'sent'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('sender_id', user.id)
+        .is('parent_message_id', null)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as Message[];
+    },
+  });
+}
+
+export function useUnreadCount() {
+  return useQuery({
+    queryKey: ['messages', 'unread-count'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return 0;
+
+      const { count, error } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('recipient_id', user.id)
+        .eq('is_read', false);
+
+      if (error) throw error;
+      return count || 0;
+    },
+  });
+}
+
+export function useMessageThread(messageId: string) {
+  return useQuery({
+    queryKey: ['messages', 'thread', messageId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`id.eq.${messageId},parent_message_id.eq.${messageId}`)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return data as Message[];
+    },
+    enabled: !!messageId,
+  });
+}
+
+export function useSendMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (message: {
+      recipient_id: string;
+      subject: string;
+      content: string;
+      property_id?: string;
+      parent_message_id?: string;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          user_id: user.id,
+          sender_id: user.id,
+          recipient_id: message.recipient_id,
+          subject: message.subject,
+          content: message.content,
+          property_id: message.property_id || null,
+          parent_message_id: message.parent_message_id || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      toast({ title: 'Success', description: 'Message sent successfully' });
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useMarkAsRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (messageId: string) => {
+      const { error } = await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('id', messageId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+}
+
+export function useDeleteMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (messageId: string) => {
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .eq('id', messageId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      toast({ title: 'Success', description: 'Message deleted' });
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
