@@ -18,6 +18,7 @@ import {
   Home,
   Receipt,
   RefreshCw,
+  BarChart3,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ const navItems = [
   { icon: CreditCard, label: 'Payments', href: '/payments' },
   { icon: RefreshCw, label: 'Recurring Bills', href: '/recurring-bills' },
   { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
+  { icon: BarChart3, label: 'Reports', href: '/reports' },
   { icon: MessageSquare, label: 'Messages', href: '/messages' },
   { icon: Bell, label: 'Notifications', href: '/notifications' },
 ];
