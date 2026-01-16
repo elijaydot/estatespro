@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format, differenceInDays } from 'date-fns';
-import { Plus, Pencil, Trash2, FileText, Eye, Send, CheckCircle, Clock, FileSignature, MoreHorizontal, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, FileText, Eye, Send, CheckCircle, Clock, FileSignature, MoreHorizontal, Search, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -49,6 +49,7 @@ import { useProperties } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
 import { useTenants } from '@/hooks/useTenants';
 import { useCreateNotification } from '@/hooks/useNotifications';
+import { supabase } from '@/integrations/supabase/client';
 import { useRef } from 'react';
 
 const statusColors: Record<string, string> = {
@@ -251,9 +252,57 @@ export default function Leases() {
         type: 'info',
         link: `/leases`,
       });
+      
+      // Send email notification via edge function
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-lease-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            leaseId: lease.id,
+            type: 'signature_request',
+          }),
+        });
+      } catch (emailError) {
+        console.warn('Email notification failed:', emailError);
+      }
+      
       toast({ title: 'Success', description: 'Lease sent for signature' });
     } catch (error) {
       console.error('Error sending for signature:', error);
+    }
+  };
+  
+  const handleDownloadPdf = async (leaseId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-lease-pdf?leaseId=${leaseId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to generate PDF');
+
+      const html = await response.text();
+      
+      // Open in new window for printing/saving as PDF
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast({ title: 'Error', description: 'Failed to generate lease PDF', variant: 'destructive' });
     }
   };
 
@@ -463,6 +512,9 @@ export default function Leases() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => { setViewingLease(lease); setIsViewDialogOpen(true); }}>
                               <Eye className="h-4 w-4 mr-2" />View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDownloadPdf(lease.id)}>
+                              <Download className="h-4 w-4 mr-2" />Download PDF
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleOpenDialog(lease)}>
                               <Pencil className="h-4 w-4 mr-2" />Edit
