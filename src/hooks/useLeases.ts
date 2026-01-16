@@ -198,11 +198,15 @@ export function useUploadSignature() {
 
       if (error) throw error;
 
-      const { data: { publicUrl } } = supabase.storage
+      // Use signed URL instead of public URL for better security
+      // Signatures are sensitive biometric data and should use time-limited access
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('signatures')
-        .getPublicUrl(data.path);
+        .createSignedUrl(data.path, 31536000); // 1 year expiry for stored signatures
 
-      return publicUrl;
+      if (signedUrlError) throw signedUrlError;
+
+      return signedUrlData.signedUrl;
     },
   });
 }

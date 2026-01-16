@@ -19,17 +19,66 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+    // Validate authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Missing or invalid authorization header' }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Create authenticated client to verify user
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
+    
+    if (userError || !user) {
+      console.error("Auth verification failed:", userError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Invalid token' }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const userId = user.id;
+    console.log("Authenticated user:", userId);
+
+    // Parse and validate request body
     const { leaseId }: GeneratePdfRequest = await req.json();
+    
+    if (!leaseId || typeof leaseId !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request: leaseId is required' }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(leaseId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request: leaseId must be a valid UUID' }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     console.log("Generating PDF for lease:", leaseId);
 
+    // Use service role for data access after authorization check
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // First verify the user has access to this lease
     const { data: lease, error: leaseError } = await supabase
       .from('leases')
       .select(`
         *,
-        tenants:tenant_id(id, name, email, phone),
+        tenants:tenant_id(id, name, email, phone, tenant_user_id),
         properties:property_id(id, name, address, city, state, zip_code),
         units:unit_id(id, unit_number, bedrooms, bathrooms, sqft)
       `)
@@ -37,8 +86,26 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (leaseError || !lease) {
-      throw new Error(`Lease not found: ${leaseError?.message}`);
+      console.error("Lease not found:", leaseError);
+      return new Response(
+        JSON.stringify({ error: 'Lease not found' }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
+
+    // Authorization check: User must be the landlord OR the tenant
+    const isLandlord = lease.user_id === userId;
+    const isTenant = lease.tenants?.tenant_user_id === userId;
+
+    if (!isLandlord && !isTenant) {
+      console.error("Forbidden: User does not have access to this lease");
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: You do not have access to this lease' }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("Authorization passed:", isLandlord ? "landlord" : "tenant");
 
     const tenant = lease.tenants;
     const property = lease.properties;
