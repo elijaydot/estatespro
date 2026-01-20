@@ -15,6 +15,7 @@ import {
   Calendar,
   Loader2,
   Send,
+  Copy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,6 +87,7 @@ export default function Tenants() {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [invitingTenant, setInvitingTenant] = useState<any>(null);
   const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [isCopyingLink, setIsCopyingLink] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -215,6 +217,49 @@ export default function Tenants() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setIsSendingInvite(false);
+    }
+  };
+
+  const handleCopyInviteLink = async (tenant: any) => {
+    setIsCopyingLink(true);
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('Not authenticated');
+
+      // Generate a secure random token
+      const token = crypto.randomUUID() + '-' + Date.now().toString(36);
+      
+      // Set expiry to 7 days from now
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      // Create invite in database
+      const { error } = await supabase
+        .from('tenant_invites')
+        .insert({
+          tenant_id: tenant.id,
+          email: tenant.email,
+          token,
+          expires_at: expiresAt.toISOString(),
+          user_id: currentUser.id,
+        });
+
+      if (error) throw error;
+
+      // Generate the invite link
+      const inviteLink = `${window.location.origin}/tenant/signup?invite=${token}`;
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(inviteLink);
+      
+      toast({ 
+        title: 'Link Copied!', 
+        description: 'Invite link copied to clipboard. Share it with your tenant via WhatsApp, SMS, or any messaging app.' 
+      });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsCopyingLink(false);
     }
   };
 
@@ -362,15 +407,26 @@ export default function Tenants() {
                           <Mail className="h-4 w-4 mr-2" /> Send Message
                         </DropdownMenuItem>
                         {!tenant.tenant_user_id && (
-                          <DropdownMenuItem
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              setInvitingTenant(tenant);
-                              setIsInviteDialogOpen(true);
-                            }}
-                          >
-                            <Send className="h-4 w-4 mr-2" /> Send Portal Invite
-                          </DropdownMenuItem>
+                          <>
+                            <DropdownMenuItem
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                setInvitingTenant(tenant);
+                                setIsInviteDialogOpen(true);
+                              }}
+                            >
+                              <Send className="h-4 w-4 mr-2" /> Send Portal Invite
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                handleCopyInviteLink(tenant);
+                              }}
+                              disabled={isCopyingLink}
+                            >
+                              <Copy className="h-4 w-4 mr-2" /> Copy Invite Link
+                            </DropdownMenuItem>
+                          </>
                         )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
