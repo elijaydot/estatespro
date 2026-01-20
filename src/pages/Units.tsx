@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Home, 
   Plus, 
@@ -62,9 +62,19 @@ const getStatusBadge = (status: string) => {
 
 export default function Units() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  // Handle ?add=true query parameter from Quick Add
+  useEffect(() => {
+    if (searchParams.get('add') === 'true') {
+      setIsAddDialogOpen(true);
+      searchParams.delete('add');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [formData, setFormData] = useState({
     property_id: '',
     unit_number: '',

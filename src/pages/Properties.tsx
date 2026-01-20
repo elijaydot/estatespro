@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Building2, 
   Plus, 
@@ -68,9 +68,19 @@ const getPropertyTypeBadge = (type: string) => {
 
 export default function Properties() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { settings } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  // Handle ?add=true query parameter from Quick Add
+  useEffect(() => {
+    if (searchParams.get('add') === 'true') {
+      setIsAddDialogOpen(true);
+      searchParams.delete('add');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [formData, setFormData] = useState({
     name: '',
     type: 'apartment',
