@@ -183,32 +183,20 @@ export default function Tenants() {
     
     setIsSendingInvite(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
+      if (!user) throw new Error('Not authenticated');
 
       const property = properties.find((p: any) => p.id === invitingTenant.property_id);
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-tenant-invite`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            tenantId: invitingTenant.id,
-            email: invitingTenant.email,
-            landlordName: user?.email || 'Property Manager',
-            propertyName: property?.name || 'Your Property',
-          }),
-        }
-      );
+      const { error } = await supabase.functions.invoke('send-tenant-invite', {
+        body: {
+          tenantId: invitingTenant.id,
+          email: invitingTenant.email,
+          landlordName: user?.email || 'Property Manager',
+          propertyName: property?.name || 'Your Property',
+        },
+      });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to send invite');
-      }
+      if (error) throw new Error(error.message || 'Failed to send invite');
 
       toast({ title: 'Success', description: `Invite sent to ${invitingTenant.email}` });
       setIsInviteDialogOpen(false);

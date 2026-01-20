@@ -23,32 +23,38 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     // Verify authentication
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
-        JSON.stringify({ error: "No authorization header" }),
+        JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify user is authenticated
+    // Admin client (DB writes)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Validate the JWT (signing-keys compatible)
+    const tokenJwt = authHeader.replace("Bearer ", "");
     const supabaseAuth = createClient(
       supabaseUrl,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
+      supabaseServiceKey,
       { global: { headers: { Authorization: authHeader } } }
     );
-    
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(tokenJwt);
     if (authError || !user) {
+      console.error("JWT verification failed:", authError);
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const userId = user.id;
 
     const { tenantId, email, landlordName, propertyName }: InviteRequest = await req.json();
 
@@ -66,14 +72,14 @@ const handler = async (req: Request): Promise<Response> => {
     expiresAt.setDate(expiresAt.getDate() + 7);
 
     // Create invite in database
-    const { data: invite, error: inviteError } = await supabase
+    const { data: invite, error: inviteError } = await supabaseAdmin
       .from("tenant_invites")
       .insert({
         tenant_id: tenantId,
         email,
         token,
         expires_at: expiresAt.toISOString(),
-        user_id: user.id,
+        user_id: userId,
       })
       .select()
       .single();
