@@ -9,6 +9,7 @@ import {
   X,
   Loader2,
 } from 'lucide-react';
+import { SignedImage } from '@/components/ui/signed-image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -272,8 +273,9 @@ export default function TenantMaintenance() {
                             </div>
                             {request.image_url && (
                               <div className="mt-3">
-                                <img 
-                                  src={request.image_url} 
+                                <SignedImage 
+                                  bucket="maintenance-photos"
+                                  path={request.image_url} 
                                   alt="Issue photo" 
                                   className="max-w-xs rounded-lg border"
                                 />
@@ -323,7 +325,12 @@ export default function TenantMaintenance() {
                           <h3 className="font-semibold">{request.title}</h3>
                           <p className="text-sm text-muted-foreground mt-1">{request.description}</p>
                           {request.image_url && (
-                            <img src={request.image_url} alt="Issue" className="max-w-xs mt-2 rounded-lg border" />
+                            <SignedImage 
+                              bucket="maintenance-photos"
+                              path={request.image_url} 
+                              alt="Issue" 
+                              className="max-w-xs mt-2 rounded-lg border" 
+                            />
                           )}
                         </div>
                       </div>
