@@ -123,10 +123,41 @@ const handler = async (req: Request): Promise<Response> => {
       `,
     });
 
+    // Check if email actually sent (Resend returns error in response, not as throw)
+    if (emailResponse.error) {
+      console.error("Resend email error:", emailResponse.error);
+      
+      // If it's a domain verification error, still return success but with a warning
+      if (emailResponse.error.message?.includes("verify a domain")) {
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            inviteId: invite.id,
+            inviteLink,
+            emailSent: false,
+            warning: "Email could not be sent. Please verify a domain at resend.com to send emails. Use 'Copy Invite Link' to share manually."
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // For other errors, still return success with invite link
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          inviteId: invite.id,
+          inviteLink,
+          emailSent: false,
+          warning: `Email failed: ${emailResponse.error.message}. Use the invite link to share manually.`
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     console.log("Email sent successfully:", emailResponse);
 
     return new Response(
-      JSON.stringify({ success: true, inviteId: invite.id }),
+      JSON.stringify({ success: true, inviteId: invite.id, emailSent: true }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
