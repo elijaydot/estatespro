@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -17,6 +18,7 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,47 +42,20 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { toast } from '@/components/ui/use-toast';
-import { UnitStatus } from '@/types';
+import { useUnit, useUpdateUnit, useDeleteUnit } from '@/hooks/useUnits';
+import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useTenants } from '@/hooks/useTenants';
 
-// Mock unit data
-const mockUnit = {
-  id: '1',
-  unitNumber: '204',
-  propertyId: '1',
-  property: 'Sunset Apartments',
-  floor: 2,
-  bedrooms: 3,
-  bathrooms: 2,
-  sqft: 1200,
-  rent: 2200,
-  status: 'occupied' as UnitStatus,
-  amenities: ['Air Conditioning', 'Dishwasher', 'Washer/Dryer', 'Balcony', 'Parking'],
-  description: 'Spacious 3-bedroom apartment with modern finishes, hardwood floors, and a private balcony with city views.',
-  tenant: {
-    id: '1',
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@email.com',
-    phone: '+1 (555) 123-4567',
-    moveInDate: 'Mar 15, 2024',
-    leaseEnd: 'Mar 14, 2025',
-  },
-};
-
-// Mock maintenance history
-const mockMaintenance = [
-  { id: '1', title: 'HVAC filter replacement', date: 'Jan 10, 2025', status: 'completed', priority: 'low' },
-  { id: '2', title: 'Garbage disposal repair', date: 'Dec 20, 2024', status: 'completed', priority: 'medium' },
-  { id: '3', title: 'Annual inspection', date: 'Nov 15, 2024', status: 'completed', priority: 'low' },
+const statusOptions = [
+  { value: 'vacant', label: 'Vacant', description: 'Available for rent' },
+  { value: 'occupied', label: 'Occupied', description: 'Currently rented' },
+  { value: 'maintenance', label: 'Under Maintenance', description: 'Not available' },
 ];
 
-// Mock lease history
-const mockLeaseHistory = [
-  { id: '1', tenant: 'Sarah Johnson', startDate: 'Mar 15, 2024', endDate: 'Mar 14, 2025', rent: 2200, status: 'active' },
-  { id: '2', tenant: 'Michael Brown', startDate: 'Mar 15, 2022', endDate: 'Mar 14, 2024', rent: 1950, status: 'completed' },
-];
-
-const getStatusBadge = (status: UnitStatus) => {
+const getStatusBadge = (status: string) => {
   switch (status) {
     case 'occupied':
       return <Badge className="bg-info/10 text-info border-info/20">Occupied</Badge>;
@@ -88,6 +63,8 @@ const getStatusBadge = (status: UnitStatus) => {
       return <Badge className="bg-success/10 text-success border-success/20">Vacant</Badge>;
     case 'maintenance':
       return <Badge className="bg-warning/10 text-warning border-warning/20">Maintenance</Badge>;
+    default:
+      return null;
   }
 };
 
@@ -108,7 +85,43 @@ export default function UnitDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const unit = mockUnit;
+  const { formatCurrency } = useSettings();
+  
+  const { data: unit, isLoading } = useUnit(id || '');
+  const { data: maintenanceRequests = [] } = useMaintenanceRequests();
+  const { data: tenants = [] } = useTenants();
+  const updateUnit = useUpdateUnit();
+  const deleteUnit = useDeleteUnit();
+
+  // Form state for editing
+  const [formData, setFormData] = useState({
+    unit_number: '',
+    floor: 1,
+    status: 'vacant',
+    bedrooms: 1,
+    bathrooms: 1,
+    sqft: 0,
+    rent_amount: 0,
+    amenities: '',
+    description: '',
+  });
+
+  // Populate form when unit data loads
+  useEffect(() => {
+    if (unit) {
+      setFormData({
+        unit_number: unit.unit_number || '',
+        floor: unit.floor || 1,
+        status: unit.status || 'vacant',
+        bedrooms: unit.bedrooms || 1,
+        bathrooms: unit.bathrooms || 1,
+        sqft: unit.sqft || 0,
+        rent_amount: unit.rent_amount || 0,
+        amenities: unit.amenities?.join(', ') || '',
+        description: unit.description || '',
+      });
+    }
+  }, [unit]);
 
   const isEditOpen = searchParams.get('edit') === 'true';
   const closeEdit = () => {
@@ -122,12 +135,57 @@ export default function UnitDetail() {
     setSearchParams(next, { replace: true });
   };
 
-  const handleNotImplemented = (feature: string) => {
-    toast({
-      title: 'Coming soon',
-      description: `${feature} will be enabled once we connect the backend.`,
+  const handleSave = async () => {
+    if (!id) return;
+    
+    await updateUnit.mutateAsync({
+      id,
+      unit_number: formData.unit_number,
+      floor: formData.floor,
+      status: formData.status,
+      bedrooms: formData.bedrooms,
+      bathrooms: formData.bathrooms,
+      sqft: formData.sqft,
+      rent_amount: formData.rent_amount,
+      amenities: formData.amenities.split(',').map(a => a.trim()).filter(Boolean),
+      description: formData.description || null,
     });
+    closeEdit();
   };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    if (confirm('Are you sure you want to delete this unit?')) {
+      await deleteUnit.mutateAsync(id);
+      navigate('/units');
+    }
+  };
+
+  // Filter maintenance for this unit
+  const unitMaintenance = maintenanceRequests.filter((m: any) => m.unit_id === id);
+  
+  // Find tenant for this unit
+  const unitTenant = tenants.find((t: any) => t.unit_id === id);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!unit) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <Home className="h-12 w-12 text-muted-foreground" />
+        <p className="text-muted-foreground">Unit not found</p>
+        <Button variant="outline" onClick={() => navigate('/units')}>
+          Back to Units
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -142,11 +200,11 @@ export default function UnitDetail() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-foreground">Unit {unit.unitNumber}</h1>
+              <h1 className="text-2xl font-bold text-foreground">Unit {unit.unit_number}</h1>
               {getStatusBadge(unit.status)}
             </div>
-            <Link to={`/properties/${unit.propertyId}`} className="text-muted-foreground hover:text-primary transition-colors">
-              {unit.property}
+            <Link to={`/properties/${unit.property_id}`} className="text-muted-foreground hover:text-primary transition-colors">
+              {unit.properties?.name || 'No property'}
             </Link>
           </div>
         </div>
@@ -165,25 +223,17 @@ export default function UnitDetail() {
               <DropdownMenuItem
                 onSelect={(e) => {
                   e.preventDefault();
-                  handleNotImplemented('Create listing');
+                  navigate('/maintenance?add=true');
                 }}
               >
-                <FileText className="h-4 w-4 mr-2" /> Create Listing
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  handleNotImplemented('Schedule inspection');
-                }}
-              >
-                <Calendar className="h-4 w-4 mr-2" /> Schedule Inspection
+                <Wrench className="h-4 w-4 mr-2" /> Create Maintenance Request
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive"
                 onSelect={(e) => {
                   e.preventDefault();
-                  handleNotImplemented('Delete unit');
+                  handleDelete();
                 }}
               >
                 <Trash2 className="h-4 w-4 mr-2" /> Delete Unit
@@ -212,7 +262,7 @@ export default function UnitDetail() {
         <Card className="card-shadow-md">
           <CardContent className="pt-6 text-center">
             <Square className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-            <p className="text-2xl font-bold text-foreground">{unit.sqft.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-foreground">{unit.sqft?.toLocaleString() || 0}</p>
             <p className="text-sm text-muted-foreground">Sq. Ft.</p>
           </CardContent>
         </Card>
@@ -226,7 +276,7 @@ export default function UnitDetail() {
         <Card className="card-shadow-md sm:col-span-2 lg:col-span-1">
           <CardContent className="pt-6 text-center">
             <DollarSign className="h-6 w-6 text-accent mx-auto mb-2" />
-            <p className="text-2xl font-bold text-foreground">${unit.rent.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-foreground">{formatCurrency(unit.rent_amount)}</p>
             <p className="text-sm text-muted-foreground">Monthly Rent</p>
           </CardContent>
         </Card>
@@ -240,7 +290,7 @@ export default function UnitDetail() {
               <CardTitle className="text-lg">Description</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">{unit.description}</p>
+              <p className="text-muted-foreground">{unit.description || 'No description available'}</p>
             </CardContent>
           </Card>
 
@@ -250,55 +300,59 @@ export default function UnitDetail() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {unit.amenities.map((amenity, index) => (
-                  <Badge key={index} variant="secondary" className="font-normal">
-                    {amenity}
-                  </Badge>
-                ))}
+                {unit.amenities && unit.amenities.length > 0 ? (
+                  unit.amenities.map((amenity: string, index: number) => (
+                    <Badge key={index} variant="secondary" className="font-normal">
+                      {amenity}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-sm">No amenities listed</p>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {unit.status === 'occupied' && unit.tenant && (
+          {unitTenant ? (
             <Card className="card-shadow-md">
               <CardHeader>
                 <CardTitle className="text-lg">Current Tenant</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <Link
-                  to={`/tenants/${unit.tenant.id}`}
+                  to={`/tenants/${unitTenant.id}`}
                   className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
                 >
                   <div className="p-2 rounded-full bg-primary/10">
                     <User className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">{unit.tenant.name}</p>
-                    <p className="text-sm text-muted-foreground">{unit.tenant.email}</p>
+                    <p className="font-medium">{unitTenant.name}</p>
+                    <p className="text-sm text-muted-foreground">{unitTenant.email}</p>
                   </div>
                 </Link>
-                <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Move-in Date</p>
-                    <p className="font-medium">{unit.tenant.moveInDate}</p>
+                {(unitTenant.move_in_date || unitTenant.lease_end_date) && (
+                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Move-in Date</p>
+                      <p className="font-medium">{unitTenant.move_in_date || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Lease Ends</p>
+                      <p className="font-medium">{unitTenant.lease_end_date || '-'}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Lease Ends</p>
-                    <p className="font-medium">{unit.tenant.leaseEnd}</p>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
-          )}
-
-          {unit.status === 'vacant' && (
+          ) : (
             <Card className="card-shadow-md border-dashed">
               <CardContent className="py-8 text-center">
                 <User className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
                 <p className="text-muted-foreground mb-4">This unit is currently vacant</p>
-                <Button className="gap-2" onClick={() => handleNotImplemented('Assign tenant')}>
+                <Button className="gap-2" onClick={() => navigate('/tenants?add=true')}>
                   <Plus className="h-4 w-4" />
-                  Assign Tenant
+                  Add Tenant
                 </Button>
               </CardContent>
             </Card>
@@ -310,7 +364,6 @@ export default function UnitDetail() {
           <Tabs defaultValue="maintenance" className="space-y-4">
             <TabsList>
               <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-              <TabsTrigger value="leases">Lease History</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>
             </TabsList>
 
@@ -318,64 +371,35 @@ export default function UnitDetail() {
               <Card className="card-shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Maintenance History</CardTitle>
-                  <Button variant="outline" className="gap-2" onClick={() => handleNotImplemented('New maintenance request')}>
+                  <Button variant="outline" className="gap-2" onClick={() => navigate('/maintenance?add=true')}>
                     <Wrench className="h-4 w-4" />
                     New Request
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {mockMaintenance.map((request) => (
-                      <div key={request.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-background">{getMaintenanceStatusIcon(request.status)}</div>
-                          <div>
-                            <p className="font-medium">{request.title}</p>
-                            <p className="text-sm text-muted-foreground">{request.date}</p>
+                  {unitMaintenance.length > 0 ? (
+                    <div className="space-y-4">
+                      {unitMaintenance.map((request: any) => (
+                        <div key={request.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-background">{getMaintenanceStatusIcon(request.status)}</div>
+                            <div>
+                              <p className="font-medium">{request.title}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(request.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
                           </div>
+                          <Badge className="bg-success/10 text-success border-success/20 capitalize">{request.status}</Badge>
                         </div>
-                        <Badge className="bg-success/10 text-success border-success/20 capitalize">{request.status}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="leases" className="space-y-4">
-              <Card className="card-shadow-md">
-                <CardHeader>
-                  <CardTitle className="text-lg">Lease History</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {mockLeaseHistory.map((lease) => (
-                      <div key={lease.id} className="p-4 rounded-lg bg-secondary/50">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="font-medium">{lease.tenant}</p>
-                          <Badge
-                            className={
-                              lease.status === 'active'
-                                ? 'bg-success/10 text-success border-success/20'
-                                : 'bg-muted text-muted-foreground'
-                            }
-                          >
-                            {lease.status}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            {lease.startDate} - {lease.endDate}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <DollarSign className="h-4 w-4" />
-                            ${lease.rent.toLocaleString()}/mo
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Wrench className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                      <p className="text-muted-foreground">No maintenance requests</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -384,7 +408,7 @@ export default function UnitDetail() {
               <Card className="card-shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Documents</CardTitle>
-                  <Button variant="outline" className="gap-2" onClick={() => handleNotImplemented('Upload document')}>
+                  <Button variant="outline" className="gap-2">
                     <Plus className="h-4 w-4" />
                     Upload
                   </Button>
@@ -412,23 +436,32 @@ export default function UnitDetail() {
             <div className="grid grid-cols-3 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="unitNumber">Unit Number *</Label>
-                <Input id="unitNumber" defaultValue={unit.unitNumber} placeholder="e.g., 101" />
+                <Input 
+                  id="unitNumber" 
+                  value={formData.unit_number}
+                  onChange={(e) => setFormData({ ...formData, unit_number: e.target.value })}
+                  placeholder="e.g., 101" 
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="unitFloor">Floor *</Label>
-                <Input id="unitFloor" type="number" defaultValue={String(unit.floor)} min="0" />
+                <Input 
+                  id="unitFloor" 
+                  type="number" 
+                  value={formData.floor}
+                  onChange={(e) => setFormData({ ...formData, floor: parseInt(e.target.value) || 1 })}
+                  min="0" 
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="unitStatus">Status *</Label>
-                <select
-                  id="unitStatus"
-                  defaultValue={unit.status}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="vacant">Vacant</option>
-                  <option value="occupied">Occupied</option>
-                  <option value="maintenance">Maintenance</option>
-                </select>
+                <Label>Status *</Label>
+                <SearchableSelect
+                  options={statusOptions}
+                  value={formData.status}
+                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  placeholder="Select status..."
+                  searchPlaceholder="Search status..."
+                />
               </div>
             </div>
 
@@ -436,19 +469,45 @@ export default function UnitDetail() {
             <div className="grid grid-cols-4 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="unitBeds">Bedrooms</Label>
-                <Input id="unitBeds" type="number" defaultValue={String(unit.bedrooms)} min="0" />
+                <Input 
+                  id="unitBeds" 
+                  type="number" 
+                  value={formData.bedrooms}
+                  onChange={(e) => setFormData({ ...formData, bedrooms: parseInt(e.target.value) || 0 })}
+                  min="0" 
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="unitBaths">Bathrooms</Label>
-                <Input id="unitBaths" type="number" defaultValue={String(unit.bathrooms)} min="0" step="0.5" />
+                <Input 
+                  id="unitBaths" 
+                  type="number" 
+                  value={formData.bathrooms}
+                  onChange={(e) => setFormData({ ...formData, bathrooms: parseInt(e.target.value) || 0 })}
+                  min="0" 
+                  step="0.5" 
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="unitSqft">Square Feet</Label>
-                <Input id="unitSqft" type="number" defaultValue={String(unit.sqft)} min="0" />
+                <Input 
+                  id="unitSqft" 
+                  type="number" 
+                  value={formData.sqft}
+                  onChange={(e) => setFormData({ ...formData, sqft: parseInt(e.target.value) || 0 })}
+                  min="0" 
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="unitRent">Monthly Rent (GHS)</Label>
-                <Input id="unitRent" type="number" defaultValue={String(unit.rent)} min="0" step="0.01" />
+                <Label htmlFor="unitRent">Monthly Rent</Label>
+                <Input 
+                  id="unitRent" 
+                  type="number" 
+                  value={formData.rent_amount}
+                  onChange={(e) => setFormData({ ...formData, rent_amount: parseInt(e.target.value) || 0 })}
+                  min="0" 
+                  step="0.01" 
+                />
               </div>
             </div>
 
@@ -457,7 +516,8 @@ export default function UnitDetail() {
               <Label htmlFor="unitAmenities">Amenities (comma-separated)</Label>
               <Input 
                 id="unitAmenities" 
-                defaultValue={unit.amenities.join(', ')} 
+                value={formData.amenities}
+                onChange={(e) => setFormData({ ...formData, amenities: e.target.value })}
                 placeholder="Air Conditioning, Parking, Washer/Dryer, Balcony"
               />
             </div>
@@ -466,7 +526,8 @@ export default function UnitDetail() {
               <Label htmlFor="unitDesc">Description</Label>
               <Textarea 
                 id="unitDesc" 
-                defaultValue={unit.description} 
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={4} 
                 placeholder="Describe the unit features, views, finishes, etc."
               />
@@ -477,13 +538,8 @@ export default function UnitDetail() {
             <Button variant="outline" onClick={closeEdit}>
               Cancel
             </Button>
-            <Button
-              onClick={() => {
-                toast({ title: 'Saved', description: 'Unit updated successfully.' });
-                closeEdit();
-              }}
-            >
-              Save Changes
+            <Button onClick={handleSave} disabled={updateUnit.isPending}>
+              {updateUnit.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -491,4 +547,3 @@ export default function UnitDetail() {
     </div>
   );
 }
-
