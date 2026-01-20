@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { format, differenceInDays } from 'date-fns';
-import { Plus, Pencil, Trash2, FileText, Eye, Send, CheckCircle, Clock, FileSignature, MoreHorizontal, Search, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, FileText, Eye, Send, CheckCircle, Clock, FileSignature, MoreHorizontal, Search, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -60,6 +61,21 @@ const statusColors: Record<string, string> = {
   terminated: 'bg-muted text-muted-foreground',
 };
 
+const renewalStatusColors: Record<string, string> = {
+  pending_renewal: 'bg-warning/10 text-warning border-warning/20',
+  renewed: 'bg-success/10 text-success border-success/20',
+  not_renewed: 'bg-muted text-muted-foreground',
+};
+
+const getRenewalStatusLabel = (status: string) => {
+  switch (status) {
+    case 'pending_renewal': return 'Pending Renewal';
+    case 'renewed': return 'Renewed';
+    case 'not_renewed': return 'Not Renewed';
+    default: return status;
+  }
+};
+
 interface LeaseFormData {
   tenant_id: string;
   property_id: string;
@@ -105,6 +121,7 @@ This Lease Agreement is entered into between the Landlord and Tenant identified 
 7. DEFAULT: Failure to pay rent when due or violation of any other term of this lease may result in termination of the lease.`;
 
 export default function Leases() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
@@ -118,6 +135,15 @@ export default function Leases() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const signaturePadRef = useRef<SignaturePadRef>(null);
+
+  // Handle ?add=true query parameter from Quick Add
+  useEffect(() => {
+    if (searchParams.get('add') === 'true') {
+      handleOpenDialog();
+      searchParams.delete('add');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const { data: leases = [], isLoading } = useLeases();
   const { data: properties = [] } = useProperties();
@@ -457,6 +483,7 @@ export default function Leases() {
                   <TableHead>Duration</TableHead>
                   <TableHead>Rent</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Renewal</TableHead>
                   <TableHead>Signatures</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -496,6 +523,11 @@ export default function Leases() {
                       <TableCell>
                         <Badge variant="outline" className={statusColors[lease.status] || 'bg-muted'}>
                           {lease.status.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={renewalStatusColors[(lease as any).renewal_status || 'not_renewed'] || 'bg-muted'}>
+                          {getRenewalStatusLabel((lease as any).renewal_status || 'not_renewed')}
                         </Badge>
                       </TableCell>
                       <TableCell>

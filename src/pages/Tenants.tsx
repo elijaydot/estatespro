@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Users, 
   Plus, 
@@ -14,6 +14,7 @@ import {
   Eye,
   Calendar,
   Loader2,
+  Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +50,8 @@ import { useTenants, useCreateTenant, useDeleteTenant } from '@/hooks/useTenants
 import { useProperties } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
 import { useSettings } from '@/contexts/SettingsContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { format, differenceInDays } from 'date-fns';
 
 const getLeaseStatusBadge = (leaseEndDate: string | null) => {
@@ -75,9 +78,14 @@ const getInitials = (name: string) => {
 
 export default function Tenants() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [invitingTenant, setInvitingTenant] = useState<any>(null);
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -93,6 +101,15 @@ export default function Tenants() {
     employer: '',
     occupation: '',
   });
+
+  // Handle ?add=true query parameter from Quick Add
+  useEffect(() => {
+    if (searchParams.get('add') === 'true') {
+      setIsAddDialogOpen(true);
+      searchParams.delete('add');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const { data: tenants = [], isLoading } = useTenants();
   const { data: properties = [] } = useProperties();
@@ -156,6 +173,48 @@ export default function Tenants() {
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this tenant?')) {
       await deleteTenant.mutateAsync(id);
+    }
+  };
+
+  const handleSendInvite = async () => {
+    if (!invitingTenant) return;
+    
+    setIsSendingInvite(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const property = properties.find((p: any) => p.id === invitingTenant.property_id);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-tenant-invite`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            tenantId: invitingTenant.id,
+            email: invitingTenant.email,
+            landlordName: user?.email || 'Property Manager',
+            propertyName: property?.name || 'Your Property',
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send invite');
+      }
+
+      toast({ title: 'Success', description: `Invite sent to ${invitingTenant.email}` });
+      setIsInviteDialogOpen(false);
+      setInvitingTenant(null);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSendingInvite(false);
     }
   };
 
@@ -302,6 +361,17 @@ export default function Tenants() {
                         >
                           <Mail className="h-4 w-4 mr-2" /> Send Message
                         </DropdownMenuItem>
+                        {!tenant.tenant_user_id && (
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setInvitingTenant(tenant);
+                              setIsInviteDialogOpen(true);
+                            }}
+                          >
+                            <Send className="h-4 w-4 mr-2" /> Send Portal Invite
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
@@ -482,6 +552,45 @@ export default function Tenants() {
             </Button>
             <Button onClick={handleCreate} disabled={createTenant.isPending}>
               {createTenant.isPending ? 'Adding...' : 'Add Tenant'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Invite Dialog */}
+      <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Send Portal Invite</DialogTitle>
+            <DialogDescription>
+              Send an email invitation to {invitingTenant?.name} to set up their tenant portal access.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
+              <Mail className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="font-medium">{invitingTenant?.email}</p>
+                <p className="text-sm text-muted-foreground">Invitation will be sent to this email</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsInviteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSendInvite} disabled={isSendingInvite} className="gap-2">
+              {isSendingInvite ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Send Invite
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

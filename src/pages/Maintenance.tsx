@@ -52,6 +52,7 @@ import { useMaintenanceRequests, useCreateMaintenanceRequest, useUpdateMaintenan
 import { useUnits } from '@/hooks/useUnits';
 import { useTenants } from '@/hooks/useTenants';
 import { useProperties } from '@/hooks/useProperties';
+import { useSendMaintenanceNotification } from '@/hooks/useMaintenanceNotifications';
 import { format } from 'date-fns';
 
 const getStatusBadge = (status: string) => {
@@ -142,6 +143,21 @@ export default function Maintenance() {
   const { data: properties = [] } = useProperties();
   const createRequest = useCreateMaintenanceRequest();
   const updateRequest = useUpdateMaintenanceRequest();
+  const sendNotification = useSendMaintenanceNotification();
+
+  const handleStatusChange = async (requestId: string, newStatus: string, oldStatus: string) => {
+    await updateRequest.mutateAsync({ 
+      id: requestId, 
+      status: newStatus,
+      completed_at: newStatus === 'completed' ? new Date().toISOString() : null
+    });
+    // Send email notification
+    try {
+      await sendNotification.mutateAsync({ requestId, newStatus, oldStatus });
+    } catch (error) {
+      console.warn('Failed to send notification:', error);
+    }
+  };
 
   const filteredRequests = requests.filter(
     (request: any) =>
@@ -410,29 +426,19 @@ export default function Maintenance() {
                             Edit Request
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={() => {
-                              updateRequest.mutate({ id: request.id, status: 'in_progress' });
-                            }}
+                            onClick={() => handleStatusChange(request.id, 'in_progress', request.status)}
                           >
                             Mark In Progress
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => {
-                              updateRequest.mutate({ 
-                                id: request.id, 
-                                status: 'completed',
-                                completed_at: new Date().toISOString()
-                              });
-                            }}
+                            onClick={() => handleStatusChange(request.id, 'completed', request.status)}
                           >
                             Mark Completed
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             className="text-destructive"
-                            onClick={() => {
-                              updateRequest.mutate({ id: request.id, status: 'cancelled' });
-                            }}
+                            onClick={() => handleStatusChange(request.id, 'cancelled', request.status)}
                           >
                             Cancel Request
                           </DropdownMenuItem>

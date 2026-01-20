@@ -211,6 +211,7 @@ export type Database = {
           lease_number: string
           monthly_rent: number
           property_id: string
+          renewal_status: string | null
           security_deposit: number
           special_conditions: string | null
           start_date: string
@@ -233,6 +234,7 @@ export type Database = {
           lease_number: string
           monthly_rent?: number
           property_id: string
+          renewal_status?: string | null
           security_deposit?: number
           special_conditions?: string | null
           start_date: string
@@ -255,6 +257,7 @@ export type Database = {
           lease_number?: string
           monthly_rent?: number
           property_id?: string
+          renewal_status?: string | null
           security_deposit?: number
           special_conditions?: string | null
           start_date?: string
