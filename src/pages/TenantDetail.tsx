@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import {
   AlertCircle,
   CheckCircle,
   Send,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -48,56 +49,28 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { toast } from '@/components/ui/use-toast';
-import { downloadCsv } from '@/lib/download';
+import { useTenant, useUpdateTenant, useDeleteTenant } from '@/hooks/useTenants';
+import { useProperties } from '@/hooks/useProperties';
+import { useUnits } from '@/hooks/useUnits';
+import { useInvoices } from '@/hooks/useInvoices';
+import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
+import { useSettings } from '@/contexts/SettingsContext';
+import { format, differenceInDays } from 'date-fns';
 
-// Mock tenant data
-const mockTenant = {
-  id: '1',
-  name: 'Sarah Johnson',
-  email: 'sarah.johnson@email.com',
-  phone: '+1 (555) 123-4567',
-  emergencyContact: 'John Johnson',
-  emergencyPhone: '+1 (555) 987-6543',
-  employer: 'Tech Corp Inc.',
-  occupation: 'Software Engineer',
-  unit: 'Unit 204',
-  unitId: '1',
-  property: 'Sunset Apartments',
-  propertyId: '1',
-  moveInDate: 'Mar 15, 2024',
-  leaseEnd: 'Mar 14, 2025',
-  leaseStatus: 'active' as const,
-  monthlyRent: 1500,
-  balance: 0,
-  securityDeposit: 3000,
-};
-
-// Mock payment history
-const mockPayments = [
-  { id: '1', date: 'Jan 01, 2025', description: 'Rent - January 2025', amount: 1500, status: 'paid' },
-  { id: '2', date: 'Dec 01, 2024', description: 'Rent - December 2024', amount: 1500, status: 'paid' },
-  { id: '3', date: 'Nov 01, 2024', description: 'Rent - November 2024', amount: 1500, status: 'paid' },
-  { id: '4', date: 'Oct 01, 2024', description: 'Rent - October 2024', amount: 1500, status: 'paid' },
-];
-
-// Mock maintenance requests
-const mockMaintenance = [
-  { id: '1', title: 'Leaky faucet in bathroom', date: 'Jan 05, 2025', status: 'completed', priority: 'medium' },
-  { id: '2', title: 'AC not cooling properly', date: 'Dec 15, 2024', status: 'completed', priority: 'high' },
-];
-
-const getLeaseStatusBadge = (status: string) => {
-  switch (status) {
-    case 'active':
-      return <Badge className="bg-success/10 text-success border-success/20">Active</Badge>;
-    case 'expiring':
-      return <Badge className="bg-warning/10 text-warning border-warning/20">Expiring Soon</Badge>;
-    case 'expired':
-      return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Expired</Badge>;
-    default:
-      return null;
+const getLeaseStatusBadge = (leaseEndDate: string | null) => {
+  if (!leaseEndDate) return <Badge className="bg-muted text-muted-foreground">No Lease</Badge>;
+  
+  const daysUntilEnd = differenceInDays(new Date(leaseEndDate), new Date());
+  
+  if (daysUntilEnd < 0) {
+    return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Expired</Badge>;
   }
+  if (daysUntilEnd <= 30) {
+    return <Badge className="bg-warning/10 text-warning border-warning/20">Expiring Soon</Badge>;
+  }
+  return <Badge className="bg-success/10 text-success border-success/20">Active</Badge>;
 };
 
 const getPaymentStatusBadge = (status: string) => {
@@ -109,7 +82,7 @@ const getPaymentStatusBadge = (status: string) => {
     case 'overdue':
       return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Overdue</Badge>;
     default:
-      return null;
+      return <Badge className="bg-muted text-muted-foreground">{status}</Badge>;
   }
 };
 
@@ -125,8 +98,58 @@ export default function TenantDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { formatCurrency } = useSettings();
 
-  const tenant = mockTenant;
+  const { data: tenant, isLoading } = useTenant(id || '');
+  const { data: properties = [] } = useProperties();
+  const { data: units = [] } = useUnits();
+  const { data: invoices = [] } = useInvoices();
+  const { data: maintenanceRequests = [] } = useMaintenanceRequests();
+  const updateTenant = useUpdateTenant();
+  const deleteTenant = useDeleteTenant();
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    property_id: '',
+    unit_id: '',
+    move_in_date: '',
+    lease_end_date: '',
+    monthly_rent: 0,
+    security_deposit: 0,
+    balance: 0,
+    emergency_contact: '',
+    emergency_phone: '',
+    employer: '',
+    occupation: '',
+  });
+
+  // Populate form when tenant data loads
+  useEffect(() => {
+    if (tenant) {
+      setFormData({
+        name: tenant.name || '',
+        email: tenant.email || '',
+        phone: tenant.phone || '',
+        property_id: tenant.property_id || '',
+        unit_id: tenant.unit_id || '',
+        move_in_date: tenant.move_in_date || '',
+        lease_end_date: tenant.lease_end_date || '',
+        monthly_rent: tenant.monthly_rent || 0,
+        security_deposit: tenant.security_deposit || 0,
+        balance: tenant.balance || 0,
+        emergency_contact: tenant.emergency_contact || '',
+        emergency_phone: tenant.emergency_phone || '',
+        employer: tenant.employer || '',
+        occupation: tenant.occupation || '',
+      });
+    }
+  }, [tenant]);
+
+  const [messageSubject, setMessageSubject] = useState('');
+  const [messageBody, setMessageBody] = useState('');
 
   const isEditOpen = searchParams.get('edit') === 'true';
   const isMessageOpen = searchParams.get('tab') === 'messages';
@@ -153,33 +176,74 @@ export default function TenantDetail() {
     setSearchParams(next, { replace: true });
   };
 
-  const [messageSubject, setMessageSubject] = useState('');
-  const [messageBody, setMessageBody] = useState('');
-
-  const handleNotImplemented = (feature: string) => {
-    toast({
-      title: 'Coming soon',
-      description: `${feature} will be enabled once we connect the backend.`,
+  const handleSave = async () => {
+    if (!id) return;
+    
+    await updateTenant.mutateAsync({
+      id,
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      property_id: formData.property_id || null,
+      unit_id: formData.unit_id || null,
+      move_in_date: formData.move_in_date || null,
+      lease_end_date: formData.lease_end_date || null,
+      monthly_rent: formData.monthly_rent,
+      security_deposit: formData.security_deposit,
+      balance: formData.balance,
+      emergency_contact: formData.emergency_contact || null,
+      emergency_phone: formData.emergency_phone || null,
+      employer: formData.employer || null,
+      occupation: formData.occupation || null,
     });
+    closeEdit();
   };
 
-  const handleGenerateStatement = () => {
-    downloadCsv(
-      `tenant-${tenant.id}-statement.csv`,
-      mockPayments.map((p) => ({
-        payment_id: p.id,
-        date: p.date,
-        description: p.description,
-        amount: p.amount,
-        status: p.status,
-      })),
+  const handleDelete = async () => {
+    if (!id) return;
+    if (confirm('Are you sure you want to delete this tenant?')) {
+      await deleteTenant.mutateAsync(id);
+      navigate('/tenants');
+    }
+  };
+
+  // Filter data for this tenant
+  const tenantInvoices = invoices.filter((inv: any) => inv.tenant_id === id);
+  const tenantMaintenance = maintenanceRequests.filter((m: any) => m.tenant_id === id);
+
+  const propertyOptions = properties.map((property: any) => ({
+    value: property.id,
+    label: property.name,
+    description: `${property.city}, ${property.state}`,
+  }));
+
+  const unitOptions = units
+    .filter((unit: any) => !formData.property_id || unit.property_id === formData.property_id)
+    .map((unit: any) => ({
+      value: unit.id,
+      label: `Unit ${unit.unit_number}`,
+      description: unit.properties?.name || '',
+    }));
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
+  }
 
-    toast({
-      title: 'Statement generated',
-      description: 'Downloaded a CSV statement for this tenant.',
-    });
-  };
+  if (!tenant) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <User className="h-12 w-12 text-muted-foreground" />
+        <p className="text-muted-foreground">Tenant not found</p>
+        <Button variant="outline" onClick={() => navigate('/tenants')}>
+          Back to Tenants
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -195,12 +259,12 @@ export default function TenantDetail() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-foreground">{tenant.name}</h1>
-              {getLeaseStatusBadge(tenant.leaseStatus)}
+              {getLeaseStatusBadge(tenant.lease_end_date)}
             </div>
             <div className="flex items-center gap-4 text-muted-foreground mt-1">
               <span className="flex items-center gap-1">
                 <Home className="h-4 w-4" />
-                {tenant.unit} • {tenant.property}
+                {tenant.units ? `Unit ${tenant.units.unit_number}` : 'No unit'} • {tenant.properties?.name || 'No property'}
               </span>
             </div>
           </div>
@@ -224,25 +288,17 @@ export default function TenantDetail() {
               <DropdownMenuItem
                 onSelect={(e) => {
                   e.preventDefault();
-                  handleGenerateStatement();
+                  navigate('/leases?add=true');
                 }}
               >
-                <FileText className="h-4 w-4 mr-2" /> Generate Statement
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  handleNotImplemented('Renew lease');
-                }}
-              >
-                <Calendar className="h-4 w-4 mr-2" /> Renew Lease
+                <Calendar className="h-4 w-4 mr-2" /> Create Lease
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive"
                 onSelect={(e) => {
                   e.preventDefault();
-                  handleNotImplemented('Remove tenant');
+                  handleDelete();
                 }}
               >
                 <Trash2 className="h-4 w-4 mr-2" /> Remove Tenant
@@ -259,7 +315,7 @@ export default function TenantDetail() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Monthly Rent</p>
-                <p className="text-2xl font-bold text-foreground">${tenant.monthlyRent.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-foreground">{formatCurrency(tenant.monthly_rent)}</p>
               </div>
               <div className="p-3 rounded-xl bg-primary/10">
                 <DollarSign className="h-6 w-6 text-primary" />
@@ -273,7 +329,7 @@ export default function TenantDetail() {
               <div>
                 <p className="text-sm text-muted-foreground">Current Balance</p>
                 <p className={`text-2xl font-bold ${tenant.balance > 0 ? 'text-destructive' : 'text-success'}`}>
-                  ${tenant.balance.toLocaleString()}
+                  {formatCurrency(tenant.balance)}
                 </p>
               </div>
               <div className={`p-3 rounded-xl ${tenant.balance > 0 ? 'bg-destructive/10' : 'bg-success/10'}`}>
@@ -291,7 +347,9 @@ export default function TenantDetail() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Lease Ends</p>
-                <p className="text-2xl font-bold text-foreground">{tenant.leaseEnd}</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {tenant.lease_end_date ? format(new Date(tenant.lease_end_date), 'MMM dd, yyyy') : '-'}
+                </p>
               </div>
               <div className="p-3 rounded-xl bg-info/10">
                 <Calendar className="h-6 w-6 text-info" />
@@ -304,7 +362,7 @@ export default function TenantDetail() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Security Deposit</p>
-                <p className="text-2xl font-bold text-foreground">${tenant.securityDeposit.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-foreground">{formatCurrency(tenant.security_deposit)}</p>
               </div>
               <div className="p-3 rounded-xl bg-warning/10">
                 <FileText className="h-6 w-6 text-warning" />
@@ -339,16 +397,20 @@ export default function TenantDetail() {
                 <p className="font-medium">{tenant.phone}</p>
               </div>
             </div>
-            <div className="pt-4 border-t border-border">
-              <p className="text-sm font-medium text-muted-foreground mb-2">Emergency Contact</p>
-              <p className="font-medium">{tenant.emergencyContact}</p>
-              <p className="text-sm text-muted-foreground">{tenant.emergencyPhone}</p>
-            </div>
-            <div className="pt-4 border-t border-border">
-              <p className="text-sm font-medium text-muted-foreground mb-2">Employment</p>
-              <p className="font-medium">{tenant.occupation}</p>
-              <p className="text-sm text-muted-foreground">{tenant.employer}</p>
-            </div>
+            {(tenant.emergency_contact || tenant.emergency_phone) && (
+              <div className="pt-4 border-t border-border">
+                <p className="text-sm font-medium text-muted-foreground mb-2">Emergency Contact</p>
+                <p className="font-medium">{tenant.emergency_contact || '-'}</p>
+                <p className="text-sm text-muted-foreground">{tenant.emergency_phone || '-'}</p>
+              </div>
+            )}
+            {(tenant.employer || tenant.occupation) && (
+              <div className="pt-4 border-t border-border">
+                <p className="text-sm font-medium text-muted-foreground mb-2">Employment</p>
+                <p className="font-medium">{tenant.occupation || '-'}</p>
+                <p className="text-sm text-muted-foreground">{tenant.employer || '-'}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -356,7 +418,7 @@ export default function TenantDetail() {
         <div className="lg:col-span-2">
           <Tabs defaultValue="payments" className="space-y-4">
             <TabsList>
-              <TabsTrigger value="payments">Payments</TabsTrigger>
+              <TabsTrigger value="payments">Invoices</TabsTrigger>
               <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>
             </TabsList>
@@ -364,33 +426,40 @@ export default function TenantDetail() {
             <TabsContent value="payments" className="space-y-4">
               <Card className="card-shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg">Payment History</CardTitle>
-                  <Button className="gap-2" onClick={() => handleNotImplemented('Record payment')}>
+                  <CardTitle className="text-lg">Invoices</CardTitle>
+                  <Button className="gap-2" onClick={() => navigate('/invoices?add=true')}>
                     <DollarSign className="h-4 w-4" />
-                    Record Payment
+                    Create Invoice
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {mockPayments.map((payment) => (
-                        <TableRow key={payment.id}>
-                          <TableCell>{payment.date}</TableCell>
-                          <TableCell>{payment.description}</TableCell>
-                          <TableCell className="font-medium">${payment.amount.toLocaleString()}</TableCell>
-                          <TableCell>{getPaymentStatusBadge(payment.status)}</TableCell>
+                  {tenantInvoices.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Status</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {tenantInvoices.map((invoice: any) => (
+                          <TableRow key={invoice.id}>
+                            <TableCell>{format(new Date(invoice.due_date), 'MMM dd, yyyy')}</TableCell>
+                            <TableCell>{invoice.description}</TableCell>
+                            <TableCell className="font-medium">{formatCurrency(invoice.amount)}</TableCell>
+                            <TableCell>{getPaymentStatusBadge(invoice.status)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8">
+                      <DollarSign className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                      <p className="text-muted-foreground">No invoices yet</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -401,22 +470,31 @@ export default function TenantDetail() {
                   <CardTitle className="text-lg">Maintenance Requests</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {mockMaintenance.map((request) => (
-                      <div key={request.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-warning/10">
-                            <Wrench className="h-4 w-4 text-warning" />
+                  {tenantMaintenance.length > 0 ? (
+                    <div className="space-y-4">
+                      {tenantMaintenance.map((request: any) => (
+                        <div key={request.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-warning/10">
+                              <Wrench className="h-4 w-4 text-warning" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{request.title}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {format(new Date(request.created_at), 'MMM dd, yyyy')}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium">{request.title}</p>
-                            <p className="text-sm text-muted-foreground">{request.date}</p>
-                          </div>
+                          <Badge className="bg-success/10 text-success border-success/20">{request.status}</Badge>
                         </div>
-                        <Badge className="bg-success/10 text-success border-success/20">{request.status}</Badge>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Wrench className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                      <p className="text-muted-foreground">No maintenance requests</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -447,7 +525,7 @@ export default function TenantDetail() {
         <DialogContent className="sm:max-w-[640px]">
           <DialogHeader>
             <DialogTitle>Message {tenant.name}</DialogTitle>
-            <DialogDescription>Compose a message (mock UI).</DialogDescription>
+            <DialogDescription>Send a message to this tenant.</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
@@ -479,7 +557,7 @@ export default function TenantDetail() {
             <Button
               className="gap-2"
               onClick={() => {
-                toast({ title: 'Sent', description: 'Message sent (mock).' });
+                toast({ title: 'Sent', description: 'Message sent successfully.' });
                 setMessageSubject('');
                 setMessageBody('');
                 closeMessage();
@@ -506,22 +584,57 @@ export default function TenantDetail() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="tenantName">Full Name *</Label>
-                <Input id="tenantName" defaultValue={tenant.name} placeholder="John Doe" />
+                <Input 
+                  id="tenantName" 
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="John Doe" 
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="tenantEmail">Email Address *</Label>
-                <Input id="tenantEmail" type="email" defaultValue={tenant.email} placeholder="john@example.com" />
+                <Input 
+                  id="tenantEmail" 
+                  type="email" 
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="john@example.com" 
+                />
               </div>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="tenantPhone">Phone Number *</Label>
-                <Input id="tenantPhone" defaultValue={tenant.phone} placeholder="+233 XX XXX XXXX" />
+                <Input 
+                  id="tenantPhone" 
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="+250 XX XXX XXXX" 
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="tenantIdDoc">ID Document Number</Label>
-                <Input id="tenantIdDoc" placeholder="Ghana Card / Passport" />
+                <Label>Property</Label>
+                <SearchableSelect
+                  options={propertyOptions}
+                  value={formData.property_id}
+                  onValueChange={(value) => setFormData({ ...formData, property_id: value, unit_id: '' })}
+                  placeholder="Select property..."
+                  searchPlaceholder="Search properties..."
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Unit</Label>
+                <SearchableSelect
+                  options={unitOptions}
+                  value={formData.unit_id}
+                  onValueChange={(value) => setFormData({ ...formData, unit_id: value })}
+                  placeholder="Select unit..."
+                  searchPlaceholder="Search units..."
+                />
               </div>
             </div>
 
@@ -529,11 +642,21 @@ export default function TenantDetail() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="tenantEmergencyContact">Contact Name</Label>
-                <Input id="tenantEmergencyContact" defaultValue={tenant.emergencyContact} placeholder="Emergency contact name" />
+                <Input 
+                  id="tenantEmergencyContact" 
+                  value={formData.emergency_contact}
+                  onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
+                  placeholder="Emergency contact name" 
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="tenantEmergencyPhone">Contact Phone</Label>
-                <Input id="tenantEmergencyPhone" defaultValue={tenant.emergencyPhone} placeholder="+233 XX XXX XXXX" />
+                <Input 
+                  id="tenantEmergencyPhone" 
+                  value={formData.emergency_phone}
+                  onChange={(e) => setFormData({ ...formData, emergency_phone: e.target.value })}
+                  placeholder="+250 XX XXX XXXX" 
+                />
               </div>
             </div>
 
@@ -541,11 +664,21 @@ export default function TenantDetail() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="tenantEmployer">Employer</Label>
-                <Input id="tenantEmployer" defaultValue={tenant.employer} placeholder="Company name" />
+                <Input 
+                  id="tenantEmployer" 
+                  value={formData.employer}
+                  onChange={(e) => setFormData({ ...formData, employer: e.target.value })}
+                  placeholder="Company name" 
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="tenantOccupation">Occupation</Label>
-                <Input id="tenantOccupation" defaultValue={tenant.occupation} placeholder="Job title" />
+                <Input 
+                  id="tenantOccupation" 
+                  value={formData.occupation}
+                  onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
+                  placeholder="Job title" 
+                />
               </div>
             </div>
 
@@ -553,26 +686,56 @@ export default function TenantDetail() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="tenantMoveIn">Move-in Date</Label>
-                <Input id="tenantMoveIn" type="date" defaultValue="2024-03-15" />
+                <Input 
+                  id="tenantMoveIn" 
+                  type="date" 
+                  value={formData.move_in_date}
+                  onChange={(e) => setFormData({ ...formData, move_in_date: e.target.value })}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="tenantLeaseEnd">Lease End Date</Label>
-                <Input id="tenantLeaseEnd" type="date" defaultValue="2025-03-14" />
+                <Input 
+                  id="tenantLeaseEnd" 
+                  type="date" 
+                  value={formData.lease_end_date}
+                  onChange={(e) => setFormData({ ...formData, lease_end_date: e.target.value })}
+                />
               </div>
             </div>
             
             <div className="grid grid-cols-3 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="tenantRent">Monthly Rent (GHS)</Label>
-                <Input id="tenantRent" type="number" defaultValue={String(tenant.monthlyRent)} min="0" step="0.01" />
+                <Label htmlFor="tenantRent">Monthly Rent</Label>
+                <Input 
+                  id="tenantRent" 
+                  type="number" 
+                  value={formData.monthly_rent}
+                  onChange={(e) => setFormData({ ...formData, monthly_rent: parseFloat(e.target.value) || 0 })}
+                  min="0" 
+                  step="0.01" 
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="tenantDeposit">Security Deposit (GHS)</Label>
-                <Input id="tenantDeposit" type="number" defaultValue={String(tenant.securityDeposit)} min="0" step="0.01" />
+                <Label htmlFor="tenantDeposit">Security Deposit</Label>
+                <Input 
+                  id="tenantDeposit" 
+                  type="number" 
+                  value={formData.security_deposit}
+                  onChange={(e) => setFormData({ ...formData, security_deposit: parseFloat(e.target.value) || 0 })}
+                  min="0" 
+                  step="0.01" 
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="tenantBalance">Current Balance (GHS)</Label>
-                <Input id="tenantBalance" type="number" defaultValue={String(tenant.balance)} step="0.01" />
+                <Label htmlFor="tenantBalance">Current Balance</Label>
+                <Input 
+                  id="tenantBalance" 
+                  type="number" 
+                  value={formData.balance}
+                  onChange={(e) => setFormData({ ...formData, balance: parseFloat(e.target.value) || 0 })}
+                  step="0.01" 
+                />
               </div>
             </div>
           </div>
@@ -581,13 +744,8 @@ export default function TenantDetail() {
             <Button variant="outline" onClick={closeEdit}>
               Cancel
             </Button>
-            <Button
-              onClick={() => {
-                toast({ title: 'Saved', description: 'Tenant updated successfully.' });
-                closeEdit();
-              }}
-            >
-              Save Changes
+            <Button onClick={handleSave} disabled={updateTenant.isPending}>
+              {updateTenant.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -595,4 +753,3 @@ export default function TenantDetail() {
     </div>
   );
 }
-

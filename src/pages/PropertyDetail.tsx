@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -13,6 +14,7 @@ import {
   Calendar,
   Wrench,
   FileText,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,94 +39,30 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { toast } from '@/components/ui/use-toast';
-import { downloadCsv } from '@/lib/download';
-import { Property, PropertyType, UnitStatus } from '@/types';
+import { useProperty, useUpdateProperty, useDeleteProperty } from '@/hooks/useProperties';
+import { useUnits } from '@/hooks/useUnits';
+import { useSettings } from '@/contexts/SettingsContext';
 
-// Mock property data
-const mockProperty: Property = {
-  id: '1',
-  workspaceId: 'ws-1',
-  name: 'Sunset Apartments',
-  address: '123 Sunset Boulevard',
-  city: 'Los Angeles',
-  state: 'CA',
-  zipCode: '90028',
-  country: 'USA',
-  type: 'apartment',
-  description:
-    'Modern apartment complex with luxury amenities including swimming pool, gym, and 24/7 security. Located in a prime location with easy access to shopping centers and public transportation.',
-  images: [],
-  totalUnits: 24,
-  occupiedUnits: 21,
-  createdAt: new Date(),
-};
-
-// Mock units for this property
-const mockPropertyUnits = [
-  {
-    id: '1',
-    unitNumber: '101',
-    bedrooms: 2,
-    bathrooms: 1,
-    sqft: 850,
-    rent: 1500,
-    status: 'occupied' as UnitStatus,
-    tenant: 'Sarah Johnson',
-  },
-  { id: '2', unitNumber: '102', bedrooms: 1, bathrooms: 1, sqft: 650, rent: 1100, status: 'vacant' as UnitStatus },
-  {
-    id: '3',
-    unitNumber: '103',
-    bedrooms: 3,
-    bathrooms: 2,
-    sqft: 1200,
-    rent: 2200,
-    status: 'occupied' as UnitStatus,
-    tenant: 'Michael Brown',
-  },
-  { id: '4', unitNumber: '201', bedrooms: 2, bathrooms: 2, sqft: 950, rent: 1700, status: 'maintenance' as UnitStatus },
-  {
-    id: '5',
-    unitNumber: '202',
-    bedrooms: 2,
-    bathrooms: 1,
-    sqft: 850,
-    rent: 1500,
-    status: 'occupied' as UnitStatus,
-    tenant: 'Emma Wilson',
-  },
-  {
-    id: '6',
-    unitNumber: '203',
-    bedrooms: 1,
-    bathrooms: 1,
-    sqft: 650,
-    rent: 1100,
-    status: 'occupied' as UnitStatus,
-    tenant: 'David Lee',
-  },
+const propertyTypeOptions = [
+  { value: 'apartment', label: 'Apartment', description: 'Multi-unit residential building' },
+  { value: 'house', label: 'House', description: 'Single family home' },
+  { value: 'commercial', label: 'Commercial', description: 'Office or retail space' },
+  { value: 'mixed', label: 'Mixed Use', description: 'Residential and commercial' },
 ];
 
-// Mock recent activity
-const mockActivity = [
-  { id: '1', type: 'payment', description: 'Rent payment received from Sarah Johnson', date: '2 hours ago' },
-  { id: '2', type: 'maintenance', description: 'Maintenance completed for Unit 201', date: '1 day ago' },
-  { id: '3', type: 'lease', description: 'New lease signed for Unit 102', date: '3 days ago' },
-  { id: '4', type: 'tenant', description: 'New tenant moved into Unit 305', date: '5 days ago' },
-];
-
-const getPropertyTypeBadge = (type: PropertyType) => {
-  const styles = {
+const getPropertyTypeBadge = (type: string) => {
+  const styles: Record<string, string> = {
     apartment: 'bg-info/10 text-info border-info/20',
     house: 'bg-success/10 text-success border-success/20',
     commercial: 'bg-accent/10 text-accent border-accent/20',
     mixed: 'bg-primary/10 text-primary border-primary/20',
   };
-  return styles[type];
+  return styles[type] || 'bg-muted text-muted-foreground';
 };
 
-const getStatusBadge = (status: UnitStatus) => {
+const getStatusBadge = (status: string) => {
   switch (status) {
     case 'occupied':
       return <Badge className="bg-info/10 text-info border-info/20">Occupied</Badge>;
@@ -132,6 +70,8 @@ const getStatusBadge = (status: UnitStatus) => {
       return <Badge className="bg-success/10 text-success border-success/20">Vacant</Badge>;
     case 'maintenance':
       return <Badge className="bg-warning/10 text-warning border-warning/20">Maintenance</Badge>;
+    default:
+      return null;
   }
 };
 
@@ -139,8 +79,44 @@ export default function PropertyDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { formatCurrency } = useSettings();
 
-  const property = mockProperty;
+  const { data: property, isLoading } = useProperty(id || '');
+  const { data: allUnits = [] } = useUnits(id);
+  const updateProperty = useUpdateProperty();
+  const deleteProperty = useDeleteProperty();
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: '',
+    type: 'apartment',
+    address: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    country: '',
+    total_units: 1,
+    occupied_units: 0,
+    description: '',
+  });
+
+  // Populate form when property data loads
+  useEffect(() => {
+    if (property) {
+      setFormData({
+        name: property.name || '',
+        type: property.type || 'apartment',
+        address: property.address || '',
+        city: property.city || '',
+        state: property.state || '',
+        zip_code: property.zip_code || '',
+        country: property.country || '',
+        total_units: property.total_units || 1,
+        occupied_units: property.occupied_units || 0,
+        description: property.description || '',
+      });
+    }
+  }, [property]);
 
   const isEditOpen = searchParams.get('edit') === 'true';
   const closeEdit = () => {
@@ -154,58 +130,60 @@ export default function PropertyDetail() {
     setSearchParams(next, { replace: true });
   };
 
-  const occupancyRate = Math.round((property.occupiedUnits / property.totalUnits) * 100);
-  const vacantUnits = property.totalUnits - property.occupiedUnits;
-  const monthlyRevenue = mockPropertyUnits.filter((u) => u.status === 'occupied').reduce((sum, u) => sum + u.rent, 0);
-
-  const handleGenerateReport = () => {
-    downloadCsv(`property-${property.id}-report.csv`, [
-      {
-        property_id: property.id,
-        property_name: property.name,
-        property_type: property.type,
-        total_units: property.totalUnits,
-        occupied_units: property.occupiedUnits,
-        occupancy_rate_percent: occupancyRate,
-        vacant_units: vacantUnits,
-        monthly_revenue: monthlyRevenue,
-        generated_at: new Date().toISOString(),
-      },
-    ]);
-
-    toast({
-      title: 'Report generated',
-      description: 'Downloaded a CSV report for this property.',
+  const handleSave = async () => {
+    if (!id) return;
+    
+    await updateProperty.mutateAsync({
+      id,
+      name: formData.name,
+      type: formData.type,
+      address: formData.address,
+      city: formData.city,
+      state: formData.state,
+      zip_code: formData.zip_code,
+      country: formData.country,
+      total_units: formData.total_units,
+      occupied_units: formData.occupied_units,
+      description: formData.description || null,
     });
+    closeEdit();
   };
 
-  const handleExportData = () => {
-    downloadCsv(
-      `property-${property.id}-units.csv`,
-      mockPropertyUnits.map((u) => ({
-        unit_id: u.id,
-        unit_number: u.unitNumber,
-        bedrooms: u.bedrooms,
-        bathrooms: u.bathrooms,
-        sqft: u.sqft,
-        rent: u.rent,
-        status: u.status,
-        tenant: u.tenant ?? '',
-      })),
+  const handleDelete = async () => {
+    if (!id) return;
+    if (confirm('Are you sure you want to delete this property?')) {
+      await deleteProperty.mutateAsync(id);
+      navigate('/properties');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
+  }
 
-    toast({
-      title: 'Export complete',
-      description: 'Downloaded units data as CSV.',
-    });
-  };
+  if (!property) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <Building2 className="h-12 w-12 text-muted-foreground" />
+        <p className="text-muted-foreground">Property not found</p>
+        <Button variant="outline" onClick={() => navigate('/properties')}>
+          Back to Properties
+        </Button>
+      </div>
+    );
+  }
 
-  const handleNotImplemented = (feature: string) => {
-    toast({
-      title: 'Coming soon',
-      description: `${feature} will be enabled once we connect the backend.`,
-    });
-  };
+  const occupancyRate = property.total_units > 0 
+    ? Math.round((property.occupied_units / property.total_units) * 100) 
+    : 0;
+  const vacantUnits = property.total_units - property.occupied_units;
+  const monthlyRevenue = allUnits
+    .filter((u: any) => u.status === 'occupied')
+    .reduce((sum: number, u: any) => sum + (u.rent_amount || 0), 0);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -223,7 +201,7 @@ export default function PropertyDetail() {
             <div className="flex items-center gap-1 text-muted-foreground mt-1">
               <MapPin className="h-4 w-4" />
               <span>
-                {property.address}, {property.city}, {property.state} {property.zipCode}
+                {property.address}, {property.city}, {property.state} {property.zip_code}
               </span>
             </div>
           </div>
@@ -243,25 +221,17 @@ export default function PropertyDetail() {
               <DropdownMenuItem
                 onSelect={(e) => {
                   e.preventDefault();
-                  handleGenerateReport();
+                  navigate('/units?add=true');
                 }}
               >
-                <FileText className="h-4 w-4 mr-2" /> Generate Report
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  handleExportData();
-                }}
-              >
-                <FileText className="h-4 w-4 mr-2" /> Export Data
+                <Plus className="h-4 w-4 mr-2" /> Add Unit
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive"
                 onSelect={(e) => {
                   e.preventDefault();
-                  handleNotImplemented('Delete property');
+                  handleDelete();
                 }}
               >
                 <Trash2 className="h-4 w-4 mr-2" /> Delete Property
@@ -278,7 +248,7 @@ export default function PropertyDetail() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Units</p>
-                <p className="text-2xl font-bold text-foreground">{property.totalUnits}</p>
+                <p className="text-2xl font-bold text-foreground">{property.total_units}</p>
               </div>
               <div className="p-3 rounded-xl bg-primary/10">
                 <Home className="h-6 w-6 text-primary" />
@@ -318,7 +288,7 @@ export default function PropertyDetail() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Monthly Revenue</p>
-                <p className="text-2xl font-bold text-foreground">${monthlyRevenue.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-foreground">{formatCurrency(monthlyRevenue)}</p>
               </div>
               <div className="p-3 rounded-xl bg-accent/10">
                 <DollarSign className="h-6 w-6 text-accent" />
@@ -328,95 +298,74 @@ export default function PropertyDetail() {
         </Card>
       </div>
 
+      {/* Description */}
+      {property.description && (
+        <Card className="card-shadow-md">
+          <CardHeader>
+            <CardTitle className="text-lg">Description</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">{property.description}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tabs */}
       <Tabs defaultValue="units" className="space-y-4">
         <TabsList>
           <TabsTrigger value="units">Units</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="units" className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">Property Units</h2>
-            <Button
-              className="gap-2"
-              onClick={() => handleNotImplemented('Add unit')}
-            >
+            <Button className="gap-2" onClick={() => navigate('/units?add=true')}>
               <Plus className="h-4 w-4" />
               Add Unit
             </Button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {mockPropertyUnits.map((unit) => (
-              <Link to={`/units/${unit.id}`} key={unit.id}>
-                <Card className="card-shadow-md hover:card-shadow-lg transition-all cursor-pointer">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold text-foreground">Unit {unit.unitNumber}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {unit.bedrooms} bed • {unit.bathrooms} bath • {unit.sqft} sqft
-                        </p>
+          {allUnits.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {allUnits.map((unit: any) => (
+                <Link to={`/units/${unit.id}`} key={unit.id}>
+                  <Card className="card-shadow-md hover:card-shadow-lg transition-all cursor-pointer">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold text-foreground">Unit {unit.unit_number}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {unit.bedrooms} bed • {unit.bathrooms} bath • {unit.sqft} sqft
+                          </p>
+                        </div>
+                        {getStatusBadge(unit.status)}
                       </div>
-                      {getStatusBadge(unit.status)}
-                    </div>
-                    <div className="mt-4 flex items-center justify-between">
-                      <span className="font-semibold text-foreground">${unit.rent.toLocaleString()}/mo</span>
-                      {unit.tenant && <span className="text-sm text-muted-foreground">{unit.tenant}</span>}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="activity" className="space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">Recent Activity</h2>
-          <Card className="card-shadow-md">
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                {mockActivity.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="flex items-start gap-4 pb-4 border-b border-border last:border-0 last:pb-0"
-                  >
-                    <div
-                      className={`p-2 rounded-lg ${
-                        activity.type === 'payment'
-                          ? 'bg-success/10'
-                          : activity.type === 'maintenance'
-                            ? 'bg-warning/10'
-                            : activity.type === 'lease'
-                              ? 'bg-info/10'
-                              : 'bg-primary/10'
-                      }`}
-                    >
-                      {activity.type === 'payment' && <DollarSign className="h-4 w-4 text-success" />}
-                      {activity.type === 'maintenance' && <Wrench className="h-4 w-4 text-warning" />}
-                      {activity.type === 'lease' && <Calendar className="h-4 w-4 text-info" />}
-                      {activity.type === 'tenant' && <Users className="h-4 w-4 text-primary" />}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-foreground">{activity.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{activity.date}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                      <div className="mt-4 flex items-center justify-between">
+                        <span className="font-semibold text-foreground">{formatCurrency(unit.rent_amount)}/mo</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <Card className="card-shadow-md">
+              <CardContent className="py-12 text-center">
+                <Home className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                <p className="text-muted-foreground">No units added yet</p>
+                <Button className="mt-4 gap-2" onClick={() => navigate('/units?add=true')}>
+                  <Plus className="h-4 w-4" />
+                  Add Unit
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">Documents</h2>
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => handleNotImplemented('Upload document')}
-            >
+            <Button variant="outline" className="gap-2">
               <Plus className="h-4 w-4" />
               Upload Document
             </Button>
@@ -442,58 +391,97 @@ export default function PropertyDetail() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="propertyName">Property Name *</Label>
-                <Input id="propertyName" defaultValue={property.name} placeholder="e.g., Sunset Apartments" />
+                <Input 
+                  id="propertyName" 
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., Sunset Apartments" 
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="propertyType">Property Type *</Label>
-                <select
-                  id="propertyType"
-                  defaultValue={property.type}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="apartment">Apartment</option>
-                  <option value="house">House</option>
-                  <option value="commercial">Commercial</option>
-                  <option value="mixed">Mixed Use</option>
-                </select>
+                <Label>Property Type *</Label>
+                <SearchableSelect
+                  options={propertyTypeOptions}
+                  value={formData.type}
+                  onValueChange={(value) => setFormData({ ...formData, type: value })}
+                  placeholder="Select type..."
+                  searchPlaceholder="Search types..."
+                />
               </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="propertyAddress">Street Address *</Label>
-              <Input id="propertyAddress" defaultValue={property.address} placeholder="123 Main Street" />
+              <Input 
+                id="propertyAddress" 
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                placeholder="123 Main Street" 
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="propertyCity">City *</Label>
-                <Input id="propertyCity" defaultValue={property.city} placeholder="Accra" />
+                <Input 
+                  id="propertyCity" 
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  placeholder="Kigali" 
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="propertyState">Region/State *</Label>
-                <Input id="propertyState" defaultValue={property.state} placeholder="Greater Accra" />
+                <Input 
+                  id="propertyState" 
+                  value={formData.state}
+                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  placeholder="Kigali City" 
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="propertyZip">Postal/Zip Code</Label>
-                <Input id="propertyZip" defaultValue={property.zipCode} placeholder="00233" />
+                <Input 
+                  id="propertyZip" 
+                  value={formData.zip_code}
+                  onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
+                  placeholder="00000" 
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="propertyCountry">Country *</Label>
-                <Input id="propertyCountry" defaultValue={property.country} placeholder="Ghana" />
+                <Input 
+                  id="propertyCountry" 
+                  value={formData.country}
+                  onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                  placeholder="Rwanda" 
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="propertyTotalUnits">Total Units</Label>
-                <Input id="propertyTotalUnits" type="number" defaultValue={String(property.totalUnits)} min="0" />
+                <Input 
+                  id="propertyTotalUnits" 
+                  type="number" 
+                  value={formData.total_units}
+                  onChange={(e) => setFormData({ ...formData, total_units: parseInt(e.target.value) || 0 })}
+                  min="0" 
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="propertyOccupiedUnits">Occupied Units</Label>
-                <Input id="propertyOccupiedUnits" type="number" defaultValue={String(property.occupiedUnits)} min="0" />
+                <Input 
+                  id="propertyOccupiedUnits" 
+                  type="number" 
+                  value={formData.occupied_units}
+                  onChange={(e) => setFormData({ ...formData, occupied_units: parseInt(e.target.value) || 0 })}
+                  min="0" 
+                />
               </div>
             </div>
 
@@ -501,7 +489,8 @@ export default function PropertyDetail() {
               <Label htmlFor="propertyDesc">Description</Label>
               <Textarea 
                 id="propertyDesc" 
-                defaultValue={property.description} 
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={4} 
                 placeholder="Describe the property, its amenities, location benefits, etc."
               />
@@ -512,13 +501,8 @@ export default function PropertyDetail() {
             <Button variant="outline" onClick={closeEdit}>
               Cancel
             </Button>
-            <Button
-              onClick={() => {
-                toast({ title: 'Saved', description: 'Property updated successfully.' });
-                closeEdit();
-              }}
-            >
-              Save Changes
+            <Button onClick={handleSave} disabled={updateProperty.isPending}>
+              {updateProperty.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -526,4 +510,3 @@ export default function PropertyDetail() {
     </div>
   );
 }
-
