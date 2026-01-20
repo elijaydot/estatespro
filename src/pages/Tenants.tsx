@@ -187,7 +187,7 @@ export default function Tenants() {
 
       const property = properties.find((p: any) => p.id === invitingTenant.property_id);
 
-      const { error } = await supabase.functions.invoke('send-tenant-invite', {
+      const { data, error } = await supabase.functions.invoke('send-tenant-invite', {
         body: {
           tenantId: invitingTenant.id,
           email: invitingTenant.email,
@@ -198,7 +198,19 @@ export default function Tenants() {
 
       if (error) throw new Error(error.message || 'Failed to send invite');
 
-      toast({ title: 'Success', description: `Invite sent to ${invitingTenant.email}` });
+      // Check if email was actually sent or if we need to show the link
+      if (data?.emailSent === false && data?.inviteLink) {
+        // Email failed (likely domain not verified), copy link instead
+        await navigator.clipboard.writeText(data.inviteLink);
+        toast({ 
+          title: 'Email Not Sent - Link Copied!', 
+          description: data.warning || 'Email service requires domain verification. The invite link has been copied to your clipboard - share it manually via WhatsApp, SMS, etc.',
+          variant: 'default',
+        });
+      } else {
+        toast({ title: 'Success', description: `Invite sent to ${invitingTenant.email}` });
+      }
+      
       setIsInviteDialogOpen(false);
       setInvitingTenant(null);
     } catch (error: any) {
