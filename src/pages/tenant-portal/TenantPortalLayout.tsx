@@ -6,16 +6,17 @@ import {
   Wrench, 
   FileText, 
   MessageSquare,
-  User,
   LogOut,
   Home,
   Menu,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/tenant' },
@@ -57,14 +58,29 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+const getInitials = (name: string) => {
+  if (!name) return '?';
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
+
 export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
+  const { data: portalData, isLoading } = useTenantPortalData();
 
   const handleLogout = () => {
     logout();
     navigate('/tenant/login');
   };
+
+  const tenantName = portalData?.tenant?.name || 'Tenant';
+  const unitNumber = portalData?.unit?.unit_number;
+  const propertyName = portalData?.property?.name || 'Property';
 
   return (
     <div className="min-h-screen bg-background">
@@ -78,7 +94,7 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
             </div>
             <div>
               <span className="font-bold text-foreground">Tenant Portal</span>
-              <p className="text-xs text-muted-foreground">Sunset Apartments</p>
+              <p className="text-xs text-muted-foreground">{propertyName}</p>
             </div>
           </div>
 
@@ -89,25 +105,35 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
 
           {/* User Section */}
           <div className="p-4 border-t border-border">
-            <div className="flex items-center gap-3 mb-3">
-              <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-primary/10 text-primary">
-                  SJ
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">Sarah Johnson</p>
-                <p className="text-xs text-muted-foreground">Unit 204</p>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-2">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
-            </div>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-muted-foreground"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {getInitials(tenantName)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{tenantName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {unitNumber ? `Unit ${unitNumber}` : 'No unit assigned'}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-muted-foreground"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </aside>

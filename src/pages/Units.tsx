@@ -40,6 +40,7 @@ import { toast } from '@/components/ui/use-toast';
 import { useUnits, useCreateUnit, useDeleteUnit } from '@/hooks/useUnits';
 import { useProperties } from '@/hooks/useProperties';
 import { useSettings } from '@/contexts/SettingsContext';
+import { UnitPreviewCard } from '@/components/forms/UnitPreviewCard';
 
 const statusOptions = [
   { value: 'vacant', label: 'Vacant', description: 'Available for rent' },
