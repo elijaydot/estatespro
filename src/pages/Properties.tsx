@@ -39,6 +39,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { toast } from '@/components/ui/use-toast';
 import { useProperties, useCreateProperty, useDeleteProperty } from '@/hooks/useProperties';
 import { useSettings } from '@/contexts/SettingsContext';
+import { PropertyPreviewCard } from '@/components/forms/PropertyPreviewCard';
 
 const propertyTypeOptions = [
   { value: 'apartment', label: 'Apartment', description: 'Multi-unit residential building' },
@@ -273,103 +274,117 @@ export default function Properties() {
 
       {/* Add Property Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Property</DialogTitle>
             <DialogDescription>
               Enter the details for the new property. You can add units after creating the property.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Property Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., Sunset Apartments"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+          <div className="grid lg:grid-cols-2 gap-6 py-4">
+            <div className="grid gap-4">
               <div className="grid gap-2">
-                <Label>Property Type *</Label>
-                <SearchableSelect
-                  options={propertyTypeOptions}
-                  value={formData.type}
-                  onValueChange={(value) => setFormData({ ...formData, type: value })}
-                  placeholder="Select type..."
-                  searchPlaceholder="Search types..."
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="units">Total Units</Label>
+                <Label htmlFor="name">Property Name *</Label>
                 <Input
-                  id="units"
-                  type="number"
-                  value={formData.total_units}
-                  onChange={(e) => setFormData({ ...formData, total_units: parseInt(e.target.value) || 1 })}
-                  placeholder="24"
-                  min={1}
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., Sunset Apartments"
                 />
               </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="address">Street Address *</Label>
-              <Input
-                id="address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="123 Main Street"
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="city">City *</Label>
-                <Input
-                  id="city"
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  placeholder="Kigali"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="state">State/Province</Label>
-                <Input
-                  id="state"
-                  value={formData.state}
-                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                  placeholder="Kigali City"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Property Type *</Label>
+                  <SearchableSelect
+                    options={propertyTypeOptions}
+                    value={formData.type}
+                    onValueChange={(value) => setFormData({ ...formData, type: value })}
+                    placeholder="Select type..."
+                    searchPlaceholder="Search types..."
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="units">Total Units</Label>
+                  <Input
+                    id="units"
+                    type="number"
+                    value={formData.total_units}
+                    onChange={(e) => setFormData({ ...formData, total_units: parseInt(e.target.value) || 1 })}
+                    min={1}
+                  />
+                </div>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="zip">ZIP/Postal Code</Label>
+                <Label htmlFor="address">Street Address *</Label>
                 <Input
-                  id="zip"
-                  value={formData.zip_code}
-                  onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
-                  placeholder="00000"
+                  id="address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="123 Main Street"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="city">City *</Label>
+                  <Input
+                    id="city"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    placeholder="Kigali"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="state">State/Province</Label>
+                  <Input
+                    id="state"
+                    value={formData.state}
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    placeholder="Kigali City"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="zip">ZIP Code</Label>
+                  <Input
+                    id="zip"
+                    value={formData.zip_code}
+                    onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
+                    placeholder="00000"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="country">Country</Label>
+                  <Input
+                    id="country"
+                    value={formData.country}
+                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                    placeholder="Rwanda"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Describe the property..."
+                  rows={3}
                 />
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="country">Country</Label>
-              <Input
-                id="country"
-                value={formData.country}
-                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                placeholder="Rwanda"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Describe the property..."
-                rows={3}
-              />
-            </div>
+            <PropertyPreviewCard
+              name={formData.name}
+              type={formData.type}
+              address={formData.address}
+              city={formData.city}
+              state={formData.state}
+              zipCode={formData.zip_code}
+              country={formData.country}
+              totalUnits={formData.total_units}
+              description={formData.description}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>

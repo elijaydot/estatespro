@@ -44,16 +44,21 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { toast } from '@/components/ui/use-toast';
 import { useTenants, useCreateTenant, useDeleteTenant } from '@/hooks/useTenants';
 import { useProperties } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
+import { useTenantInvites } from '@/hooks/useTenantInvites';
 import { useSettings } from '@/contexts/SettingsContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, isPast } from 'date-fns';
+import { PortalStatusBadge } from '@/components/tenants/PortalStatusBadge';
+import { InvitesManagement } from '@/components/invites/InvitesManagement';
+import { TenantPreviewCard } from '@/components/forms/TenantPreviewCard';
 
 const getLeaseStatusBadge = (leaseEndDate: string | null) => {
   if (!leaseEndDate) return <Badge className="bg-muted text-muted-foreground">No Lease</Badge>;
@@ -116,8 +121,19 @@ export default function Tenants() {
   const { data: tenants = [], isLoading } = useTenants();
   const { data: properties = [] } = useProperties();
   const { data: units = [] } = useUnits();
+  const { data: invites = [] } = useTenantInvites();
   const createTenant = useCreateTenant();
   const deleteTenant = useDeleteTenant();
+  const [activeTab, setActiveTab] = useState('tenants');
+
+  // Check if a tenant has a pending invite
+  const hasPendingInvite = (tenantId: string) => {
+    return invites.some((invite: any) => 
+      invite.tenant_id === tenantId && 
+      !invite.used_at && 
+      !isPast(new Date(invite.expires_at))
+    );
+  };
 
   const propertyOptions = properties.map((property: any) => ({
     value: property.id,
@@ -270,7 +286,7 @@ export default function Tenants() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Tenants</h1>
           <p className="text-muted-foreground">
-            Manage tenant profiles and information
+            Manage tenant profiles and portal invitations
           </p>
         </div>
         <Button className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
@@ -279,29 +295,37 @@ export default function Tenants() {
         </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 animate-fade-in">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search tenants..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Button variant="outline" className="gap-2">
-          <Filter className="h-4 w-4" />
-          Filters
-        </Button>
-      </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="animate-fade-in">
+        <TabsList>
+          <TabsTrigger value="tenants">All Tenants</TabsTrigger>
+          <TabsTrigger value="invites">Portal Invites</TabsTrigger>
+        </TabsList>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      )}
+        <TabsContent value="tenants" className="space-y-4 mt-4">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search tenants..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button variant="outline" className="gap-2">
+              <Filter className="h-4 w-4" />
+              Filters
+            </Button>
+          </div>
+
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
 
       {/* Tenants Table */}
       {!isLoading && filteredTenants.length > 0 && (
@@ -312,7 +336,7 @@ export default function Tenants() {
                 <TableHead>Tenant</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Property / Unit</TableHead>
-                <TableHead>Move-in Date</TableHead>
+                <TableHead>Portal Status</TableHead>
                 <TableHead>Lease Status</TableHead>
                 <TableHead>Balance</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
@@ -357,14 +381,10 @@ export default function Tenants() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {tenant.move_in_date ? (
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Calendar className="h-3.5 w-3.5" />
-                        {format(new Date(tenant.move_in_date), 'MMM dd, yyyy')}
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
+                    <PortalStatusBadge 
+                      tenantUserId={tenant.tenant_user_id}
+                      hasPendingInvite={hasPendingInvite(tenant.id)}
+                    />
                   </TableCell>
                   <TableCell>
                     {getLeaseStatusBadge(tenant.lease_end_date)}
@@ -455,8 +475,12 @@ export default function Tenants() {
           </p>
         </div>
       )}
+        </TabsContent>
 
-      {/* Add Tenant Dialog */}
+        <TabsContent value="invites" className="mt-4">
+          <InvitesManagement />
+        </TabsContent>
+      </Tabs>
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>

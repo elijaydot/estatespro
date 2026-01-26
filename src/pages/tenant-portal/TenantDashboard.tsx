@@ -10,64 +10,77 @@ import {
   ArrowRight,
   Home,
   CreditCard,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-
-// Mock tenant data
-const tenantData = {
-  name: 'Sarah',
-  unit: 'Unit 204',
-  property: 'Sunset Apartments',
-  nextPayment: {
-    amount: 1500,
-    dueDate: 'Feb 01, 2025',
-    daysUntilDue: 15,
-  },
-  lease: {
-    endDate: 'Mar 14, 2025',
-    daysRemaining: 62,
-    totalDays: 365,
-  },
-  balance: 0,
-  maintenanceRequests: {
-    open: 0,
-    completed: 4,
-  },
-};
-
-// Mock recent activity
-const recentActivity = [
-  { id: '1', type: 'payment', title: 'Rent payment received', description: 'January 2025 rent - $1,500', date: '2 days ago', icon: DollarSign, color: 'text-success' },
-  { id: '2', type: 'maintenance', title: 'Maintenance completed', description: 'HVAC filter replacement', date: '1 week ago', icon: Wrench, color: 'text-info' },
-  { id: '3', type: 'message', title: 'Message from property manager', description: 'Regarding upcoming inspection', date: '2 weeks ago', icon: FileText, color: 'text-primary' },
-];
-
-// Mock announcements
-const announcements = [
-  { id: '1', title: 'Building Maintenance', content: 'Elevator maintenance scheduled for Jan 20th, 9 AM - 12 PM.', date: 'Jan 15, 2025', priority: 'normal' },
-  { id: '2', title: 'Community Event', content: 'Join us for a resident meet & greet on Jan 25th!', date: 'Jan 10, 2025', priority: 'low' },
-];
+import { useTenantPortalData } from '@/hooks/useTenantPortalData';
+import { useSettings } from '@/contexts/SettingsContext';
+import { format, differenceInDays } from 'date-fns';
 
 export default function TenantDashboard() {
-  const leaseProgress = ((tenantData.lease.totalDays - tenantData.lease.daysRemaining) / tenantData.lease.totalDays) * 100;
+  const { data: portalData, isLoading } = useTenantPortalData();
+  const { formatCurrency } = useSettings();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!portalData || !portalData.tenant) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="text-center py-12">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold">Account Not Linked</h2>
+          <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+            Your account hasn't been linked to a tenant profile yet. 
+            Please contact your property manager for assistance.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const { tenant, property, unit, currentLease, nextPayment, stats } = portalData;
+
+  // Calculate lease progress
+  const leaseProgress = currentLease
+    ? (() => {
+        const totalDays = differenceInDays(new Date(currentLease.end_date), new Date(currentLease.start_date));
+        const daysRemaining = Math.max(0, differenceInDays(new Date(currentLease.end_date), new Date()));
+        return ((totalDays - daysRemaining) / totalDays) * 100;
+      })()
+    : 0;
+
+  const daysRemaining = currentLease
+    ? Math.max(0, differenceInDays(new Date(currentLease.end_date), new Date()))
+    : 0;
+
+  // Calculate days until next payment
+  const daysUntilDue = nextPayment
+    ? differenceInDays(new Date(nextPayment.due_date), new Date())
+    : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Welcome Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Welcome back, {tenantData.name}!</h1>
+        <h1 className="text-2xl font-bold text-foreground">Welcome back, {tenant.name.split(' ')[0]}!</h1>
         <p className="text-muted-foreground flex items-center gap-1 mt-1">
           <Home className="h-4 w-4" />
-          {tenantData.unit} • {tenantData.property}
+          {unit ? `Unit ${unit.unit_number}` : 'No unit assigned'} • {property?.name || 'No property'}
         </p>
       </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link to="/portal/payments">
+        <Link to="/tenant/payments">
           <Card className="card-shadow-md hover:card-shadow-lg transition-all cursor-pointer h-full">
             <CardContent className="pt-6 text-center">
               <div className="p-3 rounded-xl bg-success/10 w-fit mx-auto mb-3">
@@ -77,7 +90,7 @@ export default function TenantDashboard() {
             </CardContent>
           </Card>
         </Link>
-        <Link to="/portal/maintenance">
+        <Link to="/tenant/maintenance">
           <Card className="card-shadow-md hover:card-shadow-lg transition-all cursor-pointer h-full">
             <CardContent className="pt-6 text-center">
               <div className="p-3 rounded-xl bg-warning/10 w-fit mx-auto mb-3">
@@ -87,7 +100,7 @@ export default function TenantDashboard() {
             </CardContent>
           </Card>
         </Link>
-        <Link to="/portal/lease">
+        <Link to="/tenant/lease">
           <Card className="card-shadow-md hover:card-shadow-lg transition-all cursor-pointer h-full">
             <CardContent className="pt-6 text-center">
               <div className="p-3 rounded-xl bg-info/10 w-fit mx-auto mb-3">
@@ -97,7 +110,7 @@ export default function TenantDashboard() {
             </CardContent>
           </Card>
         </Link>
-        <Link to="/portal/messages">
+        <Link to="/tenant/messages">
           <Card className="card-shadow-md hover:card-shadow-lg transition-all cursor-pointer h-full">
             <CardContent className="pt-6 text-center">
               <div className="p-3 rounded-xl bg-primary/10 w-fit mx-auto mb-3">
@@ -116,41 +129,52 @@ export default function TenantDashboard() {
           <Card className="card-shadow-md">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg">Upcoming Payment</CardTitle>
-              <Link to="/portal/payments">
+              <Link to="/tenant/payments">
                 <Button variant="ghost" size="sm" className="gap-1">
                   View All <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-3xl font-bold text-foreground">
-                    ${tenantData.nextPayment.amount.toLocaleString()}
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Due {tenantData.nextPayment.dueDate}
-                  </p>
+              {nextPayment ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-3xl font-bold text-foreground">
+                      {formatCurrency(nextPayment.amount - nextPayment.paid_amount)}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Due {format(new Date(nextPayment.due_date), 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <Badge className={
+                      daysUntilDue <= 5
+                        ? 'bg-warning/10 text-warning border-warning/20'
+                        : 'bg-success/10 text-success border-success/20'
+                    }>
+                      {daysUntilDue > 0 ? `${daysUntilDue} days left` : 'Due today'}
+                    </Badge>
+                    <Link to="/tenant/payments">
+                      <Button className="mt-3 gap-2">
+                        <CreditCard className="h-4 w-4" />
+                        Pay Now
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <Badge className={
-                    tenantData.nextPayment.daysUntilDue <= 5
-                      ? 'bg-warning/10 text-warning border-warning/20'
-                      : 'bg-success/10 text-success border-success/20'
-                  }>
-                    {tenantData.nextPayment.daysUntilDue} days left
-                  </Badge>
-                  <Button className="mt-3 gap-2">
-                    <CreditCard className="h-4 w-4" />
-                    Pay Now
-                  </Button>
+              ) : (
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-success/10">
+                  <CheckCircle className="h-5 w-5 text-success" />
+                  <span className="text-sm text-success font-medium">
+                    No pending payments - you're all caught up!
+                  </span>
                 </div>
-              </div>
-              {tenantData.balance > 0 && (
+              )}
+              {stats.balance > 0 && (
                 <div className="mt-4 p-3 rounded-lg bg-destructive/10 flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-destructive" />
                   <span className="text-sm text-destructive font-medium">
-                    Outstanding balance: ${tenantData.balance.toLocaleString()}
+                    Outstanding balance: {formatCurrency(stats.balance)}
                   </span>
                 </div>
               )}
@@ -163,20 +187,44 @@ export default function TenantDashboard() {
               <CardTitle className="text-lg">Recent Activity</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {recentActivity.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-4">
-                    <div className={`p-2 rounded-lg bg-secondary`}>
-                      <activity.icon className={`h-4 w-4 ${activity.color}`} />
+              {portalData.payments.length === 0 && portalData.maintenanceRequests.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">No recent activity</p>
+              ) : (
+                <div className="space-y-4">
+                  {portalData.payments.slice(0, 3).map((payment: any) => (
+                    <div key={payment.id} className="flex items-start gap-4">
+                      <div className="p-2 rounded-lg bg-secondary">
+                        <DollarSign className="h-4 w-4 text-success" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm">Payment received</p>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {formatCurrency(payment.amount)} - {payment.invoices?.description || 'Payment'}
+                        </p>
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {format(new Date(payment.created_at), 'MMM d')}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm">{activity.title}</p>
-                      <p className="text-sm text-muted-foreground truncate">{activity.description}</p>
+                  ))}
+                  {portalData.maintenanceRequests.slice(0, 2).map((request: any) => (
+                    <div key={request.id} className="flex items-start gap-4">
+                      <div className="p-2 rounded-lg bg-secondary">
+                        <Wrench className={`h-4 w-4 ${request.status === 'completed' ? 'text-success' : 'text-warning'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm">
+                          Maintenance {request.status === 'completed' ? 'completed' : 'submitted'}
+                        </p>
+                        <p className="text-sm text-muted-foreground truncate">{request.title}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {format(new Date(request.created_at), 'MMM d')}
+                      </span>
                     </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">{activity.date}</span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -189,26 +237,35 @@ export default function TenantDashboard() {
               <CardTitle className="text-lg">Lease Status</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">Lease Progress</span>
-                  <span className="font-medium">{Math.round(leaseProgress)}%</span>
+              {currentLease ? (
+                <>
+                  <div>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-muted-foreground">Lease Progress</span>
+                      <span className="font-medium">{Math.round(leaseProgress)}%</span>
+                    </div>
+                    <Progress value={leaseProgress} className="h-2" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Expires</span>
+                    <span className="font-medium">{format(new Date(currentLease.end_date), 'MMM d, yyyy')}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Days Remaining</span>
+                    <Badge variant="secondary">{daysRemaining} days</Badge>
+                  </div>
+                  <Link to="/tenant/lease">
+                    <Button variant="outline" className="w-full mt-2">
+                      View Lease Details
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No active lease</p>
                 </div>
-                <Progress value={leaseProgress} className="h-2" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Expires</span>
-                <span className="font-medium">{tenantData.lease.endDate}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Days Remaining</span>
-                <Badge variant="secondary">{tenantData.lease.daysRemaining} days</Badge>
-              </div>
-              <Link to="/portal/lease">
-                <Button variant="outline" className="w-full mt-2">
-                  View Lease Details
-                </Button>
-              </Link>
+              )}
             </CardContent>
           </Card>
 
@@ -216,7 +273,7 @@ export default function TenantDashboard() {
           <Card className="card-shadow-md">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg">Maintenance</CardTitle>
-              <Link to="/portal/maintenance">
+              <Link to="/tenant/maintenance">
                 <Button variant="ghost" size="sm" className="gap-1">
                   View <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -226,35 +283,46 @@ export default function TenantDashboard() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 rounded-lg bg-warning/10 text-center">
                   <Clock className="h-5 w-5 text-warning mx-auto mb-1" />
-                  <p className="text-2xl font-bold">{tenantData.maintenanceRequests.open}</p>
+                  <p className="text-2xl font-bold">{stats.openMaintenance}</p>
                   <p className="text-xs text-muted-foreground">Open</p>
                 </div>
                 <div className="p-4 rounded-lg bg-success/10 text-center">
                   <CheckCircle className="h-5 w-5 text-success mx-auto mb-1" />
-                  <p className="text-2xl font-bold">{tenantData.maintenanceRequests.completed}</p>
+                  <p className="text-2xl font-bold">{stats.completedMaintenance}</p>
                   <p className="text-xs text-muted-foreground">Completed</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Announcements */}
-          <Card className="card-shadow-md">
-            <CardHeader>
-              <CardTitle className="text-lg">Announcements</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {announcements.map((announcement) => (
-                  <div key={announcement.id} className="pb-4 border-b border-border last:border-0 last:pb-0">
-                    <p className="font-medium text-sm">{announcement.title}</p>
-                    <p className="text-sm text-muted-foreground mt-1">{announcement.content}</p>
-                    <p className="text-xs text-muted-foreground mt-2">{announcement.date}</p>
+          {/* Unit Info */}
+          {unit && (
+            <Card className="card-shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg">Your Unit</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Unit</span>
+                    <span className="font-medium">{unit.unit_number}</span>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Bedrooms</span>
+                    <span className="font-medium">{unit.bedrooms}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Bathrooms</span>
+                    <span className="font-medium">{unit.bathrooms}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Size</span>
+                    <span className="font-medium">{unit.sqft} sq ft</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
