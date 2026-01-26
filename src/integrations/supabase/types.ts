@@ -897,6 +897,17 @@ export type Database = {
             }
             Returns: string
           }
+      validate_invite_token: {
+        Args: { lookup_token: string }
+        Returns: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          tenant_id: string
+          used_at: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
