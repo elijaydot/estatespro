@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       app_settings: {
         Row: {
+          accent_color: string | null
           created_at: string
           currency_code: string
           currency_symbol: string
@@ -27,6 +28,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          accent_color?: string | null
           created_at?: string
           currency_code?: string
           currency_symbol?: string
@@ -38,6 +40,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          accent_color?: string | null
           created_at?: string
           currency_code?: string
           currency_symbol?: string
@@ -545,6 +548,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          image_url: string | null
           name: string
           occupied_units: number
           state: string
@@ -561,6 +565,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           name: string
           occupied_units?: number
           state: string
@@ -577,6 +582,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           name?: string
           occupied_units?: number
           state?: string
@@ -721,6 +727,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          avatar_url: string | null
           balance: number
           created_at: string
           email: string
@@ -744,6 +751,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          avatar_url?: string | null
           balance?: number
           created_at?: string
           email: string
@@ -767,6 +775,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          avatar_url?: string | null
           balance?: number
           created_at?: string
           email?: string
@@ -815,6 +824,7 @@ export type Database = {
           description: string | null
           floor: number
           id: string
+          image_url: string | null
           property_id: string
           rent_amount: number
           sqft: number
@@ -831,6 +841,7 @@ export type Database = {
           description?: string | null
           floor?: number
           id?: string
+          image_url?: string | null
           property_id: string
           rent_amount?: number
           sqft?: number
@@ -847,6 +858,7 @@ export type Database = {
           description?: string | null
           floor?: number
           id?: string
+          image_url?: string | null
           property_id?: string
           rent_amount?: number
           sqft?: number
@@ -904,7 +916,12 @@ export type Database = {
           email: string
           expires_at: string
           id: string
+          tenant_email: string
           tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          tenant_property_id: string
+          tenant_unit_id: string
           used_at: string
         }[]
       }

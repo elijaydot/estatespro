@@ -12,6 +12,7 @@ export interface Tenant {
   employer: string | null;
   occupation: string | null;
   id_document: string | null;
+  avatar_url: string | null;
   property_id: string | null;
   unit_id: string | null;
   move_in_date: string | null;
@@ -20,6 +21,7 @@ export interface Tenant {
   security_deposit: number;
   balance: number;
   status: string;
+  tenant_user_id: string | null;
   created_at: string;
   updated_at: string;
   user_id: string;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Globe, DollarSign, Clock, Calendar, Save } from 'lucide-react';
+import { Settings as SettingsIcon, Globe, DollarSign, Calendar, Save, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/use-toast';
 import { useSettings } from '@/contexts/SettingsContext';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { ColorPicker } from '@/components/ui/color-picker';
 
 const currencyOptions = [
   { value: 'RWF', label: 'RWF - Rwandan Franc', description: 'Rwanda' },
@@ -60,6 +61,7 @@ export default function Settings() {
     defaultCountry: 'Rwanda',
     timezone: 'Africa/Kigali',
     dateFormat: 'DD/MM/YYYY',
+    accentColor: '#f59e0b',
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -71,9 +73,43 @@ export default function Settings() {
         defaultCountry: settings.defaultCountry,
         timezone: settings.timezone,
         dateFormat: settings.dateFormat,
+        accentColor: settings.accentColor,
       });
     }
   }, [settings, isLoading]);
+
+  // Apply accent color to CSS custom property
+  useEffect(() => {
+    const root = document.documentElement;
+    // Convert hex to HSL for CSS variable
+    const hexToHsl = (hex: string): string => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      if (!result) return '37 92% 51%';
+      
+      let r = parseInt(result[1], 16) / 255;
+      let g = parseInt(result[2], 16) / 255;
+      let b = parseInt(result[3], 16) / 255;
+
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      let h = 0, s = 0;
+      const l = (max + min) / 2;
+
+      if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+          case g: h = ((b - r) / d + 2) / 6; break;
+          case b: h = ((r - g) / d + 4) / 6; break;
+        }
+      }
+
+      return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+    };
+
+    root.style.setProperty('--accent', hexToHsl(formData.accentColor));
+  }, [formData.accentColor]);
 
   const handleCurrencyChange = (value: string) => {
     setFormData(prev => ({
@@ -219,8 +255,47 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Preview */}
+        {/* Appearance Settings */}
         <Card className="card-shadow-md">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-accent/10">
+                <Palette className="h-5 w-5 text-accent" />
+              </div>
+              <div>
+                <CardTitle>Appearance</CardTitle>
+                <CardDescription>Customize the look and feel of the app</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2">
+              <Label>Accent Color</Label>
+              <ColorPicker
+                value={formData.accentColor}
+                onChange={(color) => setFormData(prev => ({ ...prev, accentColor: color }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Choose a color to accent buttons, links, and highlights
+              </p>
+            </div>
+            <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
+              <div className="flex items-center gap-3">
+                <div 
+                  className="h-10 w-10 rounded-lg"
+                  style={{ backgroundColor: formData.accentColor }}
+                />
+                <div>
+                  <p className="font-medium" style={{ color: formData.accentColor }}>Preview</p>
+                  <p className="text-xs text-muted-foreground">This is how your accent color will look</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Preview */}
+        <Card className="card-shadow-md md:col-span-2">
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-accent/10">
@@ -233,20 +308,20 @@ export default function Settings() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-4 rounded-lg bg-muted/50 space-y-3">
-              <div className="flex justify-between">
+            <div className="p-4 rounded-lg bg-muted/50 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="flex justify-between sm:flex-col sm:gap-1">
                 <span className="text-muted-foreground">Currency:</span>
                 <span className="font-medium">{formData.currencySymbol} 1,500,000</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between sm:flex-col sm:gap-1">
                 <span className="text-muted-foreground">Country:</span>
                 <span className="font-medium">{formData.defaultCountry}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between sm:flex-col sm:gap-1">
                 <span className="text-muted-foreground">Timezone:</span>
                 <span className="font-medium">{formData.timezone}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between sm:flex-col sm:gap-1">
                 <span className="text-muted-foreground">Date Format:</span>
                 <span className="font-medium">{formData.dateFormat}</span>
               </div>

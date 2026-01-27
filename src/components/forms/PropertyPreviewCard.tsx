@@ -12,6 +12,7 @@ interface PropertyPreviewCardProps {
   country: string;
   totalUnits: number;
   description?: string;
+  imageUrl?: string;
 }
 
 const getPropertyTypeBadge = (type: string) => {
@@ -34,8 +35,9 @@ export function PropertyPreviewCard({
   country,
   totalUnits,
   description,
+  imageUrl,
 }: PropertyPreviewCardProps) {
-  const hasData = name || address || city;
+  const hasData = name || address || city || imageUrl;
 
   return (
     <Card className="card-shadow-md border-dashed border-2 border-primary/20 bg-primary/5">
@@ -54,8 +56,12 @@ export function PropertyPreviewCard({
         ) : (
           <div className="space-y-4">
             {/* Header */}
-            <div className="h-24 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg flex items-center justify-center relative">
-              <Building2 className="h-10 w-10 text-primary/40" />
+            <div className="h-24 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg flex items-center justify-center relative overflow-hidden">
+              {imageUrl ? (
+                <img src={imageUrl} alt={name || 'Property'} className="w-full h-full object-cover" />
+              ) : (
+                <Building2 className="h-10 w-10 text-primary/40" />
+              )}
               {type && (
                 <Badge className={`absolute top-2 right-2 text-xs ${getPropertyTypeBadge(type)}`}>
                   {type}
