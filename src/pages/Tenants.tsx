@@ -59,6 +59,7 @@ import { format, differenceInDays, isPast } from 'date-fns';
 import { PortalStatusBadge } from '@/components/tenants/PortalStatusBadge';
 import { InvitesManagement } from '@/components/invites/InvitesManagement';
 import { TenantPreviewCard } from '@/components/forms/TenantPreviewCard';
+import { ImageUpload } from '@/components/ui/image-upload';
 
 const getLeaseStatusBadge = (leaseEndDate: string | null) => {
   if (!leaseEndDate) return <Badge className="bg-muted text-muted-foreground">No Lease</Badge>;
@@ -107,6 +108,7 @@ export default function Tenants() {
     emergency_phone: '',
     employer: '',
     occupation: '',
+    avatar_url: '',
   });
 
   // Handle ?add=true query parameter from Quick Add
@@ -166,8 +168,10 @@ export default function Tenants() {
       unit_id: formData.unit_id || null,
       move_in_date: formData.move_in_date || null,
       lease_end_date: formData.lease_end_date || null,
-      status: 'active',
+      avatar_url: formData.avatar_url || null,
+      tenant_user_id: null,
       id_document: null,
+      status: 'active',
       balance: 0,
     });
     setIsAddDialogOpen(false);
@@ -185,6 +189,7 @@ export default function Tenants() {
       emergency_phone: '',
       employer: '',
       occupation: '',
+      avatar_url: '',
     });
   };
 
@@ -490,6 +495,17 @@ export default function Tenants() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Profile Photo</Label>
+              <ImageUpload
+                value={formData.avatar_url}
+                onChange={(url) => setFormData({ ...formData, avatar_url: url || '' })}
+                folder="tenants"
+                placeholder="Upload tenant photo"
+                aspectRatio="square"
+                className="max-w-[150px]"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="name">Full Name *</Label>

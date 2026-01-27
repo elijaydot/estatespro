@@ -36,6 +36,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { ImageUpload } from '@/components/ui/image-upload';
 import { toast } from '@/components/ui/use-toast';
 import { useProperties, useCreateProperty, useDeleteProperty } from '@/hooks/useProperties';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -92,6 +93,7 @@ export default function Properties() {
     country: settings.defaultCountry,
     description: '',
     total_units: 1,
+    image_url: '',
   });
 
   const { data: properties = [], isLoading } = useProperties();
@@ -110,7 +112,11 @@ export default function Properties() {
       return;
     }
 
-    await createProperty.mutateAsync({ ...formData, occupied_units: 0 });
+    await createProperty.mutateAsync({ 
+      ...formData, 
+      occupied_units: 0,
+      image_url: formData.image_url || null,
+    });
     setIsAddDialogOpen(false);
     setFormData({
       name: '',
@@ -122,6 +128,7 @@ export default function Properties() {
       country: settings.defaultCountry,
       description: '',
       total_units: 1,
+      image_url: '',
     });
   };
 
@@ -181,8 +188,12 @@ export default function Properties() {
               style={{ animationDelay: `${index * 50}ms` }}
             >
               {/* Property Image/Placeholder */}
-              <div className="h-40 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center relative">
-                <Building2 className="h-16 w-16 text-primary/40" />
+              <div className="h-40 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center relative overflow-hidden">
+                {property.image_url ? (
+                  <img src={property.image_url} alt={property.name} className="w-full h-full object-cover" />
+                ) : (
+                  <Building2 className="h-16 w-16 text-primary/40" />
+                )}
                 <Badge
                   className={`absolute top-3 right-3 ${getPropertyTypeBadge(property.type)}`}
                 >
@@ -284,6 +295,15 @@ export default function Properties() {
           <div className="grid lg:grid-cols-2 gap-6 py-4">
             <div className="grid gap-4">
               <div className="grid gap-2">
+                <Label>Property Image</Label>
+                <ImageUpload
+                  value={formData.image_url}
+                  onChange={(url) => setFormData({ ...formData, image_url: url || '' })}
+                  folder="properties"
+                  placeholder="Upload property image"
+                />
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="name">Property Name *</Label>
                 <Input
                   id="name"
@@ -384,6 +404,7 @@ export default function Properties() {
               country={formData.country}
               totalUnits={formData.total_units}
               description={formData.description}
+              imageUrl={formData.image_url}
             />
           </div>
           <DialogFooter>

@@ -78,7 +78,7 @@ export function useValidateInviteToken(token: string | null) {
       if (!token) return null;
       
       // Use the secure RPC function to validate tokens
-      // This prevents exposing all invite data through the table
+      // This now includes tenant info from the join in the function
       const { data: inviteData, error: inviteError } = await supabase
         .rpc('validate_invite_token', { lookup_token: token });
 
@@ -86,20 +86,23 @@ export function useValidateInviteToken(token: string | null) {
       if (!inviteData || inviteData.length === 0) return null;
 
       const invite = inviteData[0];
-      
-      // Fetch tenant details separately
-      const { data: tenantData, error: tenantError } = await supabase
-        .from('tenants')
-        .select('id, name, email, phone, property_id, unit_id')
-        .eq('id', invite.tenant_id)
-        .maybeSingle();
-
-      if (tenantError) throw tenantError;
 
       return {
-        ...invite,
+        id: invite.id,
+        tenant_id: invite.tenant_id,
+        email: invite.email,
+        expires_at: invite.expires_at,
+        used_at: invite.used_at,
+        created_at: invite.created_at,
         token, // Include token for use in the signup flow
-        tenants: tenantData
+        tenants: invite.tenant_name ? {
+          id: invite.tenant_id,
+          name: invite.tenant_name,
+          email: invite.tenant_email,
+          phone: invite.tenant_phone,
+          property_id: invite.tenant_property_id,
+          unit_id: invite.tenant_unit_id
+        } : null
       };
     },
     enabled: !!token,

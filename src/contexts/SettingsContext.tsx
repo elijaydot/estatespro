@@ -9,6 +9,7 @@ export interface AppSettings {
   defaultCountry: string;
   timezone: string;
   dateFormat: string;
+  accentColor: string;
 }
 
 interface SettingsContextType {
@@ -24,6 +25,7 @@ const defaultSettings: AppSettings = {
   defaultCountry: 'Rwanda',
   timezone: 'Africa/Kigali',
   dateFormat: 'DD/MM/YYYY',
+  accentColor: '#f59e0b',
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -68,6 +70,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           defaultCountry: data.default_country,
           timezone: data.timezone,
           dateFormat: data.date_format,
+          accentColor: data.accent_color || '#f59e0b',
         });
       }
     } catch (error) {
@@ -88,6 +91,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       if (newSettings.defaultCountry !== undefined) updateData.default_country = newSettings.defaultCountry;
       if (newSettings.timezone !== undefined) updateData.timezone = newSettings.timezone;
       if (newSettings.dateFormat !== undefined) updateData.date_format = newSettings.dateFormat;
+      if (newSettings.accentColor !== undefined) updateData.accent_color = newSettings.accentColor;
 
       const { error } = await supabase
         .from('app_settings')

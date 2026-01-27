@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { ImageUpload } from '@/components/ui/image-upload';
 import { toast } from '@/components/ui/use-toast';
 import { useUnits, useCreateUnit, useDeleteUnit } from '@/hooks/useUnits';
 import { useProperties } from '@/hooks/useProperties';
@@ -86,6 +87,7 @@ export default function Units() {
     rent_amount: 0,
     status: 'vacant',
     description: '',
+    image_url: '',
   });
 
   const { data: units = [], isLoading } = useUnits();
@@ -110,7 +112,11 @@ export default function Units() {
       return;
     }
 
-    await createUnit.mutateAsync({ ...formData, amenities: [] });
+    await createUnit.mutateAsync({ 
+      ...formData, 
+      amenities: [],
+      image_url: formData.image_url || null,
+    });
     setIsAddDialogOpen(false);
     setFormData({
       property_id: '',
@@ -122,6 +128,7 @@ export default function Units() {
       rent_amount: 0,
       status: 'vacant',
       description: '',
+      image_url: '',
     });
   };
 
@@ -282,6 +289,15 @@ export default function Units() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Unit Image</Label>
+              <ImageUpload
+                value={formData.image_url}
+                onChange={(url) => setFormData({ ...formData, image_url: url || '' })}
+                folder="units"
+                placeholder="Upload unit image"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>Property *</Label>

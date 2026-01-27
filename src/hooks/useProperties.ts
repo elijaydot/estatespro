@@ -14,6 +14,7 @@ export interface Property {
   description: string | null;
   total_units: number;
   occupied_units: number;
+  image_url: string | null;
   created_at: string;
   updated_at: string;
   user_id: string;
