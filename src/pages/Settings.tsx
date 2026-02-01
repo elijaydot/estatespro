@@ -81,19 +81,20 @@ export default function Settings() {
   // Apply accent color to CSS custom property
   useEffect(() => {
     const root = document.documentElement;
-    // Convert hex to HSL for CSS variable
-    const hexToHsl = (hex: string): string => {
+    
+    const hexToRgb = (hex: string) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-      if (!result) return '37 92% 51%';
-      
-      let r = parseInt(result[1], 16) / 255;
-      let g = parseInt(result[2], 16) / 255;
-      let b = parseInt(result[3], 16) / 255;
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : null;
+    };
 
-      const max = Math.max(r, g, b);
-      const min = Math.min(r, g, b);
-      let h = 0, s = 0;
-      const l = (max + min) / 2;
+    const rgbToHsl = (r: number, g: number, b: number) => {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h = 0, s = 0, l = (max + min) / 2;
 
       if (max !== min) {
         const d = max - min;
@@ -104,11 +105,23 @@ export default function Settings() {
           case b: h = ((r - g) / d + 4) / 6; break;
         }
       }
-
       return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
     };
 
-    root.style.setProperty('--accent', hexToHsl(formData.accentColor));
+    const rgb = hexToRgb(formData.accentColor);
+    if (rgb) {
+      const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+      root.style.setProperty('--accent', hsl);
+      root.style.setProperty('--primary', hsl);
+      root.style.setProperty('--ring', hsl);
+
+      // Calculate contrast for foreground
+      const yiq = ((rgb.r * 299) + (rgb.g * 587) + (rgb.b * 114)) / 1000;
+      const foreground = (yiq >= 128) ? '222.2 84% 4.9%' : '210 40% 98%';
+      
+      root.style.setProperty('--primary-foreground', foreground);
+      root.style.setProperty('--accent-foreground', foreground);
+    }
   }, [formData.accentColor]);
 
   const handleCurrencyChange = (value: string) => {
