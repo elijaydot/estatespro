@@ -112,30 +112,12 @@ export function useValidateInviteToken(token: string | null) {
 export function useMarkInviteUsed() {
   return useMutation({
     mutationFn: async ({ token, tenantUserId }: { token: string; tenantUserId: string }) => {
-      // Update the invite as used
-      const { error: inviteError } = await supabase
-        .from('tenant_invites')
-        .update({ used_at: new Date().toISOString() })
-        .eq('token', token);
+      const { data, error } = await supabase.functions.invoke('accept-tenant-invite', {
+        body: { token, tenantUserId }
+      });
 
-      if (inviteError) throw inviteError;
-
-      // Get tenant_id from the invite
-      const { data: invite, error: fetchError } = await supabase
-        .from('tenant_invites')
-        .select('tenant_id')
-        .eq('token', token)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Link the tenant to the user account
-      const { error: updateError } = await supabase
-        .from('tenants')
-        .update({ tenant_user_id: tenantUserId })
-        .eq('id', invite.tenant_id);
-
-      if (updateError) throw updateError;
+      if (error) throw error;
+      return data;
     },
   });
 }
