@@ -91,7 +91,21 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get the app URL from environment or use default
-    const appUrl = origin || Deno.env.get("APP_URL") || "https://lovable.dev";
+    // We prioritize the origin passed from the client, then the request origin header, then the APP_URL env var
+    const requestOrigin = req.headers.get("origin");
+    const referer = req.headers.get("referer");
+    let refererOrigin;
+    if (referer) {
+      try {
+        refererOrigin = new URL(referer).origin;
+      } catch {
+        // ignore invalid urls
+      }
+    }
+
+    const appUrl = origin || requestOrigin || refererOrigin || Deno.env.get("APP_URL") || "https://lovable.dev";
+    console.log("Using App URL:", appUrl);
+
     const inviteLink = `${appUrl}/tenant/signup?invite=${token}`;
 
     // Send email
