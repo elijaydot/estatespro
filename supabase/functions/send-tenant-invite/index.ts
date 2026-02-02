@@ -91,7 +91,6 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get the app URL from environment or use default
-    // We prioritize the origin passed from the client, then the request origin header, then the APP_URL env var
     const requestOrigin = req.headers.get("origin");
     const referer = req.headers.get("referer");
     let refererOrigin;
@@ -103,7 +102,17 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    const appUrl = origin || requestOrigin || refererOrigin || Deno.env.get("APP_URL") || "https://lovable.dev";
+    // Filter out the default domain to find the specific project URL
+    // This helps when running in the Lovable editor where origin might be lovable.dev
+    // but the actual project is on a subdomain
+    const candidates = [
+      Deno.env.get("APP_URL"),
+      origin,
+      requestOrigin,
+      refererOrigin
+    ].filter(url => url && url !== "https://lovable.dev");
+
+    const appUrl = candidates.length > 0 ? candidates[0] : (origin || "https://lovable.dev");
     console.log("Using App URL:", appUrl);
 
     const inviteLink = `${appUrl}/tenant/signup?invite=${token}`;
