@@ -20,7 +20,7 @@ export default function TenantLogin() {
     e.preventDefault();
     setIsSubmitting(true);
     
-    const { error } = await login(email, password);
+    const { error } = await login(email.trim().toLowerCase(), password);
     
     if (error) {
       toast({
@@ -75,7 +75,7 @@ export default function TenantLogin() {
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
                   <Link
-                    to="/forgot-password"
+                    to="/tenant/forgot-password"
                     className="text-sm text-accent hover:underline"
                   >
                     Forgot password?
