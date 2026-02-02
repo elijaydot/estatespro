@@ -37,6 +37,8 @@ import TenantMessages from "./pages/tenant-portal/TenantMessages";
 import TenantLeaseSign from "./pages/tenant-portal/TenantLeaseSign";
 import TenantLogin from "./pages/tenant-portal/TenantLogin";
 import TenantSignup from "./pages/tenant-portal/TenantSignup";
+import TenantForgotPassword from "./pages/tenant-portal/TenantForgotPassword";
+import TenantResetPassword from "./pages/tenant-portal/TenantResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -98,6 +100,8 @@ function AppRoutes() {
       {/* Tenant Portal Routes */}
       <Route path="/tenant/login" element={<TenantLogin />} />
       <Route path="/tenant/signup" element={<TenantSignup />} />
+      <Route path="/tenant/forgot-password" element={<TenantForgotPassword />} />
+      <Route path="/tenant/reset-password" element={<TenantResetPassword />} />
       <Route path="/tenant" element={<TenantPortalRoute><TenantDashboard /></TenantPortalRoute>} />
       <Route path="/tenant/payments" element={<TenantPortalRoute><TenantPayments /></TenantPortalRoute>} />
       <Route path="/tenant/maintenance" element={<TenantPortalRoute><TenantMaintenance /></TenantPortalRoute>} />

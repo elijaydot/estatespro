@@ -56,7 +56,7 @@ export default function TenantSignup() {
 
       // Create the user account
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
         options: {
           emailRedirectTo: redirectUrl,
@@ -74,7 +74,7 @@ export default function TenantSignup() {
       let tenantUserId = authData.user?.id;
       if (!authData.session) {
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: formData.email,
+          email: formData.email.trim().toLowerCase(),
           password: formData.password,
         });
 
@@ -99,7 +99,7 @@ export default function TenantSignup() {
       // Create profile for the user (best-effort; auth works even if this fails)
       const { error: profileError } = await supabase.from('profiles').insert({
         user_id: tenantUserId,
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         name: formData.name,
         role: 'tenant',
       });
