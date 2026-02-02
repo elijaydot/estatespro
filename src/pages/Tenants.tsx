@@ -214,6 +214,7 @@ export default function Tenants() {
           email: invitingTenant.email,
           landlordName: user?.email || 'Property Manager',
           propertyName: property?.name || 'Your Property',
+          origin: window.location.origin,
         },
       });
 

@@ -84,6 +84,7 @@ export function InvitesManagement() {
           email: invite.email,
           landlordName: user?.email || 'Property Manager',
           propertyName: property?.name || 'Your Property',
+          origin: window.location.origin,
         },
       });
 

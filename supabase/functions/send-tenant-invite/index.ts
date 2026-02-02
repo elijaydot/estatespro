@@ -14,6 +14,7 @@ interface InviteRequest {
   email: string;
   landlordName: string;
   propertyName: string;
+  origin?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -56,7 +57,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const userId = user.id;
 
-    const { tenantId, email, landlordName, propertyName }: InviteRequest = await req.json();
+    const { tenantId, email, landlordName, propertyName, origin }: InviteRequest = await req.json();
 
     // Validate input
     if (!tenantId || !email) {
@@ -90,7 +91,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get the app URL from environment or use default
-    const appUrl = Deno.env.get("APP_URL") || "https://lovable.dev";
+    const appUrl = origin || Deno.env.get("APP_URL") || "https://lovable.dev";
     const inviteLink = `${appUrl}/tenant/signup?invite=${token}`;
 
     // Send email
