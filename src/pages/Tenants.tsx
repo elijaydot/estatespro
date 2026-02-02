@@ -208,7 +208,6 @@ export default function Tenants() {
 
       const property = properties.find((p: any) => p.id === invitingTenant.property_id);
 
-      console.log('Sending invite with origin:', window.location.origin);
       const { data, error } = await supabase.functions.invoke('send-tenant-invite', {
         body: {
           tenantId: invitingTenant.id,

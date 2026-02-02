@@ -102,10 +102,12 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
+    console.log("Request Referer:", referer);
+
     // Heuristic for Lovable editor: try to infer project URL from referer if we are in the editor
     let inferredLovableUrl;
     if (referer && referer.includes("lovable.dev/projects/")) {
-      const match = referer.match(/projects\/([^\/]+)/);
+      const match = referer.match(/projects\/([^\/\?]+)/);
       if (match && match[1]) {
         inferredLovableUrl = `https://${match[1]}.lovable.app`;
       }
@@ -124,6 +126,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     const appUrl = candidates.length > 0 ? candidates[0] : (origin || "https://lovable.dev");
     console.log("Using App URL:", appUrl);
+
+    if (appUrl === "https://lovable.dev") {
+      console.warn("Warning: Using default Lovable domain. This may result in 404s if not running in the editor context correctly. Consider setting APP_URL env var.");
+    }
 
     const inviteLink = `${appUrl}/tenant/signup?invite=${token}`;
 

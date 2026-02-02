@@ -78,7 +78,6 @@ export function InvitesManagement() {
 
       // Try to send email
       const property = properties.find((p: any) => p.id === invite.tenants?.property_id);
-      console.log('Resending invite with origin:', window.location.origin);
       const { data, error } = await supabase.functions.invoke('send-tenant-invite', {
         body: {
           tenantId: invite.tenant_id,
