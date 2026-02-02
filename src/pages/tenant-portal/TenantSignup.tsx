@@ -16,6 +16,7 @@ export default function TenantSignup() {
   
   const { data: invite, isLoading: isValidating, error: validationError } = useValidateInviteToken(inviteToken);
   const markInviteUsed = useMarkInviteUsed();
+  const isEmailLocked = !!invite?.email;
   
   const [formData, setFormData] = useState({
     email: '',
@@ -51,11 +52,14 @@ export default function TenantSignup() {
     setIsSubmitting(true);
 
     try {
+      const redirectUrl = `${window.location.origin}/tenant`;
+
       // Create the user account
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
+          emailRedirectTo: redirectUrl,
           data: {
             name: formData.name,
             role: 'tenant',
@@ -65,26 +69,54 @@ export default function TenantSignup() {
 
       if (signUpError) throw signUpError;
 
-      if (authData.user) {
-        // Create profile for the user
-        await supabase.from('profiles').insert({
-          user_id: authData.user.id,
+      // In some cases (e.g., email already registered / email confirmation required), signUp may
+      // not return a session. We attempt an immediate sign-in to confirm the password is valid.
+      let tenantUserId = authData.user?.id;
+      if (!authData.session) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: formData.email,
-          name: formData.name,
-          role: 'tenant',
+          password: formData.password,
         });
 
-        // Mark invite as used and link tenant to user
-        if (inviteToken) {
-          await markInviteUsed.mutateAsync({
-            token: inviteToken,
-            tenantUserId: authData.user.id,
+        if (signInError) {
+          toast({
+            title: 'Unable to log you in',
+            description:
+              'This email may already have an account (your password was not changed). Please log in with your existing password.',
+            variant: 'destructive',
           });
+          navigate('/tenant/login');
+          return;
         }
 
-        toast({ title: 'Success', description: 'Account created successfully! You can now log in.' });
-        navigate('/tenant/login');
+        tenantUserId = signInData.user?.id;
       }
+
+      if (!tenantUserId) {
+        throw new Error('Account created, but user information was not returned. Please try again.');
+      }
+
+      // Create profile for the user (best-effort; auth works even if this fails)
+      const { error: profileError } = await supabase.from('profiles').insert({
+        user_id: tenantUserId,
+        email: formData.email,
+        name: formData.name,
+        role: 'tenant',
+      });
+      if (profileError) {
+        console.warn('Profile insert failed (non-blocking):', profileError);
+      }
+
+      // Mark invite as used and link tenant to user
+      if (inviteToken) {
+        await markInviteUsed.mutateAsync({
+          token: inviteToken,
+          tenantUserId,
+        });
+      }
+
+      toast({ title: 'Success', description: 'Account created successfully! You are now signed in.' });
+      navigate('/tenant');
     } catch (error: any) {
       console.error('Signup error:', error);
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -185,6 +217,8 @@ export default function TenantSignup() {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="your@email.com"
                 required
+                readOnly={isEmailLocked}
+                aria-readonly={isEmailLocked}
               />
             </div>
             <div className="grid gap-2">
