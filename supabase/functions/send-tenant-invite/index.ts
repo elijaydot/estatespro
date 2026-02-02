@@ -102,6 +102,15 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
+    // Heuristic for Lovable editor: try to infer project URL from referer if we are in the editor
+    let inferredLovableUrl;
+    if (referer && referer.includes("lovable.dev/projects/")) {
+      const match = referer.match(/projects\/([^\/]+)/);
+      if (match && match[1]) {
+        inferredLovableUrl = `https://${match[1]}.lovable.app`;
+      }
+    }
+
     // Filter out the default domain to find the specific project URL
     // This helps when running in the Lovable editor where origin might be lovable.dev
     // but the actual project is on a subdomain
@@ -109,7 +118,8 @@ const handler = async (req: Request): Promise<Response> => {
       Deno.env.get("APP_URL"),
       origin,
       requestOrigin,
-      refererOrigin
+      refererOrigin,
+      inferredLovableUrl
     ].filter(url => url && url !== "https://lovable.dev");
 
     const appUrl = candidates.length > 0 ? candidates[0] : (origin || "https://lovable.dev");
