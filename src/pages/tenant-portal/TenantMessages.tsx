@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   MessageSquare, 
   Send,
@@ -6,6 +6,7 @@ import {
   Clock,
   Search,
   Plus,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,79 +24,119 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-
-// Mock conversations
-const conversations = [
-  {
-    id: '1',
-    with: 'Property Management',
-    lastMessage: 'Thank you for reporting the issue. We have scheduled a technician to visit tomorrow between 9 AM and 12 PM.',
-    timestamp: '2 hours ago',
-    unread: true,
-    avatar: 'PM',
-  },
-  {
-    id: '2',
-    with: 'Maintenance Team',
-    lastMessage: 'The HVAC filter replacement has been completed. Please let us know if you experience any further issues.',
-    timestamp: 'Jan 12, 2025',
-    unread: false,
-    avatar: 'MT',
-  },
-  {
-    id: '3',
-    with: 'Property Management',
-    lastMessage: 'Reminder: Building inspection scheduled for next week.',
-    timestamp: 'Jan 5, 2025',
-    unread: false,
-    avatar: 'PM',
-  },
-];
-
-// Mock messages for selected conversation
-const mockMessages = [
-  {
-    id: '1',
-    from: 'tenant',
-    content: 'Hi, I wanted to report that the HVAC system seems to be making unusual noises.',
-    timestamp: '10:30 AM',
-  },
-  {
-    id: '2',
-    from: 'management',
-    content: 'Thank you for letting us know. Can you describe the type of noise? Is it a rattling, humming, or clicking sound?',
-    timestamp: '10:45 AM',
-  },
-  {
-    id: '3',
-    from: 'tenant',
-    content: 'It\'s more of a rattling sound, especially when the AC first turns on.',
-    timestamp: '11:00 AM',
-  },
-  {
-    id: '4',
-    from: 'management',
-    content: 'Thank you for the details. This is likely a loose component. We have scheduled a technician to visit tomorrow between 9 AM and 12 PM. Will someone be available to provide access?',
-    timestamp: '11:15 AM',
-  },
-  {
-    id: '5',
-    from: 'tenant',
-    content: 'Yes, I\'ll be home during that time. Thank you for the quick response!',
-    timestamp: '11:20 AM',
-  },
-  {
-    id: '6',
-    from: 'management',
-    content: 'Thank you for reporting the issue. We have scheduled a technician to visit tomorrow between 9 AM and 12 PM.',
-    timestamp: '2 hours ago',
-  },
-];
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/components/ui/use-toast';
+import { formatDistanceToNow } from 'date-fns';
 
 export default function TenantMessages() {
-  const [selectedConversation, setSelectedConversation] = useState(conversations[0]);
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [newSubject, setNewSubject] = useState('');
   const [isNewMessageOpen, setIsNewMessageOpen] = useState(false);
+  const [tenantProfile, setTenantProfile] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Fetch tenant profile and messages
+  useEffect(() => {
+    async function loadData() {
+      if (!user) return;
+
+      try {
+        // 1. Get tenant profile to know who the landlord is
+        const { data: tenant, error: tenantError } = await supabase
+          .from('tenants')
+          .select('*, properties(name)')
+          .eq('tenant_user_id', user.id)
+          .single();
+
+        if (tenantError) throw tenantError;
+        setTenantProfile(tenant);
+
+        // 2. Get messages
+        const { data: msgs, error: msgsError } = await supabase
+          .from('messages')
+          .select('*')
+          .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+          .order('created_at', { ascending: true });
+
+        if (msgsError) throw msgsError;
+        setMessages(msgs || []);
+
+      } catch (error) {
+        console.error('Error loading messages:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadData();
+
+    // Subscribe to new messages
+    const channel = supabase
+      .channel('tenant-messages')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `recipient_id=eq.${user?.id}`,
+      }, (payload) => {
+        setMessages(prev => [...prev, payload.new]);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  const handleSendMessage = async () => {
+    if ((!newMessage.trim() && !newSubject.trim()) || !tenantProfile) return;
+    
+    setIsSending(true);
+    try {
+      const { error } = await supabase.from('messages').insert({
+        sender_id: user?.id,
+        recipient_id: tenantProfile.user_id, // Landlord
+        property_id: tenantProfile.property_id,
+        content: newMessage || newSubject, // Use subject as content if message is empty (for new message dialog)
+        subject: newSubject || 'Message',
+        is_read: false
+      });
+
+      if (error) throw error;
+
+      // Optimistic update
+      const optimisticMessage = {
+        id: 'temp-' + Date.now(),
+        sender_id: user?.id,
+        recipient_id: tenantProfile.user_id,
+        content: newMessage || newSubject,
+        created_at: new Date().toISOString(),
+        subject: newSubject || 'Message',
+      };
+      
+      setMessages(prev => [...prev, optimisticMessage]);
+      setNewMessage('');
+      setNewSubject('');
+      setIsNewMessageOpen(false);
+      
+    } catch (error: any) {
+      toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -116,45 +157,36 @@ export default function TenantMessages() {
         {/* Conversations List */}
         <Card className="card-shadow-md lg:col-span-1">
           <CardHeader className="pb-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search messages..." className="pl-10" />
-            </div>
+            <CardTitle className="text-lg">Conversations</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[calc(100%-80px)]">
-              {conversations.map((conv) => (
-                <button
-                  key={conv.id}
-                  onClick={() => setSelectedConversation(conv)}
-                  className={`w-full p-4 text-left border-b border-border hover:bg-secondary/50 transition-colors ${
-                    selectedConversation.id === conv.id ? 'bg-secondary/50' : ''
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                        {conv.avatar}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{conv.with}</span>
-                        {conv.unread && (
-                          <Badge className="bg-primary h-2 w-2 p-0 rounded-full" />
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate mt-1">
-                        {conv.lastMessage}
-                      </p>
+              {/* Single conversation with Property Management for now */}
+              <div className="w-full p-4 text-left border-b border-border bg-secondary/50">
+                <div className="flex items-start gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                      PM
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Property Management</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate mt-1">
+                      {messages.length > 0 
+                        ? messages[messages.length - 1].content 
+                        : 'No messages yet'}
+                    </p>
+                    {messages.length > 0 && (
                       <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {conv.timestamp}
+                        {formatDistanceToNow(new Date(messages[messages.length - 1].created_at), { addSuffix: true })}
                       </p>
-                    </div>
+                    )}
                   </div>
-                </button>
-              ))}
+                </div>
+              </div>
             </ScrollArea>
           </CardContent>
         </Card>
@@ -165,40 +197,55 @@ export default function TenantMessages() {
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
                 <AvatarFallback className="bg-primary/10 text-primary">
-                  {selectedConversation.avatar}
+                  PM
                 </AvatarFallback>
               </Avatar>
               <div>
-                <CardTitle className="text-lg">{selectedConversation.with}</CardTitle>
+                <CardTitle className="text-lg">Property Management</CardTitle>
                 <p className="text-sm text-muted-foreground">Usually responds within 24 hours</p>
               </div>
             </div>
           </CardHeader>
           <CardContent className="flex-1 p-0 flex flex-col">
             <ScrollArea className="flex-1 p-4">
-              <div className="space-y-4">
-                {mockMessages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.from === 'tenant' ? 'justify-end' : 'justify-start'}`}
-                  >
+              {isLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
+                  <p>No messages yet. Start a conversation!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {messages.map((message) => {
+                    const isMe = message.sender_id === user?.id;
+                    return (
                     <div
-                      className={`max-w-[80%] p-3 rounded-lg ${
-                        message.from === 'tenant'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-secondary'
-                      }`}
+                      key={message.id}
+                      className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
                     >
-                      <p className="text-sm">{message.content}</p>
-                      <p className={`text-xs mt-1 ${
-                        message.from === 'tenant' ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                      }`}>
-                        {message.timestamp}
-                      </p>
+                      <div
+                        className={`max-w-[80%] p-3 rounded-lg ${
+                          isMe
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary'
+                        }`}
+                      >
+                        <p className="text-sm">{message.content}</p>
+                        <p className={`text-xs mt-1 ${
+                          isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                        }`}>
+                          {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                  <div ref={scrollRef} />
+                </div>
+              )}
             </ScrollArea>
             <div className="p-4 border-t border-border">
               <div className="flex gap-2">
@@ -206,11 +253,21 @@ export default function TenantMessages() {
                   placeholder="Type your message..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
                   className="min-h-[80px] resize-none"
                 />
-                <Button className="self-end gap-2">
-                  <Send className="h-4 w-4" />
-                  Send
+                <Button 
+                  className="self-end gap-2" 
+                  onClick={handleSendMessage}
+                  disabled={isSending || !newMessage.trim()}
+                >
+                  {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {isSending ? 'Sending...' : 'Send'}
                 </Button>
               </div>
             </div>
@@ -234,7 +291,12 @@ export default function TenantMessages() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="subject">Subject</Label>
-              <Input id="subject" placeholder="What is your message about?" />
+              <Input 
+                id="subject" 
+                placeholder="What is your message about?" 
+                value={newSubject}
+                onChange={(e) => setNewSubject(e.target.value)}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="message">Message</Label>
@@ -242,6 +304,8 @@ export default function TenantMessages() {
                 id="message"
                 placeholder="Type your message here..."
                 rows={5}
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
               />
             </div>
           </div>
@@ -249,8 +313,12 @@ export default function TenantMessages() {
             <Button variant="outline" onClick={() => setIsNewMessageOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => setIsNewMessageOpen(false)} className="gap-2">
-              <Send className="h-4 w-4" />
+            <Button 
+              onClick={handleSendMessage} 
+              className="gap-2"
+              disabled={isSending || (!newMessage.trim() && !newSubject.trim())}
+            >
+              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Send Message
             </Button>
           </DialogFooter>
