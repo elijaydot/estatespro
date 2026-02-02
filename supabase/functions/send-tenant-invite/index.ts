@@ -103,45 +103,38 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
+    // Published app URL - use this as the default for production invites
+    const PUBLISHED_APP_URL = "https://estatespro.lovable.app";
+    
     // Determine App URL
-    // Priority 1: Origin passed from client (most reliable for previews/custom domains)
-    let appUrl = origin;
+    // Priority 1: Origin passed from client if it's a valid app URL (not editor)
+    let appUrl: string = origin || "";
+    
+    // Check if origin is valid (not lovable.dev editor, not localhost)
+    const isValidAppUrl = (url: string | null | undefined): boolean => 
+      !!url && 
+      !url.includes("lovable.dev") && 
+      !url.includes("localhost") &&
+      url.startsWith("https://");
 
-    // Priority 2: Origin header
-    // If client didn't send origin, or sent the generic editor domain, try to find a better one
-    if (!appUrl || appUrl === "https://lovable.dev") {
-        if (requestOrigin && requestOrigin !== "https://lovable.dev") {
-            appUrl = requestOrigin;
-        }
-    }
-
-    // Priority 3: Referer header (and inference)
-    if (!appUrl || appUrl === "https://lovable.dev") {
-        if (referer) {
-            try {
-                const refererUrl = new URL(referer);
-                if (refererUrl.origin !== "https://lovable.dev") {
-                    appUrl = refererUrl.origin;
-                } else if (referer.includes("/projects/")) {
-                    // Try to infer project URL from Lovable editor URL
-                    const match = referer.match(/projects\/([^\/\?]+)/);
-                    if (match && match[1]) {
-                        appUrl = `https://${match[1]}.lovable.app`;
-                    }
-                }
-            } catch (e) {
-                console.error("Error parsing referer:", e);
-            }
-        }
-    }
-
-    // Priority 4: APP_URL env var or default
-    if (!appUrl || appUrl === "https://lovable.dev") {
-        appUrl = Deno.env.get("APP_URL") || "https://lovable.dev";
+    if (!isValidAppUrl(appUrl)) {
+      // Priority 2: Check request origin header
+      if (requestOrigin && isValidAppUrl(requestOrigin)) {
+        appUrl = requestOrigin;
+      }
+      // Priority 3: Check referer origin
+      else if (refererOrigin && isValidAppUrl(refererOrigin)) {
+        appUrl = refererOrigin;
+      }
+      // Priority 4: Use APP_URL env var or the published URL
+      else {
+        appUrl = Deno.env.get("APP_URL") || PUBLISHED_APP_URL;
+      }
     }
     
     // Ensure no trailing slash
     appUrl = appUrl.replace(/\/$/, "");
+    console.log("Resolved App URL:", appUrl);
     console.log("Final App URL:", appUrl);
 
     const inviteLink = `${appUrl}/tenant/signup?invite=${token}`;
