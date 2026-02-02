@@ -113,18 +113,24 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Filter out the default domain to find the specific project URL
-    // This helps when running in the Lovable editor where origin might be lovable.dev
-    // but the actual project is on a subdomain
-    const candidates = [
-      Deno.env.get("APP_URL"),
-      origin,
-      requestOrigin,
-      refererOrigin,
-      inferredLovableUrl
-    ].filter(url => url && url !== "https://lovable.dev");
+    // Prioritize the origin passed from the client if it's a valid project URL
+    const validUrl = (url?: string) => url && url !== "https://lovable.dev" && !url.includes("localhost");
+    let appUrl = "https://lovable.dev";
 
-    const appUrl = candidates.length > 0 ? candidates[0] : (origin || "https://lovable.dev");
+    if (validUrl(origin)) {
+        appUrl = origin!;
+    } else if (validUrl(requestOrigin)) {
+        appUrl = requestOrigin!;
+    } else if (validUrl(refererOrigin)) {
+        appUrl = refererOrigin!;
+    } else if (validUrl(Deno.env.get("APP_URL"))) {
+        appUrl = Deno.env.get("APP_URL")!;
+    } else if (validUrl(inferredLovableUrl)) {
+        appUrl = inferredLovableUrl!;
+    } else if (origin) {
+        appUrl = origin;
+    }
+
     console.log("Using App URL:", appUrl);
 
     if (appUrl === "https://lovable.dev") {
