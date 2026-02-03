@@ -68,6 +68,38 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Check if tenant already has a linked account (is already active)
+    const { data: tenant, error: tenantError } = await supabaseAdmin
+      .from("tenants")
+      .select("tenant_user_id, name")
+      .eq("id", tenantId)
+      .single();
+
+    if (tenantError) {
+      console.error("Error fetching tenant:", tenantError);
+      return new Response(
+        JSON.stringify({ error: "Tenant not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (tenant.tenant_user_id) {
+      return new Response(
+        JSON.stringify({ error: "This tenant already has an active portal account and cannot be invited again." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fetch company settings for branding
+    const { data: companySettings } = await supabaseAdmin
+      .from("company_settings")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const companyName = companySettings?.company_name || landlordName || "Property Management";
+    const companyLogo = companySettings?.logo_url || null;
+
     // Generate invite token
     const token = crypto.randomUUID() + "-" + Date.now().toString(36);
     const expiresAt = new Date();
@@ -107,10 +139,8 @@ const handler = async (req: Request): Promise<Response> => {
     const PUBLISHED_APP_URL = "https://estatespro.lovable.app";
     
     // Determine App URL
-    // Priority 1: Origin passed from client if it's a valid app URL (not editor)
     let appUrl: string = origin || "";
     
-    // Check if origin is valid (not lovable.dev editor, not localhost)
     const isValidAppUrl = (url: string | null | undefined): boolean => 
       !!url && 
       !url.includes("lovable.dev") && 
@@ -118,37 +148,36 @@ const handler = async (req: Request): Promise<Response> => {
       url.startsWith("https://");
 
     if (!isValidAppUrl(appUrl)) {
-      // Priority 2: Check request origin header
       if (requestOrigin && isValidAppUrl(requestOrigin)) {
         appUrl = requestOrigin;
-      }
-      // Priority 3: Check referer origin
-      else if (refererOrigin && isValidAppUrl(refererOrigin)) {
+      } else if (refererOrigin && isValidAppUrl(refererOrigin)) {
         appUrl = refererOrigin;
-      }
-      // Priority 4: Use APP_URL env var or the published URL
-      else {
+      } else {
         appUrl = Deno.env.get("APP_URL") || PUBLISHED_APP_URL;
       }
     }
     
-    // Ensure no trailing slash
     appUrl = appUrl.replace(/\/$/, "");
-    console.log("Resolved App URL:", appUrl);
     console.log("Final App URL:", appUrl);
 
     const inviteLink = `${appUrl}/tenant/signup?invite=${token}`;
 
+    // Build email HTML with optional logo
+    const logoHtml = companyLogo 
+      ? `<img src="${companyLogo}" alt="${companyName}" style="max-height: 60px; max-width: 200px; margin-bottom: 20px;" />`
+      : "";
+
     // Send email
     const emailResponse = await resend.emails.send({
-      from: "Property Management <onboarding@resend.dev>",
+      from: `${companyName} <onboarding@resend.dev>`,
       to: [email],
       subject: `You're invited to access your tenant portal`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          ${logoHtml}
           <h1 style="color: #1a1a1a;">Welcome to Your Tenant Portal</h1>
-          <p>Hello,</p>
-          <p>${landlordName || 'Your property manager'} has invited you to access the tenant portal for <strong>${propertyName || 'your property'}</strong>.</p>
+          <p>Hello${tenant.name ? ` ${tenant.name.split(' ')[0]}` : ''},</p>
+          <p><strong>${companyName}</strong> has invited you to access the tenant portal for <strong>${propertyName || 'your property'}</strong>.</p>
           <p>With the tenant portal, you can:</p>
           <ul>
             <li>View and sign your lease agreement</li>
@@ -164,16 +193,15 @@ const handler = async (req: Request): Promise<Response> => {
           <p style="color: #666; font-size: 14px;">This link will expire in 7 days.</p>
           <p style="color: #666; font-size: 14px;">If you didn't expect this invitation, you can safely ignore this email.</p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-          <p style="color: #999; font-size: 12px;">Property Management System</p>
+          <p style="color: #999; font-size: 12px;">${companyName}</p>
         </div>
       `,
     });
 
-    // Check if email actually sent (Resend returns error in response, not as throw)
+    // Check if email actually sent
     if (emailResponse.error) {
       console.error("Resend email error:", emailResponse.error);
       
-      // If it's a domain verification error, still return success but with a warning
       if (emailResponse.error.message?.includes("verify a domain")) {
         return new Response(
           JSON.stringify({ 
@@ -187,7 +215,6 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
       
-      // For other errors, still return success with invite link
       return new Response(
         JSON.stringify({ 
           success: true, 
