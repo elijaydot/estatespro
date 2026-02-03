@@ -8,6 +8,7 @@ import { toast } from '@/components/ui/use-toast';
 import { useSettings } from '@/contexts/SettingsContext';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ColorPicker } from '@/components/ui/color-picker';
+import { CompanySettings } from '@/components/settings/CompanySettings';
 
 const currencyOptions = [
   { value: 'RWF', label: 'RWF - Rwandan Franc', description: 'Rwanda' },
@@ -164,6 +165,9 @@ export default function Settings() {
           {isSaving ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
+
+      {/* Company Settings - Full Width */}
+      <CompanySettings />
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Regional Settings */}

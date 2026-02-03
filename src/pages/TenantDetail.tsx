@@ -17,6 +17,9 @@ import {
   CheckCircle,
   Send,
   Loader2,
+  RefreshCw,
+  Copy,
+  LinkIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -56,8 +59,12 @@ import { useProperties } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
+import { useTenantInvites } from '@/hooks/useTenantInvites';
 import { useSettings } from '@/contexts/SettingsContext';
-import { format, differenceInDays } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { format, differenceInDays, isPast } from 'date-fns';
+import { PortalStatusBadge } from '@/components/tenants/PortalStatusBadge';
 
 const getLeaseStatusBadge = (leaseEndDate: string | null) => {
   if (!leaseEndDate) return <Badge className="bg-muted text-muted-foreground">No Lease</Badge>;
@@ -99,14 +106,26 @@ export default function TenantDetail() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
+  const { user } = useAuth();
 
   const { data: tenant, isLoading } = useTenant(id || '');
   const { data: properties = [] } = useProperties();
   const { data: units = [] } = useUnits();
   const { data: invoices = [] } = useInvoices();
   const { data: maintenanceRequests = [] } = useMaintenanceRequests();
+  const { data: invites = [] } = useTenantInvites();
   const updateTenant = useUpdateTenant();
   const deleteTenant = useDeleteTenant();
+
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [isCopyingLink, setIsCopyingLink] = useState(false);
+
+  // Check if tenant has pending invite
+  const hasPendingInvite = invites.some((invite: any) => 
+    invite.tenant_id === id && 
+    !invite.used_at && 
+    !isPast(new Date(invite.expires_at))
+  );
 
   // Form state
   const [formData, setFormData] = useState({
@@ -204,6 +223,82 @@ export default function TenantDetail() {
     if (confirm('Are you sure you want to delete this tenant?')) {
       await deleteTenant.mutateAsync(id);
       navigate('/tenants');
+    }
+  };
+
+  const handleSendInvite = async () => {
+    if (!tenant || tenant.tenant_user_id) {
+      toast({ title: 'Error', description: 'This tenant already has an active portal account', variant: 'destructive' });
+      return;
+    }
+    
+    setIsSendingInvite(true);
+    try {
+      const property = properties.find((p: any) => p.id === tenant.property_id);
+
+      const { data, error } = await supabase.functions.invoke('send-tenant-invite', {
+        body: {
+          tenantId: tenant.id,
+          email: tenant.email,
+          landlordName: user?.email || 'Property Manager',
+          propertyName: property?.name || 'Your Property',
+          origin: window.location.origin,
+        },
+      });
+
+      if (error) throw new Error(error.message || 'Failed to send invite');
+
+      if (data?.emailSent === false && data?.inviteLink) {
+        await navigator.clipboard.writeText(data.inviteLink);
+        toast({ 
+          title: 'Email Not Sent - Link Copied!', 
+          description: data.warning || 'The invite link has been copied to your clipboard.',
+        });
+      } else {
+        toast({ title: 'Success', description: `Invite sent to ${tenant.email}` });
+      }
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSendingInvite(false);
+    }
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (!tenant) return;
+    
+    setIsCopyingLink(true);
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('Not authenticated');
+
+      const token = crypto.randomUUID() + '-' + Date.now().toString(36);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      const { error } = await supabase
+        .from('tenant_invites')
+        .insert({
+          tenant_id: tenant.id,
+          email: tenant.email,
+          token,
+          expires_at: expiresAt.toISOString(),
+          user_id: currentUser.id,
+        });
+
+      if (error) throw error;
+
+      const inviteLink = `${window.location.origin}/tenant/signup?invite=${token}`;
+      await navigator.clipboard.writeText(inviteLink);
+      
+      toast({ 
+        title: 'Link Copied!', 
+        description: 'Invite link copied to clipboard.' 
+      });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsCopyingLink(false);
     }
   };
 
@@ -307,6 +402,76 @@ export default function TenantDetail() {
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Portal Status Card - Show invite actions if not linked */}
+      {!tenant.tenant_user_id && (
+        <Card className="card-shadow-md border-warning/20 bg-warning/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-warning/10">
+                  <LinkIcon className="h-6 w-6 text-warning" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Portal Access Not Set Up</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {hasPendingInvite 
+                      ? 'An invite has been sent. Resend or copy the link below.'
+                      : 'Send an invite to allow this tenant to access the portal.'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  className="gap-2"
+                  onClick={handleCopyInviteLink}
+                  disabled={isCopyingLink}
+                >
+                  {isCopyingLink ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                  Copy Link
+                </Button>
+                <Button 
+                  className="gap-2"
+                  onClick={handleSendInvite}
+                  disabled={isSendingInvite}
+                >
+                  {isSendingInvite ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : hasPendingInvite ? (
+                    <RefreshCw className="h-4 w-4" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  {hasPendingInvite ? 'Resend Invite' : 'Send Invite'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {tenant.tenant_user_id && (
+        <Card className="card-shadow-md border-success/20 bg-success/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-success/10">
+                <CheckCircle className="h-6 w-6 text-success" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Portal Access Active</h3>
+                <p className="text-sm text-muted-foreground">
+                  This tenant has access to the tenant portal and can view their lease, payments, and submit requests.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

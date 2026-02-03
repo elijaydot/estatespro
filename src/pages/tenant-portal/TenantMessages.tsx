@@ -105,14 +105,15 @@ export default function TenantMessages() {
     
     setIsSending(true);
     try {
-      const { error } = await supabase.from('messages').insert({
-        sender_id: user?.id,
-        recipient_id: tenantProfile.user_id, // Landlord
+      const { error } = await supabase.from('messages').insert([{
+        sender_id: user?.id || '',
+        recipient_id: tenantProfile.user_id,
+        user_id: tenantProfile.user_id, // Landlord owns the message
         property_id: tenantProfile.property_id,
-        content: newMessage || newSubject, // Use subject as content if message is empty (for new message dialog)
+        content: newMessage || newSubject,
         subject: newSubject || 'Message',
         is_read: false
-      });
+      }]);
 
       if (error) throw error;
 

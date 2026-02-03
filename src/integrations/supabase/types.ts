@@ -53,6 +53,42 @@ export type Database = {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          company_address: string | null
+          company_email: string | null
+          company_name: string | null
+          company_phone: string | null
+          created_at: string
+          id: string
+          logo_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string | null
+          company_phone?: string | null
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string | null
+          company_phone?: string | null
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           amount: number
