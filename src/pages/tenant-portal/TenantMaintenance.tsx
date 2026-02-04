@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Wrench, 
   Plus, 
@@ -89,7 +89,7 @@ export default function TenantMaintenance() {
   const [tenantInfo, setTenantInfo] = useState<any>(null);
   
   // Fetch tenant info on mount
-  useState(() => {
+  useEffect(() => {
     const fetchTenantInfo = async () => {
       if (!profile) return;
       
@@ -102,7 +102,7 @@ export default function TenantMaintenance() {
       setTenantInfo(data);
     };
     fetchTenantInfo();
-  });
+  }, [profile]);
 
   const { data: maintenanceRequests = [], isLoading } = useTenantMaintenanceRequests(tenantInfo?.id);
   const createRequest = useCreateTenantMaintenanceRequest();
