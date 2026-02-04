@@ -52,6 +52,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useInvoices, useCreateInvoice, useUpdateInvoice } from '@/hooks/useInvoices';
 import { useTenants } from '@/hooks/useTenants';
+import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
 const getStatusBadge = (status: string) => {
@@ -99,6 +100,7 @@ export default function Invoices() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   // Handle ?add=true query parameter from Quick Add
   useEffect(() => {
@@ -162,6 +164,50 @@ export default function Invoices() {
       }))
     );
     toast({ title: 'Export complete', description: 'Invoices exported as CSV.' });
+  };
+
+  const handleDownloadPdf = async (invoiceId: string) => {
+    setDownloadingId(invoiceId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        toast({ title: 'Error', description: 'Please log in again', variant: 'destructive' });
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-invoice-pdf`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ invoiceId }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate PDF');
+      }
+
+      const html = await response.text();
+      
+      // Open in new window for printing/saving as PDF
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        setTimeout(() => printWindow.print(), 500);
+      }
+    } catch (error: any) {
+      console.error('Error downloading PDF:', error);
+      toast({ title: 'Error', description: error.message || 'Failed to generate invoice PDF', variant: 'destructive' });
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const handleCreate = async () => {
@@ -391,9 +437,10 @@ export default function Invoices() {
                               <Edit className="h-4 w-4 mr-2" /> Edit Invoice
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onSelect={() => toast({ title: 'Download', description: 'Invoice downloaded.' })}
+                              onSelect={() => handleDownloadPdf(invoice.id)}
+                              disabled={downloadingId === invoice.id}
                             >
-                              <Download className="h-4 w-4 mr-2" /> Download PDF
+                              <Download className="h-4 w-4 mr-2" /> {downloadingId === invoice.id ? 'Generating...' : 'Download PDF'}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onSelect={() => toast({ title: 'Sent', description: 'Invoice sent to tenant.' })}

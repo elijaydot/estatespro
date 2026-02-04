@@ -33,16 +33,28 @@ export default function TenantLease() {
     setDownloading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        toast({ title: 'Error', description: 'Please log in again', variant: 'destructive' });
+        return;
+      }
+
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-lease-pdf?leaseId=${leaseId}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-lease-pdf`,
         {
+          method: 'POST',
           headers: {
-            Authorization: `Bearer ${session?.access_token}`,
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({ leaseId }),
         }
       );
 
-      if (!response.ok) throw new Error('Failed to generate PDF');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate PDF');
+      }
 
       const html = await response.text();
       
@@ -51,11 +63,11 @@ export default function TenantLease() {
       if (printWindow) {
         printWindow.document.write(html);
         printWindow.document.close();
-        printWindow.print();
+        setTimeout(() => printWindow.print(), 500);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error downloading PDF:', error);
-      toast({ title: 'Error', description: 'Failed to generate lease PDF', variant: 'destructive' });
+      toast({ title: 'Error', description: error.message || 'Failed to generate lease PDF', variant: 'destructive' });
     } finally {
       setDownloading(false);
     }
