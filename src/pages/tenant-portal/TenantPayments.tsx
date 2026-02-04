@@ -8,6 +8,7 @@ import {
   AlertCircle,
   Calendar,
   ArrowUpRight,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,70 +29,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
-
-// Mock payment data
-const upcomingPayment = {
-  amount: 1500,
-  dueDate: 'Feb 01, 2025',
-  daysUntilDue: 15,
-  description: 'Monthly Rent - February 2025',
-};
-
-const paymentHistory = [
-  {
-    id: '1',
-    date: 'Jan 01, 2025',
-    description: 'Monthly Rent - January 2025',
-    amount: 1500,
-    status: 'paid',
-    method: 'Card ending 4242',
-  },
-  {
-    id: '2',
-    date: 'Dec 01, 2024',
-    description: 'Monthly Rent - December 2024',
-    amount: 1500,
-    status: 'paid',
-    method: 'Card ending 4242',
-  },
-  {
-    id: '3',
-    date: 'Nov 01, 2024',
-    description: 'Monthly Rent - November 2024',
-    amount: 1500,
-    status: 'paid',
-    method: 'Bank Transfer',
-  },
-  {
-    id: '4',
-    date: 'Oct 01, 2024',
-    description: 'Monthly Rent - October 2024',
-    amount: 1500,
-    status: 'paid',
-    method: 'Card ending 4242',
-  },
-  {
-    id: '5',
-    date: 'Sep 01, 2024',
-    description: 'Monthly Rent - September 2024',
-    amount: 1500,
-    status: 'paid',
-    method: 'Card ending 4242',
-  },
-  {
-    id: '6',
-    date: 'Aug 01, 2024',
-    description: 'Monthly Rent - August 2024',
-    amount: 1500,
-    status: 'paid',
-    method: 'Bank Transfer',
-  },
-];
+import { useTenantPortalData } from '@/hooks/useTenantPortalData';
+import { useSettings } from '@/contexts/SettingsContext';
+import { format, differenceInDays } from 'date-fns';
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -119,42 +63,69 @@ const getStatusBadge = (status: string) => {
 };
 
 export default function TenantPayments() {
+  const { data: portalData, isLoading } = useTenantPortalData();
+  const { formatCurrency } = useSettings();
   const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('card');
 
-  const handleExportHistory = () => {
-    downloadCsv(
-      'payment-history.csv',
-      paymentHistory.map((p) => ({
-        payment_id: p.id,
-        date: p.date,
-        description: p.description,
-        method: p.method,
-        amount: p.amount,
-        status: p.status,
-      })),
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
+  }
 
+  if (!portalData || !portalData.tenant) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="text-center py-12">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold">Account Not Linked</h2>
+          <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+            Your account hasn't been linked to a tenant profile yet. 
+            Please contact your property manager for assistance.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const { stats, nextPayment, invoices, payments } = portalData;
+  
+  // Calculate days until next payment
+  const daysUntilDue = nextPayment
+    ? differenceInDays(new Date(nextPayment.due_date), new Date())
+    : 0;
+
+  const handleExportHistory = () => {
+    const exportData = payments.map((p: any) => ({
+      payment_id: p.id,
+      date: format(new Date(p.created_at), 'yyyy-MM-dd'),
+      description: p.invoices?.description || 'Payment',
+      method: p.method,
+      amount: p.amount,
+      status: p.status || 'completed',
+    }));
+
+    downloadCsv('payment-history.csv', exportData);
     toast({ title: 'Export complete', description: 'Downloaded payment history as CSV.' });
   };
 
-  const handleDownloadReceipt = (paymentId: string) => {
-    const payment = paymentHistory.find((p) => p.id === paymentId);
-    if (!payment) return;
-
-    downloadCsv(`receipt-${payment.id}.csv`, [
+  const handleDownloadReceipt = (payment: any) => {
+    downloadCsv(`receipt-${payment.id.slice(0, 8)}.csv`, [
       {
         payment_id: payment.id,
-        date: payment.date,
-        description: payment.description,
+        date: format(new Date(payment.created_at), 'yyyy-MM-dd'),
+        description: payment.invoices?.description || 'Payment',
         method: payment.method,
         amount: payment.amount,
-        status: payment.status,
+        status: payment.status || 'completed',
         downloaded_at: new Date().toISOString(),
       },
     ]);
 
-    toast({ title: 'Receipt downloaded', description: `Downloaded receipt for ${payment.date}.` });
+    toast({ title: 'Receipt downloaded', description: `Downloaded receipt for payment.` });
   };
 
   return (
@@ -172,10 +143,16 @@ export default function TenantPayments() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Current Balance</p>
-                <p className="text-2xl font-bold text-success">$0</p>
+                <p className={`text-2xl font-bold ${stats.balance > 0 ? 'text-destructive' : 'text-success'}`}>
+                  {formatCurrency(stats.balance)}
+                </p>
               </div>
-              <div className="p-3 rounded-xl bg-success/10">
-                <CheckCircle className="h-6 w-6 text-success" />
+              <div className={`p-3 rounded-xl ${stats.balance > 0 ? 'bg-destructive/10' : 'bg-success/10'}`}>
+                {stats.balance > 0 ? (
+                  <AlertCircle className="h-6 w-6 text-destructive" />
+                ) : (
+                  <CheckCircle className="h-6 w-6 text-success" />
+                )}
               </div>
             </div>
           </CardContent>
@@ -185,7 +162,9 @@ export default function TenantPayments() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Next Payment</p>
-                <p className="text-2xl font-bold text-foreground">${upcomingPayment.amount.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {nextPayment ? formatCurrency(nextPayment.amount - nextPayment.paid_amount) : formatCurrency(0)}
+                </p>
               </div>
               <div className="p-3 rounded-xl bg-primary/10">
                 <DollarSign className="h-6 w-6 text-primary" />
@@ -198,7 +177,9 @@ export default function TenantPayments() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Due Date</p>
-                <p className="text-2xl font-bold text-foreground">{upcomingPayment.daysUntilDue} days</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {nextPayment ? `${daysUntilDue} days` : 'N/A'}
+                </p>
               </div>
               <div className="p-3 rounded-xl bg-info/10">
                 <Calendar className="h-6 w-6 text-info" />
@@ -214,19 +195,32 @@ export default function TenantPayments() {
           <CardTitle className="text-lg">Upcoming Payment</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg bg-secondary/50">
-            <div>
-              <p className="font-medium">{upcomingPayment.description}</p>
-              <p className="text-sm text-muted-foreground mt-1">Due: {upcomingPayment.dueDate}</p>
+          {nextPayment ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg bg-secondary/50">
+              <div>
+                <p className="font-medium">{nextPayment.description}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Due: {format(new Date(nextPayment.due_date), 'MMM d, yyyy')}
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-2xl font-bold">
+                  {formatCurrency(nextPayment.amount - nextPayment.paid_amount)}
+                </span>
+                <Button className="gap-2" onClick={() => setIsPayDialogOpen(true)}>
+                  <CreditCard className="h-4 w-4" />
+                  Pay Now
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-2xl font-bold">${upcomingPayment.amount.toLocaleString()}</span>
-              <Button className="gap-2" onClick={() => setIsPayDialogOpen(true)}>
-                <CreditCard className="h-4 w-4" />
-                Pay Now
-              </Button>
+          ) : (
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-success/10">
+              <CheckCircle className="h-5 w-5 text-success" />
+              <span className="text-sm text-success font-medium">
+                No pending payments - you're all caught up!
+              </span>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
@@ -234,45 +228,54 @@ export default function TenantPayments() {
       <Card className="card-shadow-md">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Payment History</CardTitle>
-          <Button variant="outline" className="gap-2" onClick={handleExportHistory}>
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
+          {payments.length > 0 && (
+            <Button variant="outline" className="gap-2" onClick={handleExportHistory}>
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Method</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paymentHistory.map((payment) => (
-                <TableRow key={payment.id}>
-                  <TableCell>{payment.date}</TableCell>
-                  <TableCell>{payment.description}</TableCell>
-                  <TableCell className="text-muted-foreground">{payment.method}</TableCell>
-                  <TableCell className="font-medium">${payment.amount.toLocaleString()}</TableCell>
-                  <TableCell>{getStatusBadge(payment.status)}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleDownloadReceipt(payment.id)}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+          {payments.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No payment history yet</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Method</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {payments.map((payment: any) => (
+                  <TableRow key={payment.id}>
+                    <TableCell>{format(new Date(payment.created_at), 'MMM d, yyyy')}</TableCell>
+                    <TableCell>{payment.invoices?.description || 'Payment'}</TableCell>
+                    <TableCell className="text-muted-foreground capitalize">{payment.method}</TableCell>
+                    <TableCell className="font-medium">{formatCurrency(payment.amount)}</TableCell>
+                    <TableCell>{getStatusBadge(payment.status || 'paid')}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleDownloadReceipt(payment)}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -287,7 +290,9 @@ export default function TenantPayments() {
             <div className="p-4 rounded-lg bg-secondary/50">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Amount Due</span>
-                <span className="text-2xl font-bold">${upcomingPayment.amount.toLocaleString()}</span>
+                <span className="text-2xl font-bold">
+                  {nextPayment ? formatCurrency(nextPayment.amount - nextPayment.paid_amount) : formatCurrency(0)}
+                </span>
               </div>
             </div>
 
@@ -301,7 +306,7 @@ export default function TenantPayments() {
                       <CreditCard className="h-4 w-4" />
                       Credit/Debit Card
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">Card ending in 4242</p>
+                    <p className="text-xs text-muted-foreground mt-1">Pay with your card</p>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 p-4 rounded-lg border border-border cursor-pointer hover:bg-secondary/50">
@@ -323,13 +328,13 @@ export default function TenantPayments() {
             </Button>
             <Button
               onClick={() => {
-                toast({ title: 'Payment submitted', description: 'This is a mock payment flow for now.' });
+                toast({ title: 'Payment submitted', description: 'Payment processing is not yet implemented. Please contact your property manager.' });
                 setIsPayDialogOpen(false);
               }}
               className="gap-2"
             >
               <CreditCard className="h-4 w-4" />
-              Pay ${upcomingPayment.amount.toLocaleString()}
+              Pay {nextPayment ? formatCurrency(nextPayment.amount - nextPayment.paid_amount) : ''}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -337,4 +342,3 @@ export default function TenantPayments() {
     </div>
   );
 }
-
