@@ -12,34 +12,22 @@ import {
   CheckCircle,
   AlertCircle,
   FileSignature,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
-import { useLeases } from '@/hooks/useLeases';
+import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
 export default function TenantLease() {
-  const { profile } = useAuth();
   const { formatCurrency } = useSettings();
-  const { data: leases = [], isLoading } = useLeases();
+  const { data: portalData, isLoading } = useTenantPortalData();
   const [downloading, setDownloading] = useState(false);
-
-  // Find the tenant's active or pending lease
-  // In a real app, you'd filter by tenant_id linked to the logged-in user
-  const tenantLeases = leases.filter(l => 
-    l.status === 'active' || l.status === 'pending_signature'
-  );
-  
-  const activeLease = tenantLeases.find(l => l.status === 'active');
-  const pendingLease = tenantLeases.find(l => l.status === 'pending_signature');
-  const currentLease = activeLease || pendingLease;
 
   const handleDownloadPdf = async (leaseId: string) => {
     setDownloading(true);
@@ -75,23 +63,33 @@ export default function TenantLease() {
 
   if (isLoading) {
     return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!portalData || !portalData.tenant) {
+    return (
       <div className="space-y-6 animate-fade-in">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-32 w-full" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
+        <div className="text-center py-12">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold">Account Not Linked</h2>
+          <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+            Your account hasn't been linked to a tenant profile yet. 
+            Please contact your property manager for assistance.
+          </p>
         </div>
       </div>
     );
   }
 
+  const { activeLease, pendingLease, property, unit } = portalData;
+  const currentLease = activeLease || pendingLease;
+
   // Show pending lease requiring signature
   if (pendingLease && !activeLease) {
     const lease = pendingLease as any;
-    const property = lease.properties;
-    const unit = lease.units;
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -118,8 +116,8 @@ export default function TenantLease() {
                   Please review the terms carefully before signing.
                 </p>
                 <div className="flex flex-wrap gap-4 mt-3 text-sm">
-                  <span><strong>Property:</strong> {property?.name}</span>
-                  <span><strong>Unit:</strong> {unit?.unit_number}</span>
+                  <span><strong>Property:</strong> {property?.name || 'N/A'}</span>
+                  <span><strong>Unit:</strong> {unit?.unit_number || 'N/A'}</span>
                   <span><strong>Rent:</strong> {formatCurrency(lease.monthly_rent)}/month</span>
                   <span><strong>Start:</strong> {format(new Date(lease.start_date), 'MMM d, yyyy')}</span>
                 </div>
@@ -130,7 +128,7 @@ export default function TenantLease() {
                   View PDF
                 </Button>
                 <Button asChild>
-                  <Link to={`/tenant/lease/${lease.id}/sign`}>
+                  <Link to={`/tenant/lease/sign/${lease.id}`}>
                     <FileSignature className="h-4 w-4 mr-2" />
                     Sign Lease
                   </Link>
@@ -237,8 +235,6 @@ export default function TenantLease() {
 
   // Show active lease details
   const lease = currentLease as any;
-  const property = lease.properties;
-  const unit = lease.units;
   const totalDays = differenceInDays(new Date(lease.end_date), new Date(lease.start_date));
   const daysRemaining = Math.max(0, differenceInDays(new Date(lease.end_date), new Date()));
   const leaseProgress = ((totalDays - daysRemaining) / totalDays) * 100;
@@ -415,63 +411,38 @@ export default function TenantLease() {
             <div>
               <p className="text-sm text-muted-foreground">Security Deposit</p>
               <p className="text-xl font-semibold">{formatCurrency(lease.security_deposit)}</p>
-              <Badge variant="secondary" className="mt-1">On file</Badge>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Download Lease */}
+      {/* Download Section */}
       <Card className="card-shadow-md">
         <CardHeader>
-          <CardTitle className="text-lg">Lease Documents</CardTitle>
+          <CardTitle className="text-lg">Documents</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-background">
-                <FileText className="h-5 w-5 text-primary" />
-              </div>
+              <FileText className="h-8 w-8 text-primary" />
               <div>
-                <p className="font-medium">Lease Agreement - {lease.lease_number}</p>
+                <p className="font-medium">Lease Agreement</p>
                 <p className="text-sm text-muted-foreground">
-                  Signed on {lease.tenant_signed_at ? format(new Date(lease.tenant_signed_at), 'MMM d, yyyy') : 'Pending'}
+                  Lease #{lease.lease_number} • {format(new Date(lease.start_date), 'MMM yyyy')} - {format(new Date(lease.end_date), 'MMM yyyy')}
                 </p>
               </div>
             </div>
-            <Button 
-              variant="outline" 
-              className="gap-2" 
-              onClick={() => handleDownloadPdf(lease.id)}
-              disabled={downloading}
-            >
-              <Download className="h-4 w-4" />
-              {downloading ? 'Generating...' : 'Download PDF'}
+            <Button variant="outline" onClick={() => handleDownloadPdf(lease.id)} disabled={downloading}>
+              {downloading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Download PDF
             </Button>
           </div>
         </CardContent>
       </Card>
-
-      {/* Renewal Notice */}
-      {daysRemaining <= 60 && daysRemaining > 0 && (
-        <Card className="card-shadow-md border-info/20 bg-info/5">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4">
-              <div className="p-2 rounded-lg bg-info/10">
-                <Calendar className="h-5 w-5 text-info" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-foreground">Lease Renewal</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Your lease will expire on {format(new Date(lease.end_date), 'MMM d, yyyy')}. Contact property management 
-                  to discuss renewal options.
-                </p>
-              </div>
-              <Button variant="outline">Contact Management</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

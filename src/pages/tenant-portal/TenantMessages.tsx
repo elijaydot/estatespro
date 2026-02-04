@@ -56,11 +56,11 @@ export default function TenantMessages() {
         if (tenantError) throw tenantError;
         setTenantProfile(tenant);
 
-        // 2. Get messages
+        // 2. Get messages - use tenant.id for filtering since messages use tenant_id
         const { data: msgs, error: msgsError } = await supabase
           .from('messages')
           .select('*')
-          .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+          .or(`sender_id.eq.${tenant.id},recipient_id.eq.${tenant.id}`)
           .order('created_at', { ascending: true });
 
         if (msgsError) throw msgsError;
@@ -105,9 +105,10 @@ export default function TenantMessages() {
     
     setIsSending(true);
     try {
+      // Use tenant.id as sender_id (consistent with how messages are filtered)
       const { error } = await supabase.from('messages').insert([{
-        sender_id: user?.id || '',
-        recipient_id: tenantProfile.user_id,
+        sender_id: tenantProfile.id, // Use tenant.id instead of user.id
+        recipient_id: tenantProfile.user_id, // Property manager's user_id
         user_id: tenantProfile.user_id, // Landlord owns the message
         property_id: tenantProfile.property_id,
         content: newMessage || newSubject,
@@ -120,7 +121,7 @@ export default function TenantMessages() {
       // Optimistic update
       const optimisticMessage = {
         id: 'temp-' + Date.now(),
-        sender_id: user?.id,
+        sender_id: tenantProfile.id, // Use tenant.id
         recipient_id: tenantProfile.user_id,
         content: newMessage || newSubject,
         created_at: new Date().toISOString(),
@@ -221,7 +222,7 @@ export default function TenantMessages() {
               ) : (
                 <div className="space-y-4">
                   {messages.map((message) => {
-                    const isMe = message.sender_id === user?.id;
+                    const isMe = message.sender_id === tenantProfile?.id;
                     return (
                     <div
                       key={message.id}
