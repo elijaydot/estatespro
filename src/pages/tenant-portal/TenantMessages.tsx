@@ -51,9 +51,13 @@ export default function TenantMessages() {
           .from('tenants')
           .select('*, properties(name)')
           .eq('tenant_user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (tenantError) throw tenantError;
+        if (!tenant) {
+          setIsLoading(false);
+          return;
+        }
         setTenantProfile(tenant);
 
         // 2. Get messages - use tenant.id for filtering since messages use tenant_id
@@ -66,6 +70,24 @@ export default function TenantMessages() {
         if (msgsError) throw msgsError;
         setMessages(msgs || []);
 
+        // Subscribe to new messages for this tenant
+        const channel = supabase
+          .channel('tenant-messages')
+          .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `recipient_id=eq.${tenant.id}`,
+          }, (payload) => {
+            setMessages(prev => [...prev, payload.new]);
+          })
+          .subscribe();
+
+        // Cleanup subscription
+        return () => {
+          supabase.removeChannel(channel);
+        };
+
       } catch (error) {
         console.error('Error loading messages:', error);
       } finally {
@@ -74,23 +96,6 @@ export default function TenantMessages() {
     }
 
     loadData();
-
-    // Subscribe to new messages
-    const channel = supabase
-      .channel('tenant-messages')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `recipient_id=eq.${user?.id}`,
-      }, (payload) => {
-        setMessages(prev => [...prev, payload.new]);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [user]);
 
   // Auto-scroll to bottom
