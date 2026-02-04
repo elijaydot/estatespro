@@ -31,6 +31,8 @@ import NotFound from "./pages/NotFound";
 // Tenant Portal
 import TenantDashboard from "./pages/tenant-portal/TenantDashboard";
 import TenantPayments from "./pages/tenant-portal/TenantPayments";
+import TenantInvoices from "./pages/tenant-portal/TenantInvoices";
+import TenantRecurringBills from "./pages/tenant-portal/TenantRecurringBills";
 import TenantMaintenance from "./pages/tenant-portal/TenantMaintenance";
 import TenantLease from "./pages/tenant-portal/TenantLease";
 import TenantMessages from "./pages/tenant-portal/TenantMessages";
@@ -104,6 +106,8 @@ function AppRoutes() {
       <Route path="/tenant/reset-password" element={<TenantResetPassword />} />
       <Route path="/tenant" element={<TenantPortalRoute><TenantDashboard /></TenantPortalRoute>} />
       <Route path="/tenant/payments" element={<TenantPortalRoute><TenantPayments /></TenantPortalRoute>} />
+      <Route path="/tenant/invoices" element={<TenantPortalRoute><TenantInvoices /></TenantPortalRoute>} />
+      <Route path="/tenant/recurring-bills" element={<TenantPortalRoute><TenantRecurringBills /></TenantPortalRoute>} />
       <Route path="/tenant/maintenance" element={<TenantPortalRoute><TenantMaintenance /></TenantPortalRoute>} />
       <Route path="/tenant/lease" element={<TenantPortalRoute><TenantLease /></TenantPortalRoute>} />
       <Route path="/tenant/lease/sign/:id" element={<TenantPortalRoute><TenantLeaseSign /></TenantPortalRoute>} />

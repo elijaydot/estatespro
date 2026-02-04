@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.send-maintenance-notification]
 verify_jwt = false
+
+[functions.generate-invoice-pdf]
+verify_jwt = false
+
+[functions.send-payment-confirmation]
+verify_jwt = false

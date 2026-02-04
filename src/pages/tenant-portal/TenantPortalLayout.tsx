@@ -10,6 +10,8 @@ import {
   Home,
   Menu,
   Loader2,
+  Receipt,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -21,6 +23,8 @@ import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/tenant' },
   { label: 'Payments', icon: DollarSign, href: '/tenant/payments' },
+  { label: 'Invoices', icon: Receipt, href: '/tenant/invoices' },
+  { label: 'Recurring Bills', icon: RefreshCw, href: '/tenant/recurring-bills' },
   { label: 'Maintenance', icon: Wrench, href: '/tenant/maintenance' },
   { label: 'Lease', icon: FileText, href: '/tenant/lease' },
   { label: 'Messages', icon: MessageSquare, href: '/tenant/messages' },
