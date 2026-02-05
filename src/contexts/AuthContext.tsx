@@ -21,6 +21,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ error: Error | null }>;
   logout: () => Promise<void>;
   signup: (email: string, password: string, name: string, role?: string) => Promise<{ error: Error | null }>;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -132,6 +133,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshSession = useCallback(async () => {
+    try {
+      const { data: { session: newSession }, error } = await supabase.auth.refreshSession();
+      if (error) {
+        console.error('Error refreshing session:', error);
+        // If refresh fails, try to get current session
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!currentSession) {
+          // Session completely invalid, force logout
+          await logout();
+        }
+      } else if (newSession) {
+        setSession(newSession);
+        setUser(newSession.user);
+      }
+    } catch (error) {
+      console.error('Error in refreshSession:', error);
+    }
+  }, [logout]);
+
+  // Auto-refresh session periodically to prevent timeout
+  useEffect(() => {
+    if (!session) return;
+
+    // Refresh session every 10 minutes to keep it alive
+    const refreshInterval = setInterval(() => {
+      console.log('Auto-refreshing session...');
+      refreshSession();
+    }, 10 * 60 * 1000); // 10 minutes
+
+    return () => clearInterval(refreshInterval);
+  }, [session, refreshSession]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -143,6 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         signup,
+        refreshSession,
       }}
     >
       {children}

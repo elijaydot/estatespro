@@ -26,6 +26,7 @@ import Leases from "./pages/Leases";
 import Notifications from "./pages/Notifications";
 import Reports from "./pages/Reports";
 import MessagesPage from "./pages/MessagesPage";
+import MessagesPageV2 from "./pages/MessagesPageV2";
 import NotFound from "./pages/NotFound";
 
 // Tenant Portal
@@ -94,7 +95,7 @@ function AppRoutes() {
       <Route path="/payments" element={<PrivateRoute><Payments /></PrivateRoute>} />
       <Route path="/maintenance" element={<PrivateRoute><MaintenancePage /></PrivateRoute>} />
       <Route path="/recurring-bills" element={<PrivateRoute><RecurringBills /></PrivateRoute>} />
-      <Route path="/messages" element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
+      <Route path="/messages" element={<PrivateRoute><MessagesPageV2 /></PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
