@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   DollarSign, 
@@ -19,6 +19,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
+import { useEffect } from 'react';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/tenant' },
@@ -74,7 +75,7 @@ const getInitials = (name: string) => {
 
 export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, session, refreshSession, isLoading: authLoading } = useAuth();
   const { data: portalData, isLoading } = useTenantPortalData();
 
   const handleLogout = () => {
@@ -82,9 +83,32 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
     navigate('/tenant/login');
   };
 
+  // Refresh session on mount to ensure token is valid
+  useEffect(() => {
+    if (session) {
+      refreshSession();
+    }
+  }, []);
+
+  // Handle session timeout - redirect to login if no session
+  useEffect(() => {
+    if (!authLoading && !session) {
+      navigate('/tenant/login', { replace: true });
+    }
+  }, [authLoading, session, navigate]);
+
   const tenantName = portalData?.tenant?.name || 'Tenant';
   const unitNumber = portalData?.unit?.unit_number;
   const propertyName = portalData?.property?.name || 'Property';
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

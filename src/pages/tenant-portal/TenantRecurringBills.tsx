@@ -9,6 +9,7 @@ import {
   Loader2,
   AlertCircle,
   Calendar,
+  Building,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -56,28 +57,44 @@ export default function TenantRecurringBills() {
     queryFn: async () => {
       if (!portalData?.tenant || !portalData?.property) return [];
 
-      // Get bills that apply to this tenant specifically OR to all tenants at this property
+      const propertyId = portalData.tenant.property_id;
+      const tenantId = portalData.tenant.id;
+      const ownerId = portalData.property.user_id;
+
+      console.log('Fetching recurring bills for:', { propertyId, tenantId, ownerId });
+
+      // Get ALL active bills from the property owner, then filter client-side
       const { data, error } = await supabase
         .from('recurring_bills')
         .select('*')
-        .eq('user_id', portalData.property.user_id)
-        .eq('is_active', true)
-        .or(`tenant_id.eq.${portalData.tenant.id},tenant_id.is.null`)
-        .or(`property_id.eq.${portalData.tenant.property_id},property_id.is.null`);
+        .eq('user_id', ownerId)
+        .eq('is_active', true);
 
       if (error) throw error;
 
-      // Filter to only include bills that match property or are global
+      console.log('All recurring bills from owner:', data);
+
+      // Filter to only include bills that:
+      // 1. Match this specific tenant OR
+      // 2. Match this property (with no specific tenant) OR
+      // 3. Are global (no property, no tenant assigned)
       return (data || []).filter((bill: any) => {
-        // If bill has specific tenant, must match
-        if (bill.tenant_id && bill.tenant_id !== portalData.tenant.id) return false;
-        // If bill has specific property, must match
-        if (bill.property_id && bill.property_id !== portalData.tenant.property_id) return false;
+        // If bill has specific tenant assigned
+        if (bill.tenant_id) {
+          return bill.tenant_id === tenantId;
+        }
+        // If bill has specific property assigned (but no tenant)
+        if (bill.property_id) {
+          return bill.property_id === propertyId;
+        }
+        // Global bill (no property, no tenant) - applies to all
         return true;
       });
     },
     enabled: !!portalData?.tenant && !!portalData?.property,
   });
+
+  console.log('Filtered recurring bills:', recurringBills);
 
   const isLoading = portalLoading || billsLoading;
 
@@ -171,10 +188,10 @@ export default function TenantRecurringBills() {
       {recurringBills.length === 0 ? (
         <Card className="card-shadow-md">
           <CardContent className="py-12 text-center">
-            <RefreshCw className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <Building className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold">No Recurring Bills</h3>
             <p className="text-muted-foreground mt-2">
-              You don't have any recurring bills at the moment.
+              Your property manager hasn't set up any recurring bills for your property yet.
             </p>
           </CardContent>
         </Card>
