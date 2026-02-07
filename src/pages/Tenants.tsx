@@ -151,10 +151,14 @@ export default function Tenants() {
       description: unit.properties?.name || '',
     }));
 
-  const filteredTenants = tenants.filter((tenant: any) =>
-    tenant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tenant.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTenants = tenants.filter((tenant: any) => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    return (
+      (tenant.name || '').toLowerCase().includes(q) ||
+      (tenant.email || '').toLowerCase().includes(q)
+    );
+  });
 
   const handleCreate = async () => {
     if (!formData.name || !formData.email || !formData.phone) {

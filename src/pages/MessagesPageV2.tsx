@@ -146,11 +146,14 @@
      );
    }, [allMessages, tenants, user?.id]);
  
-   const filteredThreads = threads.filter(
-     (thread) =>
-       thread.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       thread.lastMessage.subject?.toLowerCase().includes(searchQuery.toLowerCase())
-   );
+   const filteredThreads = threads.filter((thread) => {
+     const q = searchQuery.toLowerCase();
+     if (!q) return true;
+     return (
+       (thread.tenantName || '').toLowerCase().includes(q) ||
+       (thread.lastMessage.subject || '').toLowerCase().includes(q)
+     );
+   });
  
    const recipientOptions = tenants.map((t: any) => ({
      value: t.tenant_user_id || t.id,

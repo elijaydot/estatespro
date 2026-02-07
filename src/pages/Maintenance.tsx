@@ -159,11 +159,14 @@ export default function Maintenance() {
     }
   };
 
-  const filteredRequests = requests.filter(
-    (request: any) =>
-      request.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      request.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredRequests = requests.filter((request: any) => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    return (
+      (request.title || '').toLowerCase().includes(q) ||
+      (request.description || '').toLowerCase().includes(q)
+    );
+  });
 
   const stats = {
     total: requests.length,

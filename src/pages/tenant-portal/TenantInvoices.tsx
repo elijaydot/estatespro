@@ -67,33 +67,14 @@ export default function TenantInvoices() {
   const handleDownloadPdf = async (invoiceId: string) => {
     setDownloadingId(invoiceId);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
+        body: { invoiceId },
+      });
+
+      if (error) throw new Error(error.message || 'Failed to generate PDF');
+
+      const html = typeof data === 'string' ? data : await new Response(data).text();
       
-      if (!session?.access_token) {
-        toast({ title: 'Error', description: 'Please log in again', variant: 'destructive' });
-        return;
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-invoice-pdf`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ invoiceId }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to generate PDF');
-      }
-
-      const html = await response.text();
-      
-      // Open in new window for printing/saving as PDF
       const printWindow = window.open('', '_blank');
       if (printWindow) {
         printWindow.document.write(html);

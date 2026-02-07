@@ -100,11 +100,15 @@ export default function Properties() {
   const createProperty = useCreateProperty();
   const deleteProperty = useDeleteProperty();
 
-  const filteredProperties = properties.filter((property: any) =>
-    property.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    property.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    property.city.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProperties = properties.filter((property: any) => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    return (
+      (property.name || '').toLowerCase().includes(q) ||
+      (property.address || '').toLowerCase().includes(q) ||
+      (property.city || '').toLowerCase().includes(q)
+    );
+  });
 
   const handleCreate = async () => {
     if (!formData.name || !formData.address || !formData.city) {

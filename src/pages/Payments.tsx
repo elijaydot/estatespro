@@ -166,12 +166,15 @@ export default function Payments() {
     momoPayments: payments.filter((p: any) => p.method === 'mtn_momo').length,
   };
 
-  const filteredPayments = payments.filter(
-    (payment: any) =>
-      payment.tenants?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.receipt_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.invoices?.invoice_number?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPayments = payments.filter((payment: any) => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    return (
+      (payment.tenants?.name || '').toLowerCase().includes(q) ||
+      (payment.receipt_number || '').toLowerCase().includes(q) ||
+      (payment.invoices?.invoice_number || '').toLowerCase().includes(q)
+    );
+  });
 
   const handleExport = () => {
     downloadCsv(

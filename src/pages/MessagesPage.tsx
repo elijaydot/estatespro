@@ -119,15 +119,23 @@ export default function MessagesPage() {
     }
   };
 
-  const filteredInbox = inboxMessages.filter(m =>
-    m.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredInbox = inboxMessages.filter(m => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    return (
+      (m.subject || '').toLowerCase().includes(q) ||
+      (m.content || '').toLowerCase().includes(q)
+    );
+  });
 
-  const filteredSent = sentMessages.filter(m =>
-    m.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredSent = sentMessages.filter(m => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    return (
+      (m.subject || '').toLowerCase().includes(q) ||
+      (m.content || '').toLowerCase().includes(q)
+    );
+  });
 
   const MessageList = ({ messages, loading }: { messages: any[], loading: boolean }) => {
     if (loading) {

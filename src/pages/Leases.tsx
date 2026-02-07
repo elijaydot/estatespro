@@ -179,9 +179,10 @@ export default function Leases() {
   }));
 
   const filteredLeases = leases.filter(lease => {
-    const matchesSearch = 
-      lease.lease_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (lease as any).tenants?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = !q ||
+      (lease.lease_number || '').toLowerCase().includes(q) ||
+      ((lease as any).tenants?.name || '').toLowerCase().includes(q);
     
     if (activeTab === 'all') return matchesSearch;
     return matchesSearch && lease.status === activeTab;
@@ -281,17 +282,11 @@ export default function Leases() {
       
       // Send email notification via edge function
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-lease-email`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({
+        await supabase.functions.invoke('send-lease-email', {
+          body: {
             leaseId: lease.id,
             type: 'signature_request',
-          }),
+          },
         });
       } catch (emailError) {
         console.warn('Email notification failed:', emailError);
@@ -305,30 +300,24 @@ export default function Leases() {
   
   const handleDownloadPdf = async (leaseId: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-lease-pdf?leaseId=${leaseId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-        }
-      );
+      const { data, error } = await supabase.functions.invoke('generate-lease-pdf', {
+        body: { leaseId },
+      });
 
-      if (!response.ok) throw new Error('Failed to generate PDF');
+      if (error) throw new Error(error.message || 'Failed to generate PDF');
 
-      const html = await response.text();
+      // data is the HTML string when content-type is text/html
+      const html = typeof data === 'string' ? data : await new Response(data).text();
       
-      // Open in new window for printing/saving as PDF
       const printWindow = window.open('', '_blank');
       if (printWindow) {
         printWindow.document.write(html);
         printWindow.document.close();
-        printWindow.print();
+        setTimeout(() => printWindow.print(), 500);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error downloading PDF:', error);
-      toast({ title: 'Error', description: 'Failed to generate lease PDF', variant: 'destructive' });
+      toast({ title: 'Error', description: error.message || 'Failed to generate lease PDF', variant: 'destructive' });
     }
   };
 

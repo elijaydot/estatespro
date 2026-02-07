@@ -139,12 +139,15 @@ export default function Invoices() {
     pendingCount: invoices.filter((inv: any) => inv.status === 'pending' || inv.status === 'partial').length,
   };
 
-  const filteredInvoices = invoices.filter(
-    (invoice: any) =>
-      invoice.tenants?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.properties?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredInvoices = invoices.filter((invoice: any) => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    return (
+      (invoice.tenants?.name || '').toLowerCase().includes(q) ||
+      (invoice.invoice_number || '').toLowerCase().includes(q) ||
+      (invoice.properties?.name || '').toLowerCase().includes(q)
+    );
+  });
 
   const handleExport = () => {
     downloadCsv(
@@ -169,33 +172,14 @@ export default function Invoices() {
   const handleDownloadPdf = async (invoiceId: string) => {
     setDownloadingId(invoiceId);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
+        body: { invoiceId },
+      });
+
+      if (error) throw new Error(error.message || 'Failed to generate PDF');
+
+      const html = typeof data === 'string' ? data : await new Response(data).text();
       
-      if (!session?.access_token) {
-        toast({ title: 'Error', description: 'Please log in again', variant: 'destructive' });
-        return;
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-invoice-pdf`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ invoiceId }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to generate PDF');
-      }
-
-      const html = await response.text();
-      
-      // Open in new window for printing/saving as PDF
       const printWindow = window.open('', '_blank');
       if (printWindow) {
         printWindow.document.write(html);
