@@ -51,50 +51,23 @@ export default function TenantRecurringBills() {
   const { data: portalData, isLoading: portalLoading } = useTenantPortalData();
   const { formatCurrency } = useSettings();
 
-  // Fetch recurring bills for this tenant
+  // Fetch recurring bills - RLS handles visibility automatically
   const { data: recurringBills = [], isLoading: billsLoading } = useQuery({
-    queryKey: ['tenant_recurring_bills', portalData?.tenant?.id, portalData?.property?.user_id],
+    queryKey: ['tenant_recurring_bills', portalData?.tenant?.id],
     queryFn: async () => {
-      if (!portalData?.tenant || !portalData?.property) return [];
+      if (!portalData?.tenant) return [];
 
-      const propertyId = portalData.tenant.property_id;
-      const tenantId = portalData.tenant.id;
-      const ownerId = portalData.property.user_id;
-
-      console.log('Fetching recurring bills for:', { propertyId, tenantId, ownerId });
-
-      // Get ALL active bills from the property owner, then filter client-side
+      // RLS policy "Tenants can view recurring bills for their property" handles filtering
       const { data, error } = await supabase
         .from('recurring_bills')
         .select('*')
-        .eq('user_id', ownerId)
         .eq('is_active', true);
 
       if (error) throw error;
-
-      console.log('All recurring bills from owner:', data);
-
-      // Filter to only include bills that:
-      // 1. Match this specific tenant OR
-      // 2. Match this property (with no specific tenant) OR
-      // 3. Are global (no property, no tenant assigned)
-      return (data || []).filter((bill: any) => {
-        // If bill has specific tenant assigned
-        if (bill.tenant_id) {
-          return bill.tenant_id === tenantId;
-        }
-        // If bill has specific property assigned (but no tenant)
-        if (bill.property_id) {
-          return bill.property_id === propertyId;
-        }
-        // Global bill (no property, no tenant) - applies to all
-        return true;
-      });
+      return data || [];
     },
-    enabled: !!portalData?.tenant && !!portalData?.property,
+    enabled: !!portalData?.tenant,
   });
-
-  console.log('Filtered recurring bills:', recurringBills);
 
   const isLoading = portalLoading || billsLoading;
 

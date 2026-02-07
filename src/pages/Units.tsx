@@ -101,10 +101,14 @@ export default function Units() {
     description: `${property.city}, ${property.state}`,
   }));
 
-  const filteredUnits = units.filter((unit: any) =>
-    unit.unit_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    unit.properties?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUnits = units.filter((unit: any) => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    return (
+      (unit.unit_number || '').toLowerCase().includes(q) ||
+      (unit.properties?.name || '').toLowerCase().includes(q)
+    );
+  });
 
   const handleCreate = async () => {
     if (!formData.property_id || !formData.unit_number) {

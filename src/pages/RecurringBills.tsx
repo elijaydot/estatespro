@@ -130,10 +130,14 @@ export default function RecurringBills() {
     description: t.email,
   }));
 
-  const filteredBills = bills.filter(bill =>
-    bill.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bill.bill_type.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredBills = bills.filter(bill => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    return (
+      (bill.name || '').toLowerCase().includes(q) ||
+      (bill.bill_type || '').toLowerCase().includes(q)
+    );
+  });
 
   const handleOpenDialog = (bill?: typeof bills[0]) => {
     if (bill) {
