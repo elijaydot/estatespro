@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Search, Plus, Building, Home, Users, FileText, Receipt } from 'lucide-react';
+import { safeSearch } from '@/lib/safeSearch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -25,7 +26,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { toast } from '@/components/ui/use-toast';
 import { useCreateProperty, useProperties } from '@/hooks/useProperties';
 import { useCreateUnit, useUnits } from '@/hooks/useUnits';
-import { useCreateTenant } from '@/hooks/useTenants';
+import { useCreateTenant, useTenants } from '@/hooks/useTenants';
 import { useNotifications } from '@/hooks/useNotifications';
 
 type QuickAddType = 'property' | 'unit' | 'tenant' | 'lease' | 'invoice' | null;
@@ -59,10 +60,38 @@ export function AppHeader() {
     }
   };
 
+  const [searchResults, setSearchResults] = useState<Array<{ label: string; path: string; type: string }>>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const { data: properties = [] } = useProperties();
+  const allTenants = useTenants();
+  const tenants = allTenants.data || [];
+
+  // Live search across properties and tenants
+  const filteredResults = searchQuery.trim().length >= 2
+    ? [
+        ...properties
+          .filter((p: any) =>
+            safeSearch(p.name).includes(searchQuery.toLowerCase()) ||
+            safeSearch(p.address).includes(searchQuery.toLowerCase()) ||
+            safeSearch(p.city).includes(searchQuery.toLowerCase())
+          )
+          .slice(0, 5)
+          .map((p: any) => ({ label: p.name, sublabel: p.address, path: `/properties/${p.id}`, type: 'Property' })),
+        ...tenants
+          .filter((t: any) =>
+            safeSearch(t.name).includes(searchQuery.toLowerCase()) ||
+            safeSearch(t.email).includes(searchQuery.toLowerCase())
+          )
+          .slice(0, 5)
+          .map((t: any) => ({ label: t.name, sublabel: t.email, path: `/tenants/${t.id}`, type: 'Tenant' })),
+      ]
+    : [];
+
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && searchQuery.trim()) {
-      // Navigate to a general search or filter the current page
-      toast({ title: 'Search', description: `Searching for "${searchQuery}"...` });
+    if (e.key === 'Enter' && searchQuery.trim() && filteredResults.length > 0) {
+      navigate(filteredResults[0].path);
+      setSearchQuery('');
     }
   };
 
@@ -73,12 +102,33 @@ export function AppHeader() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search properties, tenants, leases..."
+            placeholder="Search properties, tenants..."
             className="pl-10 bg-secondary/50 border-0 focus-visible:ring-1 focus-visible:ring-ring"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleSearch}
+            onBlur={() => setTimeout(() => setSearchQuery(''), 200)}
           />
+          {filteredResults.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+              {filteredResults.map((result, i) => (
+                <button
+                  key={i}
+                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-secondary/50 text-left transition-colors"
+                  onMouseDown={() => {
+                    navigate(result.path);
+                    setSearchQuery('');
+                  }}
+                >
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{result.label}</p>
+                    <p className="text-xs text-muted-foreground">{result.sublabel}</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px]">{result.type}</Badge>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

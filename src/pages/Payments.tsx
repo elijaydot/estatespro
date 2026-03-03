@@ -383,7 +383,24 @@ export default function Payments() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onSelect={() => toast({ title: 'Receipt', description: 'Receipt downloaded.' })}
+                              onSelect={() => {
+                                downloadCsv(`receipt-${(payment.receipt_number || payment.id.slice(0, 8))}.csv`, [
+                                  {
+                                    receipt_number: payment.receipt_number || '',
+                                    date: format(new Date(payment.created_at), 'yyyy-MM-dd'),
+                                    tenant: payment.tenants?.name || '',
+                                    invoice: payment.invoices?.invoice_number || '',
+                                    amount: payment.amount,
+                                    method: getMethodLabel(payment.method),
+                                    status: payment.status,
+                                    momo_phone: payment.momo_phone || '',
+                                    momo_transaction_id: payment.momo_transaction_id || '',
+                                    reference: payment.reference || '',
+                                    notes: payment.notes || '',
+                                  },
+                                ]);
+                                toast({ title: 'Receipt downloaded', description: 'Payment receipt saved as CSV.' });
+                              }}
                             >
                               <Receipt className="h-4 w-4 mr-2" /> Download Receipt
                             </DropdownMenuItem>
