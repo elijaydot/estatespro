@@ -20,7 +20,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ error: Error | null }>;
   logout: () => Promise<void>;
-  signup: (email: string, password: string, name: string, role?: string) => Promise<{ error: Error | null }>;
+  signup: (email: string, password: string, name: string, role?: string, metadata?: Record<string, string>) => Promise<{ error: Error | null }>;
   refreshSession: () => Promise<void>;
 }
 
@@ -53,13 +53,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Defer profile fetch with setTimeout to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
             fetchProfile(session.user.id);
@@ -70,7 +68,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -88,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim().toLowerCase(),
         password,
       });
       
@@ -107,18 +104,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }, []);
 
-  const signup = useCallback(async (email: string, password: string, name: string, role: string = 'property_manager') => {
+  const signup = useCallback(async (email: string, password: string, name: string, role: string = 'property_manager', metadata: Record<string, string> = {}) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
       const { error } = await supabase.auth.signUp({
-        email,
+        email: email.trim().toLowerCase(),
         password,
         options: {
           emailRedirectTo: redirectUrl,
           data: {
             name,
             role,
+            ...metadata,
           },
         },
       });
@@ -138,10 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: { session: newSession }, error } = await supabase.auth.refreshSession();
       if (error) {
         console.error('Error refreshing session:', error);
-        // If refresh fails, try to get current session
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         if (!currentSession) {
-          // Session completely invalid, force logout
           await logout();
         }
       } else if (newSession) {
@@ -153,15 +149,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [logout]);
 
-  // Auto-refresh session periodically to prevent timeout
   useEffect(() => {
     if (!session) return;
 
-    // Refresh session every 10 minutes to keep it alive
     const refreshInterval = setInterval(() => {
       console.log('Auto-refreshing session...');
       refreshSession();
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 10 * 60 * 1000);
 
     return () => clearInterval(refreshInterval);
   }, [session, refreshSession]);

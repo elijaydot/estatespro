@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-// profile comes from useAuth
+import { useUserRole } from '@/hooks/useUserRole';
 import {
   LayoutDashboard,
   Building2,
@@ -19,13 +19,14 @@ import {
   Receipt,
   RefreshCw,
   BarChart3,
+  UserCog,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 
-const navItems = [
+const pmNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
   { icon: Building2, label: 'Properties', href: '/properties' },
   { icon: Home, label: 'Units', href: '/units' },
@@ -40,15 +41,31 @@ const navItems = [
   { icon: Bell, label: 'Notifications', href: '/notifications' },
 ];
 
+const landlordNavItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+  { icon: UserCog, label: 'Team', href: '/team' },
+  { icon: Building2, label: 'Properties', href: '/properties' },
+  { icon: Home, label: 'Units', href: '/units' },
+  { icon: Users, label: 'Tenants', href: '/tenants' },
+  { icon: FileText, label: 'Leases', href: '/leases' },
+  { icon: Receipt, label: 'Invoices', href: '/invoices' },
+  { icon: CreditCard, label: 'Payments', href: '/payments' },
+  { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
+  { icon: BarChart3, label: 'Reports', href: '/reports' },
+  { icon: Bell, label: 'Notifications', href: '/notifications' },
+];
+
 const bottomNavItems = [
   { icon: Settings, label: 'Settings', href: '/settings' },
 ];
-
 
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { user, profile, logout } = useAuth();
+  const { isLandlord } = useUserRole();
+
+  const navItems = isLandlord ? landlordNavItems : pmNavItems;
 
   const getInitials = (name: string) => {
     return name
@@ -56,6 +73,14 @@ export function AppSidebar() {
       .map(n => n[0])
       .join('')
       .toUpperCase();
+  };
+
+  const getRoleLabel = (role?: string) => {
+    switch (role) {
+      case 'landlord': return 'Landlord';
+      case 'property_manager': return 'Property Manager';
+      default: return role || 'User';
+    }
   };
 
   return (
@@ -151,7 +176,7 @@ export function AppSidebar() {
                   {profile?.name || user?.email}
                 </p>
                 <p className="text-xs text-sidebar-foreground/60 truncate">
-                  {profile?.role === 'property_manager' ? 'Property Manager' : profile?.role || 'User'}
+                  {getRoleLabel(profile?.role)}
                 </p>
               </div>
             )}
