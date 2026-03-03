@@ -120,6 +120,12 @@ export default function Login() {
                 Sign up
               </Link>
             </div>
+
+            <div className="mt-4 pt-4 border-t text-center">
+              <Link to="/tenant/login" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                Are you a tenant? <span className="font-medium text-primary">Access Tenant Portal →</span>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>
