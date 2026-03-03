@@ -53,6 +53,83 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          is_verified: boolean | null
+          logo_url: string | null
+          name: string
+          owner_id: string
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_verified?: boolean | null
+          logo_url?: string | null
+          name: string
+          owner_id: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_verified?: boolean | null
+          logo_url?: string | null
+          name?: string
+          owner_id?: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      company_members: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          id: string
+          role: string
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          id?: string
+          role?: string
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          role?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_settings: {
         Row: {
           company_address: string | null
@@ -562,6 +639,47 @@ export type Database = {
           },
         ]
       }
+      pm_invites: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          invited_by: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pm_invites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -602,6 +720,7 @@ export type Database = {
         Row: {
           address: string
           city: string
+          company_id: string | null
           country: string
           created_at: string
           description: string | null
@@ -619,6 +738,7 @@ export type Database = {
         Insert: {
           address: string
           city: string
+          company_id?: string | null
           country?: string
           created_at?: string
           description?: string | null
@@ -636,6 +756,7 @@ export type Database = {
         Update: {
           address?: string
           city?: string
+          company_id?: string | null
           country?: string
           created_at?: string
           description?: string | null
@@ -650,7 +771,57 @@ export type Database = {
           user_id?: string
           zip_code?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "properties_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_manager_assignments: {
+        Row: {
+          assigned_by: string
+          company_id: string
+          created_at: string | null
+          id: string
+          manager_id: string
+          property_id: string
+        }
+        Insert: {
+          assigned_by: string
+          company_id: string
+          created_at?: string | null
+          id?: string
+          manager_id: string
+          property_id: string
+        }
+        Update: {
+          assigned_by?: string
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          manager_id?: string
+          property_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_manager_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_manager_assignments_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       recurring_bills: {
         Row: {
@@ -961,6 +1132,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_pm_approved_membership: {
+        Args: { _user_id: string }
+        Returns: {
+          company_id: string
+          status: string
+        }[]
+      }
+      get_user_company_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -972,6 +1151,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_approved_pm: {
+        Args: { _property_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_company_owner: { Args: { _user_id: string }; Returns: boolean }
       process_payment:
         | {
             Args: {
@@ -1013,6 +1197,16 @@ export type Database = {
           tenant_property_id: string
           tenant_unit_id: string
           used_at: string
+        }[]
+      }
+      validate_pm_invite_token: {
+        Args: { lookup_token: string }
+        Returns: {
+          company_id: string
+          company_name: string
+          email: string
+          expires_at: string
+          id: string
         }[]
       }
     }

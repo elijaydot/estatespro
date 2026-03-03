@@ -1,0 +1,512 @@
+import { useState } from 'react';
+import { 
+  Users, UserPlus, Building2, Shield, Clock, CheckCircle2, 
+  XCircle, Copy, Ban, MapPin, Loader2, Plus, Trash2 
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { toast } from '@/components/ui/use-toast';
+import { useUserRole } from '@/hooks/useUserRole';
+import {
+  useMyCompanies,
+  useCompanyMembers,
+  useUpdateMemberStatus,
+  useAssignPMToProperty,
+  useRemovePMAssignment,
+  usePMAssignments,
+  useCreatePMInvite,
+  usePMInvites,
+  useCreateCompany,
+} from '@/hooks/useCompanies';
+import { useProperties } from '@/hooks/useProperties';
+
+export default function TeamManagement() {
+  const { isLandlord } = useUserRole();
+  const { data: companies, isLoading: loadingCompanies } = useMyCompanies();
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
+  const [newCompanyName, setNewCompanyName] = useState('');
+  const [assignManagerId, setAssignManagerId] = useState('');
+  const [assignPropertyId, setAssignPropertyId] = useState('');
+
+  const activeCompanyId = selectedCompanyId || companies?.[0]?.id || '';
+  
+  const { data: members, isLoading: loadingMembers } = useCompanyMembers(activeCompanyId);
+  const { data: assignments } = usePMAssignments(activeCompanyId);
+  const { data: invites } = usePMInvites(activeCompanyId);
+  const { data: properties } = useProperties();
+  
+  const updateStatus = useUpdateMemberStatus();
+  const assignPM = useAssignPMToProperty();
+  const removeAssignment = useRemovePMAssignment();
+  const createInvite = useCreatePMInvite();
+  const createCompany = useCreateCompany();
+
+  const approvedMembers = members?.filter(m => m.status === 'approved') || [];
+  const pendingMembers = members?.filter(m => m.status === 'pending') || [];
+  const deactivatedMembers = members?.filter(m => m.status === 'deactivated') || [];
+
+  // Company properties (those with company_id set)
+  const companyProperties = properties?.filter((p: any) => p.company_id === activeCompanyId) || [];
+
+  const handleInvite = async () => {
+    if (!inviteEmail || !activeCompanyId) return;
+    const result = await createInvite.mutateAsync({ companyId: activeCompanyId, email: inviteEmail });
+    const inviteUrl = `${window.location.origin}/signup?pm_invite=${result.token}`;
+    await navigator.clipboard.writeText(inviteUrl);
+    toast({ title: 'Invite link copied!', description: `Invite link for ${inviteEmail} has been copied to clipboard.` });
+    setInviteEmail('');
+    setInviteDialogOpen(false);
+  };
+
+  const handleAssign = async () => {
+    if (!assignManagerId || !assignPropertyId || !activeCompanyId) return;
+    await assignPM.mutateAsync({
+      companyId: activeCompanyId,
+      propertyId: assignPropertyId,
+      managerId: assignManagerId,
+    });
+    setAssignManagerId('');
+    setAssignPropertyId('');
+  };
+
+  const handleCreateCompany = async () => {
+    if (!newCompanyName.trim()) return;
+    await createCompany.mutateAsync({ name: newCompanyName.trim() });
+    setNewCompanyName('');
+    setCompanyDialogOpen(false);
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending': return <Badge variant="outline" className="text-warning border-warning"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
+      case 'approved': return <Badge variant="outline" className="text-success border-success"><CheckCircle2 className="h-3 w-3 mr-1" />Approved</Badge>;
+      case 'rejected': return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Rejected</Badge>;
+      case 'deactivated': return <Badge variant="secondary"><Ban className="h-3 w-3 mr-1" />Deactivated</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  if (!isLandlord) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="max-w-md">
+          <CardContent className="pt-6 text-center">
+            <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
+            <p className="text-muted-foreground">Only landlords can manage teams and property assignments.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (loadingCompanies) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Team Management</h1>
+          <p className="text-muted-foreground mt-1">Manage property managers and property assignments</p>
+        </div>
+        <div className="flex gap-2">
+          <Dialog open={companyDialogOpen} onOpenChange={setCompanyDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Building2 className="h-4 w-4" />
+                Add Company
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Company</DialogTitle>
+                <DialogDescription>Add another company or portfolio to manage</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Company Name</Label>
+                  <Input value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} placeholder="Company name..." />
+                </div>
+                <Button onClick={handleCreateCompany} disabled={!newCompanyName.trim()} className="w-full">Create Company</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <UserPlus className="h-4 w-4" />
+                Invite Manager
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Invite Property Manager</DialogTitle>
+                <DialogDescription>Send an invite link to a property manager to join your company</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Email Address</Label>
+                  <Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="manager@email.com" />
+                </div>
+                <Button onClick={handleInvite} disabled={!inviteEmail || createInvite.isPending} className="w-full gap-2">
+                  {createInvite.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                  Generate & Copy Invite Link
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Company Selector */}
+      {companies && companies.length > 1 && (
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-4">
+              <Label className="whitespace-nowrap">Active Company:</Label>
+              <Select value={activeCompanyId} onValueChange={setSelectedCompanyId}>
+                <SelectTrigger className="max-w-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Tabs defaultValue="members" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="members" className="gap-2">
+            <Users className="h-4 w-4" />
+            Members
+            {pendingMembers.length > 0 && (
+              <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 text-xs flex items-center justify-center">
+                {pendingMembers.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="assignments" className="gap-2">
+            <MapPin className="h-4 w-4" />
+            Property Assignments
+          </TabsTrigger>
+          <TabsTrigger value="invites" className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            Invites
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Members Tab */}
+        <TabsContent value="members" className="space-y-4">
+          {/* Pending Applications */}
+          {pendingMembers.length > 0 && (
+            <Card className="border-warning/30">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-warning" />
+                  Pending Applications ({pendingMembers.length})
+                </CardTitle>
+                <CardDescription>Property managers awaiting your approval</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {pendingMembers.map(member => (
+                  <div key={member.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {member.profiles?.name?.charAt(0) || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{member.profiles?.name || 'Unknown'}</p>
+                        <p className="text-sm text-muted-foreground">{member.profiles?.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => updateStatus.mutate({ memberId: member.id, status: 'approved' })}
+                        disabled={updateStatus.isPending}
+                        className="gap-1"
+                      >
+                        <CheckCircle2 className="h-3 w-3" /> Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => updateStatus.mutate({ memberId: member.id, status: 'rejected' })}
+                        disabled={updateStatus.isPending}
+                        className="gap-1"
+                      >
+                        <XCircle className="h-3 w-3" /> Reject
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Approved Members */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Active Managers ({approvedMembers.length})</CardTitle>
+              <CardDescription>Approved property managers in your company</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {approvedMembers.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No approved managers yet. Invite or approve pending applications.</p>
+              ) : (
+                <div className="space-y-3">
+                  {approvedMembers.map(member => {
+                    const memberAssignments = assignments?.filter(a => a.manager_id === member.user_id) || [];
+                    return (
+                      <div key={member.id} className="p-4 rounded-lg border bg-card">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarFallback className="bg-success/10 text-success">
+                                {member.profiles?.name?.charAt(0) || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{member.profiles?.name || 'Unknown'}</p>
+                              <p className="text-sm text-muted-foreground">{member.profiles?.email}</p>
+                              {memberAssignments.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {memberAssignments.map(a => (
+                                    <Badge key={a.id} variant="secondary" className="text-xs">
+                                      {(a.properties as any)?.name || 'Property'}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            {getStatusBadge(member.status)}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => updateStatus.mutate({ memberId: member.id, status: 'deactivated' })}
+                            >
+                              <Ban className="h-3 w-3 mr-1" /> Deactivate
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Deactivated */}
+          {deactivatedMembers.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg text-muted-foreground">Deactivated ({deactivatedMembers.length})</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {deactivatedMembers.map(member => (
+                  <div key={member.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="opacity-50">
+                        <AvatarFallback>{member.profiles?.name?.charAt(0) || 'U'}</AvatarFallback>
+                      </Avatar>
+                      <div className="opacity-60">
+                        <p className="font-medium">{member.profiles?.name}</p>
+                        <p className="text-sm text-muted-foreground">{member.profiles?.email}</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => updateStatus.mutate({ memberId: member.id, status: 'approved' })}
+                    >
+                      Reactivate
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Property Assignments Tab */}
+        <TabsContent value="assignments" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Assign Manager to Property</CardTitle>
+              <CardDescription>Link approved managers to specific properties they should manage</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Property Manager</Label>
+                  <Select value={assignManagerId} onValueChange={setAssignManagerId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select manager..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {approvedMembers.map(m => (
+                        <SelectItem key={m.user_id} value={m.user_id}>
+                          {m.profiles?.name || m.profiles?.email || 'Unknown'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Property</Label>
+                  <Select value={assignPropertyId} onValueChange={setAssignPropertyId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select property..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companyProperties.length > 0 ? (
+                        companyProperties.map((p: any) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))
+                      ) : (
+                        // Show all properties if none have company_id yet
+                        properties?.map((p: any) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>&nbsp;</Label>
+                  <Button 
+                    onClick={handleAssign} 
+                    disabled={!assignManagerId || !assignPropertyId || assignPM.isPending}
+                    className="w-full gap-2"
+                  >
+                    <Plus className="h-4 w-4" /> Assign
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Current Assignments */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Current Assignments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!assignments || assignments.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No property assignments yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {assignments.map(assignment => {
+                    const member = members?.find(m => m.user_id === assignment.manager_id);
+                    return (
+                      <div key={assignment.id} className="flex items-center justify-between p-3 rounded-lg border">
+                        <div className="flex items-center gap-4">
+                          <Avatar>
+                            <AvatarFallback className="bg-primary/10 text-primary">
+                              {member?.profiles?.name?.charAt(0) || 'M'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{member?.profiles?.name || 'Unknown Manager'}</p>
+                            <p className="text-sm text-muted-foreground">
+                              <MapPin className="h-3 w-3 inline mr-1" />
+                              {(assignment.properties as any)?.name || 'Unknown Property'}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() => removeAssignment.mutate(assignment.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Invites Tab */}
+        <TabsContent value="invites">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Sent Invites</CardTitle>
+              <CardDescription>Track invite links sent to property managers</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!invites || invites.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No invites sent yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {invites.map((invite: any) => (
+                    <div key={invite.id} className="flex items-center justify-between p-3 rounded-lg border">
+                      <div>
+                        <p className="font-medium">{invite.email}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Sent: {new Date(invite.created_at).toLocaleDateString()}
+                          {' · '}
+                          Expires: {new Date(invite.expires_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      {invite.used_at ? (
+                        <Badge variant="outline" className="text-success border-success">Used</Badge>
+                      ) : new Date(invite.expires_at) < new Date() ? (
+                        <Badge variant="secondary">Expired</Badge>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1"
+                          onClick={() => {
+                            const url = `${window.location.origin}/signup?pm_invite=${invite.token}`;
+                            navigator.clipboard.writeText(url);
+                            toast({ title: 'Copied!', description: 'Invite link copied to clipboard' });
+                          }}
+                        >
+                          <Copy className="h-3 w-3" /> Copy Link
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

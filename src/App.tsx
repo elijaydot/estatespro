@@ -7,6 +7,8 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { TenantPortalLayout } from "@/pages/tenant-portal/TenantPortalLayout";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useMyMembership } from "@/hooks/useCompanies";
 
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -25,8 +27,9 @@ import RecurringBills from "./pages/RecurringBills";
 import Leases from "./pages/Leases";
 import Notifications from "./pages/Notifications";
 import Reports from "./pages/Reports";
-import MessagesPage from "./pages/MessagesPage";
 import MessagesPageV2 from "./pages/MessagesPageV2";
+import TeamManagement from "./pages/TeamManagement";
+import PendingApproval from "./pages/PendingApproval";
 import NotFound from "./pages/NotFound";
 
 // Tenant Portal
@@ -47,9 +50,18 @@ const queryClient = new QueryClient();
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
+  const { role, isLoading: roleLoading, isPropertyManager } = useUserRole();
+  const { data: membership, isLoading: membershipLoading } = useMyMembership();
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // If PM, check membership status
+  if (!roleLoading && !membershipLoading && isPropertyManager && membership) {
+    if (membership.status !== 'approved') {
+      return <PendingApproval />;
+    }
   }
   
   return <AppLayout>{children}</AppLayout>;
@@ -82,8 +94,9 @@ function AppRoutes() {
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
       
-      {/* Protected Routes - Property Manager */}
+      {/* Protected Routes */}
       <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+      <Route path="/team" element={<PrivateRoute><TeamManagement /></PrivateRoute>} />
       <Route path="/properties" element={<PrivateRoute><Properties /></PrivateRoute>} />
       <Route path="/properties/:id" element={<PrivateRoute><PropertyDetail /></PrivateRoute>} />
       <Route path="/units" element={<PrivateRoute><Units /></PrivateRoute>} />
@@ -114,7 +127,7 @@ function AppRoutes() {
       <Route path="/tenant/lease/sign/:id" element={<TenantPortalRoute><TenantLeaseSign /></TenantPortalRoute>} />
       <Route path="/tenant/messages" element={<TenantPortalRoute><TenantMessages /></TenantPortalRoute>} />
       
-      {/* Legacy portal routes - redirect to new paths */}
+      {/* Legacy portal routes */}
       <Route path="/portal" element={<Navigate to="/tenant" replace />} />
       <Route path="/portal/*" element={<Navigate to="/tenant" replace />} />
       
