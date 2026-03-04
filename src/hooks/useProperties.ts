@@ -56,13 +56,24 @@ export function useCreateProperty() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (property: Omit<Property, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
+    mutationFn: async (property: Omit<Property, 'id' | 'created_at' | 'updated_at' | 'user_id'> & { company_id?: string | null }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Auto-attach company_id if not provided
+      let companyId = property.company_id;
+      if (!companyId) {
+        const { data: companies } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('owner_id', user.id)
+          .limit(1);
+        companyId = companies?.[0]?.id || null;
+      }
+
       const { data, error } = await supabase
         .from('properties')
-        .insert({ ...property, user_id: user.id })
+        .insert({ ...property, user_id: user.id, company_id: companyId })
         .select()
         .single();
 
