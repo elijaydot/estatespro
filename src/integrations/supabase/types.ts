@@ -1132,6 +1132,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_company_property_ids: {
+        Args: { _user_id: string }
+        Returns: string[]
+      }
       get_pm_approved_membership: {
         Args: { _user_id: string }
         Returns: {
@@ -1139,6 +1143,10 @@ export type Database = {
           status: string
         }[]
       }
+      get_profile_role: { Args: { _user_id: string }; Returns: string }
+      get_tenant_id_by_user: { Args: { _user_id: string }; Returns: string[] }
+      get_tenant_property_id: { Args: { _user_id: string }; Returns: string[] }
+      get_tenant_unit_id: { Args: { _user_id: string }; Returns: string[] }
       get_user_company_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_role: {
         Args: { _user_id: string }
