@@ -726,6 +726,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          image_urls: string[] | null
           name: string
           occupied_units: number
           state: string
@@ -744,6 +745,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          image_urls?: string[] | null
           name: string
           occupied_units?: number
           state: string
@@ -762,6 +764,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          image_urls?: string[] | null
           name?: string
           occupied_units?: number
           state?: string
@@ -1054,6 +1057,7 @@ export type Database = {
           floor: number
           id: string
           image_url: string | null
+          image_urls: string[] | null
           property_id: string
           rent_amount: number
           sqft: number
@@ -1071,6 +1075,7 @@ export type Database = {
           floor?: number
           id?: string
           image_url?: string | null
+          image_urls?: string[] | null
           property_id: string
           rent_amount?: number
           sqft?: number
@@ -1088,6 +1093,7 @@ export type Database = {
           floor?: number
           id?: string
           image_url?: string | null
+          image_urls?: string[] | null
           property_id?: string
           rent_amount?: number
           sqft?: number

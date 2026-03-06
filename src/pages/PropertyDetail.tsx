@@ -44,6 +44,7 @@ import { toast } from '@/components/ui/use-toast';
 import { useProperty, useUpdateProperty, useDeleteProperty } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
 import { useSettings } from '@/contexts/SettingsContext';
+import { PhotoGallery } from '@/components/ui/photo-gallery';
 
 const propertyTypeOptions = [
   { value: 'apartment', label: 'Apartment', description: 'Multi-unit residential building' },
@@ -297,6 +298,15 @@ export default function PropertyDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Photo Gallery */}
+      {((property as any).image_urls?.length > 0 || property.image_url) && (
+        <PhotoGallery 
+          images={(property as any).image_urls?.length > 0 
+            ? (property as any).image_urls 
+            : property.image_url ? [property.image_url] : []} 
+        />
+      )}
 
       {/* Description */}
       {property.description && (

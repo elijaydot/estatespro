@@ -48,6 +48,7 @@ import { useUnit, useUpdateUnit, useDeleteUnit } from '@/hooks/useUnits';
 import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTenants } from '@/hooks/useTenants';
+import { PhotoGallery } from '@/components/ui/photo-gallery';
 
 const statusOptions = [
   { value: 'vacant', label: 'Vacant', description: 'Available for rent' },
@@ -281,6 +282,15 @@ export default function UnitDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Photo Gallery */}
+      {((unit as any).image_urls?.length > 0 || unit.image_url) && (
+        <PhotoGallery 
+          images={(unit as any).image_urls?.length > 0 
+            ? (unit as any).image_urls 
+            : unit.image_url ? [unit.image_url] : []} 
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Description & Amenities */}

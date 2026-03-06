@@ -37,6 +37,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { toast } from '@/components/ui/use-toast';
 import { useProperties, useCreateProperty, useDeleteProperty } from '@/hooks/useProperties';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -94,6 +95,7 @@ export default function Properties() {
     description: '',
     total_units: 1,
     image_url: '',
+    image_urls: [] as string[],
   });
 
   const { data: properties = [], isLoading } = useProperties();
@@ -119,8 +121,9 @@ export default function Properties() {
     await createProperty.mutateAsync({ 
       ...formData, 
       occupied_units: 0,
-      image_url: formData.image_url || null,
-    });
+      image_url: formData.image_urls[0] || formData.image_url || null,
+      image_urls: formData.image_urls,
+    } as any);
     setIsAddDialogOpen(false);
     setFormData({
       name: '',
@@ -133,6 +136,7 @@ export default function Properties() {
       description: '',
       total_units: 1,
       image_url: '',
+      image_urls: [],
     });
   };
 
@@ -299,12 +303,12 @@ export default function Properties() {
           <div className="grid lg:grid-cols-2 gap-6 py-4">
             <div className="grid gap-4">
               <div className="grid gap-2">
-                <Label>Property Image</Label>
-                <ImageUpload
-                  value={formData.image_url}
-                  onChange={(url) => setFormData({ ...formData, image_url: url || '' })}
+                <Label>Property Photos (up to 10)</Label>
+                <MultiImageUpload
+                  values={formData.image_urls}
+                  onChange={(urls) => setFormData({ ...formData, image_urls: urls, image_url: urls[0] || '' })}
                   folder="properties"
-                  placeholder="Upload property image"
+                  maxImages={10}
                 />
               </div>
               <div className="grid gap-2">
