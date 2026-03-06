@@ -20,6 +20,7 @@
  import { Input } from '@/components/ui/input';
  import { Label } from '@/components/ui/label';
  import { Textarea } from '@/components/ui/textarea';
+ import { RichTextEditor } from '@/components/ui/rich-text-editor';
  import { Badge } from '@/components/ui/badge';
  import { ScrollArea } from '@/components/ui/scroll-area';
  import { Separator } from '@/components/ui/separator';
@@ -408,14 +409,22 @@
                              {format(new Date(msg.created_at), 'MMM d, h:mm a')}
                            </p>
                          </div>
-                         {msg.subject && (
-                           <p className={`text-sm font-medium mb-1 ${msg.isFromMe ? 'text-primary-foreground' : 'text-foreground'}`}>
-                             {msg.subject}
-                           </p>
-                         )}
-                         <p className={`text-sm whitespace-pre-wrap ${msg.isFromMe ? 'text-primary-foreground' : 'text-foreground'}`}>
-                           {msg.content}
-                         </p>
+                        {msg.subject && (
+                          <p className={`text-sm font-medium mb-1 ${msg.isFromMe ? 'text-primary-foreground' : 'text-foreground'}`}>
+                            {msg.subject}
+                          </p>
+                        )}
+                        <div className={`text-sm whitespace-pre-wrap ${msg.isFromMe ? 'text-primary-foreground' : 'text-foreground'}`}
+                          dangerouslySetInnerHTML={{
+                            __html: (msg.content || '')
+                              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                              .replace(/_(.*?)_/g, '<em>$1</em>')
+                              .replace(/__(.*?)__/g, '<u>$1</u>')
+                              .replace(/`(.*?)`/g, '<code class="bg-black/10 px-1 rounded text-sm">$1</code>')
+                              .replace(/^> (.+)$/gm, '<blockquote class="border-l-2 border-current pl-2 italic opacity-80">$1</blockquote>')
+                              .replace(/\n/g, '<br/>')
+                          }}
+                        />
                        </div>
                      </div>
                    ))}
@@ -423,15 +432,14 @@
                </ScrollArea>
  
                {/* Reply Input */}
-               <div className="p-4 border-t">
-                 <div className="flex gap-2">
-                   <Textarea
-                     placeholder="Type your reply..."
-                     value={replyContent}
-                     onChange={(e) => setReplyContent(e.target.value)}
-                     className="min-h-[80px]"
-                   />
-                 </div>
+              <div className="p-4 border-t">
+                <RichTextEditor
+                  value={replyContent}
+                  onChange={setReplyContent}
+                  placeholder="Type your reply... (Shift+Enter for new line)"
+                  onSubmit={handleSendReply}
+                  minHeight="60px"
+                />
                  <div className="flex justify-end mt-2">
                    <Button 
                      onClick={handleSendReply} 
@@ -483,15 +491,15 @@
                  placeholder="Enter message subject..."
                />
              </div>
-             <div className="space-y-2">
-               <Label>Message</Label>
-               <Textarea
-                 value={newMessage.content}
-                 onChange={(e) => setNewMessage({ ...newMessage, content: e.target.value })}
-                 placeholder="Type your message here..."
-                 rows={6}
-               />
-             </div>
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <RichTextEditor
+                value={newMessage.content}
+                onChange={(val) => setNewMessage({ ...newMessage, content: val })}
+                placeholder="Type your message here..."
+                minHeight="120px"
+              />
+            </div>
            </div>
            <DialogFooter>
              <Button variant="outline" onClick={() => setIsComposeOpen(false)}>

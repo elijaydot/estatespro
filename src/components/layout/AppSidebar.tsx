@@ -50,8 +50,10 @@ const landlordNavItems = [
   { icon: FileText, label: 'Leases', href: '/leases' },
   { icon: Receipt, label: 'Invoices', href: '/invoices' },
   { icon: CreditCard, label: 'Payments', href: '/payments' },
+  { icon: RefreshCw, label: 'Recurring Bills', href: '/recurring-bills' },
   { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
   { icon: BarChart3, label: 'Reports', href: '/reports' },
+  { icon: MessageSquare, label: 'Messages', href: '/messages' },
   { icon: Bell, label: 'Notifications', href: '/notifications' },
 ];
 

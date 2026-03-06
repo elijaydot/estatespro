@@ -11,7 +11,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -24,10 +23,24 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+
+// Render markdown-like content
+function RenderContent({ content }: { content: string }) {
+  const rendered = content
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/_(.*?)_/g, '<em>$1</em>')
+    .replace(/__(.*?)__/g, '<u>$1</u>')
+    .replace(/`(.*?)`/g, '<code class="bg-muted px-1 rounded text-sm">$1</code>')
+    .replace(/^> (.+)$/gm, '<blockquote class="border-l-2 border-primary pl-2 italic text-muted-foreground">$1</blockquote>')
+    .replace(/\n/g, '<br/>');
+  
+  return <div dangerouslySetInnerHTML={{ __html: rendered }} className="text-sm whitespace-pre-wrap" />;
+}
 
 export default function TenantMessages() {
   const { user } = useAuth();
@@ -40,27 +53,21 @@ export default function TenantMessages() {
   const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Fetch tenant profile and messages
   useEffect(() => {
     async function loadData() {
       if (!user) return;
 
       try {
-        // 1. Get tenant profile to know who the landlord is
         const { data: tenant, error: tenantError } = await supabase
           .from('tenants')
-          .select('*, properties(name)')
+          .select('*, properties(name, user_id, company_id)')
           .eq('tenant_user_id', user.id)
           .maybeSingle();
 
         if (tenantError) throw tenantError;
-        if (!tenant) {
-          setIsLoading(false);
-          return;
-        }
+        if (!tenant) { setIsLoading(false); return; }
         setTenantProfile(tenant);
 
-        // 2. Get messages - use tenant.id for filtering since messages use tenant_id
         const { data: msgs, error: msgsError } = await supabase
           .from('messages')
           .select('*')
@@ -70,7 +77,6 @@ export default function TenantMessages() {
         if (msgsError) throw msgsError;
         setMessages(msgs || []);
 
-        // Subscribe to new messages for this tenant
         const channel = supabase
           .channel('tenant-messages')
           .on('postgres_changes', {
@@ -83,22 +89,16 @@ export default function TenantMessages() {
           })
           .subscribe();
 
-        // Cleanup subscription
-        return () => {
-          supabase.removeChannel(channel);
-        };
-
+        return () => { supabase.removeChannel(channel); };
       } catch (error) {
         console.error('Error loading messages:', error);
       } finally {
         setIsLoading(false);
       }
     }
-
     loadData();
   }, [user]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -110,24 +110,48 @@ export default function TenantMessages() {
     
     setIsSending(true);
     try {
-      // Use tenant.id as sender_id (consistent with how messages are filtered)
+      // Send to the property owner (landlord)
+      const landlordId = tenantProfile.user_id;
+      
       const { error } = await supabase.from('messages').insert([{
-        sender_id: tenantProfile.id, // Use tenant.id instead of user.id
-        recipient_id: tenantProfile.user_id, // Property manager's user_id
-        user_id: tenantProfile.user_id, // Landlord owns the message
+        sender_id: tenantProfile.id,
+        recipient_id: landlordId,
+        user_id: landlordId,
         property_id: tenantProfile.property_id,
         content: newMessage || newSubject,
         subject: newSubject || 'Message',
-        is_read: false
+        is_read: false,
       }]);
-
       if (error) throw error;
 
-      // Optimistic update
+      // Also send to assigned PM(s) if different from landlord
+      if (tenantProfile.property_id) {
+        const { data: pmAssignments } = await supabase
+          .from('property_manager_assignments')
+          .select('manager_id')
+          .eq('property_id', tenantProfile.property_id);
+        
+        if (pmAssignments && pmAssignments.length > 0) {
+          for (const pm of pmAssignments) {
+            if (pm.manager_id !== landlordId) {
+              await supabase.from('messages').insert([{
+                sender_id: tenantProfile.id,
+                recipient_id: pm.manager_id,
+                user_id: pm.manager_id,
+                property_id: tenantProfile.property_id,
+                content: newMessage || newSubject,
+                subject: newSubject || 'Message',
+                is_read: false,
+              }]);
+            }
+          }
+        }
+      }
+
       const optimisticMessage = {
         id: 'temp-' + Date.now(),
-        sender_id: tenantProfile.id, // Use tenant.id
-        recipient_id: tenantProfile.user_id,
+        sender_id: tenantProfile.id,
+        recipient_id: landlordId,
         content: newMessage || newSubject,
         created_at: new Date().toISOString(),
         subject: newSubject || 'Message',
@@ -147,7 +171,6 @@ export default function TenantMessages() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Messages</h1>
@@ -159,31 +182,24 @@ export default function TenantMessages() {
         </Button>
       </div>
 
-      {/* Messages Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-240px)] min-h-[500px]">
-        {/* Conversations List */}
         <Card className="card-shadow-md lg:col-span-1">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Conversations</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[calc(100%-80px)]">
-              {/* Single conversation with Property Management for now */}
               <div className="w-full p-4 text-left border-b border-border bg-secondary/50">
                 <div className="flex items-start gap-3">
                   <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                      PM
-                    </AvatarFallback>
+                    <AvatarFallback className="bg-primary/10 text-primary text-sm">PM</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">Property Management</span>
                     </div>
                     <p className="text-sm text-muted-foreground truncate mt-1">
-                      {messages.length > 0 
-                        ? messages[messages.length - 1].content 
-                        : 'No messages yet'}
+                      {messages.length > 0 ? messages[messages.length - 1].content : 'No messages yet'}
                     </p>
                     {messages.length > 0 && (
                       <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
@@ -198,14 +214,11 @@ export default function TenantMessages() {
           </CardContent>
         </Card>
 
-        {/* Message Thread */}
         <Card className="card-shadow-md lg:col-span-2 flex flex-col">
           <CardHeader className="border-b border-border">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-primary/10 text-primary">
-                  PM
-                </AvatarFallback>
+                <AvatarFallback className="bg-primary/10 text-primary">PM</AvatarFallback>
               </Avatar>
               <div>
                 <CardTitle className="text-lg">Property Management</CardTitle>
@@ -229,25 +242,14 @@ export default function TenantMessages() {
                   {messages.map((message) => {
                     const isMe = message.sender_id === tenantProfile?.id;
                     return (
-                    <div
-                      key={message.id}
-                      className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[80%] p-3 rounded-lg ${
-                          isMe
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-secondary'
-                        }`}
-                      >
-                        <p className="text-sm">{message.content}</p>
-                        <p className={`text-xs mt-1 ${
-                          isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                        }`}>
-                          {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-                        </p>
+                      <div key={message.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] p-3 rounded-lg ${isMe ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+                          <RenderContent content={message.content} />
+                          <p className={`text-xs mt-1 ${isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                            {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                          </p>
+                        </div>
                       </div>
-                    </div>
                     );
                   })}
                   <div ref={scrollRef} />
@@ -255,21 +257,16 @@ export default function TenantMessages() {
               )}
             </ScrollArea>
             <div className="p-4 border-t border-border">
-              <div className="flex gap-2">
-                <Textarea
-                  placeholder="Type your message..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  className="min-h-[80px] resize-none"
-                />
+              <RichTextEditor
+                value={newMessage}
+                onChange={setNewMessage}
+                placeholder="Type your message... (Shift+Enter for new line)"
+                onSubmit={handleSendMessage}
+                minHeight="60px"
+              />
+              <div className="flex justify-end mt-2">
                 <Button 
-                  className="self-end gap-2" 
+                  className="gap-2" 
                   onClick={handleSendMessage}
                   disabled={isSending || !newMessage.trim()}
                 >
@@ -288,13 +285,13 @@ export default function TenantMessages() {
           <DialogHeader>
             <DialogTitle>New Message</DialogTitle>
             <DialogDescription>
-              Send a message to property management.
+              Send a message to property management. Both the landlord and property manager will receive it.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid gap-2">
               <Label>To</Label>
-              <Input value="Property Management" disabled />
+              <Input value="Property Management (Landlord & PM)" disabled />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="subject">Subject</Label>
@@ -307,19 +304,16 @@ export default function TenantMessages() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="message">Message</Label>
-              <Textarea
-                id="message"
-                placeholder="Type your message here..."
-                rows={5}
+              <RichTextEditor
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={setNewMessage}
+                placeholder="Type your message here..."
+                minHeight="120px"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNewMessageOpen(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setIsNewMessageOpen(false)}>Cancel</Button>
             <Button 
               onClick={handleSendMessage} 
               className="gap-2"
