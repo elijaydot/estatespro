@@ -24,6 +24,7 @@ import {
   useCreatePMInvite,
   usePMInvites,
   useCreateCompany,
+  useRemoveCompanyMember,
 } from '@/hooks/useCompanies';
 import { useProperties } from '@/hooks/useProperties';
 
