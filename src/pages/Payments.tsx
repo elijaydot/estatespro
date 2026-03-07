@@ -405,6 +405,20 @@ export default function Payments() {
                               <Receipt className="h-4 w-4 mr-2" /> Download Receipt
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                              onSelect={async () => {
+                                try {
+                                  await supabase.functions.invoke('send-payment-confirmation', {
+                                    body: { paymentId: payment.id },
+                                  });
+                                  toast({ title: 'Receipt Sent', description: `Receipt sent to ${payment.tenants?.name || 'tenant'}.` });
+                                } catch (error: any) {
+                                  toast({ title: 'Error', description: error.message || 'Failed to send receipt', variant: 'destructive' });
+                                }
+                              }}
+                            >
+                              <Send className="h-4 w-4 mr-2" /> Send Receipt to Tenant
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                               onSelect={() => navigate(`/tenants/${payment.tenant_id}`)}
                             >
                               <DollarSign className="h-4 w-4 mr-2" /> View Tenant

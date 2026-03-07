@@ -323,18 +323,23 @@ export default function Leases() {
   };
 
   const handleSignLease = async () => {
-    if (!signingLease || !signaturePadRef.current || signaturePadRef.current.isEmpty()) {
-      toast({ title: 'Error', description: 'Please provide a signature', variant: 'destructive' });
+    if (!signingLease) return;
+
+    // Check for uploaded file first, then drawn signature
+    let blob: Blob | null = null;
+    
+    if (uploadedSignatureFile) {
+      blob = uploadedSignatureFile;
+    } else if (signaturePadRef.current && !signaturePadRef.current.isEmpty()) {
+      blob = await signaturePadRef.current.toBlob();
+    }
+
+    if (!blob) {
+      toast({ title: 'Error', description: 'Please draw or upload a signature', variant: 'destructive' });
       return;
     }
 
     try {
-      const blob = await signaturePadRef.current.toBlob();
-      if (!blob) {
-        toast({ title: 'Error', description: 'Failed to capture signature', variant: 'destructive' });
-        return;
-      }
-
       const signatureUrl = await uploadSignature.mutateAsync({ leaseId: signingLease.id, signatureBlob: blob });
       await signLease.mutateAsync({ leaseId: signingLease.id, signatureUrl, signerType: 'landlord' });
       
@@ -347,6 +352,7 @@ export default function Leases() {
 
       setIsSignDialogOpen(false);
       setSigningLease(null);
+      setUploadedSignatureFile(null);
     } catch (error) {
       console.error('Error signing lease:', error);
       toast({ title: 'Error', description: 'Failed to sign lease', variant: 'destructive' });
