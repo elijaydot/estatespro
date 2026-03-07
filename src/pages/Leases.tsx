@@ -134,6 +134,7 @@ export default function Leases() {
   const [leaseToDelete, setLeaseToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [uploadedSignatureFile, setUploadedSignatureFile] = useState<File | null>(null);
   const signaturePadRef = useRef<SignaturePadRef>(null);
 
   // Handle ?add=true query parameter from Quick Add
@@ -322,18 +323,23 @@ export default function Leases() {
   };
 
   const handleSignLease = async () => {
-    if (!signingLease || !signaturePadRef.current || signaturePadRef.current.isEmpty()) {
-      toast({ title: 'Error', description: 'Please provide a signature', variant: 'destructive' });
+    if (!signingLease) return;
+
+    // Check for uploaded file first, then drawn signature
+    let blob: Blob | null = null;
+    
+    if (uploadedSignatureFile) {
+      blob = uploadedSignatureFile;
+    } else if (signaturePadRef.current && !signaturePadRef.current.isEmpty()) {
+      blob = await signaturePadRef.current.toBlob();
+    }
+
+    if (!blob) {
+      toast({ title: 'Error', description: 'Please draw or upload a signature', variant: 'destructive' });
       return;
     }
 
     try {
-      const blob = await signaturePadRef.current.toBlob();
-      if (!blob) {
-        toast({ title: 'Error', description: 'Failed to capture signature', variant: 'destructive' });
-        return;
-      }
-
       const signatureUrl = await uploadSignature.mutateAsync({ leaseId: signingLease.id, signatureBlob: blob });
       await signLease.mutateAsync({ leaseId: signingLease.id, signatureUrl, signerType: 'landlord' });
       
@@ -346,6 +352,7 @@ export default function Leases() {
 
       setIsSignDialogOpen(false);
       setSigningLease(null);
+      setUploadedSignatureFile(null);
     } catch (error) {
       console.error('Error signing lease:', error);
       toast({ title: 'Error', description: 'Failed to sign lease', variant: 'destructive' });
@@ -713,12 +720,49 @@ export default function Leases() {
             <DialogTitle>Sign Lease Agreement</DialogTitle>
             <DialogDescription>Lease #{signingLease?.lease_number} - Sign as Landlord</DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label className="mb-2 block">Your Signature</Label>
-            <SignaturePad ref={signaturePadRef} width={400} height={150} />
+          <div className="py-4 space-y-4">
+            <Tabs defaultValue="draw" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="draw">Draw Signature</TabsTrigger>
+                <TabsTrigger value="upload">Upload Signature</TabsTrigger>
+              </TabsList>
+              <TabsContent value="draw" className="mt-4">
+                <Label className="mb-2 block">Draw Your Signature</Label>
+                <SignaturePad ref={signaturePadRef} width={400} height={150} />
+              </TabsContent>
+              <TabsContent value="upload" className="mt-4">
+                <Label className="mb-2 block">Upload Signature Image</Label>
+                <p className="text-xs text-muted-foreground mb-3">
+                  PNG or JPG format, transparent background preferred. Max 2MB. Recommended: 400×150px.
+                </p>
+                <Input
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 2 * 1024 * 1024) {
+                        toast({ title: 'Error', description: 'File too large. Max 2MB.', variant: 'destructive' });
+                        return;
+                      }
+                      setUploadedSignatureFile(file);
+                    }
+                  }}
+                />
+                {uploadedSignatureFile && (
+                  <div className="mt-3 p-3 border rounded-lg bg-muted/50">
+                    <img 
+                      src={URL.createObjectURL(uploadedSignatureFile)} 
+                      alt="Uploaded signature preview" 
+                      className="max-h-20 mx-auto"
+                    />
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsSignDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setIsSignDialogOpen(false); setUploadedSignatureFile(null); }}>Cancel</Button>
             <Button onClick={handleSignLease} disabled={signLease.isPending || uploadSignature.isPending}>
               {signLease.isPending || uploadSignature.isPending ? 'Signing...' : 'Apply Signature'}
             </Button>

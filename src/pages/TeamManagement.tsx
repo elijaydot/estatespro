@@ -24,6 +24,7 @@ import {
   useCreatePMInvite,
   usePMInvites,
   useCreateCompany,
+  useRemoveCompanyMember,
 } from '@/hooks/useCompanies';
 import { useProperties } from '@/hooks/useProperties';
 
@@ -50,6 +51,7 @@ export default function TeamManagement() {
   const removeAssignment = useRemovePMAssignment();
   const createInvite = useCreatePMInvite();
   const createCompany = useCreateCompany();
+  const removeMember = useRemoveCompanyMember();
 
   const approvedMembers = members?.filter(m => m.status === 'approved') || [];
   const pendingMembers = members?.filter(m => m.status === 'pending') || [];
@@ -61,7 +63,8 @@ export default function TeamManagement() {
   const handleInvite = async () => {
     if (!inviteEmail || !activeCompanyId) return;
     const result = await createInvite.mutateAsync({ companyId: activeCompanyId, email: inviteEmail });
-    const inviteUrl = `${window.location.origin}/signup?pm_invite=${result.token}`;
+    const appUrl = import.meta.env.VITE_SUPABASE_URL ? 'https://estatespro.lovable.app' : window.location.origin;
+    const inviteUrl = `${appUrl}/signup?pm_invite=${result.token}`;
     await navigator.clipboard.writeText(inviteUrl);
     toast({ title: 'Invite link copied!', description: `Invite link for ${inviteEmail} has been copied to clipboard.` });
     setInviteEmail('');
@@ -309,10 +312,22 @@ export default function TeamManagement() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-destructive hover:text-destructive"
+                              className="text-warning hover:text-warning"
                               onClick={() => updateStatus.mutate({ memberId: member.id, status: 'deactivated' })}
                             >
                               <Ban className="h-3 w-3 mr-1" /> Deactivate
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to remove ${member.profiles?.name || 'this manager'}? This action cannot be undone.`)) {
+                                  removeMember.mutate(member.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" /> Remove
                             </Button>
                           </div>
                         </div>

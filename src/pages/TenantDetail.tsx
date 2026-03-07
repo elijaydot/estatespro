@@ -20,6 +20,8 @@ import {
   RefreshCw,
   Copy,
   LinkIcon,
+  UserX,
+  UserCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -288,7 +290,8 @@ export default function TenantDetail() {
 
       if (error) throw error;
 
-      const inviteLink = `${window.location.origin}/tenant/signup?invite=${token}`;
+      const appUrl = 'https://estatespro.lovable.app';
+      const inviteLink = `${appUrl}/tenant/signup?invite=${token}`;
       await navigator.clipboard.writeText(inviteLink);
       
       toast({ 
@@ -388,6 +391,28 @@ export default function TenantDetail() {
               >
                 <Calendar className="h-4 w-4 mr-2" /> Create Lease
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {tenant.status === 'active' ? (
+                <DropdownMenuItem
+                  onSelect={async (e) => {
+                    e.preventDefault();
+                    await updateTenant.mutateAsync({ id: id!, status: 'inactive' });
+                    toast({ title: 'Tenant Deactivated', description: `${tenant.name} has been marked as inactive.` });
+                  }}
+                >
+                  <UserX className="h-4 w-4 mr-2" /> Mark Inactive
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  onSelect={async (e) => {
+                    e.preventDefault();
+                    await updateTenant.mutateAsync({ id: id!, status: 'active' });
+                    toast({ title: 'Tenant Activated', description: `${tenant.name} has been marked as active.` });
+                  }}
+                >
+                  <UserCheck className="h-4 w-4 mr-2" /> Mark Active
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive"

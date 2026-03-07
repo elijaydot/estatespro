@@ -267,6 +267,28 @@ export function usePMInvites(companyId: string | undefined) {
   });
 }
 
+// Remove a company member entirely
+export function useRemoveCompanyMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (memberId: string) => {
+      const { error } = await db
+        .from('company_members')
+        .delete()
+        .eq('id', memberId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company_members'] });
+      queryClient.invalidateQueries({ queryKey: ['pm_assignments'] });
+      toast({ title: 'Success', description: 'Property manager removed from company' });
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
 // Create company
 export function useCreateCompany() {
   const queryClient = useQueryClient();

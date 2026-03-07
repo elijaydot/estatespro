@@ -65,7 +65,7 @@ export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { user, profile, logout } = useAuth();
-  const { isLandlord } = useUserRole();
+  const { isLandlord, role } = useUserRole();
 
   const navItems = isLandlord ? landlordNavItems : pmNavItems;
 
@@ -178,7 +178,7 @@ export function AppSidebar() {
                   {profile?.name || user?.email}
                 </p>
                 <p className="text-xs text-sidebar-foreground/60 truncate">
-                  {getRoleLabel(profile?.role)}
+                  {getRoleLabel(role || profile?.role)}
                 </p>
               </div>
             )}
