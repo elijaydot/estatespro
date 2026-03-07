@@ -312,10 +312,22 @@ export default function TeamManagement() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-destructive hover:text-destructive"
+                              className="text-warning hover:text-warning"
                               onClick={() => updateStatus.mutate({ memberId: member.id, status: 'deactivated' })}
                             >
                               <Ban className="h-3 w-3 mr-1" /> Deactivate
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to remove ${member.profiles?.name || 'this manager'}? This action cannot be undone.`)) {
+                                  removeMember.mutate(member.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" /> Remove
                             </Button>
                           </div>
                         </div>
