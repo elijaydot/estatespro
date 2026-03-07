@@ -392,6 +392,28 @@ export default function TenantDetail() {
                 <Calendar className="h-4 w-4 mr-2" /> Create Lease
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              {tenant.status === 'active' ? (
+                <DropdownMenuItem
+                  onSelect={async (e) => {
+                    e.preventDefault();
+                    await updateTenant.mutateAsync({ id: id!, status: 'inactive' });
+                    toast({ title: 'Tenant Deactivated', description: `${tenant.name} has been marked as inactive.` });
+                  }}
+                >
+                  <UserX className="h-4 w-4 mr-2" /> Mark Inactive
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  onSelect={async (e) => {
+                    e.preventDefault();
+                    await updateTenant.mutateAsync({ id: id!, status: 'active' });
+                    toast({ title: 'Tenant Activated', description: `${tenant.name} has been marked as active.` });
+                  }}
+                >
+                  <UserCheck className="h-4 w-4 mr-2" /> Mark Active
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive"
                 onSelect={(e) => {
