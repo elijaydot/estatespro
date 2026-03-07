@@ -178,7 +178,7 @@ export function AppSidebar() {
                   {profile?.name || user?.email}
                 </p>
                 <p className="text-xs text-sidebar-foreground/60 truncate">
-                  {getRoleLabel(profile?.role)}
+                  {getRoleLabel(role || profile?.role)}
                 </p>
               </div>
             )}

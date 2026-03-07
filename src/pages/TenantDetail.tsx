@@ -288,7 +288,8 @@ export default function TenantDetail() {
 
       if (error) throw error;
 
-      const inviteLink = `${window.location.origin}/tenant/signup?invite=${token}`;
+      const appUrl = 'https://estatespro.lovable.app';
+      const inviteLink = `${appUrl}/tenant/signup?invite=${token}`;
       await navigator.clipboard.writeText(inviteLink);
       
       toast({ 

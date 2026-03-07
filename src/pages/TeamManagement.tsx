@@ -61,7 +61,8 @@ export default function TeamManagement() {
   const handleInvite = async () => {
     if (!inviteEmail || !activeCompanyId) return;
     const result = await createInvite.mutateAsync({ companyId: activeCompanyId, email: inviteEmail });
-    const inviteUrl = `${window.location.origin}/signup?pm_invite=${result.token}`;
+    const appUrl = import.meta.env.VITE_SUPABASE_URL ? 'https://estatespro.lovable.app' : window.location.origin;
+    const inviteUrl = `${appUrl}/signup?pm_invite=${result.token}`;
     await navigator.clipboard.writeText(inviteUrl);
     toast({ title: 'Invite link copied!', description: `Invite link for ${inviteEmail} has been copied to clipboard.` });
     setInviteEmail('');
