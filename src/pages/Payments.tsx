@@ -54,6 +54,7 @@ import { usePayments, useCreatePayment } from '@/hooks/usePayments';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useTenants } from '@/hooks/useTenants';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 const getStatusBadge = (status: string) => {
   switch (status) {
