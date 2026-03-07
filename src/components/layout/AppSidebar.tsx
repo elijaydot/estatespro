@@ -65,7 +65,7 @@ export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { user, profile, logout } = useAuth();
-  const { isLandlord } = useUserRole();
+  const { isLandlord, role } = useUserRole();
 
   const navItems = isLandlord ? landlordNavItems : pmNavItems;
 
