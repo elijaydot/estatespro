@@ -134,6 +134,7 @@ export default function Leases() {
   const [leaseToDelete, setLeaseToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [uploadedSignatureFile, setUploadedSignatureFile] = useState<File | null>(null);
   const signaturePadRef = useRef<SignaturePadRef>(null);
 
   // Handle ?add=true query parameter from Quick Add
