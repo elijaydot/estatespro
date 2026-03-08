@@ -104,6 +104,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       if (newSettings.timezone !== undefined) updateData.timezone = newSettings.timezone;
       if (newSettings.dateFormat !== undefined) updateData.date_format = newSettings.dateFormat;
       if (newSettings.accentColor !== undefined) updateData.accent_color = newSettings.accentColor;
+      if (newSettings.leaseFont !== undefined) updateData.lease_font = newSettings.leaseFont;
+      if (newSettings.leasePrimaryColor !== undefined) updateData.lease_primary_color = newSettings.leasePrimaryColor;
+      if (newSettings.leaseSecondaryColor !== undefined) updateData.lease_secondary_color = newSettings.leaseSecondaryColor;
+      if (newSettings.leaseHeaderColor !== undefined) updateData.lease_header_color = newSettings.leaseHeaderColor;
 
       const { error } = await supabase
         .from('app_settings')
