@@ -65,6 +65,8 @@ import { PortalStatusBadge } from '@/components/tenants/PortalStatusBadge';
 import { InvitesManagement } from '@/components/invites/InvitesManagement';
 import { TenantPreviewCard } from '@/components/forms/TenantPreviewCard';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { useTenantExits } from '@/hooks/useTenantExits';
+import { Card, CardContent } from '@/components/ui/card';
 
 const getLeaseStatusBadge = (leaseEndDate: string | null) => {
   if (!leaseEndDate) return <Badge className="bg-muted text-muted-foreground">No Lease</Badge>;
