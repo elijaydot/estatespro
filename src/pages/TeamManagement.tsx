@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { 
   Users, UserPlus, Building2, Shield, Clock, CheckCircle2, 
-  XCircle, Copy, Ban, MapPin, Loader2, Plus, Trash2 
+  XCircle, Copy, Ban, MapPin, Loader2, Plus, Trash2, Pencil 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
