@@ -9,6 +9,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { CompanySettings } from '@/components/settings/CompanySettings';
+import { InspectionChecklistSettings } from '@/components/settings/InspectionChecklistSettings';
 
 const currencyOptions = [
   { value: 'RWF', label: 'RWF - Rwandan Franc', description: 'Rwanda' },
@@ -393,6 +394,9 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Inspection Checklist Management */}
+        <InspectionChecklistSettings />
 
         {/* Preview */}
         <Card className="card-shadow-md md:col-span-2">
