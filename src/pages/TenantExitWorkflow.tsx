@@ -260,9 +260,48 @@ export default function TenantExitWorkflow() {
             {tenant?.name} • {unit?.unit_number} • {property?.name}
           </p>
         </div>
-        <Badge className="ml-auto" variant="outline">
-          {exitData.exit_reason.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-        </Badge>
+        <div className="ml-auto flex items-center gap-2">
+          <Badge variant="outline">
+            {exitData.exit_reason.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+          </Badge>
+          {exitData.status !== 'completed' && exitData.status !== 'cancelled' && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10">
+                  <XCircle className="h-4 w-4" />
+                  Cancel Exit
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cancel Tenant Exit?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will cancel the exit process for {tenant?.name}. The tenant will remain in their unit and no deposit changes will be made. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep Exit</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={async () => {
+                      await updateExit.mutateAsync({
+                        exitId: exitId!,
+                        data: {
+                          status: 'cancelled',
+                          completed_at: new Date().toISOString(),
+                        },
+                      });
+                      toast({ title: 'Exit Cancelled', description: 'The tenant exit process has been cancelled.' });
+                      navigate(-1);
+                    }}
+                  >
+                    Cancel Exit
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
       </div>
 
       {/* Step Progress */}
