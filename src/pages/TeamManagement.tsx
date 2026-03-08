@@ -257,6 +257,10 @@ export default function TeamManagement() {
             <UserPlus className="h-4 w-4" />
             Invites
           </TabsTrigger>
+          <TabsTrigger value="companies" className="gap-2">
+            <Building2 className="h-4 w-4" />
+            Companies ({companies?.length || 0})
+          </TabsTrigger>
         </TabsList>
 
         {/* Members Tab */}
