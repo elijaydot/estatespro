@@ -318,6 +318,15 @@ export default function Tenants() {
         <TabsList>
           <TabsTrigger value="tenants">All Tenants</TabsTrigger>
           <TabsTrigger value="invites">Portal Invites</TabsTrigger>
+          <TabsTrigger value="exits" className="gap-1.5">
+            <LogOut className="h-3.5 w-3.5" />
+            Tenant Exits
+            {tenantExits.filter(e => e.status !== 'completed').length > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1 text-xs flex items-center justify-center">
+                {tenantExits.filter(e => e.status !== 'completed').length}
+              </Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="tenants" className="space-y-4 mt-4">
