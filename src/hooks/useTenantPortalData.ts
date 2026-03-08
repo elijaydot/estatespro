@@ -71,14 +71,23 @@ export function useTenantPortalData() {
 
       if (paymentsError) throw paymentsError;
 
-      // Get recurring bills for this tenant
+      // Get recurring bills for this tenant - RLS handles visibility
+      // Fetch all active bills the tenant can see, then filter client-side
       const { data: recurringBills, error: billsError } = await supabase
         .from('recurring_bills')
         .select('*')
-        .eq('is_active', true)
-        .or(`tenant_id.eq.${tenant.id},and(tenant_id.is.null,property_id.eq.${tenant.property_id}),and(tenant_id.is.null,property_id.is.null)`);
+        .eq('is_active', true);
 
-      if (billsError) console.error('Error fetching recurring bills:', billsError);
+      if (billsError) {
+        console.error('Error fetching recurring bills:', billsError);
+      }
+
+      // Client-side filter: bills assigned to this tenant, or to their property (global), or global (no property)
+      const filteredBills = (recurringBills || []).filter((bill: any) => 
+        bill.tenant_id === tenant.id || 
+        (bill.tenant_id === null && bill.property_id === tenant.property_id) ||
+        (bill.tenant_id === null && bill.property_id === null)
+      );
 
       const activeBills = recurringBills || [];
       const totalRecurringAmount = activeBills.reduce((sum, b) => sum + Number(b.amount), 0);
