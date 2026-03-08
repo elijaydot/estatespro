@@ -398,6 +398,18 @@ export default function TenantDetail() {
                 <Calendar className="h-4 w-4 mr-2" /> Create Lease
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              {tenant.status === 'active' && (
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setExitDialogOpen(true);
+                  }}
+                  className="text-warning"
+                >
+                  <LogOut className="h-4 w-4 mr-2" /> Initiate Tenant Exit
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
               {tenant.status === 'active' ? (
                 <DropdownMenuItem
                   onSelect={async (e) => {
