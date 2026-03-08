@@ -40,7 +40,8 @@ export default function TeamManagement() {
   const [newCompanyName, setNewCompanyName] = useState('');
   const [assignManagerId, setAssignManagerId] = useState('');
   const [assignPropertyId, setAssignPropertyId] = useState('');
-
+  const [editCompanyDialogOpen, setEditCompanyDialogOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<{ id: string; name: string; email: string; phone: string; address: string } | null>(null);
   const activeCompanyId = selectedCompanyId || companies?.[0]?.id || '';
   
   const { data: members, isLoading: loadingMembers } = useCompanyMembers(activeCompanyId);
