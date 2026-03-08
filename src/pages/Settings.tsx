@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Globe, DollarSign, Calendar, Save, Palette } from 'lucide-react';
+import { Settings as SettingsIcon, Globe, DollarSign, Calendar, Save, Palette, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -63,6 +63,10 @@ export default function Settings() {
     timezone: 'Africa/Kigali',
     dateFormat: 'DD/MM/YYYY',
     accentColor: '#f59e0b',
+    leaseFont: 'Georgia',
+    leasePrimaryColor: '#1e3a5f',
+    leaseSecondaryColor: '#2563eb',
+    leaseHeaderColor: '#f0f7ff',
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -75,6 +79,10 @@ export default function Settings() {
         timezone: settings.timezone,
         dateFormat: settings.dateFormat,
         accentColor: settings.accentColor,
+        leaseFont: settings.leaseFont,
+        leasePrimaryColor: settings.leasePrimaryColor,
+        leaseSecondaryColor: settings.leaseSecondaryColor,
+        leaseHeaderColor: settings.leaseHeaderColor,
       });
     }
   }, [settings, isLoading]);
@@ -306,6 +314,81 @@ export default function Settings() {
                   <p className="font-medium" style={{ color: formData.accentColor }}>Preview</p>
                   <p className="text-xs text-muted-foreground">This is how your accent color will look</p>
                 </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Lease Document Customization */}
+        <Card className="card-shadow-md md:col-span-2">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-info/10">
+                <FileText className="h-5 w-5 text-info" />
+              </div>
+              <div>
+                <CardTitle>Lease Document Styling</CardTitle>
+                <CardDescription>Customize the look of your lease agreement PDFs</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Font Family</Label>
+                <SearchableSelect
+                  options={[
+                    { value: 'Georgia', label: 'Georgia', description: 'Classic serif' },
+                    { value: 'Times New Roman', label: 'Times New Roman', description: 'Traditional' },
+                    { value: 'Arial', label: 'Arial', description: 'Clean sans-serif' },
+                    { value: 'Helvetica', label: 'Helvetica', description: 'Modern sans-serif' },
+                    { value: 'Palatino', label: 'Palatino', description: 'Elegant serif' },
+                    { value: 'Garamond', label: 'Garamond', description: 'Professional serif' },
+                  ]}
+                  value={formData.leaseFont}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, leaseFont: value }))}
+                  placeholder="Select font..."
+                  searchPlaceholder="Search fonts..."
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Primary Color (Headings)</Label>
+                <ColorPicker
+                  value={formData.leasePrimaryColor}
+                  onChange={(color) => setFormData(prev => ({ ...prev, leasePrimaryColor: color }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Accent Color (Borders & Highlights)</Label>
+                <ColorPicker
+                  value={formData.leaseSecondaryColor}
+                  onChange={(color) => setFormData(prev => ({ ...prev, leaseSecondaryColor: color }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Header Background</Label>
+                <ColorPicker
+                  value={formData.leaseHeaderColor}
+                  onChange={(color) => setFormData(prev => ({ ...prev, leaseHeaderColor: color }))}
+                />
+              </div>
+            </div>
+            {/* Live Preview */}
+            <div className="mt-4 rounded-lg border overflow-hidden">
+              <div className="p-4 text-center" style={{ backgroundColor: formData.leaseHeaderColor, borderBottom: `3px solid ${formData.leaseSecondaryColor}` }}>
+                <h3 className="text-lg font-bold" style={{ fontFamily: formData.leaseFont, color: formData.leasePrimaryColor }}>
+                  RESIDENTIAL LEASE AGREEMENT
+                </h3>
+                <p className="text-sm" style={{ fontFamily: formData.leaseFont, color: formData.leaseSecondaryColor }}>
+                  Lease Preview
+                </p>
+              </div>
+              <div className="p-4" style={{ fontFamily: formData.leaseFont }}>
+                <p className="font-bold mb-1" style={{ color: formData.leasePrimaryColor, borderBottom: `1px solid ${formData.leaseSecondaryColor}`, paddingBottom: '4px' }}>
+                  PROPERTY INFORMATION
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">Property Name: Sample Property</p>
+                <p className="text-sm text-muted-foreground">Unit: A-101</p>
               </div>
             </div>
           </CardContent>

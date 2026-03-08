@@ -10,6 +10,10 @@ export interface AppSettings {
   timezone: string;
   dateFormat: string;
   accentColor: string;
+  leaseFont: string;
+  leasePrimaryColor: string;
+  leaseSecondaryColor: string;
+  leaseHeaderColor: string;
 }
 
 interface SettingsContextType {
@@ -26,6 +30,10 @@ const defaultSettings: AppSettings = {
   timezone: 'Africa/Kigali',
   dateFormat: 'DD/MM/YYYY',
   accentColor: '#f59e0b',
+  leaseFont: 'Georgia',
+  leasePrimaryColor: '#1e3a5f',
+  leaseSecondaryColor: '#2563eb',
+  leaseHeaderColor: '#f0f7ff',
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -71,6 +79,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           timezone: data.timezone,
           dateFormat: data.date_format,
           accentColor: data.accent_color || '#f59e0b',
+          leaseFont: (data as any).lease_font || 'Georgia',
+          leasePrimaryColor: (data as any).lease_primary_color || '#1e3a5f',
+          leaseSecondaryColor: (data as any).lease_secondary_color || '#2563eb',
+          leaseHeaderColor: (data as any).lease_header_color || '#f0f7ff',
         });
       }
     } catch (error) {
@@ -92,6 +104,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       if (newSettings.timezone !== undefined) updateData.timezone = newSettings.timezone;
       if (newSettings.dateFormat !== undefined) updateData.date_format = newSettings.dateFormat;
       if (newSettings.accentColor !== undefined) updateData.accent_color = newSettings.accentColor;
+      if (newSettings.leaseFont !== undefined) updateData.lease_font = newSettings.leaseFont;
+      if (newSettings.leasePrimaryColor !== undefined) updateData.lease_primary_color = newSettings.leasePrimaryColor;
+      if (newSettings.leaseSecondaryColor !== undefined) updateData.lease_secondary_color = newSettings.leaseSecondaryColor;
+      if (newSettings.leaseHeaderColor !== undefined) updateData.lease_header_color = newSettings.leaseHeaderColor;
 
       const { error } = await supabase
         .from('app_settings')

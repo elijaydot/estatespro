@@ -137,7 +137,52 @@ export default function TenantPayments() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <Card className="card-shadow-md">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Monthly Rent</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {formatCurrency(stats.monthlyRent || 0)}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-primary/10">
+                <DollarSign className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="card-shadow-md">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">+ Recurring Bills</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {formatCurrency(portalData.totalRecurringAmount || 0)}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-warning/10">
+                <Clock className="h-6 w-6 text-warning" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="card-shadow-md border-primary/20 bg-primary/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Monthly Due</p>
+                <p className="text-2xl font-bold text-primary">
+                  {formatCurrency(stats.totalMonthlyDue || 0)}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-primary/10">
+                <CreditCard className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         <Card className="card-shadow-md">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -157,37 +202,29 @@ export default function TenantPayments() {
             </div>
           </CardContent>
         </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Next Payment</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {nextPayment ? formatCurrency(nextPayment.amount - nextPayment.paid_amount) : formatCurrency(0)}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-primary/10">
-                <DollarSign className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Due Date</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {nextPayment ? `${daysUntilDue} days` : 'N/A'}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-info/10">
-                <Calendar className="h-6 w-6 text-info" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Recurring Bills Breakdown */}
+      {portalData.recurringBills && portalData.recurringBills.length > 0 && (
+        <Card className="card-shadow-md">
+          <CardHeader>
+            <CardTitle className="text-lg">Recurring Bills</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {portalData.recurringBills.map((bill: any) => (
+                <div key={bill.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                  <div>
+                    <p className="font-medium text-sm">{bill.name}</p>
+                    <p className="text-xs text-muted-foreground">{bill.bill_type} • {bill.frequency}</p>
+                  </div>
+                  <span className="font-semibold">{formatCurrency(bill.amount)}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Upcoming Payment */}
       <Card className="card-shadow-md">
