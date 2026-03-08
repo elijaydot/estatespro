@@ -54,6 +54,8 @@ export default function TeamManagement() {
   const removeAssignment = useRemovePMAssignment();
   const createInvite = useCreatePMInvite();
   const createCompany = useCreateCompany();
+  const updateCompany = useUpdateCompany();
+  const deleteCompany = useDeleteCompany();
   const removeMember = useRemoveCompanyMember();
 
   const approvedMembers = members?.filter(m => m.status === 'approved') || [];
