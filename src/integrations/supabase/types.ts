@@ -23,6 +23,10 @@ export type Database = {
           date_format: string
           default_country: string
           id: string
+          lease_font: string
+          lease_header_color: string
+          lease_primary_color: string
+          lease_secondary_color: string
           timezone: string
           updated_at: string
           user_id: string
@@ -35,6 +39,10 @@ export type Database = {
           date_format?: string
           default_country?: string
           id?: string
+          lease_font?: string
+          lease_header_color?: string
+          lease_primary_color?: string
+          lease_secondary_color?: string
           timezone?: string
           updated_at?: string
           user_id: string
@@ -47,6 +55,10 @@ export type Database = {
           date_format?: string
           default_country?: string
           id?: string
+          lease_font?: string
+          lease_header_color?: string
+          lease_primary_color?: string
+          lease_secondary_color?: string
           timezone?: string
           updated_at?: string
           user_id?: string
