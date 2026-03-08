@@ -90,6 +90,7 @@ export default function TenantExitWorkflow() {
         case 'deposit_decided': setActiveStep('approval'); break;
         case 'approved': setActiveStep('refund'); break;
         case 'completed': setActiveStep('complete'); break;
+        case 'cancelled': setActiveStep('complete'); break;
         default: setActiveStep('inspection');
       }
     }
