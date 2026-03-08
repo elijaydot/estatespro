@@ -29,6 +29,7 @@ import Notifications from "./pages/Notifications";
 import Reports from "./pages/Reports";
 import MessagesPageV2 from "./pages/MessagesPageV2";
 import TeamManagement from "./pages/TeamManagement";
+import TenantExitWorkflow from "./pages/TenantExitWorkflow";
 import PendingApproval from "./pages/PendingApproval";
 import NotFound from "./pages/NotFound";
 
