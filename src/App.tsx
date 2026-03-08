@@ -29,6 +29,7 @@ import Notifications from "./pages/Notifications";
 import Reports from "./pages/Reports";
 import MessagesPageV2 from "./pages/MessagesPageV2";
 import TeamManagement from "./pages/TeamManagement";
+import TenantExitWorkflow from "./pages/TenantExitWorkflow";
 import PendingApproval from "./pages/PendingApproval";
 import NotFound from "./pages/NotFound";
 
@@ -103,6 +104,7 @@ function AppRoutes() {
       <Route path="/units/:id" element={<PrivateRoute><UnitDetail /></PrivateRoute>} />
       <Route path="/tenants" element={<PrivateRoute><Tenants /></PrivateRoute>} />
       <Route path="/tenants/:id" element={<PrivateRoute><TenantDetail /></PrivateRoute>} />
+      <Route path="/tenant-exit/:exitId" element={<PrivateRoute><TenantExitWorkflow /></PrivateRoute>} />
       <Route path="/leases" element={<PrivateRoute><Leases /></PrivateRoute>} />
       <Route path="/invoices" element={<PrivateRoute><Invoices /></PrivateRoute>} />
       <Route path="/payments" element={<PrivateRoute><Payments /></PrivateRoute>} />
