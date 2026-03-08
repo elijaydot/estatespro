@@ -19,8 +19,29 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    // Use service client to bypass RLS
+
+    // 1. Verify authentication
+    const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const tokenJwt = authHeader.replace("Bearer ", "");
+    const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(tokenJwt);
+
+    if (authError || !user) {
+      console.error("JWT verification failed:", authError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Use service client to bypass RLS for DB writes
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { token, tenantUserId }: AcceptInviteRequest = await req.json();
@@ -32,7 +53,15 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // 1. Validate token
+    // 2. Verify tenantUserId matches authenticated user
+    if (user.id !== tenantUserId) {
+      return new Response(
+        JSON.stringify({ error: "User ID mismatch" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Validate token
     const { data: invite, error: inviteError } = await supabase
       .from("tenant_invites")
       .select("*")
@@ -54,7 +83,16 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // 2. Mark as used
+    // 4. Verify authenticated user's email matches the invite email
+    if (user.email?.toLowerCase() !== invite.email?.toLowerCase()) {
+      console.error("Email mismatch: user=", user.email, "invite=", invite.email);
+      return new Response(
+        JSON.stringify({ error: "This invite was sent to a different email address" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 5. Mark as used
     const { error: updateInviteError } = await supabase
       .from("tenant_invites")
       .update({ used_at: new Date().toISOString() })
@@ -62,7 +100,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (updateInviteError) throw updateInviteError;
 
-    // 3. Link tenant
+    // 6. Link tenant
     const { error: updateTenantError } = await supabase
       .from("tenants")
       .update({ tenant_user_id: tenantUserId })
@@ -78,7 +116,7 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error("Error in accept-tenant-invite:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: "An unexpected error occurred" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
