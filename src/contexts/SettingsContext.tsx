@@ -30,6 +30,10 @@ const defaultSettings: AppSettings = {
   timezone: 'Africa/Kigali',
   dateFormat: 'DD/MM/YYYY',
   accentColor: '#f59e0b',
+  leaseFont: 'Georgia',
+  leasePrimaryColor: '#1e3a5f',
+  leaseSecondaryColor: '#2563eb',
+  leaseHeaderColor: '#f0f7ff',
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
