@@ -83,6 +83,14 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Check if invite has expired
+    if (new Date(invite.expires_at) < new Date()) {
+      return new Response(
+        JSON.stringify({ error: "This invite link has expired. Please request a new one." }),
+        { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // 4. Verify authenticated user's email matches the invite email
     if (user.email?.toLowerCase() !== invite.email?.toLowerCase()) {
       console.error("Email mismatch: user=", user.email, "invite=", invite.email);
