@@ -79,6 +79,10 @@ export default function Settings() {
         timezone: settings.timezone,
         dateFormat: settings.dateFormat,
         accentColor: settings.accentColor,
+        leaseFont: settings.leaseFont,
+        leasePrimaryColor: settings.leasePrimaryColor,
+        leaseSecondaryColor: settings.leaseSecondaryColor,
+        leaseHeaderColor: settings.leaseHeaderColor,
       });
     }
   }, [settings, isLoading]);
