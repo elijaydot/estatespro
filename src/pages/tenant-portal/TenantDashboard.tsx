@@ -11,6 +11,7 @@ import {
   Home,
   CreditCard,
   Loader2,
+  Receipt,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,9 +48,8 @@ export default function TenantDashboard() {
     );
   }
 
-  const { tenant, property, unit, currentLease, nextPayment, stats } = portalData;
+  const { tenant, property, unit, currentLease, nextPayment, stats, recurringBills = [], totalRecurringAmount = 0 } = portalData;
 
-  // Calculate lease progress
   const leaseProgress = currentLease
     ? (() => {
         const totalDays = differenceInDays(new Date(currentLease.end_date), new Date(currentLease.start_date));
@@ -62,7 +62,6 @@ export default function TenantDashboard() {
     ? Math.max(0, differenceInDays(new Date(currentLease.end_date), new Date()))
     : 0;
 
-  // Calculate days until next payment
   const daysUntilDue = nextPayment
     ? differenceInDays(new Date(nextPayment.due_date), new Date())
     : 0;
@@ -125,10 +124,10 @@ export default function TenantDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Payment Status */}
+          {/* Payment Summary with Recurring Bills */}
           <Card className="card-shadow-md">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg">Upcoming Payment</CardTitle>
+              <CardTitle className="text-lg">Monthly Payment Summary</CardTitle>
               <Link to="/tenant/payments">
                 <Button variant="ghost" size="sm" className="gap-1">
                   View All <ArrowRight className="h-4 w-4" />
@@ -136,42 +135,58 @@ export default function TenantDashboard() {
               </Link>
             </CardHeader>
             <CardContent>
+              {/* Breakdown */}
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                  <div className="flex items-center gap-2">
+                    <Home className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Monthly Rent</span>
+                  </div>
+                  <span className="font-semibold">{formatCurrency(stats.monthlyRent)}</span>
+                </div>
+                {recurringBills.map((bill: any) => (
+                  <div key={bill.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                    <div className="flex items-center gap-2">
+                      <Receipt className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{bill.name}</span>
+                      <Badge variant="secondary" className="text-xs">{bill.frequency}</Badge>
+                    </div>
+                    <span className="font-semibold">{formatCurrency(bill.amount)}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary/20">
+                  <span className="font-bold text-primary">Total Monthly Due</span>
+                  <span className="text-xl font-bold text-primary">{formatCurrency(stats.totalMonthlyDue)}</span>
+                </div>
+              </div>
+
+              {/* Next Invoice Payment */}
               {nextPayment ? (
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-3 rounded-lg border border-warning/20 bg-warning/5">
                   <div>
-                    <p className="text-3xl font-bold text-foreground">
-                      {formatCurrency(nextPayment.amount - nextPayment.paid_amount)}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Due {format(new Date(nextPayment.due_date), 'MMM d, yyyy')}
+                    <p className="text-sm font-medium">Next Invoice Due</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(nextPayment.due_date), 'MMM d, yyyy')} — {formatCurrency(nextPayment.amount - nextPayment.paid_amount)} remaining
                     </p>
                   </div>
-                  <div className="text-right">
-                    <Badge className={
-                      daysUntilDue <= 5
-                        ? 'bg-warning/10 text-warning border-warning/20'
-                        : 'bg-success/10 text-success border-success/20'
-                    }>
-                      {daysUntilDue > 0 ? `${daysUntilDue} days left` : 'Due today'}
-                    </Badge>
-                    <Link to="/tenant/payments">
-                      <Button className="mt-3 gap-2">
-                        <CreditCard className="h-4 w-4" />
-                        Pay Now
-                      </Button>
-                    </Link>
-                  </div>
+                  <Link to="/tenant/payments">
+                    <Button size="sm" className="gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      Pay Now
+                    </Button>
+                  </Link>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 p-4 rounded-lg bg-success/10">
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-success/10">
                   <CheckCircle className="h-5 w-5 text-success" />
                   <span className="text-sm text-success font-medium">
                     No pending payments - you're all caught up!
                   </span>
                 </div>
               )}
+
               {stats.balance > 0 && (
-                <div className="mt-4 p-3 rounded-lg bg-destructive/10 flex items-center gap-2">
+                <div className="mt-3 p-3 rounded-lg bg-destructive/10 flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-destructive" />
                   <span className="text-sm text-destructive font-medium">
                     Outstanding balance: {formatCurrency(stats.balance)}

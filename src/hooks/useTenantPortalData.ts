@@ -71,6 +71,18 @@ export function useTenantPortalData() {
 
       if (paymentsError) throw paymentsError;
 
+      // Get recurring bills for this tenant
+      const { data: recurringBills, error: billsError } = await supabase
+        .from('recurring_bills')
+        .select('*')
+        .eq('is_active', true)
+        .or(`tenant_id.eq.${tenant.id},and(tenant_id.is.null,property_id.eq.${tenant.property_id}),and(tenant_id.is.null,property_id.is.null)`);
+
+      if (billsError) console.error('Error fetching recurring bills:', billsError);
+
+      const activeBills = recurringBills || [];
+      const totalRecurringAmount = activeBills.reduce((sum, b) => sum + Number(b.amount), 0);
+
       // Calculate stats
       const pendingInvoices = invoices?.filter(i => i.status === 'pending') || [];
       const nextPayment = pendingInvoices[0];
@@ -91,10 +103,14 @@ export function useTenantPortalData() {
         maintenanceRequests: maintenanceRequests || [],
         openMaintenanceRequests,
         completedMaintenanceRequests,
+        recurringBills: activeBills,
+        totalRecurringAmount,
         stats: {
           balance: tenant.balance || 0,
           openMaintenance: openMaintenanceRequests.length,
           completedMaintenance: completedMaintenanceRequests.length,
+          monthlyRent: tenant.monthly_rent || 0,
+          totalMonthlyDue: (tenant.monthly_rent || 0) + totalRecurringAmount,
         }
       };
     },

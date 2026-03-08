@@ -134,8 +134,9 @@ export default function Dashboard() {
         <LeaseExpirationWidget />
       </div>
 
-      {/* Additional Row */}
+      {/* Rent Expiry & Renewals Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <RentExpiryWidget />
         <UpcomingRenewals />
       </div>
     </div>
