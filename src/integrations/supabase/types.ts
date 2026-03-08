@@ -178,6 +178,94 @@ export type Database = {
         }
         Relationships: []
       }
+      default_inspection_checklist: {
+        Row: {
+          created_at: string
+          id: string
+          is_global: boolean
+          item_category: string
+          item_name: string
+          property_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_global?: boolean
+          item_category?: string
+          item_name: string
+          property_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_global?: boolean
+          item_category?: string
+          item_name?: string
+          property_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "default_inspection_checklist_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exit_inspection_items: {
+        Row: {
+          checked_at: string | null
+          checked_by: string | null
+          condition: string
+          created_at: string
+          damage_cost: number
+          exit_id: string
+          id: string
+          item_category: string
+          item_name: string
+          notes: string | null
+          photo_url: string | null
+        }
+        Insert: {
+          checked_at?: string | null
+          checked_by?: string | null
+          condition?: string
+          created_at?: string
+          damage_cost?: number
+          exit_id: string
+          id?: string
+          item_category?: string
+          item_name: string
+          notes?: string | null
+          photo_url?: string | null
+        }
+        Update: {
+          checked_at?: string | null
+          checked_by?: string | null
+          condition?: string
+          created_at?: string
+          damage_cost?: number
+          exit_id?: string
+          id?: string
+          item_category?: string
+          item_name?: string
+          notes?: string | null
+          photo_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exit_inspection_items_exit_id_fkey"
+            columns: ["exit_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_exits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number
@@ -927,6 +1015,118 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      tenant_exits: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          deduction_amount: number
+          deduction_reason: string | null
+          deposit_amount: number
+          deposit_decision: string | null
+          email_sent_at: string | null
+          exit_date: string | null
+          exit_reason: string
+          id: string
+          initiated_by: string
+          inspection_completed_by: string | null
+          inspection_date: string | null
+          inspection_notes: string | null
+          landlord_approved_at: string | null
+          landlord_approved_by: string | null
+          portal_access_until: string | null
+          property_id: string
+          refund_amount: number
+          refund_method: string | null
+          refund_processed_at: string | null
+          refund_reference: string | null
+          status: string
+          tenant_id: string
+          unit_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          deduction_amount?: number
+          deduction_reason?: string | null
+          deposit_amount?: number
+          deposit_decision?: string | null
+          email_sent_at?: string | null
+          exit_date?: string | null
+          exit_reason?: string
+          id?: string
+          initiated_by: string
+          inspection_completed_by?: string | null
+          inspection_date?: string | null
+          inspection_notes?: string | null
+          landlord_approved_at?: string | null
+          landlord_approved_by?: string | null
+          portal_access_until?: string | null
+          property_id: string
+          refund_amount?: number
+          refund_method?: string | null
+          refund_processed_at?: string | null
+          refund_reference?: string | null
+          status?: string
+          tenant_id: string
+          unit_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          deduction_amount?: number
+          deduction_reason?: string | null
+          deposit_amount?: number
+          deposit_decision?: string | null
+          email_sent_at?: string | null
+          exit_date?: string | null
+          exit_reason?: string
+          id?: string
+          initiated_by?: string
+          inspection_completed_by?: string | null
+          inspection_date?: string | null
+          inspection_notes?: string | null
+          landlord_approved_at?: string | null
+          landlord_approved_by?: string | null
+          portal_access_until?: string | null
+          property_id?: string
+          refund_amount?: number
+          refund_method?: string | null
+          refund_processed_at?: string | null
+          refund_reference?: string | null
+          status?: string
+          tenant_id?: string
+          unit_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_exits_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_exits_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_exits_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenant_invites: {
         Row: {
