@@ -10,6 +10,10 @@ export interface AppSettings {
   timezone: string;
   dateFormat: string;
   accentColor: string;
+  leaseFont: string;
+  leasePrimaryColor: string;
+  leaseSecondaryColor: string;
+  leaseHeaderColor: string;
 }
 
 interface SettingsContextType {
