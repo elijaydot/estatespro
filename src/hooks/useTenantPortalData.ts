@@ -89,8 +89,8 @@ export function useTenantPortalData() {
         (bill.tenant_id === null && bill.property_id === null)
       );
 
-      const activeBills = recurringBills || [];
-      const totalRecurringAmount = activeBills.reduce((sum, b) => sum + Number(b.amount), 0);
+      const activeBills = filteredBills;
+      const totalRecurringAmount = activeBills.reduce((sum: number, b: any) => sum + Number(b.amount), 0);
 
       // Calculate stats
       const pendingInvoices = invoices?.filter(i => i.status === 'pending') || [];
