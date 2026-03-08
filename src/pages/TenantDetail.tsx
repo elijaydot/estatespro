@@ -959,6 +959,65 @@ export default function TenantDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Tenant Exit Dialog */}
+      <Dialog open={exitDialogOpen} onOpenChange={setExitDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Initiate Tenant Exit</DialogTitle>
+            <DialogDescription>
+              Start the exit process for {tenant?.name}. This will begin a multi-step workflow including property inspection, deposit decision, and final checkout.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Exit Reason</Label>
+              <Select value={exitReason} onValueChange={setExitReason}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lease_expiry">Lease Expiry</SelectItem>
+                  <SelectItem value="contract_termination">Contract Termination</SelectItem>
+                  <SelectItem value="voluntary">Voluntary Departure</SelectItem>
+                  <SelectItem value="violation">Lease Violation</SelectItem>
+                  <SelectItem value="mutual_agreement">Mutual Agreement</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="p-3 bg-muted rounded-lg text-sm space-y-1">
+              <p><strong>Tenant:</strong> {tenant?.name}</p>
+              <p><strong>Unit:</strong> {tenant?.unit_id ? units.find((u: any) => u.id === tenant.unit_id)?.unit_number : 'N/A'}</p>
+              <p><strong>Security Deposit:</strong> {formatCurrency(tenant?.security_deposit || 0)}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExitDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                if (!tenant?.property_id || !tenant?.unit_id) {
+                  toast({ title: 'Error', description: 'Tenant must have a property and unit assigned.', variant: 'destructive' });
+                  return;
+                }
+                const result = await createExit.mutateAsync({
+                  tenant_id: id!,
+                  property_id: tenant.property_id,
+                  unit_id: tenant.unit_id,
+                  exit_reason: exitReason,
+                  deposit_amount: tenant.security_deposit || 0,
+                });
+                setExitDialogOpen(false);
+                navigate(`/tenant-exit/${result.id}`);
+              }}
+              disabled={createExit.isPending}
+              className="gap-2"
+            >
+              {createExit.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+              Start Exit Process
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
