@@ -395,6 +395,9 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        {/* Inspection Checklist Management */}
+        <InspectionChecklistSettings />
+
         {/* Preview */}
         <Card className="card-shadow-md md:col-span-2">
           <CardHeader>
