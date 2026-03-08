@@ -507,6 +507,79 @@ export default function Tenants() {
         <TabsContent value="invites" className="mt-4">
           <InvitesManagement />
         </TabsContent>
+
+        {/* Tenant Exits Tab */}
+        <TabsContent value="exits" className="mt-4 space-y-4">
+          {loadingExits ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : tenantExits.length === 0 ? (
+            <div className="text-center py-12">
+              <LogOut className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground">No exit processes</h3>
+              <p className="text-muted-foreground mt-1">
+                Tenant exit workflows will appear here when initiated from a tenant's profile.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {tenantExits.map((exit: any) => {
+                const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
+                  inspection_pending: { label: 'Inspection Pending', color: 'bg-warning/10 text-warning border-warning/20', icon: ClipboardCheck },
+                  inspection_complete: { label: 'Inspection Done', color: 'bg-info/10 text-info border-info/20', icon: ClipboardCheck },
+                  deposit_decided: { label: 'Awaiting Approval', color: 'bg-primary/10 text-primary border-primary/20', icon: DollarSign },
+                  approved: { label: 'Refund Approved', color: 'bg-success/10 text-success border-success/20', icon: CheckCircle2 },
+                  completed: { label: 'Completed', color: 'bg-muted text-muted-foreground', icon: CheckCircle2 },
+                };
+                const config = statusConfig[exit.status] || statusConfig.inspection_pending;
+                const StatusIcon = config.icon;
+
+                return (
+                  <Card
+                    key={exit.id}
+                    className="hover:bg-secondary/30 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/tenant-exit/${exit.id}`)}
+                  >
+                    <CardContent className="py-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className={`p-2 rounded-lg ${exit.status === 'completed' ? 'bg-muted' : 'bg-primary/10'}`}>
+                            <StatusIcon className={`h-5 w-5 ${exit.status === 'completed' ? 'text-muted-foreground' : 'text-primary'}`} />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {exit.tenants?.name || 'Unknown Tenant'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {exit.units?.unit_number || 'N/A'} • {exit.properties?.name || 'N/A'}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {exit.exit_reason.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} • Started {format(new Date(exit.created_at), 'MMM d, yyyy')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            {exit.refund_amount > 0 && (
+                              <p className="text-sm font-medium text-foreground">
+                                Refund: {formatCurrency(exit.refund_amount)}
+                              </p>
+                            )}
+                            <Badge className={config.color}>
+                              {config.label}
+                            </Badge>
+                          </div>
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
