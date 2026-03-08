@@ -133,6 +133,7 @@ export default function Tenants() {
   const { data: invites = [] } = useTenantInvites();
   const createTenant = useCreateTenant();
   const deleteTenant = useDeleteTenant();
+  const { data: tenantExits = [], isLoading: loadingExits } = useTenantExits();
   const [activeTab, setActiveTab] = useState('tenants');
 
   // Check if a tenant has a pending invite
