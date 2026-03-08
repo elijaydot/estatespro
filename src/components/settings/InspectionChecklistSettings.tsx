@@ -127,21 +127,8 @@ export function InspectionChecklistSettings() {
   });
 
   return (
-    <Card className="card-shadow-md md:col-span-2">
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-warning/10">
-            <ClipboardCheck className="h-5 w-5 text-warning" />
-          </div>
-          <div>
-            <CardTitle>Inspection Checklist</CardTitle>
-            <CardDescription>
-              Manage default checklist items used during tenant exit inspections
-            </CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Card>
+      <CardContent className="pt-6 space-y-4">
         <Tabs defaultValue="global" onValueChange={(v) => setIsGlobalMode(v === 'global')}>
           <TabsList>
             <TabsTrigger value="global" className="gap-1.5">

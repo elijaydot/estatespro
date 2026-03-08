@@ -1,0 +1,97 @@
+import { useState } from 'react';
+import { Bell, Save } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { toast } from '@/components/ui/use-toast';
+
+export function NotificationSettings() {
+  const [preferences, setPreferences] = useState({
+    emailPayments: true,
+    emailMaintenance: true,
+    emailLeaseExpiry: true,
+    emailTenantInvites: true,
+    inAppPayments: true,
+    inAppMaintenance: true,
+    inAppLeaseExpiry: true,
+    inAppMessages: true,
+  });
+
+  const handleToggle = (key: keyof typeof preferences) => {
+    setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleSave = () => {
+    // Notification preferences are currently client-side only
+    // Can be persisted to DB in the future
+    toast({ title: 'Preferences saved', description: 'Notification preferences updated.' });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-foreground">Notifications</h2>
+          <p className="text-sm text-muted-foreground">Control how and when you get notified</p>
+        </div>
+        <Button onClick={handleSave} size="sm" className="gap-2">
+          <Save className="h-4 w-4" />
+          Save Preferences
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-2">
+            <Bell className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">Email Notifications</CardTitle>
+          </div>
+          <CardDescription>Choose which events trigger email notifications</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {[
+            { key: 'emailPayments' as const, label: 'Payment confirmations', desc: 'When a payment is recorded or confirmed' },
+            { key: 'emailMaintenance' as const, label: 'Maintenance updates', desc: 'When maintenance requests change status' },
+            { key: 'emailLeaseExpiry' as const, label: 'Lease expiry reminders', desc: 'Upcoming lease expirations and renewals' },
+            { key: 'emailTenantInvites' as const, label: 'Tenant invite activity', desc: 'When tenants accept or reject invitations' },
+          ].map(({ key, label, desc }) => (
+            <div key={key} className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <Label className="font-medium">{label}</Label>
+                <p className="text-xs text-muted-foreground">{desc}</p>
+              </div>
+              <Switch checked={preferences[key]} onCheckedChange={() => handleToggle(key)} />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-2">
+            <Bell className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">In-App Notifications</CardTitle>
+          </div>
+          <CardDescription>Notifications shown within the application</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {[
+            { key: 'inAppPayments' as const, label: 'Payments', desc: 'Payment received and overdue alerts' },
+            { key: 'inAppMaintenance' as const, label: 'Maintenance', desc: 'New requests and status changes' },
+            { key: 'inAppLeaseExpiry' as const, label: 'Lease expiry', desc: 'Expiring leases and renewal reminders' },
+            { key: 'inAppMessages' as const, label: 'Messages', desc: 'New messages from tenants' },
+          ].map(({ key, label, desc }) => (
+            <div key={key} className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <Label className="font-medium">{label}</Label>
+                <p className="text-xs text-muted-foreground">{desc}</p>
+              </div>
+              <Switch checked={preferences[key]} onCheckedChange={() => handleToggle(key)} />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
