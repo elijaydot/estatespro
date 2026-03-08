@@ -14,6 +14,7 @@ import { OccupancyChart } from '@/components/dashboard/OccupancyChart';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { UpcomingRenewals } from '@/components/dashboard/UpcomingRenewals';
 import { LeaseExpirationWidget } from '@/components/dashboard/LeaseExpirationWidget';
+import { RentExpiryWidget } from '@/components/dashboard/RentExpiryWidget';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useSettings } from '@/contexts/SettingsContext';
 import { Skeleton } from '@/components/ui/skeleton';
