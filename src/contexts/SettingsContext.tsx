@@ -79,6 +79,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           timezone: data.timezone,
           dateFormat: data.date_format,
           accentColor: data.accent_color || '#f59e0b',
+          leaseFont: (data as any).lease_font || 'Georgia',
+          leasePrimaryColor: (data as any).lease_primary_color || '#1e3a5f',
+          leaseSecondaryColor: (data as any).lease_secondary_color || '#2563eb',
+          leaseHeaderColor: (data as any).lease_header_color || '#f0f7ff',
         });
       }
     } catch (error) {
