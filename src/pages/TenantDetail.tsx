@@ -120,9 +120,13 @@ export default function TenantDetail() {
   const { data: invites = [] } = useTenantInvites();
   const updateTenant = useUpdateTenant();
   const deleteTenant = useDeleteTenant();
+  const createExit = useCreateTenantExit();
+  const { data: tenantExits = [] } = useTenantExitsByTenant(id);
 
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [isCopyingLink, setIsCopyingLink] = useState(false);
+  const [exitDialogOpen, setExitDialogOpen] = useState(false);
+  const [exitReason, setExitReason] = useState('lease_expiry');
 
   // Check if tenant has pending invite
   const hasPendingInvite = invites.some((invite: any) => 
