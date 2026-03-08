@@ -94,6 +94,40 @@ export default function TeamManagement() {
     setCompanyDialogOpen(false);
   };
 
+  const handleEditCompany = (company: any) => {
+    setEditingCompany({
+      id: company.id,
+      name: company.name || '',
+      email: company.email || '',
+      phone: company.phone || '',
+      address: company.address || '',
+    });
+    setEditCompanyDialogOpen(true);
+  };
+
+  const handleUpdateCompany = async () => {
+    if (!editingCompany) return;
+    await updateCompany.mutateAsync({
+      companyId: editingCompany.id,
+      data: {
+        name: editingCompany.name,
+        email: editingCompany.email || null,
+        phone: editingCompany.phone || null,
+        address: editingCompany.address || null,
+      },
+    });
+    setEditCompanyDialogOpen(false);
+    setEditingCompany(null);
+  };
+
+  const handleDeleteCompany = async (company: any) => {
+    if (!confirm(`Are you sure you want to delete "${company.name}"? This will also remove all associated members and assignments. This action cannot be undone.`)) return;
+    await deleteCompany.mutateAsync(company.id);
+    if (selectedCompanyId === company.id) {
+      setSelectedCompanyId('');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending': return <Badge variant="outline" className="text-warning border-warning"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
