@@ -313,3 +313,50 @@ export function useCreateCompany() {
     },
   });
 }
+
+// Update company
+export function useUpdateCompany() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ companyId, data: updateData }: { companyId: string; data: { name?: string; email?: string | null; phone?: string | null; address?: string | null } }) => {
+      const { data, error } = await db
+        .from('companies')
+        .update({ ...updateData, updated_at: new Date().toISOString() })
+        .eq('id', companyId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my_companies'] });
+      queryClient.invalidateQueries({ queryKey: ['all_companies'] });
+      toast({ title: 'Success', description: 'Company updated' });
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+// Delete company
+export function useDeleteCompany() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (companyId: string) => {
+      const { error } = await db
+        .from('companies')
+        .delete()
+        .eq('id', companyId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my_companies'] });
+      queryClient.invalidateQueries({ queryKey: ['all_companies'] });
+      toast({ title: 'Success', description: 'Company deleted' });
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
