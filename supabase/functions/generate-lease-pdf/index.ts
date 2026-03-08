@@ -22,7 +22,6 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Validate authentication
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
@@ -31,14 +30,11 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Verify user by passing the token directly
     const token = authHeader.replace('Bearer ', '');
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
-
     const { data: { user }, error: userError } = await supabaseAuth.auth.getUser(token);
     
     if (userError || !user) {
-      console.error("Auth verification failed:", userError);
       return new Response(
         JSON.stringify({ error: 'Unauthorized: Invalid token' }),
         { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -46,9 +42,6 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const userId = user.id;
-    console.log("Authenticated user:", userId);
-
-    // Parse and validate request body
     const { leaseId }: GeneratePdfRequest = await req.json();
     
     if (!leaseId || typeof leaseId !== 'string') {
@@ -58,7 +51,6 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(leaseId)) {
       return new Response(
@@ -67,50 +59,61 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("Generating PDF for lease:", leaseId);
-
-    // Use service role for data access after authorization check
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // First verify the user has access to this lease
     const { data: lease, error: leaseError } = await supabase
       .from('leases')
       .select(`
         *,
         tenants:tenant_id(id, name, email, phone, tenant_user_id),
-        properties:property_id(id, name, address, city, state, zip_code),
+        properties:property_id(id, name, address, city, state, zip_code, user_id),
         units:unit_id(id, unit_number, bedrooms, bathrooms, sqft)
       `)
       .eq('id', leaseId)
       .single();
 
     if (leaseError || !lease) {
-      console.error("Lease not found:", leaseError);
       return new Response(
         JSON.stringify({ error: 'Lease not found' }),
         { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    // Authorization check: User must be the landlord OR the tenant
     const isLandlord = lease.user_id === userId;
     const isTenant = lease.tenants?.tenant_user_id === userId;
-
     if (!isLandlord && !isTenant) {
-      console.error("Forbidden: User does not have access to this lease");
       return new Response(
         JSON.stringify({ error: 'Forbidden: You do not have access to this lease' }),
         { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    console.log("Authorization passed:", isLandlord ? "landlord" : "tenant");
+    // Fetch lease styling settings from the lease owner
+    const { data: appSettings } = await supabase
+      .from('app_settings')
+      .select('lease_font, lease_primary_color, lease_secondary_color, lease_header_color, currency_symbol')
+      .eq('user_id', lease.user_id)
+      .single();
+
+    // Fetch company settings for branding
+    const { data: companySettings } = await supabase
+      .from('company_settings')
+      .select('company_name, company_email, company_phone, company_address, logo_url')
+      .eq('user_id', lease.user_id)
+      .single();
+
+    const font = appSettings?.lease_font || 'Georgia';
+    const primaryColor = appSettings?.lease_primary_color || '#1e3a5f';
+    const secondaryColor = appSettings?.lease_secondary_color || '#2563eb';
+    const headerBg = appSettings?.lease_header_color || '#f0f7ff';
+    const currencySymbol = appSettings?.currency_symbol || '$';
+    const companyName = companySettings?.company_name || 'Property Management';
+    const companyLogo = companySettings?.logo_url || '';
 
     const tenant = lease.tenants;
     const property = lease.properties;
     const unit = lease.units;
 
-    // Generate HTML for PDF
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -119,113 +122,173 @@ const handler = async (req: Request): Promise<Response> => {
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { 
-            font-family: 'Times New Roman', Times, serif; 
+            font-family: '${font}', serif; 
             font-size: 12pt; 
             line-height: 1.6; 
-            color: #000; 
-            padding: 50px;
-            max-width: 800px;
+            color: #333; 
+            padding: 40px 50px;
+            max-width: 850px;
             margin: 0 auto;
           }
           .header { 
             text-align: center; 
-            margin-bottom: 40px; 
-            padding-bottom: 20px; 
-            border-bottom: 2px solid #000; 
+            margin-bottom: 35px; 
+            padding: 25px 20px;
+            background: ${headerBg};
+            border-radius: 8px;
+            border-bottom: 4px solid ${secondaryColor};
+          }
+          .company-logo {
+            max-height: 60px;
+            margin-bottom: 10px;
+          }
+          .company-name {
+            font-size: 11pt;
+            color: ${primaryColor};
+            margin-bottom: 8px;
+            letter-spacing: 1px;
           }
           .header h1 { 
-            font-size: 24pt; 
-            margin-bottom: 5px; 
+            font-size: 22pt; 
+            color: ${primaryColor};
+            margin-bottom: 5px;
+            letter-spacing: 2px;
           }
           .header p { 
-            font-size: 14pt; 
-            color: #333; 
+            font-size: 12pt; 
+            color: ${secondaryColor};
+            font-weight: 500;
+          }
+          .status-badge {
+            display: inline-block;
+            padding: 4px 16px;
+            background: ${lease.status === 'active' ? '#10b981' : secondaryColor};
+            color: white;
+            border-radius: 20px;
+            font-size: 9pt;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 8px;
           }
           .section { 
-            margin-bottom: 30px; 
+            margin-bottom: 25px; 
           }
           .section-title { 
-            font-size: 14pt; 
+            font-size: 13pt; 
             font-weight: bold; 
-            margin-bottom: 15px; 
+            color: ${primaryColor};
+            margin-bottom: 12px; 
             text-transform: uppercase; 
-            border-bottom: 1px solid #ccc; 
-            padding-bottom: 5px; 
+            letter-spacing: 1px;
+            border-bottom: 2px solid ${secondaryColor}; 
+            padding-bottom: 6px;
           }
           .info-grid { 
             display: flex; 
             flex-wrap: wrap; 
-            gap: 20px; 
+            gap: 15px; 
           }
           .info-item { 
             flex: 1 1 45%; 
+            padding: 10px 12px;
+            background: #fafafa;
+            border-radius: 6px;
+            border-left: 3px solid ${secondaryColor};
           }
           .info-label { 
             font-weight: bold; 
-            color: #555; 
+            color: ${primaryColor};
+            font-size: 9pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
           }
           .info-value { 
             font-size: 11pt; 
+            color: #333;
+            margin-top: 2px;
           }
           .terms { 
-            background: #f9f9f9; 
+            background: #f8f9fa; 
             padding: 20px; 
-            border: 1px solid #ddd; 
-            margin: 20px 0; 
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid ${secondaryColor};
+            border-radius: 4px;
+            margin: 15px 0; 
             white-space: pre-wrap;
             font-size: 11pt;
           }
+          .financial-highlight {
+            background: ${headerBg};
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid ${secondaryColor}20;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+            margin: 15px 0;
+          }
+          .financial-item {
+            padding: 0 15px;
+          }
+          .financial-item .amount {
+            font-size: 18pt;
+            font-weight: bold;
+            color: ${primaryColor};
+          }
+          .financial-item .label {
+            font-size: 9pt;
+            color: #666;
+            text-transform: uppercase;
+          }
           .signature-section { 
-            margin-top: 50px; 
+            margin-top: 40px; 
             page-break-inside: avoid; 
           }
           .signature-box { 
             display: flex; 
             justify-content: space-between; 
-            margin-top: 30px; 
+            margin-top: 25px; 
           }
           .signature-item { 
             width: 45%; 
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #fafafa;
           }
           .signature-line { 
-            border-bottom: 1px solid #000; 
-            height: 60px; 
-            margin-bottom: 10px; 
+            border-bottom: 2px solid ${primaryColor}; 
+            height: 50px; 
+            margin-bottom: 8px; 
           }
           .signature-image {
             max-height: 50px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
           }
           .signature-label { 
-            font-size: 10pt; 
-            color: #555; 
-          }
-          .date-line { 
-            border-bottom: 1px solid #000; 
-            width: 150px; 
-            margin-top: 20px; 
+            font-size: 9pt; 
+            color: #666;
+            text-transform: uppercase;
           }
           .footer { 
-            margin-top: 50px; 
-            padding-top: 20px; 
-            border-top: 1px solid #ccc; 
-            font-size: 10pt; 
-            color: #666; 
+            margin-top: 40px; 
+            padding-top: 15px; 
+            border-top: 2px solid ${secondaryColor}; 
+            font-size: 9pt; 
+            color: #888; 
             text-align: center; 
           }
-          .status-badge {
-            display: inline-block;
-            padding: 5px 15px;
-            background: ${lease.status === 'active' ? '#10b981' : '#f59e0b'};
-            color: white;
-            border-radius: 20px;
-            font-size: 10pt;
-            text-transform: uppercase;
+          .divider {
+            height: 1px;
+            background: linear-gradient(to right, transparent, ${secondaryColor}, transparent);
+            margin: 20px 0;
           }
         </style>
       </head>
       <body>
         <div class="header">
+          ${companyLogo ? `<img src="${companyLogo}" alt="Company Logo" class="company-logo" />` : ''}
+          <div class="company-name">${companyName}</div>
           <h1>RESIDENTIAL LEASE AGREEMENT</h1>
           <p>Lease Number: ${lease.lease_number}</p>
           <span class="status-badge">${lease.status.replace('_', ' ')}</span>
@@ -253,6 +316,8 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
         </div>
 
+        <div class="divider"></div>
+
         <div class="section">
           <div class="section-title">Tenant Information</div>
           <div class="info-grid">
@@ -271,6 +336,8 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
         </div>
 
+        <div class="divider"></div>
+
         <div class="section">
           <div class="section-title">Lease Terms</div>
           <div class="info-grid">
@@ -282,13 +349,15 @@ const handler = async (req: Request): Promise<Response> => {
               <div class="info-label">End Date</div>
               <div class="info-value">${new Date(lease.end_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
             </div>
-            <div class="info-item">
-              <div class="info-label">Monthly Rent</div>
-              <div class="info-value">$${lease.monthly_rent.toLocaleString()}</div>
+          </div>
+          <div class="financial-highlight">
+            <div class="financial-item">
+              <div class="amount">${currencySymbol} ${lease.monthly_rent.toLocaleString()}</div>
+              <div class="label">Monthly Rent</div>
             </div>
-            <div class="info-item">
-              <div class="info-label">Security Deposit</div>
-              <div class="info-value">$${lease.security_deposit.toLocaleString()}</div>
+            <div class="financial-item">
+              <div class="amount">${currencySymbol} ${lease.security_deposit.toLocaleString()}</div>
+              <div class="label">Security Deposit</div>
             </div>
           </div>
         </div>
@@ -323,14 +392,13 @@ const handler = async (req: Request): Promise<Response> => {
         </div>
 
         <div class="footer">
-          <p>This lease agreement was generated electronically on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}.</p>
+          <p>${companyName} • This lease agreement was generated electronically on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}.</p>
           <p>Document ID: ${lease.id}</p>
         </div>
       </body>
       </html>
     `;
 
-    // Return HTML that can be printed/saved as PDF by the browser
     return new Response(htmlContent, {
       status: 200,
       headers: { 
