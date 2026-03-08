@@ -58,6 +58,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { toast } from '@/components/ui/use-toast';
 import { useTenant, useUpdateTenant, useDeleteTenant } from '@/hooks/useTenants';
+import { useCreateTenantExit, useTenantExitsByTenant } from '@/hooks/useTenantExits';
 import { useProperties } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
 import { useInvoices } from '@/hooks/useInvoices';
