@@ -564,7 +564,131 @@ export default function TeamManagement() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Companies Tab */}
+        <TabsContent value="companies" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Your Companies</CardTitle>
+              <CardDescription>Manage your companies and portfolios</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!companies || companies.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No companies yet. Click "Add Company" to create one.</p>
+              ) : (
+                <div className="space-y-3">
+                  {companies.map(company => {
+                    const memberCount = members?.filter(m => m.status === 'approved').length || 0;
+                    const propCount = companyProperties.length;
+                    return (
+                      <div key={company.id} className="p-4 rounded-lg border bg-card">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                              <Building2 className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">{company.name}</p>
+                              <div className="flex gap-3 text-sm text-muted-foreground">
+                                {company.email && <span>{company.email}</span>}
+                                {company.phone && <span>• {company.phone}</span>}
+                              </div>
+                              {company.address && (
+                                <p className="text-xs text-muted-foreground">{company.address}</p>
+                              )}
+                              <div className="flex gap-2 mt-1">
+                                {activeCompanyId === company.id && (
+                                  <>
+                                    <Badge variant="secondary" className="text-xs">{memberCount} managers</Badge>
+                                    <Badge variant="secondary" className="text-xs">{propCount} properties</Badge>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1"
+                              onClick={() => handleEditCompany(company)}
+                            >
+                              <Pencil className="h-3 w-3" /> Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1 text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteCompany(company)}
+                              disabled={deleteCompany.isPending}
+                            >
+                              <Trash2 className="h-3 w-3" /> Delete
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Edit Company Dialog */}
+      <Dialog open={editCompanyDialogOpen} onOpenChange={setEditCompanyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Company</DialogTitle>
+            <DialogDescription>Update company details</DialogDescription>
+          </DialogHeader>
+          {editingCompany && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Company Name</Label>
+                <Input
+                  value={editingCompany.name}
+                  onChange={(e) => setEditingCompany({ ...editingCompany, name: e.target.value })}
+                  placeholder="Company name..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={editingCompany.email}
+                  onChange={(e) => setEditingCompany({ ...editingCompany, email: e.target.value })}
+                  placeholder="company@email.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input
+                  value={editingCompany.phone}
+                  onChange={(e) => setEditingCompany({ ...editingCompany, phone: e.target.value })}
+                  placeholder="+1 234 567 890"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Address</Label>
+                <Input
+                  value={editingCompany.address}
+                  onChange={(e) => setEditingCompany({ ...editingCompany, address: e.target.value })}
+                  placeholder="Company address..."
+                />
+              </div>
+              <Button
+                onClick={handleUpdateCompany}
+                disabled={!editingCompany.name.trim() || updateCompany.isPending}
+                className="w-full"
+              >
+                {updateCompany.isPending ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
