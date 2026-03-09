@@ -54,6 +54,7 @@
  } from '@/hooks/useMessages';
  import { useTenants } from '@/hooks/useTenants';
  import { useAuth } from '@/contexts/AuthContext';
+ import { SuggestedReplies } from '@/components/ai/SuggestedReplies';
  
  interface MessageThread {
    tenantId: string;
