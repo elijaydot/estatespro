@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings as SettingsIcon, Globe, Building2, Palette, FileText, Bell, ClipboardCheck, User } from 'lucide-react';
+import { Settings as SettingsIcon, Globe, Building2, Palette, FileText, Bell, ClipboardCheck, User, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { GeneralSettings } from '@/components/settings/GeneralSettings';
@@ -8,6 +8,7 @@ import { AppearanceSettings } from '@/components/settings/AppearanceSettings';
 import { LeaseDocumentSettings } from '@/components/settings/LeaseDocumentSettings';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { InspectionChecklistSettings } from '@/components/settings/InspectionChecklistSettings';
+import { PaymentSettings } from '@/components/settings/PaymentSettings';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User, description: 'Account details' },
@@ -15,6 +16,7 @@ const tabs = [
   { id: 'company', label: 'Company', icon: Building2, description: 'Company details' },
   { id: 'appearance', label: 'Appearance', icon: Palette, description: 'Colors & theme' },
   { id: 'lease', label: 'Lease Documents', icon: FileText, description: 'PDF styling' },
+  { id: 'payments', label: 'Payments', icon: CreditCard, description: 'Gateway & manual' },
   { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Alerts & emails' },
   { id: 'inspections', label: 'Inspections', icon: ClipboardCheck, description: 'Checklists' },
 ];
@@ -80,6 +82,7 @@ export default function Settings() {
           {activeTab === 'company' && <CompanySettingsWrapper />}
           {activeTab === 'appearance' && <AppearanceSettings />}
           {activeTab === 'lease' && <LeaseDocumentSettings />}
+          {activeTab === 'payments' && <PaymentSettingsWrapper />}
           {activeTab === 'notifications' && <NotificationSettings />}
           {activeTab === 'inspections' && <InspectionChecklistWrapper />}
         </div>
@@ -96,6 +99,18 @@ function CompanySettingsWrapper() {
         <p className="text-sm text-muted-foreground">Your company details shown on tenant invites and portal</p>
       </div>
       <CompanySettings />
+    </div>
+  );
+}
+
+function PaymentSettingsWrapper() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-foreground">Payment Settings</h2>
+        <p className="text-sm text-muted-foreground">Configure payment gateways and manual payment details</p>
+      </div>
+      <PaymentSettings />
     </div>
   );
 }
