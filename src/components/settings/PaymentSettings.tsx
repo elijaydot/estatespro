@@ -19,38 +19,82 @@ import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { format } from 'date-fns';
 
+
+const paymentSettingsSchema = z.object({
+  bank_name: z.string().optional(),
+  bank_account_number: z.string().optional(),
+  bank_account_name: z.string().optional(),
+  bank_branch: z.string().optional(),
+  momo_provider: z.string().optional(),
+  momo_number: z.string().optional(),
+  momo_name: z.string().optional(),
+  flutterwave_enabled: z.boolean(),
+  flutterwave_public_key: z.string().optional(),
+  flutterwave_secret_key: z.string().optional(),
+  paystack_enabled: z.boolean(),
+  paystack_public_key: z.string().optional(),
+  paystack_secret_key: z.string().optional(),
+  preferred_method: z.string().optional(),
+  payment_instructions: z.string().optional(),
+}).refine((data) => {
+  if (data.flutterwave_enabled && (!data.flutterwave_public_key || !data.flutterwave_secret_key)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Flutterwave public and secret keys are required when enabled",
+  path: ["flutterwave_public_key"],
+}).refine((data) => {
+  if (data.paystack_enabled && (!data.paystack_public_key || !data.paystack_secret_key)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Paystack public and secret keys are required when enabled",
+  path: ["paystack_public_key"],
+});
+
+type PaymentSettingsFormData = z.infer<typeof paymentSettingsSchema>;
+
+type GatewayStatus = {
+  status: 'connected' | 'error' | 'not_configured' | 'verifying';
+  lastVerified?: Date;
+  error?: string;
+};
+
 export function PaymentSettings() {
   const { data: companies } = useMyCompanies();
   const { data: properties } = useProperties();
   const [settingsType, setSettingsType] = useState<'company' | 'property'>('company');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
+  const [flutterwaveStatus, setFlutterwaveStatus] = useState<GatewayStatus>({ status: 'not_configured' });
+  const [paystackStatus, setPaystackStatus] = useState<GatewayStatus>({ status: 'not_configured' });
 
   const companyId = settingsType === 'company' ? selectedCompanyId : undefined;
   const propertyId = settingsType === 'property' ? selectedPropertyId : undefined;
 
   const { settings, isLoading, updateSettings } = usePaymentSettings(companyId, propertyId);
 
-  const [formData, setFormData] = useState({
-    // Manual Payment Methods
-    bank_name: settings?.bank_name || '',
-    bank_account_number: settings?.bank_account_number || '',
-    bank_account_name: settings?.bank_account_name || '',
-    bank_branch: settings?.bank_branch || '',
-    momo_provider: settings?.momo_provider || 'MTN',
-    momo_number: settings?.momo_number || '',
-    momo_name: settings?.momo_name || '',
-    
-    // Gateway Settings
-    flutterwave_enabled: settings?.flutterwave_enabled || false,
-    flutterwave_public_key: settings?.flutterwave_public_key || '',
-    flutterwave_secret_key: settings?.flutterwave_secret_key || '',
-    paystack_enabled: settings?.paystack_enabled || false,
-    paystack_public_key: settings?.paystack_public_key || '',
-    paystack_secret_key: settings?.paystack_secret_key || '',
-    
-    preferred_method: settings?.preferred_method || 'bank_transfer',
-    payment_instructions: settings?.payment_instructions || '',
+  const form = useForm<PaymentSettingsFormData>({
+    resolver: zodResolver(paymentSettingsSchema),
+    defaultValues: {
+      bank_name: '',
+      bank_account_number: '',
+      bank_account_name: '',
+      bank_branch: '',
+      momo_provider: 'MTN',
+      momo_number: '',
+      momo_name: '',
+      flutterwave_enabled: false,
+      flutterwave_public_key: '',
+      flutterwave_secret_key: '',
+      paystack_enabled: false,
+      paystack_public_key: '',
+      paystack_secret_key: '',
+      preferred_method: 'bank_transfer',
+      payment_instructions: '',
+    },
   });
 
   // Update form when settings load
