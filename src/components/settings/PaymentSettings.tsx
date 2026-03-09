@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/use-toast';
 
 export function PaymentSettings() {
-  const { data: companies } = useCompanies();
+  const { data: companies } = useMyCompanies();
   const { data: properties } = useProperties();
   const [settingsType, setSettingsType] = useState<'company' | 'property'>('company');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
