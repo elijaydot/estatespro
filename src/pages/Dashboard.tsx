@@ -18,6 +18,7 @@ import { RentExpiryWidget } from '@/components/dashboard/RentExpiryWidget';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useSettings } from '@/contexts/SettingsContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AIAssistant } from '@/components/dashboard/AIAssistant';
 
 export default function Dashboard() {
   const { data: stats, isLoading } = useDashboardStats();
