@@ -62,10 +62,40 @@ export function NotificationSettings() {
     setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleSave = () => {
-    // Notification preferences are currently client-side only
-    // Can be persisted to DB in the future
-    toast({ title: 'Preferences saved', description: 'Notification preferences updated.' });
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+
+      const { error } = await supabase
+        .from('app_settings')
+        .update({
+          email_payments: preferences.emailPayments,
+          email_maintenance: preferences.emailMaintenance,
+          email_lease_expiry: preferences.emailLeaseExpiry,
+          email_tenant_invites: preferences.emailTenantInvites,
+          in_app_payments: preferences.inAppPayments,
+          in_app_maintenance: preferences.inAppMaintenance,
+          in_app_lease_expiry: preferences.inAppLeaseExpiry,
+          in_app_messages: preferences.inAppMessages,
+        })
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+
+      toast({ 
+        title: 'Preferences saved', 
+        description: 'Notification preferences updated successfully.' 
+      });
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      toast({ 
+        title: 'Error', 
+        description: 'Failed to save notification preferences',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
