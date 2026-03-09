@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 import { useEffect } from 'react';
+import { TenantChatbot } from '@/components/ai/TenantChatbot';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/tenant' },
@@ -212,6 +213,9 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
           {children}
         </div>
       </main>
+
+      {/* AI Chatbot */}
+      <TenantChatbot />
     </div>
   );
 }

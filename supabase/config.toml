@@ -23,3 +23,15 @@ verify_jwt = false
 
 [functions.send-payment-confirmation]
 verify_jwt = false
+
+[functions.ai-generate-description]
+verify_jwt = false
+
+[functions.ai-suggest-reply]
+verify_jwt = false
+
+[functions.ai-tenant-chatbot]
+verify_jwt = false
+
+[functions.ai-maintenance-triage]
+verify_jwt = false

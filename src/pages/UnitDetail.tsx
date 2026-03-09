@@ -49,6 +49,7 @@ import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTenants } from '@/hooks/useTenants';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
+import { GenerateDescriptionButton } from '@/components/ai/GenerateDescriptionButton';
 
 const statusOptions = [
   { value: 'vacant', label: 'Vacant', description: 'Available for rent' },
@@ -533,7 +534,23 @@ export default function UnitDetail() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="unitDesc">Description</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="unitDesc">Description</Label>
+                <GenerateDescriptionButton
+                  type="unit"
+                  data={{
+                    unit_number: formData.unit_number,
+                    property_name: unit?.property_id || '',
+                    bedrooms: formData.bedrooms,
+                    bathrooms: formData.bathrooms,
+                    sqft: formData.sqft,
+                    floor: formData.floor,
+                    rent_amount: formData.rent_amount,
+                    amenities: formData.amenities.split(',').map((a: string) => a.trim()).filter(Boolean),
+                  }}
+                  onGenerated={(desc) => setFormData({ ...formData, description: desc })}
+                />
+              </div>
               <Textarea 
                 id="unitDesc" 
                 value={formData.description}

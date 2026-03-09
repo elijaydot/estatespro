@@ -45,6 +45,7 @@ import { useProperty, useUpdateProperty, useDeleteProperty } from '@/hooks/usePr
 import { useUnits } from '@/hooks/useUnits';
 import { useSettings } from '@/contexts/SettingsContext';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
+import { GenerateDescriptionButton } from '@/components/ai/GenerateDescriptionButton';
 
 const propertyTypeOptions = [
   { value: 'apartment', label: 'Apartment', description: 'Multi-unit residential building' },
@@ -496,7 +497,14 @@ export default function PropertyDetail() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="propertyDesc">Description</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="propertyDesc">Description</Label>
+                <GenerateDescriptionButton
+                  type="property"
+                  data={formData}
+                  onGenerated={(desc) => setFormData({ ...formData, description: desc })}
+                />
+              </div>
               <Textarea 
                 id="propertyDesc" 
                 value={formData.description}
