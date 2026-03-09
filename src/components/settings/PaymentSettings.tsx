@@ -313,72 +313,106 @@ export function PaymentSettings() {
       </Card>
 
       {((settingsType === 'company' && selectedCompanyId) || (settingsType === 'property' && selectedPropertyId)) && (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Manual Payment Details</CardTitle>
-              <CardDescription>Bank and Mobile Money details for manual payments</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="bank_name">Bank Name</Label>
-                <Input
-                  id="bank_name"
-                  value={formData.bank_name}
-                  onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                  placeholder="e.g., Bank of Kigali"
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Manual Payment Details</CardTitle>
+                <CardDescription>Bank and Mobile Money details for manual payments</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="bank_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bank Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Bank of Kigali" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="bank_account_name">Account Name</Label>
-                  <Input
-                    id="bank_account_name"
-                    value={formData.bank_account_name}
-                    onChange={(e) => setFormData({ ...formData, bank_account_name: e.target.value })}
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="bank_account_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="bank_account_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Number</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bank_account_number">Account Number</Label>
-                  <Input
-                    id="bank_account_number"
-                    value={formData.bank_account_number}
-                    onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
+                <FormField
+                  control={form.control}
+                  name="momo_provider"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mobile Money Provider</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="MTN">MTN MoMo</SelectItem>
+                          <SelectItem value="Airtel">Airtel Money</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="momo_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>MoMo Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="momo_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>MoMo Number</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="momo_provider">Mobile Money Provider</Label>
-                <Select value={formData.momo_provider} onValueChange={(v) => setFormData({ ...formData, momo_provider: v })}>
-                  <SelectTrigger id="momo_provider">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MTN">MTN MoMo</SelectItem>
-                    <SelectItem value="Airtel">Airtel Money</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="momo_name">MoMo Name</Label>
-                  <Input
-                    id="momo_name"
-                    value={formData.momo_name}
-                    onChange={(e) => setFormData({ ...formData, momo_name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="momo_number">MoMo Number</Label>
-                  <Input
-                    id="momo_number"
-                    value={formData.momo_number}
-                    onChange={(e) => setFormData({ ...formData, momo_number: e.target.value })}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
           <Card>
             <CardHeader>
