@@ -82,6 +82,7 @@ export default function Settings() {
           {activeTab === 'company' && <CompanySettingsWrapper />}
           {activeTab === 'appearance' && <AppearanceSettings />}
           {activeTab === 'lease' && <LeaseDocumentSettings />}
+          {activeTab === 'payments' && <PaymentSettingsWrapper />}
           {activeTab === 'notifications' && <NotificationSettings />}
           {activeTab === 'inspections' && <InspectionChecklistWrapper />}
         </div>
