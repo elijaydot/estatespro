@@ -31,6 +31,7 @@ import { useTenantMaintenanceRequests, useCreateTenantMaintenanceRequest } from 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
+import { MaintenanceTriageBadge } from '@/components/ai/MaintenanceTriageBadge';
 
 const getStatusBadge = (status: string) => {
   switch (status) {
