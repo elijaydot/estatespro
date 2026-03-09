@@ -414,85 +414,157 @@ export function PaymentSettings() {
               </CardContent>
             </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Online Payment Gateways</CardTitle>
-              <CardDescription>Configure Flutterwave and Paystack for online payments</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Flutterwave</Label>
-                    <p className="text-sm text-muted-foreground">Enable card and MoMo payments via Flutterwave</p>
+            <Card>
+              <CardHeader>
+                <CardTitle>Online Payment Gateways</CardTitle>
+                <CardDescription>Configure Flutterwave and Paystack for online payments</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Flutterwave</Label>
+                      <p className="text-sm text-muted-foreground">Enable card and MoMo payments via Flutterwave</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {getStatusBadge(flutterwaveStatus)}
+                      <FormField
+                        control={form.control}
+                        name="flutterwave_enabled"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
-                  <Switch
-                    checked={formData.flutterwave_enabled}
-                    onCheckedChange={(checked) => setFormData({ ...formData, flutterwave_enabled: checked })}
-                  />
+                  {form.watch('flutterwave_enabled') && (
+                    <div className="space-y-3 pl-4 border-l-2 border-primary/20">
+                      <FormField
+                        control={form.control}
+                        name="flutterwave_public_key"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Public Key *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="FLWPUBK-..." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="flutterwave_secret_key"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Secret Key *</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="FLWSECK-..." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => verifyGateway('flutterwave')}
+                        disabled={flutterwaveStatus.status === 'verifying'}
+                      >
+                        {flutterwaveStatus.status === 'verifying' ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Verifying...
+                          </>
+                        ) : (
+                          'Test Connection'
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                {formData.flutterwave_enabled && (
-                  <div className="space-y-2 pl-4 border-l-2 border-primary/20">
-                    <div className="space-y-2">
-                      <Label htmlFor="flutterwave_public_key">Public Key</Label>
-                      <Input
-                        id="flutterwave_public_key"
-                        value={formData.flutterwave_public_key}
-                        onChange={(e) => setFormData({ ...formData, flutterwave_public_key: e.target.value })}
-                        placeholder="FLWPUBK-..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="flutterwave_secret_key">Secret Key</Label>
-                      <Input
-                        id="flutterwave_secret_key"
-                        type="password"
-                        value={formData.flutterwave_secret_key}
-                        onChange={(e) => setFormData({ ...formData, flutterwave_secret_key: e.target.value })}
-                        placeholder="FLWSECK-..."
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Paystack</Label>
-                    <p className="text-sm text-muted-foreground">Enable card and MoMo payments via Paystack</p>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Paystack</Label>
+                      <p className="text-sm text-muted-foreground">Enable card and MoMo payments via Paystack</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {getStatusBadge(paystackStatus)}
+                      <FormField
+                        control={form.control}
+                        name="paystack_enabled"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
-                  <Switch
-                    checked={formData.paystack_enabled}
-                    onCheckedChange={(checked) => setFormData({ ...formData, paystack_enabled: checked })}
-                  />
+                  {form.watch('paystack_enabled') && (
+                    <div className="space-y-3 pl-4 border-l-2 border-primary/20">
+                      <FormField
+                        control={form.control}
+                        name="paystack_public_key"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Public Key *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="pk_..." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="paystack_secret_key"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Secret Key *</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="sk_..." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => verifyGateway('paystack')}
+                        disabled={paystackStatus.status === 'verifying'}
+                      >
+                        {paystackStatus.status === 'verifying' ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Verifying...
+                          </>
+                        ) : (
+                          'Test Connection'
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                {formData.paystack_enabled && (
-                  <div className="space-y-2 pl-4 border-l-2 border-primary/20">
-                    <div className="space-y-2">
-                      <Label htmlFor="paystack_public_key">Public Key</Label>
-                      <Input
-                        id="paystack_public_key"
-                        value={formData.paystack_public_key}
-                        onChange={(e) => setFormData({ ...formData, paystack_public_key: e.target.value })}
-                        placeholder="pk_..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="paystack_secret_key">Secret Key</Label>
-                      <Input
-                        id="paystack_secret_key"
-                        type="password"
-                        value={formData.paystack_secret_key}
-                        onChange={(e) => setFormData({ ...formData, paystack_secret_key: e.target.value })}
-                        placeholder="sk_..."
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
           <Card>
             <CardHeader>
