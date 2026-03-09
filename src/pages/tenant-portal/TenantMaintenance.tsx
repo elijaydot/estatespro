@@ -432,6 +432,13 @@ export default function TenantMaintenance() {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
             </div>
+            {/* AI Triage */}
+            <MaintenanceTriageBadge
+              title={formData.title}
+              description={formData.description}
+              category={formData.category}
+              onPrioritySelect={(p) => setFormData({ ...formData, priority: p })}
+            />
             <div className="grid gap-2">
               <Label>Attach Photo (Optional)</Label>
               <input
