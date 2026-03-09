@@ -431,8 +431,13 @@
                  </div>
                </ScrollArea>
  
-               {/* Reply Input */}
+              {/* Reply Input */}
               <div className="p-4 border-t">
+                <SuggestedReplies
+                  messages={selectedThread.messages}
+                  tenantName={selectedThread.tenantName}
+                  onSelect={(reply) => setReplyContent(reply)}
+                />
                 <RichTextEditor
                   value={replyContent}
                   onChange={setReplyContent}
