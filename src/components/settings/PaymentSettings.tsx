@@ -566,32 +566,40 @@ export function PaymentSettings() {
               </CardContent>
             </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment Instructions</CardTitle>
-              <CardDescription>Additional instructions shown to tenants</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="payment_instructions">Custom Instructions</Label>
-                <Textarea
-                  id="payment_instructions"
-                  value={formData.payment_instructions}
-                  onChange={(e) => setFormData({ ...formData, payment_instructions: e.target.value })}
-                  placeholder="Add any special instructions for tenants making payments..."
-                  rows={4}
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment Instructions</CardTitle>
+                <CardDescription>Additional instructions shown to tenants</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="payment_instructions"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Custom Instructions</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Add any special instructions for tenants making payments..."
+                          rows={4}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={updateSettings.isPending}>
-              <CreditCard className="mr-2 h-4 w-4" />
-              {updateSettings.isPending ? 'Saving...' : 'Save Payment Settings'}
-            </Button>
-          </div>
-        </>
+            <div className="flex justify-end">
+              <Button type="submit" disabled={updateSettings.isPending}>
+                <CreditCard className="mr-2 h-4 w-4" />
+                {updateSettings.isPending ? 'Saving...' : 'Save Payment Settings'}
+              </Button>
+            </div>
+          </form>
+        </Form>
       )}
     </div>
   );
