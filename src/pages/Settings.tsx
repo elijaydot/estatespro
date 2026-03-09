@@ -20,7 +20,7 @@ const tabs = [
 ];
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState('general');
+  const [activeTab, setActiveTab] = useState('profile');
 
   return (
     <div className="animate-fade-in">
