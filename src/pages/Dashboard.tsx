@@ -140,6 +140,9 @@ export default function Dashboard() {
         <RentExpiryWidget />
         <UpcomingRenewals />
       </div>
+
+      {/* AI Assistant */}
+      <AIAssistant />
     </div>
   );
 }

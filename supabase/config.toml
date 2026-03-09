@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.send-tenant-invite]
 verify_jwt = false
 
+[functions.ai-chat]
+verify_jwt = false
+
 [functions.send-maintenance-notification]
 verify_jwt = false
 
