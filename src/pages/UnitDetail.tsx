@@ -49,6 +49,7 @@ import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTenants } from '@/hooks/useTenants';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
+import { GenerateDescriptionButton } from '@/components/ai/GenerateDescriptionButton';
 
 const statusOptions = [
   { value: 'vacant', label: 'Vacant', description: 'Available for rent' },
