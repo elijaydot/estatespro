@@ -213,6 +213,9 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
           {children}
         </div>
       </main>
+
+      {/* AI Chatbot */}
+      <TenantChatbot />
     </div>
   );
 }
