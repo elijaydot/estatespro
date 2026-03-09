@@ -496,7 +496,14 @@ export default function PropertyDetail() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="propertyDesc">Description</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="propertyDesc">Description</Label>
+                <GenerateDescriptionButton
+                  type="property"
+                  data={formData}
+                  onGenerated={(desc) => setFormData({ ...formData, description: desc })}
+                />
+              </div>
               <Textarea 
                 id="propertyDesc" 
                 value={formData.description}
