@@ -45,6 +45,7 @@ import { useProperty, useUpdateProperty, useDeleteProperty } from '@/hooks/usePr
 import { useUnits } from '@/hooks/useUnits';
 import { useSettings } from '@/contexts/SettingsContext';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
+import { GenerateDescriptionButton } from '@/components/ai/GenerateDescriptionButton';
 
 const propertyTypeOptions = [
   { value: 'apartment', label: 'Apartment', description: 'Multi-unit residential building' },
