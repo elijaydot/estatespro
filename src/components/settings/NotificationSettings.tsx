@@ -1,12 +1,16 @@
-import { useState } from 'react';
-import { Bell, Save } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Bell, Save, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function NotificationSettings() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
   const [preferences, setPreferences] = useState({
     emailPayments: true,
     emailMaintenance: true,
@@ -17,6 +21,42 @@ export function NotificationSettings() {
     inAppLeaseExpiry: true,
     inAppMessages: true,
   });
+
+  useEffect(() => {
+    if (user) {
+      fetchPreferences();
+    }
+  }, [user]);
+
+  const fetchPreferences = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('email_payments, email_maintenance, email_lease_expiry, email_tenant_invites, in_app_payments, in_app_maintenance, in_app_lease_expiry, in_app_messages')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching preferences:', error);
+        return;
+      }
+
+      if (data) {
+        setPreferences({
+          emailPayments: data.email_payments ?? true,
+          emailMaintenance: data.email_maintenance ?? true,
+          emailLeaseExpiry: data.email_lease_expiry ?? true,
+          emailTenantInvites: data.email_tenant_invites ?? true,
+          inAppPayments: data.in_app_payments ?? true,
+          inAppMaintenance: data.in_app_maintenance ?? true,
+          inAppLeaseExpiry: data.in_app_lease_expiry ?? true,
+          inAppMessages: data.in_app_messages ?? true,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching preferences:', error);
+    }
+  };
 
   const handleToggle = (key: keyof typeof preferences) => {
     setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
