@@ -97,10 +97,11 @@ export function PaymentSettings() {
     },
   });
 
+
   // Update form when settings load
-  useState(() => {
+  useEffect(() => {
     if (settings) {
-      setFormData({
+      form.reset({
         bank_name: settings.bank_name || '',
         bank_account_number: settings.bank_account_number || '',
         bank_account_name: settings.bank_account_name || '',
@@ -117,10 +118,80 @@ export function PaymentSettings() {
         preferred_method: settings.preferred_method || 'bank_transfer',
         payment_instructions: settings.payment_instructions || '',
       });
-    }
-  });
 
-  const handleSave = async () => {
+      // Update gateway status based on settings
+      if (settings.flutterwave_enabled && settings.flutterwave_public_key) {
+        setFlutterwaveStatus({ status: 'connected', lastVerified: new Date(settings.updated_at) });
+      }
+      if (settings.paystack_enabled && settings.paystack_public_key) {
+        setPaystackStatus({ status: 'connected', lastVerified: new Date(settings.updated_at) });
+      }
+    }
+  }, [settings, form]);
+
+  const verifyGateway = async (gateway: 'flutterwave' | 'paystack') => {
+    const values = form.getValues();
+    
+    if (gateway === 'flutterwave') {
+      if (!values.flutterwave_public_key || !values.flutterwave_secret_key) {
+        toast({ title: 'Error', description: 'Please enter both public and secret keys', variant: 'destructive' });
+        return;
+      }
+      setFlutterwaveStatus({ status: 'verifying' });
+    } else {
+      if (!values.paystack_public_key || !values.paystack_secret_key) {
+        toast({ title: 'Error', description: 'Please enter both public and secret keys', variant: 'destructive' });
+        return;
+      }
+      setPaystackStatus({ status: 'verifying' });
+    }
+
+    try {
+      // Call verify-payment edge function in test mode
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          test_mode: true,
+          gateway,
+          public_key: gateway === 'flutterwave' ? values.flutterwave_public_key : values.paystack_public_key,
+          secret_key: gateway === 'flutterwave' ? values.flutterwave_secret_key : values.paystack_secret_key,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        const newStatus: GatewayStatus = { status: 'connected', lastVerified: new Date() };
+        if (gateway === 'flutterwave') {
+          setFlutterwaveStatus(newStatus);
+        } else {
+          setPaystackStatus(newStatus);
+        }
+        toast({ title: 'Success', description: `${gateway === 'flutterwave' ? 'Flutterwave' : 'Paystack'} connection verified successfully` });
+      } else {
+        const errorStatus: GatewayStatus = { status: 'error', error: data.error || 'Verification failed' };
+        if (gateway === 'flutterwave') {
+          setFlutterwaveStatus(errorStatus);
+        } else {
+          setPaystackStatus(errorStatus);
+        }
+        toast({ title: 'Error', description: data.error || 'Gateway verification failed', variant: 'destructive' });
+      }
+    } catch (error) {
+      const errorStatus: GatewayStatus = { status: 'error', error: 'Network error' };
+      if (gateway === 'flutterwave') {
+        setFlutterwaveStatus(errorStatus);
+      } else {
+        setPaystackStatus(errorStatus);
+      }
+      toast({ title: 'Error', description: 'Failed to verify gateway connection', variant: 'destructive' });
+    }
+  };
+
+  const onSubmit = async (data: PaymentSettingsFormData) => {
     if (settingsType === 'company' && !selectedCompanyId) {
       toast({ title: 'Error', description: 'Please select a company', variant: 'destructive' });
       return;
@@ -131,10 +202,55 @@ export function PaymentSettings() {
     }
 
     await updateSettings.mutateAsync({
-      ...formData,
+      ...data,
       company_id: companyId,
       property_id: propertyId,
     });
+  };
+
+  const getStatusBadge = (status: GatewayStatus) => {
+    switch (status.status) {
+      case 'connected':
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge variant="default" className="bg-green-500 hover:bg-green-600 w-fit">
+              <CheckCircle2 className="mr-1 h-3 w-3" />
+              Connected
+            </Badge>
+            {status.lastVerified && (
+              <span className="text-xs text-muted-foreground">
+                Last verified: {format(status.lastVerified, 'MMM d, yyyy HH:mm')}
+              </span>
+            )}
+          </div>
+        );
+      case 'error':
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge variant="destructive" className="w-fit">
+              <XCircle className="mr-1 h-3 w-3" />
+              Error
+            </Badge>
+            {status.error && (
+              <span className="text-xs text-destructive">{status.error}</span>
+            )}
+          </div>
+        );
+      case 'verifying':
+        return (
+          <Badge variant="secondary" className="w-fit">
+            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            Verifying...
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline" className="w-fit">
+            <AlertCircle className="mr-1 h-3 w-3" />
+            Not Configured
+          </Badge>
+        );
+    }
   };
 
   return (
