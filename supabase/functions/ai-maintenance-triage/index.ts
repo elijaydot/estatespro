@@ -1,0 +1,122 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const { title, description, category } = await req.json();
+
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    );
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("No authorization header");
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
+    if (userError || !user) throw new Error("Unauthorized");
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { 
+            role: "system", 
+            content: "You are a maintenance triage expert for property management. Analyze maintenance requests and categorize them." 
+          },
+          { 
+            role: "user", 
+            content: `Analyze this maintenance request:\nCategory: ${category}\nTitle: ${title}\nDescription: ${description}\n\nDetermine the urgency and suggest a priority level.` 
+          },
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "triage_request",
+            description: "Categorize and prioritize a maintenance request",
+            parameters: {
+              type: "object",
+              properties: {
+                suggested_priority: { 
+                  type: "string", 
+                  enum: ["low", "medium", "high", "urgent"],
+                  description: "Suggested priority level"
+                },
+                urgency_category: {
+                  type: "string",
+                  enum: ["cosmetic", "routine", "important", "emergency"],
+                  description: "Urgency classification"
+                },
+                reasoning: {
+                  type: "string",
+                  description: "Brief explanation of the triage decision (1-2 sentences)"
+                },
+                estimated_response_time: {
+                  type: "string",
+                  description: "Suggested response timeframe e.g. '24-48 hours', 'Same day', '1 week'"
+                }
+              },
+              required: ["suggested_priority", "urgency_category", "reasoning", "estimated_response_time"],
+              additionalProperties: false
+            }
+          }
+        }],
+        tool_choice: { type: "function", function: { name: "triage_request" } },
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Payment required" }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`AI gateway error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+    let triage = {
+      suggested_priority: "medium",
+      urgency_category: "routine",
+      reasoning: "Unable to analyze. Default priority assigned.",
+      estimated_response_time: "24-48 hours",
+    };
+
+    if (toolCall?.function?.arguments) {
+      try {
+        triage = JSON.parse(toolCall.function.arguments);
+      } catch { /* keep defaults */ }
+    }
+
+    return new Response(JSON.stringify({ triage }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("Maintenance triage error:", error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
