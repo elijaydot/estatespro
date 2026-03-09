@@ -9,6 +9,7 @@ import { NotificationSettings } from '@/components/settings/NotificationSettings
 import { InspectionChecklistSettings } from '@/components/settings/InspectionChecklistSettings';
 
 const tabs = [
+  { id: 'profile', label: 'Profile', icon: User, description: 'Account details' },
   { id: 'general', label: 'General', icon: Globe, description: 'Regional & currency' },
   { id: 'company', label: 'Company', icon: Building2, description: 'Company details' },
   { id: 'appearance', label: 'Appearance', icon: Palette, description: 'Colors & theme' },
