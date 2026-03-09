@@ -105,9 +105,18 @@ export function NotificationSettings() {
           <h2 className="text-xl font-semibold text-foreground">Notifications</h2>
           <p className="text-sm text-muted-foreground">Control how and when you get notified</p>
         </div>
-        <Button onClick={handleSave} size="sm" className="gap-2">
-          <Save className="h-4 w-4" />
-          Save Preferences
+        <Button onClick={handleSave} size="sm" className="gap-2" disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" />
+              Save Preferences
+            </>
+          )}
         </Button>
       </div>
 

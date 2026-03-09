@@ -75,6 +75,7 @@ export default function Settings() {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
+          {activeTab === 'profile' && <ProfileSettings />}
           {activeTab === 'general' && <GeneralSettings />}
           {activeTab === 'company' && <CompanySettingsWrapper />}
           {activeTab === 'appearance' && <AppearanceSettings />}
