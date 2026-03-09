@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Settings as SettingsIcon, Globe, Building2, Palette, FileText, Bell, ClipboardCheck } from 'lucide-react';
+import { Settings as SettingsIcon, Globe, Building2, Palette, FileText, Bell, ClipboardCheck, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { GeneralSettings } from '@/components/settings/GeneralSettings';
 import { CompanySettings } from '@/components/settings/CompanySettings';
 import { AppearanceSettings } from '@/components/settings/AppearanceSettings';
