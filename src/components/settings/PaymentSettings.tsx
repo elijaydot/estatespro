@@ -213,7 +213,7 @@ export function PaymentSettings() {
       case 'connected':
         return (
           <div className="flex flex-col gap-1">
-            <Badge variant="default" className="bg-green-500 hover:bg-green-600 w-fit">
+            <Badge variant="default" className="bg-green-600 hover:bg-green-700 w-fit">
               <CheckCircle2 className="mr-1 h-3 w-3" />
               Connected
             </Badge>

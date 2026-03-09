@@ -22,6 +22,8 @@ export interface PaymentSettings {
   paystack_secret_key: string | null;
   preferred_method: string | null;
   payment_instructions: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export function usePaymentSettings(companyId?: string, propertyId?: string) {
