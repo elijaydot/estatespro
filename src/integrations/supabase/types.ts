@@ -363,6 +363,96 @@ export type Database = {
           },
         ]
       }
+      landlord_payment_settings: {
+        Row: {
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_branch: string | null
+          bank_name: string | null
+          company_id: string | null
+          created_at: string
+          flutterwave_enabled: boolean | null
+          flutterwave_merchant_id: string | null
+          flutterwave_public_key: string | null
+          flutterwave_secret_key: string | null
+          id: string
+          momo_name: string | null
+          momo_number: string | null
+          momo_provider: string | null
+          payment_instructions: string | null
+          paystack_enabled: boolean | null
+          paystack_public_key: string | null
+          paystack_secret_key: string | null
+          preferred_method: string | null
+          property_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
+          company_id?: string | null
+          created_at?: string
+          flutterwave_enabled?: boolean | null
+          flutterwave_merchant_id?: string | null
+          flutterwave_public_key?: string | null
+          flutterwave_secret_key?: string | null
+          id?: string
+          momo_name?: string | null
+          momo_number?: string | null
+          momo_provider?: string | null
+          payment_instructions?: string | null
+          paystack_enabled?: boolean | null
+          paystack_public_key?: string | null
+          paystack_secret_key?: string | null
+          preferred_method?: string | null
+          property_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
+          company_id?: string | null
+          created_at?: string
+          flutterwave_enabled?: boolean | null
+          flutterwave_merchant_id?: string | null
+          flutterwave_public_key?: string | null
+          flutterwave_secret_key?: string | null
+          id?: string
+          momo_name?: string | null
+          momo_number?: string | null
+          momo_provider?: string | null
+          payment_instructions?: string | null
+          paystack_enabled?: boolean | null
+          paystack_public_key?: string | null
+          paystack_secret_key?: string | null
+          preferred_method?: string | null
+          property_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_payment_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_payment_settings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lease_attachments: {
         Row: {
           created_at: string
@@ -1377,6 +1467,24 @@ export type Database = {
       get_company_property_ids: {
         Args: { _user_id: string }
         Returns: string[]
+      }
+      get_payment_settings_for_property: {
+        Args: { p_property_id: string }
+        Returns: {
+          bank_account_name: string
+          bank_account_number: string
+          bank_name: string
+          flutterwave_enabled: boolean
+          flutterwave_public_key: string
+          id: string
+          momo_name: string
+          momo_number: string
+          momo_provider: string
+          payment_instructions: string
+          paystack_enabled: boolean
+          paystack_public_key: string
+          preferred_method: string
+        }[]
       }
       get_pm_approved_membership: {
         Args: { _user_id: string }
