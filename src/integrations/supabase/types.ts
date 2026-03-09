@@ -22,7 +22,15 @@ export type Database = {
           currency_symbol: string
           date_format: string
           default_country: string
+          email_lease_expiry: boolean | null
+          email_maintenance: boolean | null
+          email_payments: boolean | null
+          email_tenant_invites: boolean | null
           id: string
+          in_app_lease_expiry: boolean | null
+          in_app_maintenance: boolean | null
+          in_app_messages: boolean | null
+          in_app_payments: boolean | null
           lease_font: string
           lease_header_color: string
           lease_primary_color: string
@@ -38,7 +46,15 @@ export type Database = {
           currency_symbol?: string
           date_format?: string
           default_country?: string
+          email_lease_expiry?: boolean | null
+          email_maintenance?: boolean | null
+          email_payments?: boolean | null
+          email_tenant_invites?: boolean | null
           id?: string
+          in_app_lease_expiry?: boolean | null
+          in_app_maintenance?: boolean | null
+          in_app_messages?: boolean | null
+          in_app_payments?: boolean | null
           lease_font?: string
           lease_header_color?: string
           lease_primary_color?: string
@@ -54,7 +70,15 @@ export type Database = {
           currency_symbol?: string
           date_format?: string
           default_country?: string
+          email_lease_expiry?: boolean | null
+          email_maintenance?: boolean | null
+          email_payments?: boolean | null
+          email_tenant_invites?: boolean | null
           id?: string
+          in_app_lease_expiry?: boolean | null
+          in_app_maintenance?: boolean | null
+          in_app_messages?: boolean | null
+          in_app_payments?: boolean | null
           lease_font?: string
           lease_header_color?: string
           lease_primary_color?: string

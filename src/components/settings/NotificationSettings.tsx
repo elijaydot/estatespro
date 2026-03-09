@@ -1,12 +1,16 @@
-import { useState } from 'react';
-import { Bell, Save } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Bell, Save, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function NotificationSettings() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
   const [preferences, setPreferences] = useState({
     emailPayments: true,
     emailMaintenance: true,
@@ -18,14 +22,80 @@ export function NotificationSettings() {
     inAppMessages: true,
   });
 
+  useEffect(() => {
+    if (user) {
+      fetchPreferences();
+    }
+  }, [user]);
+
+  const fetchPreferences = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('email_payments, email_maintenance, email_lease_expiry, email_tenant_invites, in_app_payments, in_app_maintenance, in_app_lease_expiry, in_app_messages')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching preferences:', error);
+        return;
+      }
+
+      if (data) {
+        setPreferences({
+          emailPayments: data.email_payments ?? true,
+          emailMaintenance: data.email_maintenance ?? true,
+          emailLeaseExpiry: data.email_lease_expiry ?? true,
+          emailTenantInvites: data.email_tenant_invites ?? true,
+          inAppPayments: data.in_app_payments ?? true,
+          inAppMaintenance: data.in_app_maintenance ?? true,
+          inAppLeaseExpiry: data.in_app_lease_expiry ?? true,
+          inAppMessages: data.in_app_messages ?? true,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching preferences:', error);
+    }
+  };
+
   const handleToggle = (key: keyof typeof preferences) => {
     setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleSave = () => {
-    // Notification preferences are currently client-side only
-    // Can be persisted to DB in the future
-    toast({ title: 'Preferences saved', description: 'Notification preferences updated.' });
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+
+      const { error } = await supabase
+        .from('app_settings')
+        .update({
+          email_payments: preferences.emailPayments,
+          email_maintenance: preferences.emailMaintenance,
+          email_lease_expiry: preferences.emailLeaseExpiry,
+          email_tenant_invites: preferences.emailTenantInvites,
+          in_app_payments: preferences.inAppPayments,
+          in_app_maintenance: preferences.inAppMaintenance,
+          in_app_lease_expiry: preferences.inAppLeaseExpiry,
+          in_app_messages: preferences.inAppMessages,
+        })
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+
+      toast({ 
+        title: 'Preferences saved', 
+        description: 'Notification preferences updated successfully.' 
+      });
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      toast({ 
+        title: 'Error', 
+        description: 'Failed to save notification preferences',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -35,9 +105,18 @@ export function NotificationSettings() {
           <h2 className="text-xl font-semibold text-foreground">Notifications</h2>
           <p className="text-sm text-muted-foreground">Control how and when you get notified</p>
         </div>
-        <Button onClick={handleSave} size="sm" className="gap-2">
-          <Save className="h-4 w-4" />
-          Save Preferences
+        <Button onClick={handleSave} size="sm" className="gap-2" disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" />
+              Save Preferences
+            </>
+          )}
         </Button>
       </div>
 
