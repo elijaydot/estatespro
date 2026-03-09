@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { usePaymentSettings } from '@/hooks/usePaymentSettings';
-import { useCompanies } from '@/hooks/useCompanies';
+import { useMyCompanies } from '@/hooks/useCompanies';
 import { useProperties } from '@/hooks/useProperties';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
