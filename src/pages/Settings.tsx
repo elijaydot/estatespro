@@ -103,6 +103,18 @@ function CompanySettingsWrapper() {
   );
 }
 
+function PaymentSettingsWrapper() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-foreground">Payment Settings</h2>
+        <p className="text-sm text-muted-foreground">Configure payment gateways and manual payment details</p>
+      </div>
+      <PaymentSettings />
+    </div>
+  );
+}
+
 function InspectionChecklistWrapper() {
   return (
     <div className="space-y-6">
