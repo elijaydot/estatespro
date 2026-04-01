@@ -186,6 +186,9 @@ export default function Dashboard() {
         <UpcomingRenewals />
       </div>
 
+      {/* Financial Intelligence */}
+      <FinancialIntelligence />
+
       <AIAssistant />
     </div>
   );
