@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.ai-maintenance-triage]
 verify_jwt = false
+
+[functions.ai-financial-insights]
+verify_jwt = false
