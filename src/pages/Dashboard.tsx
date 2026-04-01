@@ -19,6 +19,7 @@ import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useSettings } from '@/contexts/SettingsContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AIAssistant } from '@/components/dashboard/AIAssistant';
+import { FinancialIntelligence } from '@/components/dashboard/FinancialIntelligence';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
