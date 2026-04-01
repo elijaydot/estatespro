@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface GenerateDescriptionButtonProps {
   type: 'property' | 'unit';
