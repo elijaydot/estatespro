@@ -20,6 +20,8 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AIAssistant } from '@/components/dashboard/AIAssistant';
 import { FinancialIntelligence } from '@/components/dashboard/FinancialIntelligence';
+import { SmartSearchInsights } from '@/components/ai/SmartSearchInsights';
+import { PredictiveAnalytics } from '@/components/ai/PredictiveAnalytics';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
@@ -186,8 +188,14 @@ export default function Dashboard() {
         <UpcomingRenewals />
       </div>
 
+      {/* Smart Search & Insights */}
+      <SmartSearchInsights />
+
       {/* Financial Intelligence */}
       <FinancialIntelligence />
+
+      {/* Predictive Analytics */}
+      <PredictiveAnalytics />
 
       <AIAssistant />
     </div>

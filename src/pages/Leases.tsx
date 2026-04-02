@@ -52,6 +52,7 @@ import { useUnits } from '@/hooks/useUnits';
 import { useTenants } from '@/hooks/useTenants';
 import { useCreateNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
+import { DocumentIntelligence } from '@/components/ai/DocumentIntelligence';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -783,6 +784,14 @@ export default function Leases() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Document Intelligence */}
+      <DocumentIntelligence leases={(leases || []).map(l => ({
+        id: l.id,
+        lease_number: l.lease_number,
+        tenants: l.tenants ? { name: (l.tenants as any).name } : null,
+        properties: l.properties ? { name: (l.properties as any).name } : null,
+      }))} />
     </div>
   );
 }

@@ -38,3 +38,12 @@ verify_jwt = false
 
 [functions.ai-financial-insights]
 verify_jwt = false
+
+[functions.ai-document-intelligence]
+verify_jwt = false
+
+[functions.ai-smart-search]
+verify_jwt = false
+
+[functions.ai-predictive-analytics]
+verify_jwt = false
