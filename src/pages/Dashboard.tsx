@@ -188,8 +188,14 @@ export default function Dashboard() {
         <UpcomingRenewals />
       </div>
 
+      {/* Smart Search & Insights */}
+      <SmartSearchInsights />
+
       {/* Financial Intelligence */}
       <FinancialIntelligence />
+
+      {/* Predictive Analytics */}
+      <PredictiveAnalytics />
 
       <AIAssistant />
     </div>
