@@ -784,6 +784,14 @@ export default function Leases() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Document Intelligence */}
+      <DocumentIntelligence leases={(leases || []).map(l => ({
+        id: l.id,
+        lease_number: l.lease_number,
+        tenants: l.tenants ? { name: (l.tenants as any).name } : null,
+        properties: l.properties ? { name: (l.properties as any).name } : null,
+      }))} />
     </div>
   );
 }
