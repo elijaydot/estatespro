@@ -52,6 +52,7 @@ import { useUnits } from '@/hooks/useUnits';
 import { useTenants } from '@/hooks/useTenants';
 import { useCreateNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
+import { DocumentIntelligence } from '@/components/ai/DocumentIntelligence';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
