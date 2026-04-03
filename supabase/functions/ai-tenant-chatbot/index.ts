@@ -49,7 +49,7 @@ serve(async (req) => {
     const { messages } = await req.json();
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header");
+    if (!authHeader?.startsWith("Bearer ")) throw new Error("No authorization header");
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -58,10 +58,11 @@ serve(async (req) => {
     );
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError || !user) throw new Error("Unauthorized");
+    const { data, error: claimsError } = await supabaseClient.auth.getClaims(token);
+    const userId = data?.claims?.sub;
+    if (claimsError || !userId) throw new Error("Unauthorized");
 
-    const context = await getTenantContext(supabaseClient, user.id);
+    const context = await getTenantContext(supabaseClient, userId);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");

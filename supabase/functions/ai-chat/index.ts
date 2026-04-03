@@ -60,10 +60,11 @@ serve(async (req) => {
     );
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError || !user) throw new Error("Unauthorized");
+    const { data, error: claimsError } = await supabaseClient.auth.getClaims(token);
+    const userId = data?.claims?.sub;
+    if (claimsError || !userId) throw new Error("Unauthorized");
 
-    const context = await getPortfolioContext(supabaseClient, user.id);
+    const context = await getPortfolioContext(supabaseClient, userId);
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
