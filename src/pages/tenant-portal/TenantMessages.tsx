@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { 
-  MessageSquare, 
+import {
+  MessageSquare,
   Send,
-  User,
   Clock,
-  Search,
   Plus,
   Loader2,
 } from 'lucide-react';
@@ -13,7 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -28,18 +25,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import ReactMarkdown from 'react-markdown';
 
-// Render markdown-like content
 function RenderContent({ content }: { content: string }) {
-  const rendered = content
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/_(.*?)_/g, '<em>$1</em>')
-    .replace(/__(.*?)__/g, '<u>$1</u>')
-    .replace(/`(.*?)`/g, '<code class="bg-muted px-1 rounded text-sm">$1</code>')
-    .replace(/^> (.+)$/gm, '<blockquote class="border-l-2 border-primary pl-2 italic text-muted-foreground">$1</blockquote>')
-    .replace(/\n/g, '<br/>');
-  
-  return <div dangerouslySetInnerHTML={{ __html: rendered }} className="text-sm whitespace-pre-wrap" />;
+  return (
+    <div className="prose prose-sm max-w-none whitespace-pre-wrap break-words text-inherit prose-p:my-1 prose-strong:text-inherit prose-em:text-inherit prose-code:text-inherit prose-headings:text-inherit prose-li:text-inherit prose-blockquote:text-inherit">
+      <ReactMarkdown>{content}</ReactMarkdown>
+    </div>
+  );
 }
 
 export default function TenantMessages() {

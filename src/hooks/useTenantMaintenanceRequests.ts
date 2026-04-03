@@ -51,7 +51,6 @@ export function useCreateTenantMaintenanceRequest() {
       propertyId,
       tenantId,
       imageFile,
-      landlordUserId,
     }: {
       title: string;
       description: string;
@@ -60,11 +59,9 @@ export function useCreateTenantMaintenanceRequest() {
       propertyId: string;
       tenantId: string;
       imageFile?: File;
-      landlordUserId: string;
     }) => {
       let imageUrl: string | null = null;
 
-      // Upload image if provided
       if (imageFile) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
@@ -85,7 +82,6 @@ export function useCreateTenantMaintenanceRequest() {
         imageUrl = publicUrl;
       }
 
-      // Create maintenance request
       const { data, error } = await supabase
         .from('maintenance_requests')
         .insert({
@@ -97,21 +93,21 @@ export function useCreateTenantMaintenanceRequest() {
           tenant_id: tenantId,
           status: 'submitted',
           image_url: imageUrl,
-          user_id: landlordUserId, // The landlord's user_id for RLS
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      // Create notification for property manager
-      await supabase.from('notifications').insert({
-        title: 'New Maintenance Request',
-        message: `New maintenance request: ${title}`,
-        type: 'warning',
-        link: '/maintenance',
-        user_id: landlordUserId,
-      });
+      if (data?.user_id) {
+        await supabase.from('notifications').insert({
+          title: 'New Maintenance Request',
+          message: `New maintenance request: ${title}`,
+          type: 'warning',
+          link: '/maintenance',
+          user_id: data.user_id,
+        });
+      }
 
       return data;
     },

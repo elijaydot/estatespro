@@ -146,7 +146,7 @@ export default function TenantMaintenance() {
       return;
     }
 
-    try {
+      try {
       await createRequest.mutateAsync({
         title: `${formData.category}: ${formData.title}`,
         description: formData.description,
@@ -155,7 +155,6 @@ export default function TenantMaintenance() {
         propertyId: tenantInfo.property_id,
         tenantId: tenantInfo.id,
         imageFile: selectedImage || undefined,
-        landlordUserId: tenantInfo.properties?.user_id,
       });
 
       setIsNewRequestOpen(false);
