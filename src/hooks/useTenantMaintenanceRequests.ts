@@ -93,6 +93,7 @@ export function useCreateTenantMaintenanceRequest() {
           tenant_id: tenantId,
           status: 'submitted',
           image_url: imageUrl,
+          user_id: tenantId,
         })
         .select()
         .single();
