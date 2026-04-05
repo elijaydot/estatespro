@@ -20,6 +20,7 @@ import {
   RefreshCw,
   BarChart3,
   UserCog,
+  CalendarCheck,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ const pmNavItems = [
   { icon: RefreshCw, label: 'Recurring Bills', href: '/recurring-bills' },
   { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
   { icon: BarChart3, label: 'Reports', href: '/reports' },
+  { icon: CalendarCheck, label: 'Bookings', href: '/bookings' },
   { icon: MessageSquare, label: 'Messages', href: '/messages' },
   { icon: Bell, label: 'Notifications', href: '/notifications' },
 ];
@@ -53,6 +55,7 @@ const landlordNavItems = [
   { icon: RefreshCw, label: 'Recurring Bills', href: '/recurring-bills' },
   { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
   { icon: BarChart3, label: 'Reports', href: '/reports' },
+  { icon: CalendarCheck, label: 'Bookings', href: '/bookings' },
   { icon: MessageSquare, label: 'Messages', href: '/messages' },
   { icon: Bell, label: 'Notifications', href: '/notifications' },
 ];

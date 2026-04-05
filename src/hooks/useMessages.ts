@@ -15,15 +15,26 @@ export interface Message {
   parent_message_id: string | null;
   created_at: string;
   updated_at: string;
+  sender_name?: string;
+  recipient_name?: string;
 }
 
+/**
+ * Core messaging hook with realtime subscription.
+ * 
+ * ID Convention:
+ * - Landlord/PM sender_id & recipient_id = auth.uid()
+ * - Tenant sender_id & recipient_id = tenant.id (domain record, NOT auth uid)
+ * 
+ * This means when landlord sends to tenant, recipient_id = tenant.id
+ * When tenant sends to landlord, sender_id = tenant.id, recipient_id = landlord auth.uid()
+ */
 export function useMessages() {
   const queryClient = useQueryClient();
 
-  // Subscribe to realtime updates
   useEffect(() => {
     const channel = supabase
-      .channel('messages-changes')
+      .channel('messages-realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
@@ -47,56 +58,34 @@ export function useMessages() {
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Message[];
-    },
-  });
-}
-
-export function useInboxMessages() {
-  return useQuery({
-    queryKey: ['messages', 'inbox'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('recipient_id', user.id)
-        .is('parent_message_id', null)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data as Message[];
-    },
-  });
-}
-
-export function useSentMessages() {
-  return useQuery({
-    queryKey: ['messages', 'sent'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('sender_id', user.id)
-        .is('parent_message_id', null)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data as Message[];
+      return (data || []) as Message[];
     },
   });
 }
 
 export function useUnreadCount() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('unread-count-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['messages', 'unread-count'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['messages', 'unread-count'],
     queryFn: async () => {
@@ -112,23 +101,6 @@ export function useUnreadCount() {
       if (error) throw error;
       return count || 0;
     },
-  });
-}
-
-export function useMessageThread(messageId: string) {
-  return useQuery({
-    queryKey: ['messages', 'thread', messageId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .or(`id.eq.${messageId},parent_message_id.eq.${messageId}`)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      return data as Message[];
-    },
-    enabled: !!messageId,
   });
 }
 

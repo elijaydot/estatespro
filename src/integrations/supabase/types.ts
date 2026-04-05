@@ -89,6 +89,93 @@ export type Database = {
         }
         Relationships: []
       }
+      bookings: {
+        Row: {
+          check_in: string
+          check_out: string
+          cleaning_fee: number
+          created_at: string
+          guest_email: string
+          guest_name: string
+          guest_phone: string | null
+          id: string
+          nightly_rate: number
+          nights: number | null
+          notes: string | null
+          num_guests: number
+          payment_status: string
+          property_id: string
+          service_fee: number
+          special_requests: string | null
+          status: string
+          total_amount: number
+          unit_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          check_in: string
+          check_out: string
+          cleaning_fee?: number
+          created_at?: string
+          guest_email: string
+          guest_name: string
+          guest_phone?: string | null
+          id?: string
+          nightly_rate?: number
+          nights?: number | null
+          notes?: string | null
+          num_guests?: number
+          payment_status?: string
+          property_id: string
+          service_fee?: number
+          special_requests?: string | null
+          status?: string
+          total_amount?: number
+          unit_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          check_in?: string
+          check_out?: string
+          cleaning_fee?: number
+          created_at?: string
+          guest_email?: string
+          guest_name?: string
+          guest_phone?: string | null
+          id?: string
+          nightly_rate?: number
+          nights?: number | null
+          notes?: string | null
+          num_guests?: number
+          payment_status?: string
+          property_id?: string
+          service_fee?: number
+          special_requests?: string | null
+          status?: string
+          total_amount?: number
+          unit_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: string | null
@@ -1467,6 +1554,10 @@ export type Database = {
       get_company_property_ids: {
         Args: { _user_id: string }
         Returns: string[]
+      }
+      get_message_participant_name: {
+        Args: { _participant_id: string }
+        Returns: string
       }
       get_payment_settings_for_property: {
         Args: { p_property_id: string }
