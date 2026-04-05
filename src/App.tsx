@@ -112,6 +112,7 @@ function AppRoutes() {
       <Route path="/maintenance" element={<PrivateRoute><MaintenancePage /></PrivateRoute>} />
       <Route path="/recurring-bills" element={<PrivateRoute><RecurringBills /></PrivateRoute>} />
       <Route path="/messages" element={<PrivateRoute><MessagesPageV2 /></PrivateRoute>} />
+      <Route path="/bookings" element={<PrivateRoute><Bookings /></PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
