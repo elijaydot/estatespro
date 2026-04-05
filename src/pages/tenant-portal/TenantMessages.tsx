@@ -47,10 +47,13 @@ export default function TenantMessages() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let channel: any;
+
     async function loadData() {
       if (!user) return;
 
       try {
+        // Get tenant record - this is the domain identity for messaging
         const { data: tenant, error: tenantError } = await supabase
           .from('tenants')
           .select('*, properties(name, user_id, company_id)')
@@ -61,6 +64,7 @@ export default function TenantMessages() {
         if (!tenant) { setIsLoading(false); return; }
         setTenantProfile(tenant);
 
+        // Query messages using tenant.id (domain ID)
         const { data: msgs, error: msgsError } = await supabase
           .from('messages')
           .select('*')
@@ -70,19 +74,42 @@ export default function TenantMessages() {
         if (msgsError) throw msgsError;
         setMessages(msgs || []);
 
-        const channel = supabase
-          .channel('tenant-messages')
+        // Mark unread messages as read
+        const unreadIds = (msgs || [])
+          .filter((m: any) => !m.is_read && m.recipient_id === tenant.id)
+          .map((m: any) => m.id);
+        
+        if (unreadIds.length > 0) {
+          await supabase
+            .from('messages')
+            .update({ is_read: true })
+            .in('id', unreadIds);
+        }
+
+        // Realtime: listen for messages where tenant is recipient OR sender
+        // (to catch own sent messages reflected back)
+        channel = supabase
+          .channel('tenant-messages-rt')
           .on('postgres_changes', {
             event: 'INSERT',
             schema: 'public',
             table: 'messages',
-            filter: `recipient_id=eq.${tenant.id}`,
           }, (payload) => {
-            setMessages(prev => [...prev, payload.new]);
+            const msg = payload.new as any;
+            // Only add if relevant to this tenant
+            if (msg.recipient_id === tenant.id || msg.sender_id === tenant.id) {
+              setMessages(prev => {
+                // Avoid duplicates (optimistic + realtime)
+                if (prev.some(m => m.id === msg.id)) return prev;
+                return [...prev, msg];
+              });
+              // Auto-mark as read if we're the recipient
+              if (msg.recipient_id === tenant.id && !msg.is_read) {
+                supabase.from('messages').update({ is_read: true }).eq('id', msg.id).then(() => {});
+              }
+            }
           })
           .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
       } catch (error) {
         console.error('Error loading messages:', error);
       } finally {
@@ -90,6 +117,10 @@ export default function TenantMessages() {
       }
     }
     loadData();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -100,47 +131,46 @@ export default function TenantMessages() {
 
   const handleSendMessage = async () => {
     if ((!newMessage.trim() && !newSubject.trim()) || !tenantProfile) return;
-    
+
     setIsSending(true);
     try {
-      // Send to the property owner (landlord)
+      // Send to the property owner (landlord) using their auth.uid()
       const landlordId = tenantProfile.user_id;
-      
-      const { error } = await supabase.from('messages').insert([{
-        sender_id: tenantProfile.id,
-        recipient_id: landlordId,
-        user_id: landlordId,
+
+      const messageData = {
+        sender_id: tenantProfile.id,  // tenant domain ID
+        recipient_id: landlordId,     // landlord auth.uid()
+        user_id: landlordId,          // owner of the record for RLS
         property_id: tenantProfile.property_id,
         content: newMessage || newSubject,
         subject: newSubject || 'Message',
         is_read: false,
-      }]);
+      };
+
+      const { error } = await supabase.from('messages').insert([messageData]);
       if (error) throw error;
 
-      // Also send to assigned PM(s) if different from landlord
+      // Also send to assigned PM(s)
       if (tenantProfile.property_id) {
         const { data: pmAssignments } = await supabase
           .from('property_manager_assignments')
           .select('manager_id')
           .eq('property_id', tenantProfile.property_id);
-        
+
         if (pmAssignments && pmAssignments.length > 0) {
           for (const pm of pmAssignments) {
             if (pm.manager_id !== landlordId) {
               await supabase.from('messages').insert([{
-                sender_id: tenantProfile.id,
+                ...messageData,
                 recipient_id: pm.manager_id,
                 user_id: pm.manager_id,
-                property_id: tenantProfile.property_id,
-                content: newMessage || newSubject,
-                subject: newSubject || 'Message',
-                is_read: false,
               }]);
             }
           }
         }
       }
 
+      // Optimistic update
       const optimisticMessage = {
         id: 'temp-' + Date.now(),
         sender_id: tenantProfile.id,
@@ -149,12 +179,12 @@ export default function TenantMessages() {
         created_at: new Date().toISOString(),
         subject: newSubject || 'Message',
       };
-      
+
       setMessages(prev => [...prev, optimisticMessage]);
       setNewMessage('');
       setNewSubject('');
       setIsNewMessageOpen(false);
-      
+
     } catch (error: any) {
       toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
     } finally {
@@ -258,8 +288,8 @@ export default function TenantMessages() {
                 minHeight="60px"
               />
               <div className="flex justify-end mt-2">
-                <Button 
-                  className="gap-2" 
+                <Button
+                  className="gap-2"
                   onClick={handleSendMessage}
                   disabled={isSending || !newMessage.trim()}
                 >
@@ -288,9 +318,9 @@ export default function TenantMessages() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="subject">Subject</Label>
-              <Input 
-                id="subject" 
-                placeholder="What is your message about?" 
+              <Input
+                id="subject"
+                placeholder="What is your message about?"
                 value={newSubject}
                 onChange={(e) => setNewSubject(e.target.value)}
               />
@@ -307,8 +337,8 @@ export default function TenantMessages() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsNewMessageOpen(false)}>Cancel</Button>
-            <Button 
-              onClick={handleSendMessage} 
+            <Button
+              onClick={handleSendMessage}
               className="gap-2"
               disabled={isSending || (!newMessage.trim() && !newSubject.trim())}
             >
