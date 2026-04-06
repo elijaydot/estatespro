@@ -16,6 +16,8 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  Share2,
+  Copy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,6 +64,7 @@ import { useBookings, useCreateBooking, useUpdateBooking, useDeleteBooking, Book
 import { useProperties } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
 import { useSettings } from '@/contexts/SettingsContext';
+import { toast } from '@/components/ui/use-toast';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Pending', variant: 'outline' },
@@ -349,10 +352,29 @@ export default function Bookings() {
           <h1 className="text-3xl font-bold text-foreground">Bookings</h1>
           <p className="text-muted-foreground mt-1">Manage short-let and Airbnb reservations</p>
         </div>
-        <Button onClick={() => { resetForm(); setIsCreateOpen(true); }} className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Booking
-        </Button>
+        <div className="flex gap-2">
+          {shortLetProperties.length > 0 && (
+            <Select onValueChange={(propId) => {
+              const url = `${window.location.origin}/book/${propId}`;
+              navigator.clipboard.writeText(url);
+              toast({ title: 'Link Copied!', description: 'Share this link with guests so they can book directly.' });
+            }}>
+              <SelectTrigger className="w-auto gap-2">
+                <Share2 className="h-4 w-4" />
+                <SelectValue placeholder="Share Booking Link" />
+              </SelectTrigger>
+              <SelectContent>
+                {shortLetProperties.map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button onClick={() => { resetForm(); setIsCreateOpen(true); }} className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Booking
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-4">

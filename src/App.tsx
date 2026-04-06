@@ -47,7 +47,7 @@ import TenantLogin from "./pages/tenant-portal/TenantLogin";
 import TenantSignup from "./pages/tenant-portal/TenantSignup";
 import TenantForgotPassword from "./pages/tenant-portal/TenantForgotPassword";
 import TenantResetPassword from "./pages/tenant-portal/TenantResetPassword";
-
+import GuestBookingPage from "./pages/guest-booking/GuestBookingPage";
 const queryClient = new QueryClient();
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -95,6 +95,7 @@ function AppRoutes() {
       {/* Public Routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+      <Route path="/book/:propertyId" element={<GuestBookingPage />} />
       
       {/* Protected Routes */}
       <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
