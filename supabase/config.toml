@@ -47,3 +47,12 @@ verify_jwt = false
 
 [functions.ai-predictive-analytics]
 verify_jwt = false
+
+[functions.guest-booking]
+verify_jwt = false
+
+[functions.accept-tenant-invite]
+verify_jwt = false
+
+[functions.send-exit-summary]
+verify_jwt = false
