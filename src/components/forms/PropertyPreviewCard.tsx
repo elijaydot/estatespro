@@ -21,6 +21,7 @@ const getPropertyTypeBadge = (type: string) => {
     house: 'bg-success/10 text-success border-success/20',
     commercial: 'bg-accent/10 text-accent border-accent/20',
     mixed: 'bg-primary/10 text-primary border-primary/20',
+    short_let: 'bg-warning/10 text-warning border-warning/20',
   };
   return styles[type] || 'bg-muted text-muted-foreground';
 };

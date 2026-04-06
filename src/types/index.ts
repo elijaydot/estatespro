@@ -2,7 +2,7 @@
 export type UserRole = 'super_admin' | 'property_manager' | 'landlord' | 'tenant';
 
 // Property Types
-export type PropertyType = 'apartment' | 'house' | 'commercial' | 'mixed';
+export type PropertyType = 'apartment' | 'house' | 'commercial' | 'mixed' | 'short_let';
 
 // Unit Status
 export type UnitStatus = 'vacant' | 'occupied' | 'maintenance';

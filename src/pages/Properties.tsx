@@ -48,6 +48,7 @@ const propertyTypeOptions = [
   { value: 'house', label: 'House', description: 'Single family home' },
   { value: 'commercial', label: 'Commercial', description: 'Office or retail space' },
   { value: 'mixed', label: 'Mixed Use', description: 'Residential and commercial' },
+  { value: 'short_let', label: 'Short Let', description: 'Airbnb-style short-term rental' },
 ];
 
 const getOccupancyColor = (occupied: number, total: number) => {
@@ -65,6 +66,7 @@ const getPropertyTypeBadge = (type: string) => {
     house: 'bg-success/10 text-success border-success/20',
     commercial: 'bg-accent/10 text-accent border-accent/20',
     mixed: 'bg-primary/10 text-primary border-primary/20',
+    short_let: 'bg-warning/10 text-warning border-warning/20',
   };
   return styles[type] || 'bg-muted text-muted-foreground';
 };
