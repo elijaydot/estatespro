@@ -29,6 +29,7 @@ import Notifications from "./pages/Notifications";
 import Reports from "./pages/Reports";
 import MessagesPageV2 from "./pages/MessagesPageV2";
 import Bookings from "./pages/Bookings";
+import GuestBookingPortal from "./pages/GuestBookingPortal";
 import TeamManagement from "./pages/TeamManagement";
 import TenantExitWorkflow from "./pages/TenantExitWorkflow";
 import PendingApproval from "./pages/PendingApproval";
@@ -114,6 +115,7 @@ function AppRoutes() {
       <Route path="/recurring-bills" element={<PrivateRoute><RecurringBills /></PrivateRoute>} />
       <Route path="/messages" element={<PrivateRoute><MessagesPageV2 /></PrivateRoute>} />
       <Route path="/bookings" element={<PrivateRoute><Bookings /></PrivateRoute>} />
+      <Route path="/guest-booking-portal" element={<PrivateRoute><GuestBookingPortal /></PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />

@@ -21,6 +21,7 @@ import {
   BarChart3,
   UserCog,
   CalendarCheck,
+  Link2,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -39,13 +40,14 @@ const pmNavItems = [
   { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
   { icon: BarChart3, label: 'Reports', href: '/reports' },
   { icon: CalendarCheck, label: 'Bookings', href: '/bookings' },
+  { icon: Link2, label: 'Guest Booking Portal', href: '/guest-booking-portal' },
   { icon: MessageSquare, label: 'Messages', href: '/messages' },
   { icon: Bell, label: 'Notifications', href: '/notifications' },
 ];
 
 const landlordNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-  { icon: UserCog, label: 'Team', href: '/team' },
+  { icon: UserCog, label: 'Admin', href: '/team' },
   { icon: Building2, label: 'Properties', href: '/properties' },
   { icon: Home, label: 'Units', href: '/units' },
   { icon: Users, label: 'Tenants', href: '/tenants' },
@@ -56,6 +58,7 @@ const landlordNavItems = [
   { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
   { icon: BarChart3, label: 'Reports', href: '/reports' },
   { icon: CalendarCheck, label: 'Bookings', href: '/bookings' },
+  { icon: Link2, label: 'Guest Booking Portal', href: '/guest-booking-portal' },
   { icon: MessageSquare, label: 'Messages', href: '/messages' },
   { icon: Bell, label: 'Notifications', href: '/notifications' },
 ];
