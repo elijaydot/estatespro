@@ -21,7 +21,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
-import { useNotifications, useMarkAsRead, useMarkAllAsRead, useDeleteNotification, useClearAllNotifications } from '@/hooks/useNotifications';
+import { useNavigate } from 'react-router-dom';
+import { useNotifications, useMarkAsRead, useMarkAllAsRead, useDeleteNotification, useClearAllNotifications, useUnreadNotificationsCount } from '@/hooks/useNotifications';
 
 const typeIcons = {
   info: Info,
@@ -38,14 +39,14 @@ const typeColors = {
 };
 
 export default function Notifications() {
+  const navigate = useNavigate();
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const { data: notifications = [], isLoading } = useNotifications();
+  const { data: unreadCount = 0 } = useUnreadNotificationsCount();
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
   const deleteNotification = useDeleteNotification();
   const clearAll = useClearAllNotifications();
-
-  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   const handleMarkAsRead = async (id: string) => {
     await markAsRead.mutateAsync(id);
@@ -53,6 +54,16 @@ export default function Notifications() {
 
   const handleDelete = async (id: string) => {
     await deleteNotification.mutateAsync(id);
+  };
+
+  const handleOpenNotification = async (notification: any) => {
+    if (!notification.is_read) {
+      await markAsRead.mutateAsync(notification.id);
+    }
+
+    if (notification.link) {
+      navigate(notification.link);
+    }
   };
 
   const handleClearAll = async () => {
@@ -190,8 +201,8 @@ export default function Notifications() {
                           </DropdownMenuItem>
                         )}
                         {notification.link && (
-                          <DropdownMenuItem asChild>
-                            <a href={notification.link}>View details</a>
+                          <DropdownMenuItem onClick={() => handleOpenNotification(notification)}>
+                            View details
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem onClick={() => handleDelete(notification.id)} className="text-destructive">

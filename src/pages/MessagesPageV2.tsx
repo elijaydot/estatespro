@@ -10,6 +10,9 @@ import {
   ChevronRight,
   MessageCircle,
   Loader2,
+  Check,
+  CheckCheck,
+  Radio,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -75,6 +78,7 @@ export default function MessagesPageV2() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [newMessage, setNewMessage] = useState({
     recipient_id: '',
@@ -167,11 +171,14 @@ export default function MessagesPageV2() {
 
   const filteredThreads = threads.filter((thread) => {
     const q = searchQuery.toLowerCase();
-    if (!q) return true;
-    return (
+    const matchesQuery = !q || (
       (thread.tenantName || '').toLowerCase().includes(q) ||
       (thread.lastMessage.subject || '').toLowerCase().includes(q)
     );
+
+    if (!matchesQuery) return false;
+    if (!showUnreadOnly) return true;
+    return thread.unreadCount > 0;
   });
 
   // Compose: use tenant.id as recipient (domain ID, not auth uid)
@@ -247,12 +254,22 @@ export default function MessagesPageV2() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Messages</h1>
-          <p className="text-muted-foreground mt-1">Communicate with your tenants</p>
+          <p className="text-muted-foreground mt-1">Communicate with your tenants in real time</p>
         </div>
-        <Button onClick={() => setIsComposeOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Message
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showUnreadOnly ? 'default' : 'outline'}
+            onClick={() => setShowUnreadOnly((current) => !current)}
+            className="gap-2"
+          >
+            <Mail className="h-4 w-4" />
+            {showUnreadOnly ? 'Unread Only' : 'All Threads'}
+          </Button>
+          <Button onClick={() => setIsComposeOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Message
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
@@ -385,7 +402,10 @@ export default function MessagesPageV2() {
                     </Avatar>
                     <div>
                       <CardTitle className="text-lg">{selectedThread.tenantName}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{selectedThread.tenantEmail}</p>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1">
+                        <Radio className="h-3.5 w-3.5 text-success" />
+                        Live conversation
+                      </p>
                     </div>
                   </div>
                   <Badge variant="outline">
@@ -425,6 +445,13 @@ export default function MessagesPageV2() {
                           content={msg.content || ''}
                           className={msg.isFromMe ? 'text-primary-foreground' : 'text-foreground'}
                         />
+                        {msg.isFromMe && (
+                          <div className="mt-2 flex justify-end">
+                            <span className={`inline-flex items-center ${msg.isFromMe ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                              {msg.is_read ? <CheckCheck className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

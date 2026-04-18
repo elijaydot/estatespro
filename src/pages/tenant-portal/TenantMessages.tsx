@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   MessageSquare,
   Send,
   Clock,
   Plus,
   Loader2,
+  Bell,
+  Check,
+  CheckCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +30,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
+import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
+
+interface TenantMessage {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  content: string;
+  subject: string;
+  created_at: string;
+  is_read: boolean;
+  client_message_id?: string | null;
+}
 
 function RenderContent({ content }: { content: string }) {
   return (
@@ -36,14 +52,17 @@ function RenderContent({ content }: { content: string }) {
 }
 
 export default function TenantMessages() {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const [messages, setMessages] = useState<any[]>([]);
+  const { data: unreadNotifications = 0 } = useUnreadNotificationsCount();
+  const [messages, setMessages] = useState<TenantMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [newSubject, setNewSubject] = useState('');
   const [isNewMessageOpen, setIsNewMessageOpen] = useState(false);
   const [tenantProfile, setTenantProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const pendingClientIdsRef = useRef<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,7 +72,6 @@ export default function TenantMessages() {
       if (!user) return;
 
       try {
-        // Get tenant record - this is the domain identity for messaging
         const { data: tenant, error: tenantError } = await supabase
           .from('tenants')
           .select('*, properties(name, user_id, company_id)')
@@ -61,10 +79,12 @@ export default function TenantMessages() {
           .maybeSingle();
 
         if (tenantError) throw tenantError;
-        if (!tenant) { setIsLoading(false); return; }
+        if (!tenant) {
+          setIsLoading(false);
+          return;
+        }
         setTenantProfile(tenant);
 
-        // Query messages using tenant.id (domain ID)
         const { data: msgs, error: msgsError } = await supabase
           .from('messages')
           .select('*')
@@ -72,13 +92,12 @@ export default function TenantMessages() {
           .order('created_at', { ascending: true });
 
         if (msgsError) throw msgsError;
-        setMessages(msgs || []);
+        setMessages((msgs || []) as TenantMessage[]);
 
-        // Mark unread messages as read
         const unreadIds = (msgs || [])
-          .filter((m: any) => !m.is_read && m.recipient_id === tenant.id)
-          .map((m: any) => m.id);
-        
+          .filter((message: any) => !message.is_read && message.recipient_id === tenant.id)
+          .map((message: any) => message.id);
+
         if (unreadIds.length > 0) {
           await supabase
             .from('messages')
@@ -86,29 +105,58 @@ export default function TenantMessages() {
             .in('id', unreadIds);
         }
 
-        // Realtime: listen for messages where tenant is recipient OR sender
-        // (to catch own sent messages reflected back)
         channel = supabase
           .channel('tenant-messages-rt')
-          .on('postgres_changes', {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-          }, (payload) => {
-            const msg = payload.new as any;
-            // Only add if relevant to this tenant
-            if (msg.recipient_id === tenant.id || msg.sender_id === tenant.id) {
-              setMessages(prev => {
-                // Avoid duplicates (optimistic + realtime)
-                if (prev.some(m => m.id === msg.id)) return prev;
-                return [...prev, msg];
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'messages',
+            },
+            (payload) => {
+              if (payload.eventType === 'DELETE') {
+                const deleted = payload.old as TenantMessage;
+                setMessages((prev) => prev.filter((message) => message.id !== deleted.id));
+                return;
+              }
+
+              const message = payload.new as TenantMessage;
+              if (message.recipient_id !== tenant.id && message.sender_id !== tenant.id) {
+                return;
+              }
+
+              setMessages((prev) => {
+                if (payload.eventType === 'UPDATE') {
+                  return prev.map((item) => (item.id === message.id ? message : item));
+                }
+
+                if (prev.some((item) => item.id === message.id)) return prev;
+
+                if (
+                  message.client_message_id &&
+                  pendingClientIdsRef.current.has(message.client_message_id)
+                ) {
+                  pendingClientIdsRef.current.delete(message.client_message_id);
+                  const replaced = prev.map((item) =>
+                    item.client_message_id === message.client_message_id ? message : item
+                  );
+                  if (replaced.some((item) => item.id === message.id)) return replaced;
+                  return [...replaced, message].sort(
+                    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                  );
+                }
+
+                return [...prev, message].sort(
+                  (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                );
               });
-              // Auto-mark as read if we're the recipient
-              if (msg.recipient_id === tenant.id && !msg.is_read) {
-                supabase.from('messages').update({ is_read: true }).eq('id', msg.id).then(() => {});
+
+              if (message.recipient_id === tenant.id && !message.is_read) {
+                supabase.from('messages').update({ is_read: true }).eq('id', message.id).then(() => {});
               }
             }
-          })
+          )
           .subscribe();
       } catch (error) {
         console.error('Error loading messages:', error);
@@ -116,6 +164,7 @@ export default function TenantMessages() {
         setIsLoading(false);
       }
     }
+
     loadData();
 
     return () => {
@@ -133,14 +182,31 @@ export default function TenantMessages() {
     if ((!newMessage.trim() && !newSubject.trim()) || !tenantProfile) return;
 
     setIsSending(true);
-    try {
-      // Send to the property owner (landlord) using their auth.uid()
-      const landlordId = tenantProfile.user_id;
+    const landlordId = tenantProfile.user_id;
+    const clientMessageId = crypto.randomUUID();
+    const optimisticId = `temp-${Date.now()}`;
 
+    pendingClientIdsRef.current.add(clientMessageId);
+
+    const optimisticMessage: TenantMessage = {
+      id: optimisticId,
+      client_message_id: clientMessageId,
+      sender_id: tenantProfile.id,
+      recipient_id: landlordId,
+      content: newMessage || newSubject,
+      created_at: new Date().toISOString(),
+      subject: newSubject || 'Message',
+      is_read: false,
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+
+    try {
       const messageData = {
-        sender_id: tenantProfile.id,  // tenant domain ID
-        recipient_id: landlordId,     // landlord auth.uid()
-        user_id: landlordId,          // owner of the record for RLS
+        client_message_id: clientMessageId,
+        sender_id: tenantProfile.id,
+        recipient_id: landlordId,
+        user_id: landlordId,
         property_id: tenantProfile.property_id,
         content: newMessage || newSubject,
         subject: newSubject || 'Message',
@@ -149,43 +215,12 @@ export default function TenantMessages() {
 
       const { error } = await supabase.from('messages').insert([messageData]);
       if (error) throw error;
-
-      // Also send to assigned PM(s)
-      if (tenantProfile.property_id) {
-        const { data: pmAssignments } = await supabase
-          .from('property_manager_assignments')
-          .select('manager_id')
-          .eq('property_id', tenantProfile.property_id);
-
-        if (pmAssignments && pmAssignments.length > 0) {
-          for (const pm of pmAssignments) {
-            if (pm.manager_id !== landlordId) {
-              await supabase.from('messages').insert([{
-                ...messageData,
-                recipient_id: pm.manager_id,
-                user_id: pm.manager_id,
-              }]);
-            }
-          }
-        }
-      }
-
-      // Optimistic update
-      const optimisticMessage = {
-        id: 'temp-' + Date.now(),
-        sender_id: tenantProfile.id,
-        recipient_id: landlordId,
-        content: newMessage || newSubject,
-        created_at: new Date().toISOString(),
-        subject: newSubject || 'Message',
-      };
-
-      setMessages(prev => [...prev, optimisticMessage]);
       setNewMessage('');
       setNewSubject('');
       setIsNewMessageOpen(false);
-
-    } catch (error: any) {
+    } catch {
+      pendingClientIdsRef.current.delete(clientMessageId);
+      setMessages((prev) => prev.filter((message) => message.id !== optimisticId));
       toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
     } finally {
       setIsSending(false);
@@ -197,12 +232,23 @@ export default function TenantMessages() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Messages</h1>
-          <p className="text-muted-foreground">Communicate with property management</p>
+          <p className="text-muted-foreground">Communicate with property management in real time</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsNewMessageOpen(true)}>
-          <Plus className="h-4 w-4" />
-          New Message
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => navigate('/tenant/notifications')}>
+            <Bell className="h-4 w-4" />
+            Notifications
+            {unreadNotifications > 0 && (
+              <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+                {unreadNotifications > 99 ? '99+' : unreadNotifications}
+              </span>
+            )}
+          </Button>
+          <Button className="gap-2" onClick={() => setIsNewMessageOpen(true)}>
+            <Plus className="h-4 w-4" />
+            New Message
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-240px)] min-h-[500px]">
@@ -268,9 +314,16 @@ export default function TenantMessages() {
                       <div key={message.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[80%] p-3 rounded-lg ${isMe ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
                           <RenderContent content={message.content} />
-                          <p className={`text-xs mt-1 ${isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                            {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-                          </p>
+                          <div className="mt-1 flex items-center justify-between gap-2">
+                            <p className={`text-xs ${isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                              {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                            </p>
+                            {isMe && (
+                              <span className={isMe ? 'text-primary-foreground/80' : 'text-muted-foreground'}>
+                                {message.is_read ? <CheckCheck className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -291,7 +344,7 @@ export default function TenantMessages() {
                 <Button
                   className="gap-2"
                   onClick={handleSendMessage}
-                  disabled={isSending || !newMessage.trim()}
+                  disabled={isSending || (!newMessage.trim() && !newSubject.trim())}
                 >
                   {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   {isSending ? 'Sending...' : 'Send'}
@@ -302,19 +355,16 @@ export default function TenantMessages() {
         </Card>
       </div>
 
-      {/* New Message Dialog */}
       <Dialog open={isNewMessageOpen} onOpenChange={setIsNewMessageOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>New Message</DialogTitle>
-            <DialogDescription>
-              Send a message to property management. Both the landlord and property manager will receive it.
-            </DialogDescription>
+            <DialogDescription>Send a message to property management.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid gap-2">
               <Label>To</Label>
-              <Input value="Property Management (Landlord & PM)" disabled />
+              <Input value="Property Management" disabled />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="subject">Subject</Label>
@@ -322,7 +372,7 @@ export default function TenantMessages() {
                 id="subject"
                 placeholder="What is your message about?"
                 value={newSubject}
-                onChange={(e) => setNewSubject(e.target.value)}
+                onChange={(event) => setNewSubject(event.target.value)}
               />
             </div>
             <div className="grid gap-2">
@@ -336,7 +386,9 @@ export default function TenantMessages() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNewMessageOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsNewMessageOpen(false)}>
+              Cancel
+            </Button>
             <Button
               onClick={handleSendMessage}
               className="gap-2"

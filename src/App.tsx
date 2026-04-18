@@ -43,6 +43,7 @@ import TenantRecurringBills from "./pages/tenant-portal/TenantRecurringBills";
 import TenantMaintenance from "./pages/tenant-portal/TenantMaintenance";
 import TenantLease from "./pages/tenant-portal/TenantLease";
 import TenantMessages from "./pages/tenant-portal/TenantMessages";
+import TenantNotifications from "./pages/tenant-portal/TenantNotifications";
 import TenantLeaseSign from "./pages/tenant-portal/TenantLeaseSign";
 import TenantLogin from "./pages/tenant-portal/TenantLogin";
 import TenantSignup from "./pages/tenant-portal/TenantSignup";
@@ -133,6 +134,7 @@ function AppRoutes() {
       <Route path="/tenant/lease" element={<TenantPortalRoute><TenantLease /></TenantPortalRoute>} />
       <Route path="/tenant/lease/sign/:id" element={<TenantPortalRoute><TenantLeaseSign /></TenantPortalRoute>} />
       <Route path="/tenant/messages" element={<TenantPortalRoute><TenantMessages /></TenantPortalRoute>} />
+      <Route path="/tenant/notifications" element={<TenantPortalRoute><TenantNotifications /></TenantPortalRoute>} />
       
       {/* Legacy portal routes */}
       <Route path="/portal" element={<Navigate to="/tenant" replace />} />

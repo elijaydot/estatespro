@@ -27,7 +27,7 @@ import { toast } from '@/components/ui/use-toast';
 import { useCreateProperty, useProperties } from '@/hooks/useProperties';
 import { useCreateUnit, useUnits } from '@/hooks/useUnits';
 import { useCreateTenant, useTenants } from '@/hooks/useTenants';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 
 type QuickAddType = 'property' | 'unit' | 'tenant' | 'lease' | 'invoice' | null;
 
@@ -36,8 +36,7 @@ export function AppHeader() {
   const [quickAddType, setQuickAddType] = useState<QuickAddType>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: notifications = [] } = useNotifications();
-  const unreadCount = notifications.filter((n: any) => !n.is_read).length;
+  const { data: unreadCount = 0 } = useUnreadNotificationsCount();
 
   const handleQuickAddClick = (type: QuickAddType) => {
     // Navigate to the respective page with add dialog state

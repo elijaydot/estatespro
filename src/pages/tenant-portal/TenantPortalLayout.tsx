@@ -6,6 +6,7 @@ import {
   Wrench, 
   FileText, 
   MessageSquare,
+  Bell,
   LogOut,
   Home,
   Menu,
@@ -30,6 +31,7 @@ const navItems = [
   { label: 'Maintenance', icon: Wrench, href: '/tenant/maintenance' },
   { label: 'Lease', icon: FileText, href: '/tenant/lease' },
   { label: 'Messages', icon: MessageSquare, href: '/tenant/messages' },
+  { label: 'Notifications', icon: Bell, href: '/tenant/notifications' },
 ];
 
 interface TenantPortalLayoutProps {
