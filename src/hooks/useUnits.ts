@@ -15,6 +15,7 @@ export interface Unit {
   amenities: string[] | null;
   description: string | null;
   image_url: string | null;
+  image_urls?: string[] | null;
   created_at: string;
   updated_at: string;
   user_id: string;

@@ -43,6 +43,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { toast } from '@/components/ui/use-toast';
 import { useUnit, useUpdateUnit, useDeleteUnit } from '@/hooks/useUnits';
 import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
@@ -106,6 +107,8 @@ export default function UnitDetail() {
     rent_amount: 0,
     amenities: '',
     description: '',
+    image_url: '',
+    image_urls: [] as string[],
   });
 
   // Populate form when unit data loads
@@ -121,6 +124,8 @@ export default function UnitDetail() {
         rent_amount: unit.rent_amount || 0,
         amenities: unit.amenities?.join(', ') || '',
         description: unit.description || '',
+        image_url: (unit as any).image_url || '',
+        image_urls: (unit as any).image_urls || [],
       });
     }
   }, [unit]);
@@ -151,6 +156,8 @@ export default function UnitDetail() {
       rent_amount: formData.rent_amount,
       amenities: formData.amenities.split(',').map(a => a.trim()).filter(Boolean),
       description: formData.description || null,
+      image_url: formData.image_urls[0] || formData.image_url || null,
+      image_urls: formData.image_urls,
     });
     closeEdit();
   };
@@ -443,6 +450,16 @@ export default function UnitDetail() {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Unit Photos (up to 10)</Label>
+              <MultiImageUpload
+                values={formData.image_urls}
+                onChange={(urls) => setFormData({ ...formData, image_urls: urls, image_url: urls[0] || '' })}
+                folder="units"
+                maxImages={10}
+              />
+            </div>
+
             <h4 className="font-medium text-sm text-muted-foreground">Basic Information</h4>
             <div className="grid grid-cols-3 gap-4">
               <div className="grid gap-2">

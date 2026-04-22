@@ -40,6 +40,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { toast } from '@/components/ui/use-toast';
 import { useProperty, useUpdateProperty, useDeleteProperty } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
@@ -102,6 +103,8 @@ export default function PropertyDetail() {
     total_units: 1,
     occupied_units: 0,
     description: '',
+    image_url: '',
+    image_urls: [] as string[],
   });
 
   // Populate form when property data loads
@@ -118,6 +121,8 @@ export default function PropertyDetail() {
         total_units: property.total_units || 1,
         occupied_units: property.occupied_units || 0,
         description: property.description || '',
+        image_url: (property as any).image_url || '',
+        image_urls: (property as any).image_urls || [],
       });
     }
   }, [property]);
@@ -149,6 +154,8 @@ export default function PropertyDetail() {
       total_units: formData.total_units,
       occupied_units: formData.occupied_units,
       description: formData.description || null,
+      image_url: formData.image_urls[0] || formData.image_url || null,
+      image_urls: formData.image_urls,
     });
     closeEdit();
   };
@@ -401,6 +408,16 @@ export default function PropertyDetail() {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Property Photos (up to 10)</Label>
+              <MultiImageUpload
+                values={formData.image_urls}
+                onChange={(urls) => setFormData({ ...formData, image_urls: urls, image_url: urls[0] || '' })}
+                folder="properties"
+                maxImages={10}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="propertyName">Property Name *</Label>

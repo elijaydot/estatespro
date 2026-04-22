@@ -89,7 +89,7 @@ export default function GuestBookingPage() {
       setLoading(true);
       const [propRes, unitsRes] = await Promise.all([
         supabase.from('properties').select('id, name, address, city, state, country, description, image_url, image_urls').eq('id', propertyId!).eq('type', 'short_let').single(),
-        supabase.from('units').select('id, unit_number, bedrooms, bathrooms, sqft, rent_amount, description, amenities, image_url, image_urls, status').eq('property_id', propertyId!).eq('status', 'vacant').order('unit_number'),
+        supabase.from('units').select('id, unit_number, bedrooms, bathrooms, sqft, rent_amount, description, amenities, image_url, image_urls, status').eq('property_id', propertyId!).order('unit_number'),
       ]);
 
       if (propRes.error || !propRes.data) {
@@ -98,13 +98,30 @@ export default function GuestBookingPage() {
         return;
       }
 
+      const allUnits = (unitsRes.data || []) as UnitInfo[];
+      const bookableUnits = allUnits.filter((unit) => {
+        const status = (unit.status || '').toLowerCase();
+        return status === 'vacant' || status === 'available';
+      });
+
       setProperty(propRes.data as PropertyInfo);
-      setUnits((unitsRes.data || []) as UnitInfo[]);
+      setUnits(bookableUnits);
       setLoading(false);
     }
 
     load();
   }, [propertyId]);
+
+  useEffect(() => {
+    if (selectedUnit) return;
+    if (units.length === 0) return;
+
+    const targetUnit = preselectedUnit && units.some((u) => u.id === preselectedUnit)
+      ? preselectedUnit
+      : units[0].id;
+
+    setSelectedUnit(targetUnit);
+  }, [units, preselectedUnit, selectedUnit]);
 
   // Fetch existing bookings for selected unit
   useEffect(() => {
