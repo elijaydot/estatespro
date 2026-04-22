@@ -145,6 +145,13 @@ export default function GuestBookingPage() {
   }, [selectedUnit]);
 
   const selectedUnitData = units.find(u => u.id === selectedUnit);
+  const selectedUnitImages = selectedUnitData
+    ? ((selectedUnitData.image_urls && selectedUnitData.image_urls.length > 0)
+        ? selectedUnitData.image_urls
+        : selectedUnitData.image_url
+          ? [selectedUnitData.image_url]
+          : [])
+    : [];
 
   const nights = form.check_in && form.check_out
     ? differenceInDays(new Date(form.check_out), new Date(form.check_in))
@@ -333,6 +340,16 @@ export default function GuestBookingPage() {
                         : 'border-border hover:border-primary/40'
                     }`}
                   >
+                    {((unit.image_urls && unit.image_urls.length > 0) || unit.image_url) && (
+                      <div className="mb-3 h-32 w-full overflow-hidden rounded-md bg-muted">
+                        <img
+                          src={(unit.image_urls && unit.image_urls.length > 0) ? unit.image_urls[0] : unit.image_url || ''}
+                          alt={`Unit ${unit.unit_number}`}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-semibold">Unit {unit.unit_number}</h3>
@@ -341,6 +358,11 @@ export default function GuestBookingPage() {
                           <span className="flex items-center gap-1"><Bath className="h-3.5 w-3.5" />{unit.bathrooms} bath</span>
                           {unit.sqft > 0 && <span className="flex items-center gap-1"><Maximize className="h-3.5 w-3.5" />{unit.sqft} sqft</span>}
                         </div>
+                        {unit.description && (
+                          <p className="mt-2 text-sm text-muted-foreground line-clamp-2 whitespace-pre-line">
+                            {unit.description}
+                          </p>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-bold text-primary">{unit.rent_amount.toLocaleString()}</p>
@@ -383,6 +405,23 @@ export default function GuestBookingPage() {
                 </div>
               </CardHeader>
               <CardContent>
+                {selectedUnitImages.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-sm font-medium mb-2">Unit Photos</p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {selectedUnitImages.slice(0, 6).map((image, index) => (
+                        <div key={`${image}-${index}`} className="h-28 overflow-hidden rounded-md border bg-muted">
+                          <img
+                            src={image}
+                            alt={`Unit photo ${index + 1}`}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-7 gap-1 text-center text-xs">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
                     <div key={d} className="font-medium text-muted-foreground py-2">{d}</div>
