@@ -3,6 +3,7 @@ import { Upload, X, Loader2, Camera, Plus, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { toast } from '@/components/ui/use-toast';
 
 interface MultiImageUploadProps {
   values: string[];
@@ -52,11 +53,17 @@ export function MultiImageUpload({
     const newUrls: string[] = [];
 
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error('You must be logged in to upload photos.');
+
       for (const file of toUpload) {
         if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) continue;
 
         const fileExt = file.name.split('.').pop();
-        const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fileName = `${user.id}/${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from(bucket)
@@ -74,6 +81,11 @@ export function MultiImageUpload({
       onChange([...values, ...newUrls]);
     } catch (error) {
       console.error('Upload error:', error);
+      toast({
+        title: 'Upload failed',
+        description: 'Unable to upload photos right now. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

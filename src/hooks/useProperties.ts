@@ -15,6 +15,7 @@ export interface Property {
   total_units: number;
   occupied_units: number;
   image_url: string | null;
+  image_urls?: string[] | null;
   created_at: string;
   updated_at: string;
   user_id: string;

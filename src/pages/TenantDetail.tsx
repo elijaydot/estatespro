@@ -70,6 +70,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { PortalStatusBadge } from '@/components/tenants/PortalStatusBadge';
+import { useSendMessage } from '@/hooks/useMessages';
 
 const getLeaseStatusBadge = (leaseEndDate: string | null) => {
   if (!leaseEndDate) return <Badge className="bg-muted text-muted-foreground">No Lease</Badge>;
@@ -121,6 +122,7 @@ export default function TenantDetail() {
   const { data: invites = [] } = useTenantInvites();
   const updateTenant = useUpdateTenant();
   const deleteTenant = useDeleteTenant();
+  const sendMessage = useSendMessage();
   const createExit = useCreateTenantExit();
   const { data: tenantExits = [] } = useTenantExitsByTenant(id);
 
@@ -765,16 +767,31 @@ export default function TenantDetail() {
             </Button>
             <Button
               className="gap-2"
-              onClick={() => {
-                toast({ title: 'Sent', description: 'Message sent successfully.' });
-                setMessageSubject('');
-                setMessageBody('');
-                closeMessage();
+              onClick={async () => {
+                if (!tenant) return;
+
+                const subject = messageSubject.trim() || 'Message';
+                const content = messageBody.trim();
+                if (!content) return;
+
+                try {
+                  await sendMessage.mutateAsync({
+                    recipient_id: tenant.id,
+                    subject,
+                    content,
+                    property_id: tenant.property_id || undefined,
+                  });
+                  setMessageSubject('');
+                  setMessageBody('');
+                  closeMessage();
+                } catch (error) {
+                  console.error('Failed to send tenant message', error);
+                }
               }}
-              disabled={!messageBody.trim()}
+              disabled={!messageBody.trim() || sendMessage.isPending}
             >
-              <Send className="h-4 w-4" />
-              Send
+              {sendMessage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sendMessage.isPending ? 'Sending...' : 'Send'}
             </Button>
           </DialogFooter>
         </DialogContent>

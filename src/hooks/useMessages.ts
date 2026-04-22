@@ -15,6 +15,7 @@ export interface Message {
   parent_message_id: string | null;
   created_at: string;
   updated_at: string;
+  client_message_id?: string | null;
   sender_name?: string;
   recipient_name?: string;
 }
@@ -38,8 +39,35 @@ export function useMessages() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['messages'] });
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const inserted = payload.new as Message;
+            queryClient.setQueryData<Message[]>(['messages'], (existing) => {
+              const list = existing || [];
+              if (list.some((item) => item.id === inserted.id)) return list;
+              return [inserted, ...list].sort(
+                (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+              );
+            });
+          }
+
+          if (payload.eventType === 'UPDATE') {
+            const updated = payload.new as Message;
+            queryClient.setQueryData<Message[]>(['messages'], (existing) => {
+              if (!existing) return existing;
+              return existing.map((item) => (item.id === updated.id ? updated : item));
+            });
+          }
+
+          if (payload.eventType === 'DELETE') {
+            const removed = payload.old as Message;
+            queryClient.setQueryData<Message[]>(['messages'], (existing) => {
+              if (!existing) return existing;
+              return existing.filter((item) => item.id !== removed.id);
+            });
+          }
+
+          queryClient.invalidateQueries({ queryKey: ['messages', 'unread-count'] });
         }
       )
       .subscribe();
@@ -58,7 +86,8 @@ export function useMessages() {
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(500);
 
       if (error) throw error;
       return (data || []) as Message[];
@@ -121,6 +150,7 @@ export function useSendMessage() {
       const { data, error } = await supabase
         .from('messages')
         .insert({
+          client_message_id: crypto.randomUUID(),
           user_id: user.id,
           sender_id: user.id,
           recipient_id: message.recipient_id,
