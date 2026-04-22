@@ -138,7 +138,6 @@ Deno.serve(async (req) => {
         guest_phone: guest_phone || null,
         check_in,
         check_out,
-        nights,
         nightly_rate,
         total_amount,
         num_guests: num_guests || 1,
