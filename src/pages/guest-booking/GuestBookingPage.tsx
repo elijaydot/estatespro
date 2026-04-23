@@ -223,7 +223,8 @@ export default function GuestBookingPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Failed to submit booking request.');
+        const detailedError = [data?.error, data?.details].filter(Boolean).join(' - ');
+        setError(detailedError || 'Failed to submit booking request.');
         setSubmitting(false);
         return;
       }

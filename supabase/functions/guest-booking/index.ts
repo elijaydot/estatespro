@@ -90,6 +90,13 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (!property.user_id) {
+      return new Response(
+        JSON.stringify({ error: "Property owner is not configured for this listing" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Verify unit exists and belongs to property
     const { data: unit, error: unitError } = await supabaseAdmin
       .from("units")
@@ -140,6 +147,8 @@ Deno.serve(async (req) => {
         check_out,
         nightly_rate,
         total_amount,
+        cleaning_fee: 0,
+        service_fee: 0,
         num_guests: num_guests || 1,
         special_requests: special_requests || null,
         status: "pending",
@@ -149,9 +158,13 @@ Deno.serve(async (req) => {
       .single();
 
     if (bookingError) {
-      console.error("Booking insert error:", bookingError);
+      console.error("Booking insert error:", JSON.stringify(bookingError));
       return new Response(
-        JSON.stringify({ error: "Failed to create booking request" }),
+        JSON.stringify({
+          error: bookingError.message || "Failed to create booking request",
+          code: bookingError.code || null,
+          details: bookingError.details || null,
+        }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
