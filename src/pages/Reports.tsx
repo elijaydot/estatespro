@@ -43,6 +43,7 @@ import { useTenants } from '@/hooks/useTenants';
 import { useInvoices } from '@/hooks/useInvoices';
 import { usePayments } from '@/hooks/usePayments';
 import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
+import { useDashboardStats } from '@/hooks/useDashboardStats';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--info))'];
 
@@ -56,6 +57,7 @@ export default function Reports() {
   const { data: invoices = [] } = useInvoices();
   const { data: payments = [] } = usePayments();
   const { data: maintenanceRequests = [] } = useMaintenanceRequests();
+  const { data: dashboardStats } = useDashboardStats();
 
   // Calculate statistics
   const totalRevenue = payments
@@ -144,6 +146,9 @@ export default function Reports() {
       ['Occupancy Rate', `${occupancyRate.toFixed(1)}%`],
       ['Active Tenants', activeTenants.toString()],
       ['Open Maintenance Requests', maintenanceRequests.filter(m => m.status !== 'completed').length.toString()],
+      ['Shortlet Conversion Rate', `${dashboardStats?.shortletConversionRate ?? 0}%`],
+      ['Shortlet Acceptance Rate', `${dashboardStats?.shortletAcceptanceRate ?? 0}%`],
+      ['Shortlet Avg Time To Pay (hours)', `${dashboardStats?.shortletAvgTimeToPayHours ?? 0}`],
     ];
 
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -250,6 +255,54 @@ export default function Reports() {
               </div>
               <div className="p-3 rounded-xl bg-info/10">
                 <Users className="h-6 w-6 text-info" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Shortlet KPI Cards */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+        <Card className="card-shadow-md">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Shortlet Conversion Rate</p>
+                <p className="text-2xl font-bold">{dashboardStats?.shortletConversionRate ?? 0}%</p>
+                <p className="text-xs text-muted-foreground mt-1">Bookings converted to paid</p>
+              </div>
+              <div className="p-3 rounded-xl bg-success/10">
+                <TrendingUp className="h-6 w-6 text-success" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-shadow-md">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Shortlet Acceptance Rate</p>
+                <p className="text-2xl font-bold">{dashboardStats?.shortletAcceptanceRate ?? 0}%</p>
+                <p className="text-xs text-muted-foreground mt-1">Guest acceptances</p>
+              </div>
+              <div className="p-3 rounded-xl bg-info/10">
+                <Users className="h-6 w-6 text-info" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-shadow-md">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Avg Time To Pay</p>
+                <p className="text-2xl font-bold">{dashboardStats?.shortletAvgTimeToPayHours ?? 0}h</p>
+                <p className="text-xs text-muted-foreground mt-1">From booking to first payment</p>
+              </div>
+              <div className="p-3 rounded-xl bg-warning/10">
+                <DollarSign className="h-6 w-6 text-warning" />
               </div>
             </div>
           </CardContent>

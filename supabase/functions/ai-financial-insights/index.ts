@@ -30,12 +30,12 @@ serve(async (req) => {
     const [invoicesRes, paymentsRes, leasesRes, tenantsRes] = await Promise.all([
       supabaseClient
         .from("invoices")
-        .select("id, tenant_id, amount, paid_amount, status, due_date, created_at, description")
+        .select("id, tenant_id, booking_id, source, guest_name, guest_email, amount, paid_amount, status, due_date, created_at, description")
         .order("created_at", { ascending: false })
         .limit(500),
       supabaseClient
         .from("payments")
-        .select("id, tenant_id, amount, method, created_at, invoice_id, status")
+        .select("id, tenant_id, booking_id, source, payer_name, payer_email, amount, method, created_at, invoice_id, status")
         .order("created_at", { ascending: false })
         .limit(500),
       supabaseClient
@@ -60,6 +60,8 @@ serve(async (req) => {
     const overdueInvoices = invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled' && new Date(i.due_date) < now);
     const paidInvoices = invoices.filter(i => i.status === 'paid');
     const totalMonthlyRent = leases.reduce((sum, l) => sum + Number(l.monthly_rent), 0);
+    const shortletInvoices = invoices.filter(i => i.source === 'shortlet_booking' || i.booking_id);
+    const shortletPayments = payments.filter(p => p.source === 'shortlet_booking' || p.booking_id);
 
     // Calculate per-tenant payment patterns
     const tenantPaymentStats = tenants.map(t => {
@@ -99,6 +101,9 @@ serve(async (req) => {
       summary: {
         totalActiveLeases: leases.length,
         totalActiveTenants: tenants.length,
+        totalShortletInvoices: shortletInvoices.length,
+        totalShortletPayments: shortletPayments.length,
+        totalShortletCollected: shortletPayments.filter(p => p.status === 'completed').reduce((s, p) => s + Number(p.amount), 0),
         totalMonthlyRent,
         totalInvoices: invoices.length,
         totalPaidInvoices: paidInvoices.length,

@@ -15,6 +15,10 @@ export interface DashboardStats {
   maintenanceRequests: number;
   maintenanceInProgress: number;
   upcomingRenewals: number;
+  shortletConversionRate: number;
+  shortletAcceptanceRate: number;
+  shortletAvgTimeToPayHours: number;
+  shortletTotalBookings: number;
 }
 
 export function useDashboardStats() {
@@ -29,6 +33,7 @@ export function useDashboardStats() {
         propertiesRes,
         unitsRes,
         tenantsRes,
+        bookingsRes,
         invoicesRes,
         paymentsRes,
         maintenanceRes,
@@ -36,14 +41,16 @@ export function useDashboardStats() {
         supabase.from('properties').select('id, total_units, occupied_units'),
         supabase.from('units').select('id, status'),
         supabase.from('tenants').select('id, status, lease_end_date'),
+        supabase.from('bookings').select('id, status, payment_status, created_at, guest_response_status'),
         supabase.from('invoices').select('id, amount, paid_amount, status, due_date'),
-        supabase.from('payments').select('id, amount, status, created_at'),
+        supabase.from('payments').select('id, amount, status, created_at, booking_id'),
         supabase.from('maintenance_requests').select('id, status'),
       ]);
 
       if (propertiesRes.error) throw propertiesRes.error;
       if (unitsRes.error) throw unitsRes.error;
       if (tenantsRes.error) throw tenantsRes.error;
+      if (bookingsRes.error) throw bookingsRes.error;
       if (invoicesRes.error) throw invoicesRes.error;
       if (paymentsRes.error) throw paymentsRes.error;
       if (maintenanceRes.error) throw maintenanceRes.error;
@@ -51,6 +58,7 @@ export function useDashboardStats() {
       const properties = propertiesRes.data || [];
       const units = unitsRes.data || [];
       const tenants = tenantsRes.data || [];
+      const bookings = bookingsRes.data || [];
       const invoices = invoicesRes.data || [];
       const payments = paymentsRes.data || [];
       const maintenance = maintenanceRes.data || [];
@@ -97,6 +105,46 @@ export function useDashboardStats() {
         return leaseEnd >= now && leaseEnd <= thirtyDaysFromNow;
       }).length;
 
+      // Shortlet metrics
+      const shortletTotalBookings = bookings.length;
+      const shortletAcceptedCount = bookings.filter((b: any) => b.guest_response_status === 'accepted').length;
+      const shortletPaidCount = bookings.filter((b: any) => b.payment_status === 'paid').length;
+
+      const shortletAcceptanceRate = shortletTotalBookings > 0
+        ? Math.round((shortletAcceptedCount / shortletTotalBookings) * 100)
+        : 0;
+
+      const shortletConversionRate = shortletTotalBookings > 0
+        ? Math.round((shortletPaidCount / shortletTotalBookings) * 100)
+        : 0;
+
+      const paymentByBookingId = new Map<string, Date>();
+      payments
+        .filter((p: any) => p.status === 'completed' && p.booking_id)
+        .forEach((p: any) => {
+          const bookingId = p.booking_id as string;
+          const paymentDate = new Date(p.created_at);
+          const existing = paymentByBookingId.get(bookingId);
+          if (!existing || paymentDate < existing) {
+            paymentByBookingId.set(bookingId, paymentDate);
+          }
+        });
+
+      const timeToPayHours: number[] = [];
+      bookings.forEach((b: any) => {
+        const firstPaymentDate = paymentByBookingId.get(b.id);
+        if (!firstPaymentDate) return;
+        const bookingCreated = new Date(b.created_at);
+        const diffMs = firstPaymentDate.getTime() - bookingCreated.getTime();
+        if (diffMs >= 0) {
+          timeToPayHours.push(diffMs / (1000 * 60 * 60));
+        }
+      });
+
+      const shortletAvgTimeToPayHours = timeToPayHours.length > 0
+        ? Math.round((timeToPayHours.reduce((sum, h) => sum + h, 0) / timeToPayHours.length) * 10) / 10
+        : 0;
+
       return {
         totalProperties,
         totalUnits,
@@ -111,6 +159,10 @@ export function useDashboardStats() {
         maintenanceRequests,
         maintenanceInProgress,
         upcomingRenewals,
+        shortletConversionRate,
+        shortletAcceptanceRate,
+        shortletAvgTimeToPayHours,
+        shortletTotalBookings,
       };
     },
   });

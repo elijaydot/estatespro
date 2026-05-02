@@ -5,7 +5,8 @@ import { toast } from '@/components/ui/use-toast';
 export interface Invoice {
   id: string;
   invoice_number: string;
-  tenant_id: string;
+  tenant_id: string | null;
+  booking_id?: string | null;
   property_id: string | null;
   unit_id: string | null;
   amount: number;
@@ -17,6 +18,9 @@ export interface Invoice {
   created_at: string;
   updated_at: string;
   user_id: string;
+  guest_name?: string | null;
+  guest_email?: string | null;
+  source?: 'tenant' | 'shortlet_booking';
 }
 
 export function useInvoices() {

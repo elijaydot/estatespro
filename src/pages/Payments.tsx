@@ -173,6 +173,8 @@ export default function Payments() {
     if (!q) return true;
     return (
       (payment.tenants?.name || '').toLowerCase().includes(q) ||
+      (payment.payer_name || '').toLowerCase().includes(q) ||
+      (payment.payer_email || '').toLowerCase().includes(q) ||
       (payment.receipt_number || '').toLowerCase().includes(q) ||
       (payment.invoices?.invoice_number || '').toLowerCase().includes(q)
     );
@@ -183,7 +185,8 @@ export default function Payments() {
       'payments-export.csv',
       payments.map((p: any) => ({
         receipt_number: p.receipt_number || '',
-        tenant: p.tenants?.name || '',
+        tenant: p.tenants?.name || p.payer_name || '',
+        payer_email: p.payer_email || '',
         invoice: p.invoices?.invoice_number || '',
         amount: p.amount,
         method: getMethodLabel(p.method),
@@ -357,12 +360,19 @@ export default function Payments() {
                       <TableCell className="font-medium">{payment.receipt_number || '-'}</TableCell>
                       <TableCell>{format(new Date(payment.created_at), 'MMM dd, yyyy')}</TableCell>
                       <TableCell>
-                        <button
-                          className="hover:text-primary transition-colors"
-                          onClick={() => navigate(`/tenants/${payment.tenant_id}`)}
-                        >
-                          {payment.tenants?.name || 'Unknown'}
-                        </button>
+                        {payment.tenant_id ? (
+                          <button
+                            className="hover:text-primary transition-colors"
+                            onClick={() => navigate(`/tenants/${payment.tenant_id}`)}
+                          >
+                            {payment.tenants?.name || payment.payer_name || 'Unknown'}
+                          </button>
+                        ) : (
+                          <div>
+                            <p>{payment.payer_name || payment.tenants?.name || 'Guest'}</p>
+                            {payment.payer_email ? <p className="text-xs text-muted-foreground">{payment.payer_email}</p> : null}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>{payment.invoices?.invoice_number || '-'}</TableCell>
                       <TableCell>
@@ -390,7 +400,8 @@ export default function Payments() {
                                   {
                                     receipt_number: payment.receipt_number || '',
                                     date: format(new Date(payment.created_at), 'yyyy-MM-dd'),
-                                    tenant: payment.tenants?.name || '',
+                                    tenant: payment.tenants?.name || payment.payer_name || '',
+                                    payer_email: payment.payer_email || '',
                                     invoice: payment.invoices?.invoice_number || '',
                                     amount: payment.amount,
                                     method: getMethodLabel(payment.method),
@@ -420,11 +431,13 @@ export default function Payments() {
                             >
                               <Send className="h-4 w-4 mr-2" /> Send Receipt to Tenant
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={() => navigate(`/tenants/${payment.tenant_id}`)}
-                            >
-                              <DollarSign className="h-4 w-4 mr-2" /> View Tenant
-                            </DropdownMenuItem>
+                            {payment.tenant_id ? (
+                              <DropdownMenuItem
+                                onSelect={() => navigate(`/tenants/${payment.tenant_id}`)}
+                              >
+                                <DollarSign className="h-4 w-4 mr-2" /> View Tenant
+                              </DropdownMenuItem>
+                            ) : null}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
