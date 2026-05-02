@@ -70,10 +70,24 @@ Deno.serve(async (req) => {
     }
 
     // Use service role to bypass RLS
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error("Missing required environment variables", {
+        hasSupabaseUrl: Boolean(supabaseUrl),
+        hasServiceRoleKey: Boolean(serviceRoleKey),
+      });
+      return new Response(
+        JSON.stringify({
+          error: "Server misconfiguration: missing Supabase environment variables",
+          code: "MISSING_ENV_VARS",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     // Verify property exists and is short_let type
     const { data: property, error: propError } = await supabaseAdmin
@@ -113,13 +127,26 @@ Deno.serve(async (req) => {
     }
 
     // Check for overlapping bookings
-    const { data: conflicts } = await supabaseAdmin
+    const { data: conflicts, error: conflictsError } = await supabaseAdmin
       .from("bookings")
       .select("id")
       .eq("unit_id", unit_id)
       .not("status", "in", '("cancelled","no_show")')
       .lt("check_in", check_out)
       .gt("check_out", check_in);
+
+    if (conflictsError) {
+      console.error("Booking conflict check error:", JSON.stringify(conflictsError));
+      return new Response(
+        JSON.stringify({
+          error: conflictsError.message || "Failed to validate booking availability",
+          code: conflictsError.code || null,
+          details: conflictsError.details || null,
+          hint: conflictsError.hint || null,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (conflicts && conflicts.length > 0) {
       return new Response(
@@ -149,7 +176,7 @@ Deno.serve(async (req) => {
         total_amount,
         cleaning_fee: 0,
         service_fee: 0,
-        num_guests: num_guests || 1,
+        num_guests: Number.isFinite(Number(num_guests)) && Number(num_guests) > 0 ? Number(num_guests) : 1,
         special_requests: special_requests || null,
         status: "pending",
         payment_status: "unpaid",
@@ -164,19 +191,25 @@ Deno.serve(async (req) => {
           error: bookingError.message || "Failed to create booking request",
           code: bookingError.code || null,
           details: bookingError.details || null,
+          hint: bookingError.hint || null,
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Notify the property owner
-    await supabaseAdmin.from("notifications").insert({
+    const { error: notificationError } = await supabaseAdmin.from("notifications").insert({
       user_id: property.user_id,
       title: "New Booking Request",
       message: `${guest_name} has requested to book at ${property.name} from ${check_in} to ${check_out} (${nights} nights).`,
       type: "info",
       link: "/bookings",
     });
+
+    // Booking creation should not fail if notification insert fails.
+    if (notificationError) {
+      console.error("Notification insert error:", JSON.stringify(notificationError));
+    }
 
     return new Response(
       JSON.stringify({
@@ -190,9 +223,10 @@ Deno.serve(async (req) => {
       { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
+    const message = err instanceof Error ? err.message : "Internal server error";
     console.error("Guest booking error:", err);
     return new Response(
-      JSON.stringify({ error: "Internal server error" }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
