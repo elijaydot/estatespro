@@ -214,26 +214,75 @@ export default function Bookings() {
   const handleSendGuestEmail = async (bookingId: string, emailType: 'status_update' | 'payment_request' | 'reminder' | 'check_in_details' | 'cancellation_notice') => {
     try {
       setSendingEmailForId(bookingId);
-      const { data, error } = await supabase.functions.invoke('shortlet-booking-email', {
-        body: {
-          operation: 'send_email',
-          bookingId,
-          emailType,
-          origin: window.location.origin,
-        },
-      });
+      const payload = {
+        operation: 'send_email',
+        bookingId,
+        emailType,
+        origin: window.location.origin,
+      };
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      try {
+        const { data, error } = await supabase.functions.invoke('shortlet-booking-email', {
+          body: payload,
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+      } catch (invokeError: any) {
+        // Fallback to direct fetch so we can expose clearer server details.
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shortlet-booking-email`;
+
+        const res = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: anonKey,
+            Authorization: `Bearer ${accessToken || anonKey}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const rawText = await res.text();
+        let parsed: any = null;
+        try {
+          parsed = rawText ? JSON.parse(rawText) : null;
+        } catch {
+          parsed = null;
+        }
+
+        if (!res.ok) {
+          const message = [
+            parsed?.error,
+            parsed?.message,
+            rawText && !parsed ? rawText : null,
+            `HTTP ${res.status}`,
+          ]
+            .filter(Boolean)
+            .join(' - ');
+          throw new Error(message || invokeError?.message || 'Edge function request failed');
+        }
+
+        if (parsed?.error) {
+          throw new Error(parsed.error);
+        }
+      }
 
       toast({
         title: 'Email Sent',
         description: 'Guest booking email sent successfully.',
       });
     } catch (error: any) {
+      const rawMessage = error?.message || 'Could not send guest email.';
+      const description = rawMessage.includes('Failed to send a request to the Edge Function')
+        ? `${rawMessage} - Please deploy the edge function shortlet-booking-email and confirm RESEND_API_KEY is set.`
+        : rawMessage;
+
       toast({
         title: 'Email Failed',
-        description: error.message || 'Could not send guest email.',
+        description,
         variant: 'destructive',
       });
     } finally {
