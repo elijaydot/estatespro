@@ -214,6 +214,13 @@ export default function Bookings() {
   const handleSendGuestEmail = async (bookingId: string, emailType: 'status_update' | 'payment_request' | 'reminder' | 'check_in_details' | 'cancellation_notice') => {
     try {
       setSendingEmailForId(bookingId);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error('Unauthorized: your session is missing or expired. Please log in again.');
+      }
+
       const payload = {
         operation: 'send_email',
         bookingId,
@@ -223,6 +230,9 @@ export default function Bookings() {
 
       try {
         const { data, error } = await supabase.functions.invoke('shortlet-booking-email', {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
           body: payload,
         });
 
@@ -230,8 +240,6 @@ export default function Bookings() {
         if (data?.error) throw new Error(data.error);
       } catch (invokeError: any) {
         // Fallback to direct fetch so we can expose clearer server details.
-        const { data: sessionData } = await supabase.auth.getSession();
-        const accessToken = sessionData?.session?.access_token;
         const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
         const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shortlet-booking-email`;
 
