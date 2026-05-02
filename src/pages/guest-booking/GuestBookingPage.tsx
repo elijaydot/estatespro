@@ -207,11 +207,16 @@ export default function GuestBookingPage() {
     setSubmitting(true);
 
     try {
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/guest-booking`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: anonKey,
+            Authorization: `Bearer ${anonKey}`,
+          },
           body: JSON.stringify({
             property_id: propertyId,
             unit_id: selectedUnit,
@@ -220,10 +225,24 @@ export default function GuestBookingPage() {
         }
       );
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = null;
+      try {
+        data = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        data = null;
+      }
 
       if (!res.ok) {
-        const detailedError = [data?.error, data?.details, data?.hint, data?.code]
+        const detailedError = [
+          data?.error,
+          data?.message,
+          data?.details,
+          data?.hint,
+          data?.code,
+          rawText && !data ? rawText : null,
+          `HTTP ${res.status}`,
+        ]
           .filter(Boolean)
           .join(' - ');
         setError(detailedError || 'Failed to submit booking request.');
