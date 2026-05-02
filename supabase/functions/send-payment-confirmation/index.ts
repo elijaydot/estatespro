@@ -76,7 +76,7 @@ const handler = async (req: Request): Promise<Response> => {
       .select(`
         *,
         tenants:tenant_id(id, name, email, phone),
-        invoices:invoice_id(id, invoice_number, description, amount, due_date)
+        invoices:invoice_id(id, invoice_number, description, amount, due_date, guest_name, guest_email)
       `)
       .eq('id', paymentId)
       .single();
@@ -113,6 +113,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     const tenant = payment.tenants;
     const invoice = payment.invoices;
+    const recipientName = tenant?.name || payment.payer_name || invoice?.guest_name || 'Guest';
+    const recipientEmail = tenant?.email || payment.payer_email || invoice?.guest_email || null;
     const companyName = companySettings?.company_name || 'Property Management';
     const logoHtml = companySettings?.logo_url 
       ? `<img src="${companySettings.logo_url}" alt="${companyName}" style="max-height: 60px; margin-bottom: 20px;" />`
@@ -156,7 +158,7 @@ const handler = async (req: Request): Promise<Response> => {
               <svg fill="white" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
             </div>
             <h1>Payment Confirmed!</h1>
-            <p style="color: #666;">Your payment has been successfully received.</p>
+                <p style="color: #666;">Your payment has been successfully received.</p>
           </div>
 
           <div class="amount-section">
@@ -204,18 +206,18 @@ const handler = async (req: Request): Promise<Response> => {
       : `${companyName} <noreply@resend.dev>`;
 
     // Send to tenant
-    if (tenant?.email) {
+    if (recipientEmail) {
       try {
         await resend.emails.send({
           from: fromEmail,
-          to: [tenant.email],
+          to: [recipientEmail],
           subject: `Payment Confirmation - ${invoice?.invoice_number || 'Receipt'}`,
-          html: emailHtml,
+          html: emailHtml.replace('Your payment has been successfully received.', `Hello ${recipientName}, your payment has been successfully received.`),
         });
-        emailsSent.push(tenant.email);
-        console.log("Email sent to tenant:", tenant.email);
+        emailsSent.push(recipientEmail);
+        console.log("Email sent to payer:", recipientEmail);
       } catch (e) {
-        console.error("Failed to send email to tenant:", e);
+        console.error("Failed to send email to payer:", e);
       }
     }
 
@@ -223,13 +225,13 @@ const handler = async (req: Request): Promise<Response> => {
     if (ownerProfile?.email) {
       const ownerEmailHtml = emailHtml.replace(
         'Your payment has been successfully received.',
-        `Payment received from ${tenant?.name || 'tenant'}.`
+        `Payment received from ${recipientName}.`
       );
       try {
         await resend.emails.send({
           from: fromEmail,
           to: [ownerProfile.email],
-          subject: `Payment Received - ${tenant?.name} - ${invoice?.invoice_number}`,
+          subject: `Payment Received - ${recipientName} - ${invoice?.invoice_number}`,
           html: ownerEmailHtml,
         });
         emailsSent.push(ownerProfile.email);

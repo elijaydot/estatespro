@@ -121,6 +121,42 @@ export default function Dashboard() {
         ) : null}
       </div>
 
+      {/* Shortlet KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {isLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-[104px] rounded-xl" />
+          ))
+        ) : stats ? (
+          <>
+            <StatCard
+              title="Shortlet Conversion"
+              value={`${stats.shortletConversionRate}%`}
+              subtitle={`${stats.shortletTotalBookings} bookings total`}
+              icon={TrendingUp}
+              iconColor="bg-success/10 text-success"
+              href="/reports"
+            />
+            <StatCard
+              title="Shortlet Acceptance"
+              value={`${stats.shortletAcceptanceRate}%`}
+              subtitle="Guest acceptance rate"
+              icon={Users}
+              iconColor="bg-info/10 text-info"
+              href="/reports"
+            />
+            <StatCard
+              title="Avg Time To Pay"
+              value={`${stats.shortletAvgTimeToPayHours}h`}
+              subtitle="From booking to first payment"
+              icon={DollarSign}
+              iconColor="bg-warning/10 text-warning"
+              href="/reports"
+            />
+          </>
+        ) : null}
+      </div>
+
       {/* Financial alerts — 4 columns */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {isLoading ? (

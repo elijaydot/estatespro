@@ -144,6 +144,8 @@ export default function Invoices() {
     if (!q) return true;
     return (
       (invoice.tenants?.name || '').toLowerCase().includes(q) ||
+      (invoice.guest_name || '').toLowerCase().includes(q) ||
+      (invoice.guest_email || '').toLowerCase().includes(q) ||
       (invoice.invoice_number || '').toLowerCase().includes(q) ||
       (invoice.properties?.name || '').toLowerCase().includes(q)
     );
@@ -154,7 +156,8 @@ export default function Invoices() {
       'invoices-export.csv',
       invoices.map((inv: any) => ({
         invoice_number: inv.invoice_number,
-        tenant: inv.tenants?.name || '',
+        tenant: inv.tenants?.name || inv.guest_name || '',
+        guest_email: inv.guest_email || '',
         property: inv.properties?.name || '',
         unit: inv.units?.unit_number || '',
         description: inv.description,
@@ -387,12 +390,19 @@ export default function Invoices() {
                     <TableRow key={invoice.id}>
                       <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
                       <TableCell>
-                        <button
-                          className="hover:text-primary transition-colors"
-                          onClick={() => navigate(`/tenants/${invoice.tenant_id}`)}
-                        >
-                          {invoice.tenants?.name || 'Unknown'}
-                        </button>
+                        {invoice.tenant_id ? (
+                          <button
+                            className="hover:text-primary transition-colors"
+                            onClick={() => navigate(`/tenants/${invoice.tenant_id}`)}
+                          >
+                            {invoice.tenants?.name || invoice.guest_name || 'Unknown'}
+                          </button>
+                        ) : (
+                          <div>
+                            <p>{invoice.guest_name || 'Guest Booking'}</p>
+                            {invoice.guest_email ? <p className="text-xs text-muted-foreground">{invoice.guest_email}</p> : null}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">

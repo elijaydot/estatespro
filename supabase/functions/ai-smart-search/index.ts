@@ -32,10 +32,10 @@ serve(async (req) => {
     const [propertiesRes, tenantsRes, invoicesRes, maintenanceRes, leasesRes, paymentsRes] = await Promise.all([
       supabaseClient.from("properties").select("id, name, address, city, type, total_units, occupied_units").limit(100),
       supabaseClient.from("tenants").select("id, name, email, phone, status, monthly_rent, balance, property_id, unit_id").limit(200),
-      supabaseClient.from("invoices").select("id, invoice_number, amount, due_date, status, paid_amount, tenant_id, property_id, description").limit(500),
+      supabaseClient.from("invoices").select("id, invoice_number, amount, due_date, status, paid_amount, tenant_id, property_id, booking_id, source, guest_name, guest_email, description").limit(500),
       supabaseClient.from("maintenance_requests").select("id, title, description, priority, status, created_at, property_id, unit_id, tenant_id").limit(200),
       supabaseClient.from("leases").select("id, lease_number, start_date, end_date, monthly_rent, status, tenant_id, property_id, unit_id, renewal_status").limit(200),
-      supabaseClient.from("payments").select("id, amount, method, status, created_at, tenant_id, invoice_id").limit(500),
+      supabaseClient.from("payments").select("id, amount, method, status, created_at, tenant_id, booking_id, source, payer_name, payer_email, invoice_id").limit(500),
     ]);
 
     const dataContext = `
@@ -46,7 +46,7 @@ Tenants (${tenantsRes.data?.length || 0}):
 ${(tenantsRes.data || []).map((t: any) => `- ${t.name}: ${t.email} | Status: ${t.status} | Rent: ${t.monthly_rent} | Balance: ${t.balance}`).join("\n")}
 
 Invoices (${invoicesRes.data?.length || 0}):
-${(invoicesRes.data || []).map((i: any) => `- ${i.invoice_number}: ${i.amount} due ${i.due_date} | Status: ${i.status} | Paid: ${i.paid_amount}`).join("\n")}
+${(invoicesRes.data || []).map((i: any) => `- ${i.invoice_number}: ${i.amount} due ${i.due_date} | Status: ${i.status} | Paid: ${i.paid_amount} | Source: ${i.source}${i.guest_name ? ` | Guest: ${i.guest_name}` : ''}`).join("\n")}
 
 Maintenance (${maintenanceRes.data?.length || 0}):
 ${(maintenanceRes.data || []).map((m: any) => `- ${m.title}: ${m.priority} priority | ${m.status} | Created: ${m.created_at}`).join("\n")}
@@ -55,7 +55,7 @@ Leases (${leasesRes.data?.length || 0}):
 ${(leasesRes.data || []).map((l: any) => `- ${l.lease_number}: ${l.start_date} to ${l.end_date} | Rent: ${l.monthly_rent} | Status: ${l.status}`).join("\n")}
 
 Recent Payments (${paymentsRes.data?.length || 0}):
-${(paymentsRes.data || []).slice(0, 50).map((p: any) => `- ${p.amount} via ${p.method} | ${p.status} | ${p.created_at}`).join("\n")}
+${(paymentsRes.data || []).slice(0, 50).map((p: any) => `- ${p.amount} via ${p.method} | ${p.status} | ${p.created_at} | Source: ${p.source}${p.payer_name ? ` | Payer: ${p.payer_name}` : ''}`).join("\n")}
 `;
 
     let systemPrompt = "";

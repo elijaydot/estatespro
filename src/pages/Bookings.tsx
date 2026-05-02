@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { format, differenceInDays, parseISO, isWithinInterval } from 'date-fns';
 import {
   Plus,
@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Share2,
   Copy,
+  Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,6 +66,7 @@ import { useProperties } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
 import { useSettings } from '@/contexts/SettingsContext';
 import { toast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Pending', variant: 'outline' },
@@ -90,6 +92,8 @@ export default function Bookings() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedProperty, setSelectedProperty] = useState('');
   const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [sendingEmailForId, setSendingEmailForId] = useState<string | null>(null);
+  const autoEmailTimersRef = useRef<Record<string, number>>({});
 
   const { data: bookings = [], isLoading } = useBookings();
   const { data: properties = [] } = useProperties();
@@ -160,12 +164,130 @@ export default function Bookings() {
     setIsCreateOpen(false);
   };
 
+  useEffect(() => {
+    return () => {
+      Object.values(autoEmailTimersRef.current).forEach((timerId) => window.clearTimeout(timerId));
+    };
+  }, []);
+
   const handleStatusChange = async (bookingId: string, newStatus: string) => {
     await updateBooking.mutateAsync({ id: bookingId, status: newStatus });
+
+    // Always clear any pending auto email timer first.
+    const existingTimer = autoEmailTimersRef.current[bookingId];
+    if (existingTimer) {
+      window.clearTimeout(existingTimer);
+      delete autoEmailTimersRef.current[bookingId];
+    }
+
+    // Auto-send confirmation/payment email after a short delay.
+    if (newStatus === 'confirmed') {
+      const timerId = window.setTimeout(async () => {
+        try {
+          // Re-check status at send time to avoid sending if booking changed meanwhile.
+          const { data: latestBooking, error } = await supabase
+            .from('bookings')
+            .select('status')
+            .eq('id', bookingId)
+            .single();
+
+          if (error || latestBooking?.status !== 'confirmed') {
+            return;
+          }
+
+          await handleSendGuestEmail(bookingId, 'payment_request');
+        } catch {
+          // Non-blocking; manual email dropdown is still available.
+        } finally {
+          delete autoEmailTimersRef.current[bookingId];
+        }
+      }, 180000);
+
+      autoEmailTimersRef.current[bookingId] = timerId;
+    }
   };
 
   const handlePaymentStatusChange = async (bookingId: string, newStatus: string) => {
     await updateBooking.mutateAsync({ id: bookingId, payment_status: newStatus });
+  };
+
+  const handleSendGuestEmail = async (bookingId: string, emailType: 'status_update' | 'payment_request' | 'reminder' | 'check_in_details' | 'cancellation_notice') => {
+    try {
+      setSendingEmailForId(bookingId);
+      const payload = {
+        operation: 'send_email',
+        bookingId,
+        emailType,
+        origin: window.location.origin,
+      };
+
+      try {
+        const { data, error } = await supabase.functions.invoke('shortlet-booking-email', {
+          body: payload,
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+      } catch (invokeError: any) {
+        // Fallback to direct fetch so we can expose clearer server details.
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shortlet-booking-email`;
+
+        const res = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: anonKey,
+            Authorization: `Bearer ${accessToken || anonKey}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const rawText = await res.text();
+        let parsed: any = null;
+        try {
+          parsed = rawText ? JSON.parse(rawText) : null;
+        } catch {
+          parsed = null;
+        }
+
+        if (!res.ok) {
+          const message = [
+            parsed?.error,
+            parsed?.message,
+            rawText && !parsed ? rawText : null,
+            `HTTP ${res.status}`,
+          ]
+            .filter(Boolean)
+            .join(' - ');
+          throw new Error(message || invokeError?.message || 'Edge function request failed');
+        }
+
+        if (parsed?.error) {
+          throw new Error(parsed.error);
+        }
+      }
+
+      toast({
+        title: 'Email Sent',
+        description: 'Guest booking email sent successfully.',
+      });
+    } catch (error: any) {
+      const rawMessage = error?.message || 'Could not send guest email.';
+      const description = rawMessage.includes('Failed to send a request to the Edge Function')
+        ? `${rawMessage} - Please deploy the edge function shortlet-booking-email and confirm RESEND_API_KEY is set.`
+        : rawMessage;
+
+      toast({
+        title: 'Email Failed',
+        description,
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingEmailForId(null);
+    }
   };
 
   const handleDelete = async () => {
@@ -481,6 +603,7 @@ export default function Bookings() {
                         <TableHead>Total</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Payment</TableHead>
+                        <TableHead>Guest Email</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -530,6 +653,27 @@ export default function Bookings() {
                                 ))}
                               </SelectContent>
                             </Select>
+                          </TableCell>
+                          <TableCell>
+                            {booking.status === 'confirmed' || booking.status === 'pending' || booking.status === 'checked_in' ? (
+                              <Select onValueChange={(v: any) => handleSendGuestEmail(booking.id, v)}>
+                                <SelectTrigger className="w-[180px] h-8">
+                                  <div className="flex items-center gap-2 text-xs">
+                                    {sendingEmailForId === booking.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                                    <SelectValue placeholder="Send update" />
+                                  </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="status_update">Status Update</SelectItem>
+                                  <SelectItem value="payment_request">Payment Request</SelectItem>
+                                  <SelectItem value="reminder">Stay Reminder</SelectItem>
+                                  <SelectItem value="check_in_details">Check-in Details</SelectItem>
+                                  <SelectItem value="cancellation_notice">Cancellation Notice</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No actions</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">

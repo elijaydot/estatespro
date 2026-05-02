@@ -5,7 +5,8 @@ import { toast } from '@/components/ui/use-toast';
 export interface Payment {
   id: string;
   invoice_id: string;
-  tenant_id: string;
+  tenant_id: string | null;
+  booking_id?: string | null;
   amount: number;
   method: string;
   momo_phone: string | null;
@@ -16,6 +17,9 @@ export interface Payment {
   notes: string | null;
   created_at: string;
   user_id: string;
+  payer_name?: string | null;
+  payer_email?: string | null;
+  source?: 'tenant' | 'shortlet_booking';
 }
 
 export function usePayments() {
