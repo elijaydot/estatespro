@@ -95,10 +95,15 @@ export type Database = {
           check_out: string
           cleaning_fee: number
           created_at: string
+          guest_action_token: string | null
           guest_email: string
           guest_name: string
           guest_phone: string | null
+          guest_responded_at: string | null
+          guest_response_status: string
           id: string
+          last_status_email_sent_at: string | null
+          last_status_email_type: string | null
           nightly_rate: number
           nights: number | null
           notes: string | null
@@ -118,10 +123,15 @@ export type Database = {
           check_out: string
           cleaning_fee?: number
           created_at?: string
+          guest_action_token?: string | null
           guest_email: string
           guest_name: string
           guest_phone?: string | null
+          guest_responded_at?: string | null
+          guest_response_status?: string
           id?: string
+          last_status_email_sent_at?: string | null
+          last_status_email_type?: string | null
           nightly_rate?: number
           nights?: number | null
           notes?: string | null
@@ -141,10 +151,15 @@ export type Database = {
           check_out?: string
           cleaning_fee?: number
           created_at?: string
+          guest_action_token?: string | null
           guest_email?: string
           guest_name?: string
           guest_phone?: string | null
+          guest_responded_at?: string | null
+          guest_response_status?: string
           id?: string
+          last_status_email_sent_at?: string | null
+          last_status_email_type?: string | null
           nightly_rate?: number
           nights?: number | null
           notes?: string | null
@@ -380,53 +395,72 @@ export type Database = {
       invoices: {
         Row: {
           amount: number
+          booking_id: string | null
           created_at: string
           description: string
           due_date: string
+          guest_email: string | null
+          guest_name: string | null
           id: string
           invoice_number: string
           paid_amount: number
           paid_at: string | null
           property_id: string | null
+          source: string
           status: string
-          tenant_id: string
+          tenant_id: string | null
           unit_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           amount: number
+          booking_id?: string | null
           created_at?: string
           description: string
           due_date: string
+          guest_email?: string | null
+          guest_name?: string | null
           id?: string
           invoice_number: string
           paid_amount?: number
           paid_at?: string | null
           property_id?: string | null
+          source?: string
           status?: string
-          tenant_id: string
+          tenant_id?: string | null
           unit_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           amount?: number
+          booking_id?: string | null
           created_at?: string
           description?: string
           due_date?: string
+          guest_email?: string | null
+          guest_name?: string | null
           id?: string
           invoice_number?: string
           paid_amount?: number
           paid_at?: string | null
           property_id?: string | null
+          source?: string
           status?: string
-          tenant_id?: string
+          tenant_id?: string | null
           unit_id?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "invoices_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoices_property_id_fkey"
             columns: ["property_id"]
@@ -883,6 +917,7 @@ export type Database = {
       payments: {
         Row: {
           amount: number
+          booking_id: string | null
           created_at: string
           id: string
           invoice_id: string
@@ -890,14 +925,18 @@ export type Database = {
           momo_phone: string | null
           momo_transaction_id: string | null
           notes: string | null
+          payer_email: string | null
+          payer_name: string | null
           receipt_number: string | null
           reference: string | null
+          source: string
           status: string
-          tenant_id: string
+          tenant_id: string | null
           user_id: string
         }
         Insert: {
           amount: number
+          booking_id?: string | null
           created_at?: string
           id?: string
           invoice_id: string
@@ -905,14 +944,18 @@ export type Database = {
           momo_phone?: string | null
           momo_transaction_id?: string | null
           notes?: string | null
+          payer_email?: string | null
+          payer_name?: string | null
           receipt_number?: string | null
           reference?: string | null
+          source?: string
           status?: string
-          tenant_id: string
+          tenant_id?: string | null
           user_id: string
         }
         Update: {
           amount?: number
+          booking_id?: string | null
           created_at?: string
           id?: string
           invoice_id?: string
@@ -920,13 +963,23 @@ export type Database = {
           momo_phone?: string | null
           momo_transaction_id?: string | null
           notes?: string | null
+          payer_email?: string | null
+          payer_name?: string | null
           receipt_number?: string | null
           reference?: string | null
+          source?: string
           status?: string
-          tenant_id?: string
+          tenant_id?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payments_invoice_id_fkey"
             columns: ["invoice_id"]
