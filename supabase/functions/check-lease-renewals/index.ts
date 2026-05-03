@@ -83,6 +83,7 @@ Deno.serve(async (req) => {
         units:unit_id(id, unit_number)
       `)
       .eq('status', 'active')
+      .eq('user_id', user.id)
       .eq('end_date', sixtyDaysStr);
 
     if (leasesError) {

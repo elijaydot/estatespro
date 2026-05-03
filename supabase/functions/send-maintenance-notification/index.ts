@@ -102,6 +102,23 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    const isOwner = request.user_id === userId;
+    let isApprovedPm = false;
+    if (!isOwner && request.property_id) {
+      const { data: pmAllowed } = await supabase.rpc("is_approved_pm", {
+        _user_id: userId,
+        _property_id: request.property_id,
+      });
+      isApprovedPm = !!pmAllowed;
+    }
+
+    if (!isOwner && !isApprovedPm) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const tenant = request.tenants;
     const property = request.properties;
     const unit = request.units;

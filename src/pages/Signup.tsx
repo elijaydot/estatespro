@@ -53,13 +53,15 @@ export default function Signup() {
   useEffect(() => {
     if (pmInviteToken) {
       setRole('property_manager');
-      db.rpc('validate_pm_invite_token', { lookup_token: pmInviteToken }).then(({ data }: any) => {
-        if (data && data.length > 0) {
-          setEmail(data[0].email);
-          setSelectedCompanyId(data[0].company_id);
-          setCompanyName(data[0].company_name || '');
-        }
-      });
+      supabase.functions
+        .invoke('invite-token', { body: { operation: 'validate_pm', token: pmInviteToken } })
+        .then(({ data }: any) => {
+          if (data?.invite) {
+            setEmail(data.invite.email);
+            setSelectedCompanyId(data.invite.company_id);
+            setCompanyName(data.invite.company_name || '');
+          }
+        });
     }
   }, [pmInviteToken]);
 
@@ -89,10 +91,13 @@ export default function Signup() {
 
       // Mark PM invite as used
       if (pmInviteToken && role === 'property_manager') {
-        await db
-          .from('pm_invites')
-          .update({ used_at: new Date().toISOString() })
-          .eq('token', pmInviteToken);
+        await supabase.functions.invoke('invite-token', {
+          body: {
+            operation: 'consume_pm',
+            token: pmInviteToken,
+            email: email.trim().toLowerCase(),
+          },
+        });
       }
 
       navigate('/dashboard');

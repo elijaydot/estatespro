@@ -58,6 +58,19 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Authorization: only the owning landlord or an approved PM for the property can send the summary.
+    if (exitData.user_id !== user.id) {
+      const { data: isPmApproved, error: pmCheckError } = await supabase
+        .rpc("is_approved_pm", { _user_id: user.id, _property_id: exitData.property_id });
+
+      if (pmCheckError || !isPmApproved) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const tenant = exitData.tenants;
     if (!tenant?.email) {
       return new Response(JSON.stringify({ error: "Tenant email not found" }), {

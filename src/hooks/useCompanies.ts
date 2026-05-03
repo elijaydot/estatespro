@@ -234,7 +234,7 @@ export function useCreatePMInvite() {
           invited_by: user.id,
           expires_at: expiresAt.toISOString(),
         })
-        .select()
+        .select('id, company_id, email, invited_by, expires_at, used_at, created_at')
         .single();
       if (error) throw error;
       return { ...data, token };
@@ -257,7 +257,7 @@ export function usePMInvites(companyId: string | undefined) {
       if (!companyId) return [];
       const { data, error } = await db
         .from('pm_invites')
-        .select('*')
+        .select('id, company_id, email, invited_by, expires_at, used_at, created_at')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
       if (error) throw error;

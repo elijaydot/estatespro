@@ -28,11 +28,32 @@ export interface PaymentSettings {
 
 export function usePaymentSettings(companyId?: string, propertyId?: string) {
   const queryClient = useQueryClient();
+  const paymentSettingsSelect = [
+    'id',
+    'user_id',
+    'company_id',
+    'property_id',
+    'bank_name',
+    'bank_account_number',
+    'bank_account_name',
+    'bank_branch',
+    'momo_provider',
+    'momo_number',
+    'momo_name',
+    'flutterwave_enabled',
+    'flutterwave_public_key',
+    'paystack_enabled',
+    'paystack_public_key',
+    'preferred_method',
+    'payment_instructions',
+    'created_at',
+    'updated_at',
+  ].join(',');
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['payment-settings', companyId, propertyId],
     queryFn: async () => {
-      let query = supabase.from('landlord_payment_settings').select('*');
+      let query = supabase.from('landlord_payment_settings').select(paymentSettingsSelect);
       
       if (propertyId) {
         query = query.eq('property_id', propertyId);
@@ -45,7 +66,14 @@ export function usePaymentSettings(companyId?: string, propertyId?: string) {
 
       const { data, error } = await query.maybeSingle();
       if (error) throw error;
-      return data as PaymentSettings | null;
+      if (!data) return null;
+
+      return {
+        ...data,
+        // Secrets are write-only and intentionally never returned to the client.
+        flutterwave_secret_key: null,
+        paystack_secret_key: null,
+      } as PaymentSettings;
     },
     enabled: true,
   });

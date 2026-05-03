@@ -278,6 +278,11 @@ serve(async (req: Request) => {
 
     const body = await req.json();
 
+    const caller = await getUserFromBearer(req, supabaseUrl, serviceRoleKey);
+    if (!caller) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
     // Used by Settings -> Payment Settings screen to test credentials before save.
     if (body?.test_mode) {
       const gateway = body?.gateway as Gateway | undefined;
