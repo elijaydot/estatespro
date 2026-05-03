@@ -495,7 +495,6 @@ export type Database = {
           flutterwave_enabled: boolean | null
           flutterwave_merchant_id: string | null
           flutterwave_public_key: string | null
-          flutterwave_secret_key: string | null
           id: string
           momo_name: string | null
           momo_number: string | null
@@ -503,7 +502,6 @@ export type Database = {
           payment_instructions: string | null
           paystack_enabled: boolean | null
           paystack_public_key: string | null
-          paystack_secret_key: string | null
           preferred_method: string | null
           property_id: string | null
           updated_at: string
@@ -519,7 +517,6 @@ export type Database = {
           flutterwave_enabled?: boolean | null
           flutterwave_merchant_id?: string | null
           flutterwave_public_key?: string | null
-          flutterwave_secret_key?: string | null
           id?: string
           momo_name?: string | null
           momo_number?: string | null
@@ -527,7 +524,6 @@ export type Database = {
           payment_instructions?: string | null
           paystack_enabled?: boolean | null
           paystack_public_key?: string | null
-          paystack_secret_key?: string | null
           preferred_method?: string | null
           property_id?: string | null
           updated_at?: string
@@ -543,7 +539,6 @@ export type Database = {
           flutterwave_enabled?: boolean | null
           flutterwave_merchant_id?: string | null
           flutterwave_public_key?: string | null
-          flutterwave_secret_key?: string | null
           id?: string
           momo_name?: string | null
           momo_number?: string | null
@@ -551,7 +546,6 @@ export type Database = {
           payment_instructions?: string | null
           paystack_enabled?: boolean | null
           paystack_public_key?: string | null
-          paystack_secret_key?: string | null
           preferred_method?: string | null
           property_id?: string | null
           updated_at?: string
@@ -1688,6 +1682,29 @@ export type Database = {
             }
             Returns: string
           }
+      tenant_lease_update_guard: {
+        Args: {
+          p_created_at: string
+          p_document_url: string
+          p_end_date: string
+          p_id: string
+          p_landlord_signature_url: string
+          p_landlord_signed_at: string
+          p_lease_number: string
+          p_monthly_rent: number
+          p_property_id: string
+          p_renewal_status: string
+          p_security_deposit: number
+          p_special_conditions: string
+          p_start_date: string
+          p_status: string
+          p_tenant_id: string
+          p_terms: string
+          p_unit_id: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       validate_invite_token: {
         Args: { lookup_token: string }
         Returns: {
