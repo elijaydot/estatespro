@@ -71,7 +71,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Check if tenant already has a linked account (is already active)
     const { data: tenant, error: tenantError } = await supabaseAdmin
       .from("tenants")
-      .select("tenant_user_id, name")
+      .select("tenant_user_id, name, user_id, property_id")
       .eq("id", tenantId)
       .single();
 
@@ -87,6 +87,23 @@ const handler = async (req: Request): Promise<Response> => {
       return new Response(
         JSON.stringify({ error: "This tenant already has an active portal account and cannot be invited again." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const isTenantOwner = tenant.user_id === userId;
+    let isApprovedPm = false;
+    if (!isTenantOwner && tenant.property_id) {
+      const { data: pmAllowed } = await supabaseAdmin.rpc("is_approved_pm", {
+        _user_id: userId,
+        _property_id: tenant.property_id,
+      });
+      isApprovedPm = !!pmAllowed;
+    }
+
+    if (!isTenantOwner && !isApprovedPm) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: You do not have access to this tenant" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

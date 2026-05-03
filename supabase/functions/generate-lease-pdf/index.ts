@@ -10,6 +10,32 @@ interface GeneratePdfRequest {
   leaseId: string;
 }
 
+function escapeHtml(input: unknown): string {
+  const value = String(input ?? "");
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function safeImageUrl(input: unknown): string {
+  const raw = String(input ?? "").trim();
+  if (!raw) return "";
+
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+      return escapeHtml(raw);
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
 const handler = async (req: Request): Promise<Response> => {
   console.log("generate-lease-pdf function called");
   
@@ -113,12 +139,28 @@ const handler = async (req: Request): Promise<Response> => {
     const tenant = lease.tenants;
     const property = lease.properties;
     const unit = lease.units;
+    const safeCompanyName = escapeHtml(companyName);
+    const safeCompanyLogo = safeImageUrl(companyLogo);
+    const safeLeaseNumber = escapeHtml(lease.lease_number);
+    const safeStatus = escapeHtml(String(lease.status || "").replace("_", " "));
+    const safePropertyName = escapeHtml(property?.name || 'N/A');
+    const safeUnitNumber = escapeHtml(unit?.unit_number || 'N/A');
+    const safeAddress = escapeHtml(`${property?.address || ''}, ${property?.city || ''}, ${property?.state || ''} ${property?.zip_code || ''}`);
+    const safeUnitDetails = escapeHtml(`${unit?.bedrooms || 0} Bed, ${unit?.bathrooms || 0} Bath, ${unit?.sqft || 0} sqft`);
+    const safeTenantName = escapeHtml(tenant?.name || 'N/A');
+    const safeTenantEmail = escapeHtml(tenant?.email || 'N/A');
+    const safeTenantPhone = escapeHtml(tenant?.phone || 'N/A');
+    const safeTerms = escapeHtml(lease.terms || 'Standard lease terms apply.');
+    const safeSpecialConditions = escapeHtml(lease.special_conditions || '');
+    const safeLandlordSignatureUrl = safeImageUrl(lease.landlord_signature_url);
+    const safeTenantSignatureUrl = safeImageUrl(lease.tenant_signature_url);
 
     const htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: http: data:; style-src 'unsafe-inline'">
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { 
@@ -287,11 +329,11 @@ const handler = async (req: Request): Promise<Response> => {
       </head>
       <body>
         <div class="header">
-          ${companyLogo ? `<img src="${companyLogo}" alt="Company Logo" class="company-logo" />` : ''}
-          <div class="company-name">${companyName}</div>
+          ${safeCompanyLogo ? `<img src="${safeCompanyLogo}" alt="Company Logo" class="company-logo" />` : ''}
+          <div class="company-name">${safeCompanyName}</div>
           <h1>RESIDENTIAL LEASE AGREEMENT</h1>
-          <p>Lease Number: ${lease.lease_number}</p>
-          <span class="status-badge">${lease.status.replace('_', ' ')}</span>
+          <p>Lease Number: ${safeLeaseNumber}</p>
+          <span class="status-badge">${safeStatus}</span>
         </div>
 
         <div class="section">
@@ -299,19 +341,19 @@ const handler = async (req: Request): Promise<Response> => {
           <div class="info-grid">
             <div class="info-item">
               <div class="info-label">Property Name</div>
-              <div class="info-value">${property?.name || 'N/A'}</div>
+              <div class="info-value">${safePropertyName}</div>
             </div>
             <div class="info-item">
               <div class="info-label">Unit Number</div>
-              <div class="info-value">${unit?.unit_number || 'N/A'}</div>
+              <div class="info-value">${safeUnitNumber}</div>
             </div>
             <div class="info-item">
               <div class="info-label">Address</div>
-              <div class="info-value">${property?.address || ''}, ${property?.city || ''}, ${property?.state || ''} ${property?.zip_code || ''}</div>
+              <div class="info-value">${safeAddress}</div>
             </div>
             <div class="info-item">
               <div class="info-label">Unit Details</div>
-              <div class="info-value">${unit?.bedrooms || 0} Bed, ${unit?.bathrooms || 0} Bath, ${unit?.sqft || 0} sqft</div>
+              <div class="info-value">${safeUnitDetails}</div>
             </div>
           </div>
         </div>
@@ -323,15 +365,15 @@ const handler = async (req: Request): Promise<Response> => {
           <div class="info-grid">
             <div class="info-item">
               <div class="info-label">Tenant Name</div>
-              <div class="info-value">${tenant?.name || 'N/A'}</div>
+              <div class="info-value">${safeTenantName}</div>
             </div>
             <div class="info-item">
               <div class="info-label">Email</div>
-              <div class="info-value">${tenant?.email || 'N/A'}</div>
+              <div class="info-value">${safeTenantEmail}</div>
             </div>
             <div class="info-item">
               <div class="info-label">Phone</div>
-              <div class="info-value">${tenant?.phone || 'N/A'}</div>
+              <div class="info-value">${safeTenantPhone}</div>
             </div>
           </div>
         </div>
@@ -364,10 +406,10 @@ const handler = async (req: Request): Promise<Response> => {
 
         <div class="section">
           <div class="section-title">Terms and Conditions</div>
-          <div class="terms">${lease.terms || 'Standard lease terms apply.'}</div>
+          <div class="terms">${safeTerms}</div>
           ${lease.special_conditions ? `
             <div class="section-title" style="margin-top: 20px;">Special Conditions</div>
-            <div class="terms">${lease.special_conditions}</div>
+            <div class="terms">${safeSpecialConditions}</div>
           ` : ''}
         </div>
 
@@ -375,15 +417,15 @@ const handler = async (req: Request): Promise<Response> => {
           <div class="section-title">Signatures</div>
           <div class="signature-box">
             <div class="signature-item">
-              ${lease.landlord_signature_url ? `
-                <img src="${lease.landlord_signature_url}" alt="Landlord Signature" class="signature-image" />
+              ${safeLandlordSignatureUrl ? `
+                <img src="${safeLandlordSignatureUrl}" alt="Landlord Signature" class="signature-image" />
               ` : '<div class="signature-line"></div>'}
               <div class="signature-label">Landlord Signature</div>
               <div class="signature-label">Date: ${lease.landlord_signed_at ? new Date(lease.landlord_signed_at).toLocaleDateString() : '____________'}</div>
             </div>
             <div class="signature-item">
-              ${lease.tenant_signature_url ? `
-                <img src="${lease.tenant_signature_url}" alt="Tenant Signature" class="signature-image" />
+              ${safeTenantSignatureUrl ? `
+                <img src="${safeTenantSignatureUrl}" alt="Tenant Signature" class="signature-image" />
               ` : '<div class="signature-line"></div>'}
               <div class="signature-label">Tenant Signature</div>
               <div class="signature-label">Date: ${lease.tenant_signed_at ? new Date(lease.tenant_signed_at).toLocaleDateString() : '____________'}</div>
@@ -392,8 +434,8 @@ const handler = async (req: Request): Promise<Response> => {
         </div>
 
         <div class="footer">
-          <p>${companyName} • This lease agreement was generated electronically on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}.</p>
-          <p>Document ID: ${lease.id}</p>
+          <p>${safeCompanyName} • This lease agreement was generated electronically on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}.</p>
+          <p>Document ID: ${escapeHtml(lease.id)}</p>
         </div>
       </body>
       </html>

@@ -10,6 +10,32 @@ interface GenerateInvoicePdfRequest {
   invoiceId: string;
 }
 
+function escapeHtml(input: unknown): string {
+  const value = String(input ?? "");
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function safeImageUrl(input: unknown): string {
+  const raw = String(input ?? "").trim();
+  if (!raw) return "";
+
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+      return escapeHtml(raw);
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
 const handler = async (req: Request): Promise<Response> => {
   console.log("generate-invoice-pdf function called");
   
@@ -105,6 +131,21 @@ const handler = async (req: Request): Promise<Response> => {
     const tenant = invoice.tenants;
     const property = invoice.properties;
     const unit = invoice.units;
+    const safeCompanyName = escapeHtml(companySettings?.company_name || 'Property Management');
+    const safeCompanyLogo = safeImageUrl(companySettings?.logo_url || '');
+    const safeCompanyAddress = escapeHtml(companySettings?.company_address || '');
+    const safeCompanyEmail = escapeHtml(companySettings?.company_email || '');
+    const safeCompanyPhone = escapeHtml(companySettings?.company_phone || '');
+    const safeInvoiceNumber = escapeHtml(invoice.invoice_number);
+    const safeInvoiceStatus = escapeHtml(invoice.status.toUpperCase());
+    const safeTenantName = escapeHtml(tenant?.name || 'N/A');
+    const safeTenantEmail = escapeHtml(tenant?.email || '');
+    const safeTenantPhone = escapeHtml(tenant?.phone || '');
+    const safePropertyName = escapeHtml(property?.name || 'N/A');
+    const safeUnitNumber = escapeHtml(unit?.unit_number || 'N/A');
+    const safePropertyAddress = escapeHtml(property?.address || '');
+    const safePropertyCityStateZip = escapeHtml(`${property?.city || ''}, ${property?.state || ''} ${property?.zip_code || ''}`);
+    const safeDescription = escapeHtml(invoice.description || '');
 
     const balance = invoice.amount - invoice.paid_amount;
     const isPaid = invoice.status === 'paid';
@@ -115,6 +156,7 @@ const handler = async (req: Request): Promise<Response> => {
       <html>
       <head>
         <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: http: data:; style-src 'unsafe-inline'">
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { 
@@ -254,33 +296,33 @@ const handler = async (req: Request): Promise<Response> => {
       <body>
         <div class="header">
           <div class="company-info">
-            ${companySettings?.logo_url ? `<img src="${companySettings.logo_url}" alt="Company Logo" class="company-logo" />` : ''}
-            <div class="company-name">${companySettings?.company_name || 'Property Management'}</div>
+            ${safeCompanyLogo ? `<img src="${safeCompanyLogo}" alt="Company Logo" class="company-logo" />` : ''}
+            <div class="company-name">${safeCompanyName}</div>
             <div class="company-details">
-              ${companySettings?.company_address || ''}<br>
-              ${companySettings?.company_email || ''} | ${companySettings?.company_phone || ''}
+              ${safeCompanyAddress}<br>
+              ${safeCompanyEmail} | ${safeCompanyPhone}
             </div>
           </div>
           <div class="invoice-title">
             <h1>INVOICE</h1>
-            <div class="invoice-number">${invoice.invoice_number}</div>
-            <span class="status-badge">${invoice.status.toUpperCase()}</span>
+            <div class="invoice-number">${safeInvoiceNumber}</div>
+            <span class="status-badge">${safeInvoiceStatus}</span>
           </div>
         </div>
 
         <div class="info-section">
           <div class="info-box">
             <h3>Bill To</h3>
-            <p><strong>${tenant?.name || 'N/A'}</strong></p>
-            <p>${tenant?.email || ''}</p>
-            <p>${tenant?.phone || ''}</p>
+            <p><strong>${safeTenantName}</strong></p>
+            <p>${safeTenantEmail}</p>
+            <p>${safeTenantPhone}</p>
           </div>
           <div class="info-box">
             <h3>Property</h3>
-            <p><strong>${property?.name || 'N/A'}</strong></p>
-            <p>Unit ${unit?.unit_number || 'N/A'}</p>
-            <p>${property?.address || ''}</p>
-            <p>${property?.city || ''}, ${property?.state || ''} ${property?.zip_code || ''}</p>
+            <p><strong>${safePropertyName}</strong></p>
+            <p>Unit ${safeUnitNumber}</p>
+            <p>${safePropertyAddress}</p>
+            <p>${safePropertyCityStateZip}</p>
           </div>
           <div class="info-box" style="text-align: right;">
             <h3>Invoice Details</h3>
@@ -299,7 +341,7 @@ const handler = async (req: Request): Promise<Response> => {
           </thead>
           <tbody>
             <tr>
-              <td>${invoice.description}</td>
+              <td>${safeDescription}</td>
               <td class="amount">$${invoice.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             </tr>
           </tbody>
@@ -326,7 +368,7 @@ const handler = async (req: Request): Promise<Response> => {
 
         <div class="footer">
           <p>Thank you for your business!</p>
-          <p>Questions? Contact us at ${companySettings?.company_email || 'your property management team'}</p>
+          <p>Questions? Contact us at ${safeCompanyEmail || 'your property management team'}</p>
           <p style="margin-top: 10px;">Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
         </div>
       </body>

@@ -81,12 +81,19 @@ export default function TenantInvoices() {
       if (error) throw new Error(error.message || 'Failed to generate PDF');
 
       const html = typeof data === 'string' ? data : await new Response(data).text();
-      
-      const printWindow = window.open('', '_blank');
+      const htmlBlob = new Blob([html], { type: 'text/html' });
+      const htmlUrl = URL.createObjectURL(htmlBlob);
+
+      const printWindow = window.open(htmlUrl, '_blank', 'noopener,noreferrer');
       if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        setTimeout(() => printWindow.print(), 500);
+        printWindow.addEventListener('load', () => {
+          setTimeout(() => {
+            printWindow.print();
+            URL.revokeObjectURL(htmlUrl);
+          }, 500);
+        }, { once: true });
+      } else {
+        URL.revokeObjectURL(htmlUrl);
       }
     } catch (error: any) {
       console.error('Error downloading PDF:', error);

@@ -60,14 +60,30 @@ export function useCreateTenantMaintenanceRequest() {
       tenantId: string;
       imageFile?: File;
     }) => {
-      let imageUrl: string | null = null;
+      const { data, error } = await supabase
+        .from('maintenance_requests')
+        .insert({
+          title,
+          description,
+          priority,
+          unit_id: unitId,
+          property_id: propertyId,
+          tenant_id: tenantId,
+          status: 'submitted',
+          image_url: null,
+          user_id: tenantId,
+        })
+        .select()
+        .single();
 
-      if (imageFile) {
+      if (error) throw error;
+
+      if (imageFile && data?.id) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
 
         const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        const fileName = `${user.id}/${data.id}/${Date.now()}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('maintenance-photos')
@@ -79,26 +95,13 @@ export function useCreateTenantMaintenanceRequest() {
           .from('maintenance-photos')
           .getPublicUrl(fileName);
 
-        imageUrl = publicUrl;
+        await supabase
+          .from('maintenance_requests')
+          .update({ image_url: publicUrl })
+          .eq('id', data.id);
+
+        data.image_url = publicUrl;
       }
-
-      const { data, error } = await supabase
-        .from('maintenance_requests')
-        .insert({
-          title,
-          description,
-          priority,
-          unit_id: unitId,
-          property_id: propertyId,
-          tenant_id: tenantId,
-          status: 'submitted',
-          image_url: imageUrl,
-          user_id: tenantId,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
 
       if (data?.user_id) {
         await supabase.from('notifications').insert({
