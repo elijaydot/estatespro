@@ -134,6 +134,18 @@ async function resolvePaymentSettings(supabase: any, propertyId: string, ownerUs
   return globalSettings;
 }
 
+function getGatewaySecret(gateway: Gateway, ownerUserId?: string) {
+  const baseName = gateway === "paystack" ? "PAYSTACK_SECRET_KEY" : "FLUTTERWAVE_SECRET_KEY";
+  const normalizedOwner = ownerUserId?.replace(/-/g, "_").toUpperCase();
+
+  if (normalizedOwner) {
+    const ownerScoped = Deno.env.get(`${baseName}_${normalizedOwner}`);
+    if (ownerScoped) return ownerScoped;
+  }
+
+  return Deno.env.get(baseName) || "";
+}
+
 async function createPaystackCheckout(opts: {
   secretKey: string;
   email: string;
@@ -277,12 +289,13 @@ serve(async (req: Request) => {
 
       let checkoutUrl = "";
       if (gateway === "paystack") {
-        if (!paymentSettings.paystack_enabled || !paymentSettings.paystack_secret_key) {
+        const secretKey = getGatewaySecret("paystack", paymentSettings.user_id || booking.user_id);
+        if (!paymentSettings.paystack_enabled || !secretKey) {
           return jsonResponse({ error: "Paystack is not enabled for this property" }, 400);
         }
 
         checkoutUrl = await createPaystackCheckout({
-          secretKey: paymentSettings.paystack_secret_key,
+          secretKey,
           email: booking.guest_email,
           amount,
           callbackUrl: finalCallbackUrl,
@@ -291,12 +304,13 @@ serve(async (req: Request) => {
           metadata,
         });
       } else {
-        if (!paymentSettings.flutterwave_enabled || !paymentSettings.flutterwave_secret_key) {
+        const secretKey = getGatewaySecret("flutterwave", paymentSettings.user_id || booking.user_id);
+        if (!paymentSettings.flutterwave_enabled || !secretKey) {
           return jsonResponse({ error: "Flutterwave is not enabled for this property" }, 400);
         }
 
         checkoutUrl = await createFlutterwaveCheckout({
-          secretKey: paymentSettings.flutterwave_secret_key,
+          secretKey,
           email: booking.guest_email,
           name: booking.guest_name,
           amount,
@@ -385,12 +399,13 @@ serve(async (req: Request) => {
 
     let checkoutUrl = "";
     if (gateway === "paystack") {
-      if (!paymentSettings.paystack_enabled || !paymentSettings.paystack_secret_key) {
+      const secretKey = getGatewaySecret("paystack", paymentSettings.user_id || invoice.user_id);
+      if (!paymentSettings.paystack_enabled || !secretKey) {
         return jsonResponse({ error: "Paystack is not enabled for this property" }, 400);
       }
 
       checkoutUrl = await createPaystackCheckout({
-        secretKey: paymentSettings.paystack_secret_key,
+        secretKey,
         email: payerEmail,
         amount,
         callbackUrl: finalCallbackUrl,
@@ -399,12 +414,13 @@ serve(async (req: Request) => {
         metadata,
       });
     } else {
-      if (!paymentSettings.flutterwave_enabled || !paymentSettings.flutterwave_secret_key) {
+      const secretKey = getGatewaySecret("flutterwave", paymentSettings.user_id || invoice.user_id);
+      if (!paymentSettings.flutterwave_enabled || !secretKey) {
         return jsonResponse({ error: "Flutterwave is not enabled for this property" }, 400);
       }
 
       checkoutUrl = await createFlutterwaveCheckout({
-        secretKey: paymentSettings.flutterwave_secret_key,
+        secretKey,
         email: payerEmail,
         name: payerName,
         amount,

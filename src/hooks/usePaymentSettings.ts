@@ -16,10 +16,8 @@ export interface PaymentSettings {
   momo_name: string | null;
   flutterwave_enabled: boolean;
   flutterwave_public_key: string | null;
-  flutterwave_secret_key: string | null;
   paystack_enabled: boolean;
   paystack_public_key: string | null;
-  paystack_secret_key: string | null;
   preferred_method: string | null;
   payment_instructions: string | null;
   created_at: string;
@@ -68,12 +66,7 @@ export function usePaymentSettings(companyId?: string, propertyId?: string) {
       if (error) throw error;
       if (!data) return null;
 
-      return {
-        ...data,
-        // Secrets are write-only and intentionally never returned to the client.
-        flutterwave_secret_key: null,
-        paystack_secret_key: null,
-      } as PaymentSettings;
+      return data as PaymentSettings;
     },
     enabled: true,
   });

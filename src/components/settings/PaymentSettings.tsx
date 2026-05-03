@@ -18,6 +18,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 
 const paymentSettingsSchema = z.object({
@@ -30,27 +31,25 @@ const paymentSettingsSchema = z.object({
   momo_name: z.string().optional(),
   flutterwave_enabled: z.boolean(),
   flutterwave_public_key: z.string().optional(),
-  flutterwave_secret_key: z.string().optional(),
   paystack_enabled: z.boolean(),
   paystack_public_key: z.string().optional(),
-  paystack_secret_key: z.string().optional(),
   preferred_method: z.string().optional(),
   payment_instructions: z.string().optional(),
 }).refine((data) => {
-  if (data.flutterwave_enabled && (!data.flutterwave_public_key || !data.flutterwave_secret_key)) {
+  if (data.flutterwave_enabled && !data.flutterwave_public_key) {
     return false;
   }
   return true;
 }, {
-  message: "Flutterwave public and secret keys are required when enabled",
+  message: "Flutterwave public key is required when enabled",
   path: ["flutterwave_public_key"],
 }).refine((data) => {
-  if (data.paystack_enabled && (!data.paystack_public_key || !data.paystack_secret_key)) {
+  if (data.paystack_enabled && !data.paystack_public_key) {
     return false;
   }
   return true;
 }, {
-  message: "Paystack public and secret keys are required when enabled",
+  message: "Paystack public key is required when enabled",
   path: ["paystack_public_key"],
 });
 
@@ -88,10 +87,8 @@ export function PaymentSettings() {
       momo_name: '',
       flutterwave_enabled: false,
       flutterwave_public_key: '',
-      flutterwave_secret_key: '',
       paystack_enabled: false,
       paystack_public_key: '',
-      paystack_secret_key: '',
       preferred_method: 'bank_transfer',
       payment_instructions: '',
     },
@@ -111,10 +108,8 @@ export function PaymentSettings() {
         momo_name: settings.momo_name || '',
         flutterwave_enabled: settings.flutterwave_enabled || false,
         flutterwave_public_key: settings.flutterwave_public_key || '',
-        flutterwave_secret_key: settings.flutterwave_secret_key || '',
         paystack_enabled: settings.paystack_enabled || false,
         paystack_public_key: settings.paystack_public_key || '',
-        paystack_secret_key: settings.paystack_secret_key || '',
         preferred_method: settings.preferred_method || 'bank_transfer',
         payment_instructions: settings.payment_instructions || '',
       });
@@ -133,37 +128,29 @@ export function PaymentSettings() {
     const values = form.getValues();
     
     if (gateway === 'flutterwave') {
-      if (!values.flutterwave_public_key || !values.flutterwave_secret_key) {
-        toast({ title: 'Error', description: 'Please enter both public and secret keys', variant: 'destructive' });
+      if (!values.flutterwave_public_key) {
+        toast({ title: 'Error', description: 'Please enter a Flutterwave public key', variant: 'destructive' });
         return;
       }
       setFlutterwaveStatus({ status: 'verifying' });
     } else {
-      if (!values.paystack_public_key || !values.paystack_secret_key) {
-        toast({ title: 'Error', description: 'Please enter both public and secret keys', variant: 'destructive' });
+      if (!values.paystack_public_key) {
+        toast({ title: 'Error', description: 'Please enter a Paystack public key', variant: 'destructive' });
         return;
       }
       setPaystackStatus({ status: 'verifying' });
     }
 
     try {
-      // Call verify-payment edge function in test mode
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Test gateway connectivity against server-managed secrets.
+      const { data, error } = await supabase.functions.invoke('verify-payment', {
+        body: {
           test_mode: true,
           gateway,
-          public_key: gateway === 'flutterwave' ? values.flutterwave_public_key : values.paystack_public_key,
-          secret_key: gateway === 'flutterwave' ? values.flutterwave_secret_key : values.paystack_secret_key,
-        }),
+        },
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (!error && data?.success) {
         const newStatus: GatewayStatus = { status: 'connected', lastVerified: new Date() };
         if (gateway === 'flutterwave') {
           setFlutterwaveStatus(newStatus);
@@ -466,19 +453,6 @@ export function PaymentSettings() {
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={form.control}
-                        name="flutterwave_secret_key"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Secret Key *</FormLabel>
-                            <FormControl>
-                              <Input type="password" placeholder="FLWSECK-..." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
                       <Button
                         type="button"
                         variant="outline"
@@ -533,19 +507,6 @@ export function PaymentSettings() {
                             <FormLabel>Public Key *</FormLabel>
                             <FormControl>
                               <Input placeholder="pk_..." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="paystack_secret_key"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Secret Key *</FormLabel>
-                            <FormControl>
-                              <Input type="password" placeholder="sk_..." {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

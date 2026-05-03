@@ -86,6 +86,18 @@ async function resolvePaymentSettings(supabase: any, propertyId: string, ownerUs
   return globalSettings;
 }
 
+function getGatewaySecret(gateway: Gateway, ownerUserId?: string) {
+  const baseName = gateway === "paystack" ? "PAYSTACK_SECRET_KEY" : "FLUTTERWAVE_SECRET_KEY";
+  const normalizedOwner = ownerUserId?.replace(/-/g, "_").toUpperCase();
+
+  if (normalizedOwner) {
+    const ownerScoped = Deno.env.get(`${baseName}_${normalizedOwner}`);
+    if (ownerScoped) return ownerScoped;
+  }
+
+  return Deno.env.get(baseName) || "";
+}
+
 async function ensureBookingInvoice(supabase: any, booking: any) {
   const { data: existingInvoice } = await supabase
     .from("invoices")
@@ -286,10 +298,10 @@ serve(async (req: Request) => {
     // Used by Settings -> Payment Settings screen to test credentials before save.
     if (body?.test_mode) {
       const gateway = body?.gateway as Gateway | undefined;
-      const secretKey = (body?.secret_key as string | undefined)?.trim();
+      const secretKey = gateway ? getGatewaySecret(gateway) : "";
 
       if (!gateway || !secretKey) {
-        return jsonResponse({ error: "gateway and secret_key are required in test_mode" }, 400);
+        return jsonResponse({ error: "Gateway secret is not configured on the server" }, 400);
       }
 
       if (gateway === "paystack") {
@@ -336,9 +348,12 @@ serve(async (req: Request) => {
       const settings = await resolvePaymentSettings(supabase, booking.property_id, booking.user_id);
       if (!settings) return jsonResponse({ error: "Payment settings not configured" }, 400);
 
+      const secretKey = getGatewaySecret(gateway, settings.user_id || booking.user_id);
+      if (!secretKey) return jsonResponse({ error: "Gateway secret is not configured on the server" }, 400);
+
       const verification = gateway === "paystack"
-        ? await verifyPaystack(settings.paystack_secret_key, reference)
-        : await verifyFlutterwave(settings.flutterwave_secret_key, reference);
+        ? await verifyPaystack(secretKey, reference)
+        : await verifyFlutterwave(secretKey, reference);
 
       const invoice = await ensureBookingInvoice(supabase, booking);
       const result = await saveGuestBookingPayment(supabase, booking, invoice, verification.amount, verification.method, verification.reference);
@@ -353,8 +368,7 @@ serve(async (req: Request) => {
       });
     }
 
-    const user = await getUserFromBearer(req, supabaseUrl, serviceRoleKey);
-    if (!user) return jsonResponse({ error: "Unauthorized" }, 401);
+    const user = caller;
 
     if (!invoiceId) return jsonResponse({ error: "invoiceId is required" }, 400);
 
@@ -384,9 +398,12 @@ serve(async (req: Request) => {
     const settings = await resolvePaymentSettings(supabase, invoice.property_id, invoice.user_id);
     if (!settings) return jsonResponse({ error: "Payment settings not configured" }, 400);
 
+    const secretKey = getGatewaySecret(gateway, settings.user_id || invoice.user_id);
+    if (!secretKey) return jsonResponse({ error: "Gateway secret is not configured on the server" }, 400);
+
     const verification = gateway === "paystack"
-      ? await verifyPaystack(settings.paystack_secret_key, reference)
-      : await verifyFlutterwave(settings.flutterwave_secret_key, reference);
+      ? await verifyPaystack(secretKey, reference)
+      : await verifyFlutterwave(secretKey, reference);
 
     const result = await saveTenantInvoicePayment(supabase, invoice, verification.amount, verification.method, verification.reference);
 
