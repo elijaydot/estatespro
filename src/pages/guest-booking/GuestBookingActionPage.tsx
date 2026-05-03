@@ -52,7 +52,9 @@ export default function GuestBookingActionPage() {
   const [actionHandled, setActionHandled] = useState(false);
 
   const [paymentMethod, setPaymentMethod] = useState('card');
+  const [gateway, setGateway] = useState<'paystack' | 'flutterwave'>('paystack');
   const [paymentReference, setPaymentReference] = useState('');
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const remainingAmount = useMemo(() => {
     if (!context?.invoice) return Number(context?.booking?.total_amount || 0);
@@ -61,6 +63,32 @@ export default function GuestBookingActionPage() {
 
   const callFunction = async (body: Record<string, any>) => {
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shortlet-booking-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const text = await response.text();
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = { error: text || `HTTP ${response.status}` };
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || `Request failed (HTTP ${response.status})`);
+    }
+
+    return data;
+  };
+
+  const callCheckoutFunction = async (path: 'payment-checkout' | 'verify-payment', body: Record<string, any>) => {
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -142,6 +170,66 @@ export default function GuestBookingActionPage() {
       void submitAction('cancel');
     }
   }, [context, actionFromLink, actionHandled]);
+
+  useEffect(() => {
+    const paymentReturn = searchParams.get('payment_return');
+    const reference = searchParams.get('reference') || searchParams.get('tx_ref');
+    const returnGateway = searchParams.get('gateway') as 'paystack' | 'flutterwave' | null;
+
+    if (paymentReturn !== '1' || !reference || !returnGateway || !token) return;
+
+    const verify = async () => {
+      try {
+        const data = await callCheckoutFunction('verify-payment', {
+          bookingToken: token,
+          gateway: returnGateway,
+          reference,
+        });
+
+        if (!data?.success) {
+          throw new Error(data?.error || 'Payment verification failed');
+        }
+
+        setSuccessMessage('Payment verified and recorded successfully.');
+        await loadContext();
+      } catch (err: any) {
+        setError(err.message || 'Unable to verify payment.');
+      }
+    };
+
+    void verify();
+  }, [searchParams, token]);
+
+  const startProviderPayment = async () => {
+    if (!token || remainingAmount <= 0) return;
+
+    setCheckoutLoading(true);
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      const callbackUrl = `${window.location.origin}/bookings/guest-action?token=${encodeURIComponent(token)}&payment_return=1&gateway=${gateway}`;
+      const data = await callCheckoutFunction('payment-checkout', {
+        source: 'guest_booking',
+        bookingToken: token,
+        amount: remainingAmount,
+        gateway,
+        paymentMethod,
+        callbackUrl,
+        origin: window.location.origin,
+      });
+
+      if (!data?.checkoutUrl) {
+        throw new Error(data?.error || 'No checkout URL returned');
+      }
+
+      window.location.href = data.checkoutUrl;
+    } catch (err: any) {
+      setError(err.message || 'Unable to start checkout.');
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -249,8 +337,21 @@ export default function GuestBookingActionPage() {
                       <SelectItem value="card">Card</SelectItem>
                       <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                       <SelectItem value="mtn_momo">MTN MoMo</SelectItem>
+                      <SelectItem value="link">Payment Link</SelectItem>
                       <SelectItem value="cash">Cash</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Gateway</Label>
+                  <Select value={gateway} onValueChange={(value) => setGateway(value as 'paystack' | 'flutterwave')}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="paystack">Paystack</SelectItem>
+                      <SelectItem value="flutterwave">Flutterwave</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -260,13 +361,23 @@ export default function GuestBookingActionPage() {
                 </div>
               </div>
 
-              <Button
-                disabled={submitting || remainingAmount <= 0}
-                onClick={() => void submitAction('pay', remainingAmount)}
-              >
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Pay {remainingAmount.toLocaleString()}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={checkoutLoading || remainingAmount <= 0}
+                  onClick={() => void startProviderPayment()}
+                >
+                  {checkoutLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Pay via Secure Checkout {remainingAmount.toLocaleString()}
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={submitting || remainingAmount <= 0}
+                  onClick={() => void submitAction('pay', remainingAmount)}
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Record Offline Payment
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   DollarSign,
   CreditCard,
@@ -35,6 +36,8 @@ import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 import { useSettings } from '@/contexts/SettingsContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { format, differenceInDays } from 'date-fns';
 
 const getStatusBadge = (status: string) => {
@@ -63,10 +66,14 @@ const getStatusBadge = (status: string) => {
 };
 
 export default function TenantPayments() {
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: portalData, isLoading } = useTenantPortalData();
   const { formatCurrency } = useSettings();
   const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
+  const [gateway, setGateway] = useState<'paystack' | 'flutterwave'>('paystack');
   const [paymentMethod, setPaymentMethod] = useState('card');
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   if (isLoading) {
     return (
@@ -91,7 +98,67 @@ export default function TenantPayments() {
     );
   }
 
-  const { stats, nextPayment, invoices, payments } = portalData;
+  const { stats, nextPayment, invoices, payments, paymentSettings } = portalData;
+
+  const availableGateways = useMemo(() => {
+    const gateways: Array<{ value: 'paystack' | 'flutterwave'; label: string }> = [];
+    if (paymentSettings?.paystack_enabled) {
+      gateways.push({ value: 'paystack', label: 'Paystack' });
+    }
+    if (paymentSettings?.flutterwave_enabled) {
+      gateways.push({ value: 'flutterwave', label: 'Flutterwave' });
+    }
+    return gateways;
+  }, [paymentSettings]);
+
+  useEffect(() => {
+    if (availableGateways.length > 0 && !availableGateways.some((g) => g.value === gateway)) {
+      setGateway(availableGateways[0].value);
+    }
+  }, [availableGateways, gateway]);
+
+  useEffect(() => {
+    const paymentReturn = searchParams.get('payment_return');
+    const reference = searchParams.get('reference') || searchParams.get('tx_ref');
+    const returnGateway = searchParams.get('gateway') as 'paystack' | 'flutterwave' | null;
+    const invoiceId = searchParams.get('invoice_id');
+
+    if (paymentReturn !== '1' || !reference || !returnGateway || !invoiceId) return;
+
+    const verify = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('verify-payment', {
+          body: {
+            gateway: returnGateway,
+            reference,
+            invoiceId,
+          },
+        });
+
+        if (error) throw new Error(error.message || 'Unable to verify payment');
+        if (!data?.success) throw new Error(data?.error || 'Payment verification failed');
+
+        toast({ title: 'Payment confirmed', description: 'Your payment was verified and recorded successfully.' });
+        await queryClient.invalidateQueries({ queryKey: ['tenant_portal_data'] });
+      } catch (err: any) {
+        toast({ title: 'Verification failed', description: err.message || 'Could not verify payment.', variant: 'destructive' });
+      } finally {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('payment_return');
+          next.delete('reference');
+          next.delete('tx_ref');
+          next.delete('gateway');
+          next.delete('invoice_id');
+          next.delete('transaction_id');
+          next.delete('status');
+          return next;
+        }, { replace: true });
+      }
+    };
+
+    void verify();
+  }, [searchParams, setSearchParams, queryClient]);
   
   // Calculate days until next payment
   const daysUntilDue = nextPayment
@@ -126,6 +193,42 @@ export default function TenantPayments() {
     ]);
 
     toast({ title: 'Receipt downloaded', description: `Downloaded receipt for payment.` });
+  };
+
+  const startCheckout = async (invoiceId: string, amount: number) => {
+    if (availableGateways.length === 0) {
+      toast({
+        title: 'Online payment unavailable',
+        description: 'No gateway is enabled for this property. Please contact your landlord.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCheckoutLoading(true);
+    try {
+      const callbackUrl = `${window.location.origin}/tenant/payments?payment_return=1&invoice_id=${encodeURIComponent(invoiceId)}&gateway=${gateway}`;
+      const { data, error } = await supabase.functions.invoke('payment-checkout', {
+        body: {
+          source: 'tenant_invoice',
+          invoiceId,
+          amount,
+          gateway,
+          paymentMethod,
+          callbackUrl,
+          origin: window.location.origin,
+        },
+      });
+
+      if (error) throw new Error(error.message || 'Unable to start checkout');
+      if (!data?.checkoutUrl) throw new Error(data?.error || 'No checkout URL returned');
+
+      window.location.href = data.checkoutUrl;
+    } catch (err: any) {
+      toast({ title: 'Checkout failed', description: err.message || 'Unable to start checkout.', variant: 'destructive' });
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
   return (
@@ -347,8 +450,8 @@ export default function TenantPayments() {
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 p-4 rounded-lg border border-border cursor-pointer hover:bg-secondary/50">
-                  <RadioGroupItem value="bank" id="bank" />
-                  <Label htmlFor="bank" className="flex-1 cursor-pointer">
+                  <RadioGroupItem value="bank_transfer" id="bank_transfer" />
+                  <Label htmlFor="bank_transfer" className="flex-1 cursor-pointer">
                     <div className="flex items-center gap-2">
                       <ArrowUpRight className="h-4 w-4" />
                       Bank Transfer
@@ -356,8 +459,50 @@ export default function TenantPayments() {
                     <p className="text-xs text-muted-foreground mt-1">Direct bank payment</p>
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2 p-4 rounded-lg border border-border cursor-pointer hover:bg-secondary/50">
+                  <RadioGroupItem value="mtn_momo" id="mtn_momo" />
+                  <Label htmlFor="mtn_momo" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Mobile Money (East Africa)
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">MTN/Airtel via gateway checkout</p>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2 p-4 rounded-lg border border-border cursor-pointer hover:bg-secondary/50">
+                  <RadioGroupItem value="link" id="link" />
+                  <Label htmlFor="link" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <ArrowUpRight className="h-4 w-4" />
+                      Payment Link Checkout
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Hosted checkout page</p>
+                  </Label>
+                </div>
               </RadioGroup>
             </div>
+
+            <div className="space-y-2">
+              <Label>Gateway</Label>
+              <RadioGroup value={gateway} onValueChange={(value) => setGateway(value as 'paystack' | 'flutterwave')}>
+                {availableGateways.length === 0 ? (
+                  <p className="text-sm text-destructive">No online gateway is enabled for this property.</p>
+                ) : (
+                  availableGateways.map((option) => (
+                    <div key={option.value} className="flex items-center space-x-2">
+                      <RadioGroupItem value={option.value} id={`gateway-${option.value}`} />
+                      <Label htmlFor={`gateway-${option.value}`}>{option.label}</Label>
+                    </div>
+                  ))
+                )}
+              </RadioGroup>
+            </div>
+
+            {paymentSettings?.payment_instructions ? (
+              <div className="rounded-md border border-border bg-secondary/30 p-3 text-sm text-muted-foreground">
+                {paymentSettings.payment_instructions}
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsPayDialogOpen(false)}>
@@ -365,12 +510,14 @@ export default function TenantPayments() {
             </Button>
             <Button
               onClick={() => {
-                toast({ title: 'Payment submitted', description: 'Payment processing is not yet implemented. Please contact your property manager.' });
-                setIsPayDialogOpen(false);
+                if (!nextPayment) return;
+                const amount = Number(nextPayment.amount) - Number(nextPayment.paid_amount || 0);
+                void startCheckout(nextPayment.id, amount);
               }}
               className="gap-2"
+              disabled={checkoutLoading || !nextPayment || availableGateways.length === 0}
             >
-              <CreditCard className="h-4 w-4" />
+              {checkoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
               Pay {nextPayment ? formatCurrency(nextPayment.amount - nextPayment.paid_amount) : ''}
             </Button>
           </DialogFooter>

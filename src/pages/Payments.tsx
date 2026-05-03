@@ -130,6 +130,8 @@ export default function Payments() {
   const { formatCurrency } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [isRecordOpen, setIsRecordOpen] = useState(false);
+  const [checkoutGateway, setCheckoutGateway] = useState<'paystack' | 'flutterwave'>('paystack');
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [formData, setFormData] = useState({
     tenant_id: '',
     invoice_id: '',
@@ -228,6 +230,55 @@ export default function Payments() {
       reference: '',
       notes: '',
     });
+  };
+
+  const handleGenerateCheckoutLink = async () => {
+    if (!formData.invoice_id) {
+      toast({ title: 'Error', description: 'Please select an invoice first', variant: 'destructive' });
+      return;
+    }
+
+    const selectedInvoice = invoices.find((inv: any) => inv.id === formData.invoice_id);
+    const remaining = selectedInvoice ? Number(selectedInvoice.amount) - Number(selectedInvoice.paid_amount || 0) : 0;
+    const amount = formData.amount > 0 ? formData.amount : remaining;
+
+    if (!amount || amount <= 0) {
+      toast({ title: 'Error', description: 'No outstanding balance on selected invoice', variant: 'destructive' });
+      return;
+    }
+
+    setCheckoutLoading(true);
+    try {
+      const callbackUrl = `${window.location.origin}/tenant/payments?payment_return=1&invoice_id=${encodeURIComponent(formData.invoice_id)}&gateway=${checkoutGateway}`;
+      const { data, error } = await supabase.functions.invoke('payment-checkout', {
+        body: {
+          source: 'landlord_invoice',
+          invoiceId: formData.invoice_id,
+          gateway: checkoutGateway,
+          paymentMethod: formData.method || 'link',
+          amount,
+          callbackUrl,
+          origin: window.location.origin,
+        },
+      });
+
+      if (error) throw new Error(error.message || 'Unable to generate checkout link');
+      if (!data?.checkoutUrl) throw new Error(data?.error || 'No checkout URL returned');
+
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(data.checkoutUrl);
+      }
+
+      window.open(data.checkoutUrl, '_blank', 'noopener,noreferrer');
+      toast({
+        title: 'Checkout link generated',
+        description: 'Payment link was opened in a new tab and copied to your clipboard.',
+      });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Failed to generate payment link', variant: 'destructive' });
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
   return (
@@ -508,6 +559,20 @@ export default function Payments() {
               </div>
             </div>
 
+            <div className="grid gap-2">
+              <Label>Checkout Gateway</Label>
+              <SearchableSelect
+                options={[
+                  { value: 'paystack', label: 'Paystack', description: 'Hosted checkout' },
+                  { value: 'flutterwave', label: 'Flutterwave', description: 'Hosted checkout' },
+                ]}
+                value={checkoutGateway}
+                onValueChange={(value) => setCheckoutGateway(value as 'paystack' | 'flutterwave')}
+                placeholder="Select gateway..."
+                searchPlaceholder="Search gateway..."
+              />
+            </div>
+
             {formData.method === 'mtn_momo' && (
               <>
                 <div className="p-4 rounded-lg bg-warning/10 border border-warning/20">
@@ -569,6 +634,9 @@ export default function Payments() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsRecordOpen(false)}>
               Cancel
+            </Button>
+            <Button variant="outline" onClick={() => void handleGenerateCheckoutLink()} disabled={checkoutLoading}>
+              {checkoutLoading ? 'Generating...' : 'Generate Checkout Link'}
             </Button>
             <Button onClick={handleCreate} disabled={createPayment.isPending}>
               {createPayment.isPending ? 'Recording...' : 'Record Payment'}

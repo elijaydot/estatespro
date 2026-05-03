@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FileText,
   Download,
@@ -25,6 +25,8 @@ import { toast } from '@/components/ui/use-toast';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 import { useSettings } from '@/contexts/SettingsContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 
 const getStatusBadge = (status: string) => {
@@ -59,10 +61,15 @@ const getStatusBadge = (status: string) => {
 };
 
 export default function TenantInvoices() {
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: portalData, isLoading } = useTenantPortalData();
   const { formatCurrency } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [checkoutLoadingId, setCheckoutLoadingId] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'bank_transfer' | 'mtn_momo' | 'link'>('link');
+  const [gateway, setGateway] = useState<'paystack' | 'flutterwave'>('paystack');
 
   const handleDownloadPdf = async (invoiceId: string) => {
     setDownloadingId(invoiceId);
@@ -112,7 +119,103 @@ export default function TenantInvoices() {
     );
   }
 
-  const { invoices } = portalData;
+  const { invoices, paymentSettings } = portalData;
+
+  const availableGateways = useMemo(() => {
+    const gateways: Array<{ value: 'paystack' | 'flutterwave'; label: string }> = [];
+    if (paymentSettings?.paystack_enabled) {
+      gateways.push({ value: 'paystack', label: 'Paystack' });
+    }
+    if (paymentSettings?.flutterwave_enabled) {
+      gateways.push({ value: 'flutterwave', label: 'Flutterwave' });
+    }
+    return gateways;
+  }, [paymentSettings]);
+
+  useEffect(() => {
+    if (availableGateways.length > 0 && !availableGateways.some((g) => g.value === gateway)) {
+      setGateway(availableGateways[0].value);
+    }
+  }, [availableGateways, gateway]);
+
+  useEffect(() => {
+    const paymentReturn = searchParams.get('payment_return');
+    const reference = searchParams.get('reference') || searchParams.get('tx_ref');
+    const returnGateway = searchParams.get('gateway') as 'paystack' | 'flutterwave' | null;
+    const invoiceId = searchParams.get('invoice_id');
+
+    if (paymentReturn !== '1' || !reference || !returnGateway || !invoiceId) return;
+
+    const verify = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('verify-payment', {
+          body: {
+            gateway: returnGateway,
+            reference,
+            invoiceId,
+          },
+        });
+
+        if (error) throw new Error(error.message || 'Unable to verify payment');
+        if (!data?.success) throw new Error(data?.error || 'Payment verification failed');
+
+        toast({ title: 'Payment confirmed', description: 'Your payment was verified and recorded successfully.' });
+        await queryClient.invalidateQueries({ queryKey: ['tenant_portal_data'] });
+      } catch (err: any) {
+        toast({ title: 'Verification failed', description: err.message || 'Could not verify payment.', variant: 'destructive' });
+      } finally {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('payment_return');
+          next.delete('reference');
+          next.delete('tx_ref');
+          next.delete('gateway');
+          next.delete('invoice_id');
+          next.delete('transaction_id');
+          next.delete('status');
+          return next;
+        }, { replace: true });
+      }
+    };
+
+    void verify();
+  }, [searchParams, setSearchParams, queryClient]);
+
+  const startCheckout = async (invoiceId: string, amount: number) => {
+    if (availableGateways.length === 0) {
+      toast({
+        title: 'Online payment unavailable',
+        description: 'No gateway is enabled for this property. Please contact your landlord.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCheckoutLoadingId(invoiceId);
+    try {
+      const callbackUrl = `${window.location.origin}/tenant/invoices?payment_return=1&invoice_id=${encodeURIComponent(invoiceId)}&gateway=${gateway}`;
+      const { data, error } = await supabase.functions.invoke('payment-checkout', {
+        body: {
+          source: 'tenant_invoice',
+          invoiceId,
+          amount,
+          gateway,
+          paymentMethod,
+          callbackUrl,
+          origin: window.location.origin,
+        },
+      });
+
+      if (error) throw new Error(error.message || 'Unable to start checkout');
+      if (!data?.checkoutUrl) throw new Error(data?.error || 'No checkout URL returned');
+
+      window.location.href = data.checkoutUrl;
+    } catch (err: any) {
+      toast({ title: 'Checkout failed', description: err.message || 'Unable to start checkout.', variant: 'destructive' });
+    } finally {
+      setCheckoutLoadingId(null);
+    }
+  };
 
   const filteredInvoices = invoices.filter(
     (invoice: any) =>
@@ -196,15 +299,46 @@ export default function TenantInvoices() {
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search invoices..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="relative lg:col-span-2">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search invoices..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            value={gateway}
+            onChange={(e) => setGateway(e.target.value as 'paystack' | 'flutterwave')}
+            disabled={availableGateways.length === 0}
+          >
+            {availableGateways.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+            {availableGateways.length === 0 ? <option value="paystack">No Gateway</option> : null}
+          </select>
+          <select
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value as 'card' | 'bank_transfer' | 'mtn_momo' | 'link')}
+          >
+            <option value="link">Payment Link</option>
+            <option value="card">Card</option>
+            <option value="bank_transfer">Bank Transfer</option>
+            <option value="mtn_momo">Mobile Money</option>
+          </select>
+        </div>
       </div>
+
+      {paymentSettings?.payment_instructions ? (
+        <div className="rounded-md border border-border bg-secondary/30 p-3 text-sm text-muted-foreground">
+          {paymentSettings.payment_instructions}
+        </div>
+      ) : null}
 
       {/* Invoices Table */}
       <Card className="card-shadow-md">
@@ -228,7 +362,7 @@ export default function TenantInvoices() {
                   <TableHead>Balance</TableHead>
                   <TableHead>Due Date</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
+                  <TableHead className="w-[160px]">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -246,19 +380,30 @@ export default function TenantInvoices() {
                       <TableCell>{format(new Date(invoice.due_date), 'MMM dd, yyyy')}</TableCell>
                       <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleDownloadPdf(invoice.id)}
-                          disabled={downloadingId === invoice.id}
-                        >
-                          {downloadingId === invoice.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Download className="h-4 w-4" />
-                          )}
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          {(invoice.status === 'pending' || invoice.status === 'partial' || invoice.status === 'overdue') && (invoice.amount - invoice.paid_amount) > 0 ? (
+                            <Button
+                              size="sm"
+                              onClick={() => void startCheckout(invoice.id, Number(invoice.amount) - Number(invoice.paid_amount || 0))}
+                              disabled={checkoutLoadingId === invoice.id || availableGateways.length === 0}
+                            >
+                              {checkoutLoadingId === invoice.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Pay'}
+                            </Button>
+                          ) : null}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleDownloadPdf(invoice.id)}
+                            disabled={downloadingId === invoice.id}
+                          >
+                            {downloadingId === invoice.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

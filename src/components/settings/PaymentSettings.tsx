@@ -65,7 +65,7 @@ type GatewayStatus = {
 export function PaymentSettings() {
   const { data: companies } = useMyCompanies();
   const { data: properties } = useProperties();
-  const [settingsType, setSettingsType] = useState<'company' | 'property'>('company');
+  const [settingsType, setSettingsType] = useState<'global' | 'company' | 'property'>('global');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
   const [flutterwaveStatus, setFlutterwaveStatus] = useState<GatewayStatus>({ status: 'not_configured' });
@@ -261,12 +261,19 @@ export function PaymentSettings() {
           <CardDescription>Configure default company-wide settings or property-specific overrides</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Tabs value={settingsType} onValueChange={(v) => setSettingsType(v as 'company' | 'property')}>
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs value={settingsType} onValueChange={(v) => setSettingsType(v as 'global' | 'company' | 'property')}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="global">Global Default</TabsTrigger>
               <TabsTrigger value="company">Company Default</TabsTrigger>
               <TabsTrigger value="property">Property Override</TabsTrigger>
             </TabsList>
           </Tabs>
+
+          {settingsType === 'global' && (
+            <p className="text-sm text-muted-foreground">
+              Global defaults apply when no company-specific or property-specific override exists.
+            </p>
+          )}
 
           {settingsType === 'company' && (
             <div className="space-y-2">
@@ -312,7 +319,7 @@ export function PaymentSettings() {
         </CardContent>
       </Card>
 
-      {((settingsType === 'company' && selectedCompanyId) || (settingsType === 'property' && selectedPropertyId)) && (
+      {(settingsType === 'global' || (settingsType === 'company' && selectedCompanyId) || (settingsType === 'property' && selectedPropertyId)) && (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <Card>
@@ -572,6 +579,31 @@ export function PaymentSettings() {
                 <CardDescription>Additional instructions shown to tenants</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="preferred_method"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Preferred Online Gateway</FormLabel>
+                      <Select value={field.value || 'bank_transfer'} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="paystack">Paystack</SelectItem>
+                          <SelectItem value="flutterwave">Flutterwave</SelectItem>
+                          <SelectItem value="mtn_momo">Mobile Money</SelectItem>
+                          <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                          <SelectItem value="card">Card</SelectItem>
+                          <SelectItem value="link">Payment Link</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="payment_instructions"

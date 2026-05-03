@@ -39,14 +39,15 @@ export function usePaymentSettings(companyId?: string, propertyId?: string) {
       } else if (companyId) {
         query = query.eq('company_id', companyId).is('property_id', null);
       } else {
-        return null;
+        // Global default (user-level): no company and no property.
+        query = query.is('company_id', null).is('property_id', null);
       }
 
       const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data as PaymentSettings | null;
     },
-    enabled: !!(companyId || propertyId),
+    enabled: true,
   });
 
   const updateSettings = useMutation({
@@ -67,8 +68,8 @@ export function usePaymentSettings(companyId?: string, propertyId?: string) {
           .from('landlord_payment_settings')
           .insert({
             ...settingsData,
-            company_id,
-            property_id,
+            company_id: company_id || null,
+            property_id: property_id || null,
             user_id: (await supabase.auth.getUser()).data.user?.id,
           });
         

@@ -92,6 +92,18 @@ export function useTenantPortalData() {
       const activeBills = filteredBills;
       const totalRecurringAmount = activeBills.reduce((sum: number, b: any) => sum + Number(b.amount), 0);
 
+      let paymentSettings: any = null;
+      if (tenant.property_id) {
+        const { data: paymentSettingsRows, error: paymentSettingsError } = await supabase
+          .rpc('get_payment_settings_for_property', { p_property_id: tenant.property_id });
+
+        if (paymentSettingsError) {
+          console.error('Error fetching payment settings:', paymentSettingsError);
+        }
+
+        paymentSettings = (paymentSettingsRows || [])[0] || null;
+      }
+
       // Calculate stats
       const pendingInvoices = invoices?.filter(i => i.status === 'pending') || [];
       const nextPayment = pendingInvoices[0];
@@ -109,6 +121,7 @@ export function useTenantPortalData() {
         pendingInvoices,
         nextPayment,
         payments: payments || [],
+        paymentSettings,
         maintenanceRequests: maintenanceRequests || [],
         openMaintenanceRequests,
         completedMaintenanceRequests,
