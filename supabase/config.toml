@@ -51,6 +51,9 @@ verify_jwt = false
 [functions.guest-booking]
 verify_jwt = false
 
+[functions.invite-token]
+verify_jwt = false
+
 [functions.accept-tenant-invite]
 verify_jwt = false
 
