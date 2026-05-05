@@ -45,9 +45,12 @@ export default function Login() {
         {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-8">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-xl shadow-lg">
-            EP
+            FG
           </div>
-          <span className="font-bold text-2xl text-foreground">FishGate</span>
+          <div>
+            <span className="font-bold text-2xl text-foreground leading-none block">FishGate</span>
+            <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80">Property OS</span>
+          </div>
         </div>
 
         <Card className="card-shadow-lg border-0">

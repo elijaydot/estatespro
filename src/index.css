@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -112,7 +112,14 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Manrope', 'Segoe UI', sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: 'Space Grotesk', 'Manrope', sans-serif;
   }
 }
 
@@ -133,6 +140,22 @@
     animation: scaleIn 0.3s ease-out forwards;
   }
 
+  .animate-enter {
+    animation: fadeIn 0.45s ease-out forwards, slideUp 0.45s ease-out forwards;
+    opacity: 0;
+  }
+
+  .stagger-1 { animation-delay: 40ms; }
+  .stagger-2 { animation-delay: 90ms; }
+  .stagger-3 { animation-delay: 140ms; }
+  .stagger-4 { animation-delay: 190ms; }
+  .stagger-5 { animation-delay: 240ms; }
+  .stagger-6 { animation-delay: 290ms; }
+
+  .pulse-soft {
+    animation: pulseSoft 2.2s ease-in-out infinite;
+  }
+
   .glass-effect {
     @apply backdrop-blur-xl bg-white/80 border border-white/20;
   }
@@ -147,6 +170,40 @@
 
   .card-shadow-lg {
     box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  }
+
+  .app-shell-gradient {
+    background-image:
+      radial-gradient(1300px circle at 0% -10%, hsl(var(--accent) / 0.14), transparent 38%),
+      radial-gradient(1100px circle at 100% 10%, hsl(var(--primary) / 0.14), transparent 42%),
+      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background)) 100%);
+  }
+
+  .app-shell-orb {
+    position: fixed;
+    z-index: 0;
+    border-radius: 9999px;
+    filter: blur(70px);
+    opacity: 0.26;
+    pointer-events: none;
+    animation: floatDrift 14s ease-in-out infinite;
+  }
+
+  .app-shell-orb-a {
+    top: -8rem;
+    left: -4rem;
+    width: 16rem;
+    height: 16rem;
+    background: hsl(var(--accent) / 0.9);
+  }
+
+  .app-shell-orb-b {
+    top: 5rem;
+    right: -6rem;
+    width: 18rem;
+    height: 18rem;
+    background: hsl(var(--primary) / 0.8);
+    animation-delay: 1.8s;
   }
 }
 
@@ -189,6 +246,28 @@
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes floatDrift {
+  0%,
+  100% {
+    transform: translateY(0px) translateX(0px) scale(1);
+  }
+  50% {
+    transform: translateY(16px) translateX(10px) scale(1.06);
+  }
+}
+
+@keyframes pulseSoft {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(0.98);
   }
 }
 

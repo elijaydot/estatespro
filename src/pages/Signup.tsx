@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Eye, EyeOff, Check, Building2, UserCog } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/use-toast';
 const db = supabase as any;
 
 type SignupRole = 'landlord' | 'property_manager';
@@ -102,7 +103,6 @@ export default function Signup() {
 
       navigate('/dashboard');
     } catch (error: any) {
-      const { toast } = await import('@/components/ui/use-toast');
       toast({ title: 'Signup failed', description: error.message, variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
@@ -121,9 +121,12 @@ export default function Signup() {
         {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-8">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-xl shadow-lg">
-            EP
+            FG
           </div>
-          <span className="font-bold text-2xl text-foreground">FishGate</span>
+          <div>
+            <span className="font-bold text-2xl text-foreground leading-none block">FishGate</span>
+            <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80">Property OS</span>
+          </div>
         </div>
 
         <Card className="card-shadow-lg border-0">

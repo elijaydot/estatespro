@@ -22,8 +22,11 @@ import {
   UserCog,
   CalendarCheck,
   Link2,
+  Zap,
+  Wallet,
 } from 'lucide-react';
 import { useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -33,40 +36,53 @@ interface AppSidebarProps {
   onNavigate?: () => void;
 }
 
-const pmNavItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-  { icon: Building2, label: 'Properties', href: '/properties' },
-  { icon: Home, label: 'Units', href: '/units' },
-  { icon: Users, label: 'Tenants', href: '/tenants' },
-  { icon: FileText, label: 'Leases', href: '/leases' },
-  { icon: Receipt, label: 'Invoices', href: '/invoices' },
-  { icon: CreditCard, label: 'Payments', href: '/payments' },
-  { icon: RefreshCw, label: 'Recurring Bills', href: '/recurring-bills' },
-  { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
-  { icon: BarChart3, label: 'Reports', href: '/reports' },
-  { icon: CalendarCheck, label: 'Bookings', href: '/bookings' },
-  { icon: Link2, label: 'Guest Booking Portal', href: '/guest-booking-portal' },
-  { icon: MessageSquare, label: 'Messages', href: '/messages' },
-  { icon: Bell, label: 'Notifications', href: '/notifications' },
+type NavItem = {
+  icon: typeof LayoutDashboard;
+  label: string;
+  href: string;
+};
+
+type NavSection = {
+  title: string;
+  items: NavItem[];
+};
+
+const sharedSections: NavSection[] = [
+  {
+    title: 'Operations',
+    items: [
+      { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+      { icon: Building2, label: 'Properties', href: '/properties' },
+      { icon: Home, label: 'Units', href: '/units' },
+      { icon: Users, label: 'Tenants', href: '/tenants' },
+      { icon: FileText, label: 'Leases', href: '/leases' },
+      { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
+      { icon: CalendarCheck, label: 'Bookings', href: '/bookings' },
+      { icon: Link2, label: 'Guest Booking Portal', href: '/guest-booking-portal' },
+    ],
+  },
+  {
+    title: 'Financials',
+    items: [
+      { icon: Receipt, label: 'Invoices', href: '/invoices' },
+      { icon: CreditCard, label: 'Payments', href: '/payments' },
+      { icon: RefreshCw, label: 'Recurring Bills', href: '/recurring-bills' },
+      { icon: BarChart3, label: 'Reports', href: '/reports' },
+    ],
+  },
+  {
+    title: 'Communication',
+    items: [
+      { icon: MessageSquare, label: 'Messages', href: '/messages' },
+      { icon: Bell, label: 'Notifications', href: '/notifications' },
+    ],
+  },
 ];
 
-const landlordNavItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-  { icon: UserCog, label: 'Admin', href: '/team' },
-  { icon: Building2, label: 'Properties', href: '/properties' },
-  { icon: Home, label: 'Units', href: '/units' },
-  { icon: Users, label: 'Tenants', href: '/tenants' },
-  { icon: FileText, label: 'Leases', href: '/leases' },
-  { icon: Receipt, label: 'Invoices', href: '/invoices' },
-  { icon: CreditCard, label: 'Payments', href: '/payments' },
-  { icon: RefreshCw, label: 'Recurring Bills', href: '/recurring-bills' },
-  { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
-  { icon: BarChart3, label: 'Reports', href: '/reports' },
-  { icon: CalendarCheck, label: 'Bookings', href: '/bookings' },
-  { icon: Link2, label: 'Guest Booking Portal', href: '/guest-booking-portal' },
-  { icon: MessageSquare, label: 'Messages', href: '/messages' },
-  { icon: Bell, label: 'Notifications', href: '/notifications' },
-];
+const landlordOnlySection: NavSection = {
+  title: 'Admin',
+  items: [{ icon: UserCog, label: 'Team', href: '/team' }],
+};
 
 const bottomNavItems = [
   { icon: Settings, label: 'Settings', href: '/settings' },
@@ -79,7 +95,7 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
   const { isLandlord, role } = useUserRole();
   const collapsedView = !mobile && collapsed;
 
-  const navItems = isLandlord ? landlordNavItems : pmNavItems;
+  const navSections = isLandlord ? [landlordOnlySection, ...sharedSections] : sharedSections;
 
   const handleLogout = async () => {
     await logout();
@@ -100,6 +116,10 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
       case 'property_manager': return 'Property Manager';
       default: return role || 'User';
     }
+  };
+
+  const isItemActive = (href: string) => {
+    return location.pathname === href || location.pathname.startsWith(`${href}/`);
   };
 
   return (
@@ -136,35 +156,74 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3">
-          <ul className="space-y-1">
-            {navItems.map(item => {
-              const isActive = location.pathname === item.href;
-              return (
-                <li key={item.href}>
-                  <Link
-                    to={item.href}
-                    onClick={onNavigate}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                      isActive
-                        ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-                    )}
-                  >
-                    <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {!collapsedView && <span>{item.label}</span>}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          {mobile && (
+            <div className="mb-4 p-3 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/60">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-sidebar-foreground/60 mb-2">Quick actions</p>
+              <div className="grid grid-cols-3 gap-2">
+                <Button asChild size="sm" variant="secondary" className="h-8 text-xs bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
+                  <RouterLink to="/tenants?add=true" onClick={onNavigate}>
+                    <Zap className="h-3.5 w-3.5 mr-1" />
+                    Tenant
+                  </RouterLink>
+                </Button>
+                <Button asChild size="sm" variant="secondary" className="h-8 text-xs bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
+                  <RouterLink to="/payments?add=true" onClick={onNavigate}>
+                    <Wallet className="h-3.5 w-3.5 mr-1" />
+                    Payment
+                  </RouterLink>
+                </Button>
+                <Button asChild size="sm" variant="secondary" className="h-8 text-xs bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
+                  <RouterLink to="/maintenance?add=true" onClick={onNavigate}>
+                    <Wrench className="h-3.5 w-3.5 mr-1" />
+                    Request
+                  </RouterLink>
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {navSections.map((section) => (
+              <div key={section.title}>
+                {!collapsedView && (
+                  <p className="px-3 mb-1.5 text-[11px] uppercase tracking-[0.14em] text-sidebar-foreground/45">
+                    {section.title}
+                  </p>
+                )}
+                <ul className="space-y-1">
+                  {section.items.map((item) => {
+                    const isActive = isItemActive(item.href);
+
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          to={item.href}
+                          onClick={onNavigate}
+                          className={cn(
+                            'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                            isActive
+                              ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                          )}
+                        >
+                          {isActive && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-sidebar-primary-foreground/85" aria-hidden />}
+                          <item.icon className="h-5 w-5 flex-shrink-0" />
+                          {!collapsedView && <span>{item.label}</span>}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
         </nav>
 
         {/* Bottom Section */}
         <div className="border-t border-sidebar-border p-3">
           <ul className="space-y-1 mb-3">
             {bottomNavItems.map(item => {
-              const isActive = location.pathname === item.href;
+              const isActive = isItemActive(item.href);
               return (
                 <li key={item.href}>
                   <Link

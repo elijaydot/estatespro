@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
@@ -10,50 +11,55 @@ import { TenantPortalLayout } from "@/pages/tenant-portal/TenantPortalLayout";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useMyMembership } from "@/hooks/useCompanies";
 
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Dashboard from "./pages/Dashboard";
-import Properties from "./pages/Properties";
-import PropertyDetail from "./pages/PropertyDetail";
-import Units from "./pages/Units";
-import UnitDetail from "./pages/UnitDetail";
-import Tenants from "./pages/Tenants";
-import TenantDetail from "./pages/TenantDetail";
-import Payments from "./pages/Payments";
-import Invoices from "./pages/Invoices";
-import MaintenancePage from "./pages/Maintenance";
-import Settings from "./pages/Settings";
-import RecurringBills from "./pages/RecurringBills";
-import Leases from "./pages/Leases";
-import Notifications from "./pages/Notifications";
-import Reports from "./pages/Reports";
-import MessagesPageV2 from "./pages/MessagesPageV2";
-import Bookings from "./pages/Bookings";
-import GuestBookingPortal from "./pages/GuestBookingPortal";
-import TeamManagement from "./pages/TeamManagement";
-import TenantExitWorkflow from "./pages/TenantExitWorkflow";
 import PendingApproval from "./pages/PendingApproval";
-import NotFound from "./pages/NotFound";
+
+const Login = lazy(() => import("./pages/Login"));
+const Signup = lazy(() => import("./pages/Signup"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Properties = lazy(() => import("./pages/Properties"));
+const PropertyDetail = lazy(() => import("./pages/PropertyDetail"));
+const Units = lazy(() => import("./pages/Units"));
+const UnitDetail = lazy(() => import("./pages/UnitDetail"));
+const Tenants = lazy(() => import("./pages/Tenants"));
+const TenantDetail = lazy(() => import("./pages/TenantDetail"));
+const Payments = lazy(() => import("./pages/Payments"));
+const Invoices = lazy(() => import("./pages/Invoices"));
+const MaintenancePage = lazy(() => import("./pages/Maintenance"));
+const Settings = lazy(() => import("./pages/Settings"));
+const RecurringBills = lazy(() => import("./pages/RecurringBills"));
+const Leases = lazy(() => import("./pages/Leases"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const Reports = lazy(() => import("./pages/Reports"));
+const MessagesPageV2 = lazy(() => import("./pages/MessagesPageV2"));
+const Bookings = lazy(() => import("./pages/Bookings"));
+const GuestBookingPortal = lazy(() => import("./pages/GuestBookingPortal"));
+const TeamManagement = lazy(() => import("./pages/TeamManagement"));
+const TenantExitWorkflow = lazy(() => import("./pages/TenantExitWorkflow"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Tenant Portal
-import TenantDashboard from "./pages/tenant-portal/TenantDashboard";
-import TenantPayments from "./pages/tenant-portal/TenantPayments";
-import TenantInvoices from "./pages/tenant-portal/TenantInvoices";
-import TenantRecurringBills from "./pages/tenant-portal/TenantRecurringBills";
-import TenantMaintenance from "./pages/tenant-portal/TenantMaintenance";
-import TenantLease from "./pages/tenant-portal/TenantLease";
-import TenantMessages from "./pages/tenant-portal/TenantMessages";
-import TenantNotifications from "./pages/tenant-portal/TenantNotifications";
-import TenantLeaseSign from "./pages/tenant-portal/TenantLeaseSign";
-import TenantLogin from "./pages/tenant-portal/TenantLogin";
-import TenantSignup from "./pages/tenant-portal/TenantSignup";
-import TenantForgotPassword from "./pages/tenant-portal/TenantForgotPassword";
-import TenantResetPassword from "./pages/tenant-portal/TenantResetPassword";
-import GuestBookingPage from "./pages/guest-booking/GuestBookingPage";
-import GuestBookingActionPage from "./pages/guest-booking/GuestBookingActionPage";
+const TenantDashboard = lazy(() => import("./pages/tenant-portal/TenantDashboard"));
+const TenantPayments = lazy(() => import("./pages/tenant-portal/TenantPayments"));
+const TenantInvoices = lazy(() => import("./pages/tenant-portal/TenantInvoices"));
+const TenantRecurringBills = lazy(() => import("./pages/tenant-portal/TenantRecurringBills"));
+const TenantMaintenance = lazy(() => import("./pages/tenant-portal/TenantMaintenance"));
+const TenantLease = lazy(() => import("./pages/tenant-portal/TenantLease"));
+const TenantMessages = lazy(() => import("./pages/tenant-portal/TenantMessages"));
+const TenantNotifications = lazy(() => import("./pages/tenant-portal/TenantNotifications"));
+const TenantLeaseSign = lazy(() => import("./pages/tenant-portal/TenantLeaseSign"));
+const TenantLogin = lazy(() => import("./pages/tenant-portal/TenantLogin"));
+const TenantSignup = lazy(() => import("./pages/tenant-portal/TenantSignup"));
+const TenantForgotPassword = lazy(() => import("./pages/tenant-portal/TenantForgotPassword"));
+const TenantResetPassword = lazy(() => import("./pages/tenant-portal/TenantResetPassword"));
+const GuestBookingPage = lazy(() => import("./pages/guest-booking/GuestBookingPage"));
+const GuestBookingActionPage = lazy(() => import("./pages/guest-booking/GuestBookingActionPage"));
 const queryClient = new QueryClient();
+
+function withSuspense(node: ReactNode) {
+  return <Suspense fallback={<FullPageLoading />}>{node}</Suspense>;
+}
 
 function FullPageLoading() {
   return (
@@ -63,7 +69,7 @@ function FullPageLoading() {
   );
 }
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
+function PrivateRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { role, isLoading: roleLoading, isPropertyManager, isTenant } = useUserRole();
   const { data: membership, isLoading: membershipLoading } = useMyMembership();
@@ -96,7 +102,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return <AppLayout>{children}</AppLayout>;
 }
 
-function TenantPortalRoute({ children }: { children: React.ReactNode }) {
+function TenantPortalRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { role, isLoading: roleLoading } = useUserRole();
 
@@ -115,7 +121,7 @@ function TenantPortalRoute({ children }: { children: React.ReactNode }) {
   return <TenantPortalLayout>{children}</TenantPortalLayout>;
 }
 
-function PublicRoute({ children }: { children: React.ReactNode }) {
+function PublicRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { role, isLoading: roleLoading } = useUserRole();
 
@@ -134,49 +140,49 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-      <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
-      <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-      <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
-      <Route path="/book/:propertyId" element={<GuestBookingPage />} />
-      <Route path="/bookings/guest-action" element={<GuestBookingActionPage />} />
+      <Route path="/login" element={<PublicRoute>{withSuspense(<Login />)}</PublicRoute>} />
+      <Route path="/signup" element={<PublicRoute>{withSuspense(<Signup />)}</PublicRoute>} />
+      <Route path="/forgot-password" element={<PublicRoute>{withSuspense(<ForgotPassword />)}</PublicRoute>} />
+      <Route path="/reset-password" element={<PublicRoute>{withSuspense(<ResetPassword />)}</PublicRoute>} />
+      <Route path="/book/:propertyId" element={withSuspense(<GuestBookingPage />)} />
+      <Route path="/bookings/guest-action" element={withSuspense(<GuestBookingActionPage />)} />
       
       {/* Protected Routes */}
-      <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-      <Route path="/team" element={<PrivateRoute><TeamManagement /></PrivateRoute>} />
-      <Route path="/properties" element={<PrivateRoute><Properties /></PrivateRoute>} />
-      <Route path="/properties/:id" element={<PrivateRoute><PropertyDetail /></PrivateRoute>} />
-      <Route path="/units" element={<PrivateRoute><Units /></PrivateRoute>} />
-      <Route path="/units/:id" element={<PrivateRoute><UnitDetail /></PrivateRoute>} />
-      <Route path="/tenants" element={<PrivateRoute><Tenants /></PrivateRoute>} />
-      <Route path="/tenants/:id" element={<PrivateRoute><TenantDetail /></PrivateRoute>} />
-      <Route path="/tenant-exit/:exitId" element={<PrivateRoute><TenantExitWorkflow /></PrivateRoute>} />
-      <Route path="/leases" element={<PrivateRoute><Leases /></PrivateRoute>} />
-      <Route path="/invoices" element={<PrivateRoute><Invoices /></PrivateRoute>} />
-      <Route path="/payments" element={<PrivateRoute><Payments /></PrivateRoute>} />
-      <Route path="/maintenance" element={<PrivateRoute><MaintenancePage /></PrivateRoute>} />
-      <Route path="/recurring-bills" element={<PrivateRoute><RecurringBills /></PrivateRoute>} />
-      <Route path="/messages" element={<PrivateRoute><MessagesPageV2 /></PrivateRoute>} />
-      <Route path="/bookings" element={<PrivateRoute><Bookings /></PrivateRoute>} />
-      <Route path="/guest-booking-portal" element={<PrivateRoute><GuestBookingPortal /></PrivateRoute>} />
-      <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
-      <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
-      <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+      <Route path="/dashboard" element={<PrivateRoute>{withSuspense(<Dashboard />)}</PrivateRoute>} />
+      <Route path="/team" element={<PrivateRoute>{withSuspense(<TeamManagement />)}</PrivateRoute>} />
+      <Route path="/properties" element={<PrivateRoute>{withSuspense(<Properties />)}</PrivateRoute>} />
+      <Route path="/properties/:id" element={<PrivateRoute>{withSuspense(<PropertyDetail />)}</PrivateRoute>} />
+      <Route path="/units" element={<PrivateRoute>{withSuspense(<Units />)}</PrivateRoute>} />
+      <Route path="/units/:id" element={<PrivateRoute>{withSuspense(<UnitDetail />)}</PrivateRoute>} />
+      <Route path="/tenants" element={<PrivateRoute>{withSuspense(<Tenants />)}</PrivateRoute>} />
+      <Route path="/tenants/:id" element={<PrivateRoute>{withSuspense(<TenantDetail />)}</PrivateRoute>} />
+      <Route path="/tenant-exit/:exitId" element={<PrivateRoute>{withSuspense(<TenantExitWorkflow />)}</PrivateRoute>} />
+      <Route path="/leases" element={<PrivateRoute>{withSuspense(<Leases />)}</PrivateRoute>} />
+      <Route path="/invoices" element={<PrivateRoute>{withSuspense(<Invoices />)}</PrivateRoute>} />
+      <Route path="/payments" element={<PrivateRoute>{withSuspense(<Payments />)}</PrivateRoute>} />
+      <Route path="/maintenance" element={<PrivateRoute>{withSuspense(<MaintenancePage />)}</PrivateRoute>} />
+      <Route path="/recurring-bills" element={<PrivateRoute>{withSuspense(<RecurringBills />)}</PrivateRoute>} />
+      <Route path="/messages" element={<PrivateRoute>{withSuspense(<MessagesPageV2 />)}</PrivateRoute>} />
+      <Route path="/bookings" element={<PrivateRoute>{withSuspense(<Bookings />)}</PrivateRoute>} />
+      <Route path="/guest-booking-portal" element={<PrivateRoute>{withSuspense(<GuestBookingPortal />)}</PrivateRoute>} />
+      <Route path="/notifications" element={<PrivateRoute>{withSuspense(<Notifications />)}</PrivateRoute>} />
+      <Route path="/reports" element={<PrivateRoute>{withSuspense(<Reports />)}</PrivateRoute>} />
+      <Route path="/settings" element={<PrivateRoute>{withSuspense(<Settings />)}</PrivateRoute>} />
       
       {/* Tenant Portal Routes */}
-      <Route path="/tenant/login" element={<TenantLogin />} />
-      <Route path="/tenant/signup" element={<TenantSignup />} />
-      <Route path="/tenant/forgot-password" element={<TenantForgotPassword />} />
-      <Route path="/tenant/reset-password" element={<TenantResetPassword />} />
-      <Route path="/tenant" element={<TenantPortalRoute><TenantDashboard /></TenantPortalRoute>} />
-      <Route path="/tenant/payments" element={<TenantPortalRoute><TenantPayments /></TenantPortalRoute>} />
-      <Route path="/tenant/invoices" element={<TenantPortalRoute><TenantInvoices /></TenantPortalRoute>} />
-      <Route path="/tenant/recurring-bills" element={<TenantPortalRoute><TenantRecurringBills /></TenantPortalRoute>} />
-      <Route path="/tenant/maintenance" element={<TenantPortalRoute><TenantMaintenance /></TenantPortalRoute>} />
-      <Route path="/tenant/lease" element={<TenantPortalRoute><TenantLease /></TenantPortalRoute>} />
-      <Route path="/tenant/lease/sign/:id" element={<TenantPortalRoute><TenantLeaseSign /></TenantPortalRoute>} />
-      <Route path="/tenant/messages" element={<TenantPortalRoute><TenantMessages /></TenantPortalRoute>} />
-      <Route path="/tenant/notifications" element={<TenantPortalRoute><TenantNotifications /></TenantPortalRoute>} />
+      <Route path="/tenant/login" element={withSuspense(<TenantLogin />)} />
+      <Route path="/tenant/signup" element={withSuspense(<TenantSignup />)} />
+      <Route path="/tenant/forgot-password" element={withSuspense(<TenantForgotPassword />)} />
+      <Route path="/tenant/reset-password" element={withSuspense(<TenantResetPassword />)} />
+      <Route path="/tenant" element={<TenantPortalRoute>{withSuspense(<TenantDashboard />)}</TenantPortalRoute>} />
+      <Route path="/tenant/payments" element={<TenantPortalRoute>{withSuspense(<TenantPayments />)}</TenantPortalRoute>} />
+      <Route path="/tenant/invoices" element={<TenantPortalRoute>{withSuspense(<TenantInvoices />)}</TenantPortalRoute>} />
+      <Route path="/tenant/recurring-bills" element={<TenantPortalRoute>{withSuspense(<TenantRecurringBills />)}</TenantPortalRoute>} />
+      <Route path="/tenant/maintenance" element={<TenantPortalRoute>{withSuspense(<TenantMaintenance />)}</TenantPortalRoute>} />
+      <Route path="/tenant/lease" element={<TenantPortalRoute>{withSuspense(<TenantLease />)}</TenantPortalRoute>} />
+      <Route path="/tenant/lease/sign/:id" element={<TenantPortalRoute>{withSuspense(<TenantLeaseSign />)}</TenantPortalRoute>} />
+      <Route path="/tenant/messages" element={<TenantPortalRoute>{withSuspense(<TenantMessages />)}</TenantPortalRoute>} />
+      <Route path="/tenant/notifications" element={<TenantPortalRoute>{withSuspense(<TenantNotifications />)}</TenantPortalRoute>} />
       
       {/* Legacy portal routes */}
       <Route path="/portal" element={<Navigate to="/tenant" replace />} />
@@ -186,7 +192,7 @@ function AppRoutes() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       
       {/* 404 */}
-      <Route path="*" element={<NotFound />} />
+      <Route path="*" element={withSuspense(<NotFound />)} />
     </Routes>
   );
 }
