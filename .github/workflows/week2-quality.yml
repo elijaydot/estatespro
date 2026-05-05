@@ -1,0 +1,43 @@
+name: Week 2 Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+
+jobs:
+  week2-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build app
+        run: npm run build
+
+      - name: Run Week 2 tests
+        run: npm run test:week2
+
+      - name: Verify Week 2 checklist exists
+        run: test -f WEEK2_TEST_CHECKLIST.md
+
+      - name: Verify audit migration exists
+        run: test -f supabase/migrations/20260505103000_week2_observability_and_payment_idempotency.sql
+
+      - name: Verify payment flows use observability helper
+        run: |
+          grep -n "_shared/observability.ts" supabase/functions/payment-checkout/index.ts
+          grep -n "_shared/observability.ts" supabase/functions/verify-payment/index.ts

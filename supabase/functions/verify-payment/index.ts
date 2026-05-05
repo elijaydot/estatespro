@@ -6,6 +6,10 @@ import {
   handleCorsPreflight,
   validateRequestSignature,
 } from "../_shared/security.ts";
+import {
+  createCorrelationId,
+  emitAuditEvent,
+} from "../_shared/observability.ts";
 
 type Gateway = "paystack" | "flutterwave";
 
@@ -287,6 +291,12 @@ serve(async (req: Request) => {
   });
 
   if (!rateCheck.allowed) {
+    await emitAuditEvent({
+      event_type: "payment.verify.rate_limited",
+      source: "verify-payment",
+      severity: "warning",
+      details: { method: req.method },
+    });
     return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
   }
 
@@ -300,11 +310,25 @@ serve(async (req: Request) => {
 
     const rawBody = await req.text();
     const body = rawBody ? JSON.parse(rawBody) : {};
+    const correlationId = (body?.correlationId as string | undefined) || createCorrelationId();
 
     const caller = await getUserFromBearer(req, supabaseUrl, serviceRoleKey);
     if (!caller) {
       return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
+
+    await emitAuditEvent({
+      event_type: "payment.verify.initiated",
+      source: "verify-payment",
+      actor_user_id: caller.id,
+      severity: "info",
+      correlation_id: correlationId,
+      details: {
+        gateway: body?.gateway,
+        hasBookingToken: Boolean(body?.bookingToken),
+        invoiceId: body?.invoiceId || null,
+      },
+    });
 
     // Used by Settings -> Payment Settings screen to test credentials before save.
     if (body?.test_mode) {
@@ -354,6 +378,14 @@ serve(async (req: Request) => {
       });
 
       if (!validSignature) {
+        await emitAuditEvent({
+          event_type: "payment.verify.invalid_signature",
+          source: "verify-payment",
+          actor_user_id: caller.id,
+          severity: "warning",
+          correlation_id: correlationId,
+          details: { source: "guest_booking" },
+        });
         return jsonResponse(req, { error: "Invalid request signature" }, 401);
       }
 
@@ -378,6 +410,19 @@ serve(async (req: Request) => {
       const invoice = await ensureBookingInvoice(supabase, booking);
       const result = await saveGuestBookingPayment(supabase, booking, invoice, verification.amount, verification.method, verification.reference);
 
+      if (result.alreadyProcessed) {
+        await emitAuditEvent({
+          event_type: "payment.verify.idempotent_duplicate",
+          source: "verify-payment",
+          actor_user_id: caller.id,
+          severity: "info",
+          correlation_id: correlationId,
+          entity_type: "invoice",
+          entity_id: invoice.id,
+          details: { reference: verification.reference, source: "guest_booking" },
+        });
+      }
+
       return jsonResponse(req, {
         success: true,
         verified: true,
@@ -385,6 +430,7 @@ serve(async (req: Request) => {
         paymentId: result.paymentId,
         alreadyProcessed: result.alreadyProcessed,
         amount: verification.amount,
+        correlationId,
       });
     }
 
@@ -427,6 +473,19 @@ serve(async (req: Request) => {
 
     const result = await saveTenantInvoicePayment(supabase, invoice, verification.amount, verification.method, verification.reference);
 
+    if (result.alreadyProcessed) {
+      await emitAuditEvent({
+        event_type: "payment.verify.idempotent_duplicate",
+        source: "verify-payment",
+        actor_user_id: caller.id,
+        severity: "info",
+        correlation_id: correlationId,
+        entity_type: "invoice",
+        entity_id: invoice.id,
+        details: { reference: verification.reference, source: "tenant_invoice" },
+      });
+    }
+
     return jsonResponse(req, {
       success: true,
       verified: true,
@@ -434,9 +493,16 @@ serve(async (req: Request) => {
       paymentId: result.paymentId,
       alreadyProcessed: result.alreadyProcessed,
       amount: verification.amount,
+      correlationId,
     });
   } catch (error: any) {
     console.error("verify-payment error:", error);
+    await emitAuditEvent({
+      event_type: "payment.verify.failed",
+      source: "verify-payment",
+      severity: "error",
+      details: { message: error?.message || "Internal server error" },
+    });
     return jsonResponse(req, { error: error?.message || "Internal server error" }, 500);
   }
 });

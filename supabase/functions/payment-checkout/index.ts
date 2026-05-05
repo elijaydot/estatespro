@@ -6,6 +6,10 @@ import {
   handleCorsPreflight,
   validateRequestSignature,
 } from "../_shared/security.ts";
+import {
+  createCorrelationId,
+  emitAuditEvent,
+} from "../_shared/observability.ts";
 
 type Gateway = "paystack" | "flutterwave";
 type Source = "tenant_invoice" | "landlord_invoice" | "guest_booking";
@@ -233,6 +237,12 @@ serve(async (req: Request) => {
   });
 
   if (!rateCheck.allowed) {
+    await emitAuditEvent({
+      event_type: "payment.checkout.rate_limited",
+      source: "payment-checkout",
+      severity: "warning",
+      details: { method: req.method },
+    });
     return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
   }
 
@@ -247,6 +257,7 @@ serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
     const rawBody = await req.text();
     const body = rawBody ? JSON.parse(rawBody) : {};
+    const correlationId = (body?.correlationId as string | undefined) || createCorrelationId();
 
     const source = body?.source as Source | undefined;
     const paymentMethod = (body?.paymentMethod || "link") as PaymentMethod;
@@ -257,6 +268,18 @@ serve(async (req: Request) => {
 
     if (!source) return jsonResponse(req, { error: "source is required" }, 400);
 
+    await emitAuditEvent({
+      event_type: "payment.checkout.initiated",
+      source: "payment-checkout",
+      severity: "info",
+      correlation_id: correlationId,
+      details: {
+        source,
+        paymentMethod,
+        explicitGateway,
+      },
+    });
+
     if (source === "guest_booking") {
       const mustSignGuestRequests = Deno.env.get("REQUIRE_GUEST_SIGNED_REQUESTS") === "true";
       const validSignature = await validateRequestSignature(req, rawBody, {
@@ -264,6 +287,13 @@ serve(async (req: Request) => {
       });
 
       if (!validSignature) {
+        await emitAuditEvent({
+          event_type: "payment.checkout.invalid_signature",
+          source: "payment-checkout",
+          severity: "warning",
+          correlation_id: correlationId,
+          details: { source: "guest_booking" },
+        });
         return jsonResponse(req, { error: "Invalid request signature" }, 401);
       }
 
@@ -350,6 +380,7 @@ serve(async (req: Request) => {
         amount,
         invoiceId: invoice.id,
         checkoutUrl,
+        correlationId,
       });
     }
 
@@ -460,9 +491,16 @@ serve(async (req: Request) => {
       amount,
       invoiceId: invoice.id,
       checkoutUrl,
+      correlationId,
     });
   } catch (error: any) {
     console.error("payment-checkout error:", error);
+    await emitAuditEvent({
+      event_type: "payment.checkout.failed",
+      source: "payment-checkout",
+      severity: "error",
+      details: { message: error?.message || "Internal server error" },
+    });
     return jsonResponse(req, { error: error?.message || "Internal server error" }, 500);
   }
 });
