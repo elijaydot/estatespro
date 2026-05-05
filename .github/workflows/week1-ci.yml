@@ -1,0 +1,44 @@
+name: Week 1 CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+  pull_request:
+
+jobs:
+  build-and-security-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build app
+        run: npm run build
+
+      - name: Verify Week 1 smoke checklist exists
+        run: test -f WEEK1_SMOKE_TEST_CHECKLIST.md
+
+      - name: Guard against wildcard CORS in edge functions
+        run: |
+          if grep -R -n --include='index.ts' "Access-Control-Allow-Origin.*\\*" supabase/functions; then
+            echo "Wildcard CORS header detected in edge functions."
+            exit 1
+          fi
+
+      - name: Ensure shared security helper exists and is consumed
+        run: |
+          test -f supabase/functions/_shared/security.ts
+          grep -R -n --include='index.ts' "_shared/security\.ts" supabase/functions

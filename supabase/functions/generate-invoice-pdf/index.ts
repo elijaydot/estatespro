@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import {
+  buildCorsHeaders,
+  checkRateLimit,
+  handleCorsPreflight,
+} from "../_shared/security.ts";
 
 interface GenerateInvoicePdfRequest {
   invoiceId: string;
@@ -38,9 +38,23 @@ function safeImageUrl(input: unknown): string {
 
 const handler = async (req: Request): Promise<Response> => {
   console.log("generate-invoice-pdf function called");
+  const corsHeaders = buildCorsHeaders(req);
   
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflight(req);
+  }
+
+  const rateCheck = checkRateLimit(req, {
+    keyPrefix: "generate-invoice-pdf",
+    limit: 30,
+    windowMs: 60_000,
+  });
+
+  if (!rateCheck.allowed) {
+    return new Response(
+      JSON.stringify({ error: "Rate limit exceeded" }),
+      { status: 429, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
   }
 
   try {

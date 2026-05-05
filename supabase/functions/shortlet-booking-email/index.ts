@@ -1,11 +1,17 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+﻿import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import {
+	buildCorsHeaders,
+	checkRateLimit,
+	handleCorsPreflight,
+} from "../_shared/security.ts";
 
-const corsHeaders = {
-	"Access-Control-Allow-Origin": "*",
-	"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+const defaultCorsHeaders = {
+	"Access-Control-Allow-Origin": (Deno.env.get("ALLOWED_ORIGINS") ?? "").split(",")[0]?.trim() || "null",
+	"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-fishgate-signature",
 	"Access-Control-Allow-Methods": "POST, OPTIONS",
+	"Vary": "Origin",
 };
 
 type EmailType =
@@ -19,10 +25,10 @@ type Action = "accept" | "cancel" | "pay";
 
 const ALLOWED_PAYMENT_METHODS = ["cash", "bank_transfer", "mtn_momo", "card", "other"] as const;
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: unknown, status = 200, req?: Request) {
 	return new Response(JSON.stringify(body), {
 		status,
-		headers: { ...corsHeaders, "Content-Type": "application/json" },
+		headers: { ...(req ? buildCorsHeaders(req) : defaultCorsHeaders), "Content-Type": "application/json" },
 	});
 }
 
@@ -95,7 +101,17 @@ async function ensureBookingInvoice(supabase: any, booking: any) {
 
 serve(async (req) => {
 	if (req.method === "OPTIONS") {
-		return new Response(null, { headers: corsHeaders });
+		return handleCorsPreflight(req);
+	}
+
+	const rateCheck = checkRateLimit(req, {
+		keyPrefix: "shortlet-booking-email",
+		limit: 40,
+		windowMs: 60_000,
+	});
+
+	if (!rateCheck.allowed) {
+		return jsonResponse({ error: "Rate limit exceeded" }, 429, req);
 	}
 
 	if (req.method !== "POST") {
@@ -161,7 +177,7 @@ serve(async (req) => {
 				.eq("user_id", booking.user_id)
 				.maybeSingle();
 
-			const companyName = companySettings?.company_name || "EstatesPro";
+			const companyName = companySettings?.company_name || "FishGate";
 			const fromEmail = companySettings?.company_email
 				? `${companyName} <${companySettings.company_email}>`
 				: `${companyName} <noreply@resend.dev>`;
@@ -345,3 +361,4 @@ serve(async (req) => {
 		return jsonResponse({ error: error?.message || "Internal server error" }, 500);
 	}
 });
+

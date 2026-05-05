@@ -12,6 +12,8 @@ import { useMyMembership } from "@/hooks/useCompanies";
 
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Properties from "./pages/Properties";
 import PropertyDetail from "./pages/PropertyDetail";
@@ -53,17 +55,39 @@ import GuestBookingPage from "./pages/guest-booking/GuestBookingPage";
 import GuestBookingActionPage from "./pages/guest-booking/GuestBookingActionPage";
 const queryClient = new QueryClient();
 
+function FullPageLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background text-sm text-muted-foreground">
+      Loading...
+    </div>
+  );
+}
+
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
-  const { role, isLoading: roleLoading, isPropertyManager } = useUserRole();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { role, isLoading: roleLoading, isPropertyManager, isTenant } = useUserRole();
   const { data: membership, isLoading: membershipLoading } = useMyMembership();
+
+  if (authLoading || roleLoading || membershipLoading) {
+    return <FullPageLoading />;
+  }
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
+  // Tenant users are isolated to tenant routes.
+  if (isTenant) {
+    return <Navigate to="/tenant" replace />;
+  }
+
+  // Only landlord/PM roles may access manager routes.
+  if (role !== 'landlord' && role !== 'property_manager') {
+    return <Navigate to="/login" replace />;
+  }
+
   // If PM, check membership status
-  if (!roleLoading && !membershipLoading && isPropertyManager && membership) {
+  if (isPropertyManager && membership) {
     if (membership.status !== 'approved') {
       return <PendingApproval />;
     }
@@ -73,20 +97,34 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function TenantPortalRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { role, isLoading: roleLoading } = useUserRole();
+
+  if (authLoading || roleLoading) {
+    return <FullPageLoading />;
+  }
   
   if (!isAuthenticated) {
     return <Navigate to="/tenant/login" replace />;
+  }
+
+  if (role !== 'tenant') {
+    return <Navigate to="/dashboard" replace />;
   }
   
   return <TenantPortalLayout>{children}</TenantPortalLayout>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { role, isLoading: roleLoading } = useUserRole();
+
+  if (authLoading || roleLoading) {
+    return <FullPageLoading />;
+  }
   
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={role === 'tenant' ? '/tenant' : '/dashboard'} replace />;
   }
   
   return <>{children}</>;
@@ -98,6 +136,8 @@ function AppRoutes() {
       {/* Public Routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+      <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+      <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
       <Route path="/book/:propertyId" element={<GuestBookingPage />} />
       <Route path="/bookings/guest-action" element={<GuestBookingActionPage />} />
       

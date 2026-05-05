@@ -1,10 +1,10 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+﻿import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Resend } from 'https://esm.sh/resend@2.0.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  buildCorsHeaders,
+  checkRateLimit,
+  handleCorsPreflight,
+} from '../_shared/security.ts';
 
 interface LeaseWithDetails {
   id: string;
@@ -29,8 +29,22 @@ interface LeaseWithDetails {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflight(req);
+  }
+
+  const rateCheck = checkRateLimit(req, {
+    keyPrefix: 'check-lease-renewals',
+    limit: 10,
+    windowMs: 60_000,
+  });
+
+  if (!rateCheck.allowed) {
+    return new Response(
+      JSON.stringify({ error: 'Rate limit exceeded' }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
   try {
@@ -115,7 +129,7 @@ Deno.serve(async (req) => {
         if (resend && lease.tenants?.email) {
           // Email to tenant
           await resend.emails.send({
-            from: 'EstatePro <noreply@resend.dev>',
+            from: 'FishGate <noreply@resend.dev>',
             to: [lease.tenants.email],
             subject: `Lease Renewal Reminder - ${lease.properties?.name}`,
             html: `
@@ -136,7 +150,7 @@ Deno.serve(async (req) => {
                 <p>If you wish to renew your lease, please contact your property manager to discuss the terms and next steps.</p>
                 
                 <p style="color: #64748b; font-size: 14px; margin-top: 30px;">
-                  This is an automated reminder from EstatePro Property Management.
+                  This is an automated reminder from FishGate Property Management.
                 </p>
               </div>
             `,
@@ -168,3 +182,4 @@ Deno.serve(async (req) => {
     );
   }
 });
+

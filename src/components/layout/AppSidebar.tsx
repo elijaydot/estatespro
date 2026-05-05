@@ -28,6 +28,11 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 
+interface AppSidebarProps {
+  mobile?: boolean;
+  onNavigate?: () => void;
+}
+
 const pmNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
   { icon: Building2, label: 'Properties', href: '/properties' },
@@ -67,13 +72,19 @@ const bottomNavItems = [
   { icon: Settings, label: 'Settings', href: '/settings' },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { user, profile, logout } = useAuth();
   const { isLandlord, role } = useUserRole();
+  const collapsedView = !mobile && collapsed;
 
   const navItems = isLandlord ? landlordNavItems : pmNavItems;
+
+  const handleLogout = async () => {
+    await logout();
+    onNavigate?.();
+  };
 
   const getInitials = (name: string) => {
     return name
@@ -94,29 +105,33 @@ export function AppSidebar() {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen bg-sidebar text-sidebar-foreground transition-all duration-300',
-        collapsed ? 'w-20' : 'w-64'
+        mobile
+          ? 'h-full bg-sidebar text-sidebar-foreground'
+          : 'hidden lg:block fixed left-0 top-0 z-40 h-screen bg-sidebar text-sidebar-foreground transition-all duration-300',
+        collapsedView ? 'w-20' : 'w-64'
       )}
     >
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
-          <Link to="/dashboard" className="flex items-center gap-3">
+          <Link to="/dashboard" className="flex items-center gap-3" onClick={onNavigate}>
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground font-bold text-lg">
-              EP
+              FG
             </div>
-            {!collapsed && (
-              <span className="font-semibold text-lg text-sidebar-foreground">EstatePro</span>
+            {!collapsedView && (
+              <span className="font-semibold text-lg text-sidebar-foreground">FishGate</span>
             )}
           </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCollapsed(!collapsed)}
-            className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </Button>
+          {!mobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCollapsed(!collapsed)}
+              className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            >
+              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </Button>
+          )}
         </div>
 
         {/* Navigation */}
@@ -128,6 +143,7 @@ export function AppSidebar() {
                 <li key={item.href}>
                   <Link
                     to={item.href}
+                    onClick={onNavigate}
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                       isActive
@@ -136,7 +152,7 @@ export function AppSidebar() {
                     )}
                   >
                     <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {!collapsed && <span>{item.label}</span>}
+                    {!collapsedView && <span>{item.label}</span>}
                   </Link>
                 </li>
               );
@@ -153,6 +169,7 @@ export function AppSidebar() {
                 <li key={item.href}>
                   <Link
                     to={item.href}
+                    onClick={onNavigate}
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                       isActive
@@ -161,7 +178,7 @@ export function AppSidebar() {
                     )}
                   >
                     <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {!collapsed && <span>{item.label}</span>}
+                    {!collapsedView && <span>{item.label}</span>}
                   </Link>
                 </li>
               );
@@ -171,14 +188,14 @@ export function AppSidebar() {
           <Separator className="my-3 bg-sidebar-border" />
 
           {/* User Profile */}
-          <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
+          <div className={cn('flex items-center gap-3', collapsedView && 'justify-center')}>
             <Avatar className="h-9 w-9 border-2 border-sidebar-border">
               <AvatarImage src={profile?.avatar_url || undefined} />
               <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs">
                 {profile?.name ? getInitials(profile.name) : 'U'}
               </AvatarFallback>
             </Avatar>
-            {!collapsed && (
+            {!collapsedView && (
               <div className="flex-1 overflow-hidden">
                 <p className="text-sm font-medium text-sidebar-foreground truncate">
                   {profile?.name || user?.email}
@@ -188,11 +205,11 @@ export function AppSidebar() {
                 </p>
               </div>
             )}
-            {!collapsed && (
+            {!collapsedView && (
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={logout}
+                onClick={() => void handleLogout()}
                 className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
               >
                 <LogOut className="h-4 w-4" />

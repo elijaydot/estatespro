@@ -1,18 +1,25 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import {
+  buildCorsHeaders,
+  checkRateLimit,
+  handleCorsPreflight,
+} from "../_shared/security.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 interface NotificationRequest {
   requestId: string;
   newStatus: string;
   oldStatus?: string;
+}
+
+function jsonResponse(req: Request, body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+  });
 }
 
 const getStatusLabel = (status: string): string => {
@@ -37,17 +44,24 @@ const getStatusColor = (status: string): string => {
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflight(req);
+  }
+
+  const rateCheck = checkRateLimit(req, {
+    keyPrefix: "send-maintenance-notification",
+    limit: 40,
+    windowMs: 60_000,
+  });
+
+  if (!rateCheck.allowed) {
+    return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
   }
 
   try {
     // Verify authentication (verify_jwt=false → validate JWT in code)
     const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
     const token = authHeader.replace("Bearer ", "");
@@ -66,20 +80,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (authError || !userId) {
       console.error("JWT verification failed:", authError);
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
     const { requestId, newStatus, oldStatus }: NotificationRequest = await req.json();
 
     // Validate input
     if (!requestId || !newStatus) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Missing required fields" }, 400);
     }
 
     // Fetch the maintenance request with tenant and property details
@@ -96,10 +104,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (fetchError || !request) {
       console.error("Error fetching maintenance request:", fetchError);
-      return new Response(
-        JSON.stringify({ error: "Maintenance request not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Maintenance request not found" }, 404);
     }
 
     const isOwner = request.user_id === userId;
@@ -113,10 +118,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     if (!isOwner && !isApprovedPm) {
-      return new Response(
-        JSON.stringify({ error: "Forbidden" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Forbidden" }, 403);
     }
 
     const tenant = request.tenants;
@@ -189,16 +191,10 @@ const handler = async (req: Request): Promise<Response> => {
       console.log("Email sent to tenant:", tenant.email);
     }
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse(req, { success: true });
   } catch (error: any) {
     console.error("Error in send-maintenance-notification:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse(req, { error: error.message }, 500);
   }
 };
 

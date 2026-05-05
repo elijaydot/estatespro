@@ -1,21 +1,34 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildCorsHeaders,
+  checkRateLimit,
+  handleCorsPreflight,
+} from "../_shared/security.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+function jsonResponse(req: Request, body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+  });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflight(req);
+  }
+
+  const rateCheck = checkRateLimit(req, {
+    keyPrefix: "guest-booking",
+    limit: 80,
+    windowMs: 60_000,
+  });
+
+  if (!rateCheck.allowed) {
+    return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
   }
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse(req, { error: "Method not allowed" }, 405);
   }
 
   try {
@@ -36,7 +49,7 @@ Deno.serve(async (req) => {
     if (!property_id || !unit_id || !guest_name || !guest_email || !check_in || !check_out) {
       return new Response(
         JSON.stringify({ error: "Missing required fields: property_id, unit_id, guest_name, guest_email, check_in, check_out" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -45,7 +58,7 @@ Deno.serve(async (req) => {
     if (!emailRegex.test(guest_email)) {
       return new Response(
         JSON.stringify({ error: "Invalid email address" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -58,14 +71,14 @@ Deno.serve(async (req) => {
     if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
       return new Response(
         JSON.stringify({ error: "Invalid date format" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
     if (checkOutDate <= checkInDate) {
       return new Response(
         JSON.stringify({ error: "Check-out must be after check-in" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -83,7 +96,7 @@ Deno.serve(async (req) => {
           error: "Server misconfiguration: missing Supabase environment variables",
           code: "MISSING_ENV_VARS",
         }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -100,14 +113,14 @@ Deno.serve(async (req) => {
     if (propError || !property) {
       return new Response(
         JSON.stringify({ error: "Property not found or not available for short-let bookings" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 404, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
     if (!property.user_id) {
       return new Response(
         JSON.stringify({ error: "Property owner is not configured for this listing" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -122,7 +135,7 @@ Deno.serve(async (req) => {
     if (unitError || !unit) {
       return new Response(
         JSON.stringify({ error: "Unit not found or does not belong to this property" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 404, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -144,14 +157,14 @@ Deno.serve(async (req) => {
           details: conflictsError.details || null,
           hint: conflictsError.hint || null,
         }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
     if (conflicts && conflicts.length > 0) {
       return new Response(
         JSON.stringify({ error: "This unit is not available for the selected dates" }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 409, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -193,7 +206,7 @@ Deno.serve(async (req) => {
           details: bookingError.details || null,
           hint: bookingError.hint || null,
         }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -220,14 +233,11 @@ Deno.serve(async (req) => {
         total_amount,
         message: "Booking request submitted successfully! The property owner will confirm your reservation.",
       }),
-      { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 201, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal server error";
     console.error("Guest booking error:", err);
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse(req, { error: message }, 500);
   }
 });

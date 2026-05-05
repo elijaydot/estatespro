@@ -1,14 +1,29 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildCorsHeaders,
+  checkRateLimit,
+  handleCorsPreflight,
+} from "../_shared/security.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflight(req);
+  }
+
+  const rateCheck = checkRateLimit(req, {
+    keyPrefix: "send-exit-summary",
+    limit: 20,
+    windowMs: 60_000,
+  });
+
+  if (!rateCheck.allowed) {
+    return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
@@ -201,12 +216,12 @@ Deno.serve(async (req) => {
           It was a pleasure having you as a tenant, and we wish you all the best in your future endeavors.
           Should you ever need a reference or wish to return, our doors are always open.
         </p>
-        <p style="color:#1e3a5f;font-weight:600;margin-bottom:0;">— The Management Team</p>
+        <p style="color:#1e3a5f;font-weight:600;margin-bottom:0;">- The Management Team</p>
       </div>
     </div>
     
     <p style="text-align:center;color:#999;font-size:12px;margin-top:16px;">
-      This is an automated email from EstatesPro. Please do not reply directly to this email.
+      This is an automated email from FishGate. Please do not reply directly to this email.
     </p>
   </div>
 </body>
@@ -218,7 +233,7 @@ Deno.serve(async (req) => {
 
     if (RESEND_API_KEY) {
       const emailPayload: any = {
-        from: "EstatesPro <noreply@resend.dev>",
+        from: "FishGate <noreply@resend.dev>",
         to: toEmails.map(e => e.email),
         subject: `Thank You & Tenancy Summary - ${property?.name || 'Your Property'}`,
         html: emailHtml,
@@ -261,3 +276,4 @@ Deno.serve(async (req) => {
     });
   }
 });
+

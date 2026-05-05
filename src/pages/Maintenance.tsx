@@ -267,12 +267,12 @@ export default function Maintenance() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Maintenance</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Maintenance</h1>
           <p className="text-muted-foreground mt-1">Track and manage maintenance requests</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
+        <Button className="gap-2 w-full sm:w-auto" onClick={() => setIsCreateOpen(true)}>
           <Plus className="h-4 w-4" />
           Create Request
         </Button>
@@ -354,6 +354,60 @@ export default function Maintenance() {
       {/* Requests Table */}
       <Card className="card-shadow-md">
         <CardContent className="p-0">
+          {isLoading ? (
+            <div className="py-12 px-6 text-center text-muted-foreground">Loading maintenance requests...</div>
+          ) : (
+            <>
+              <div className="md:hidden divide-y">
+                {filteredRequests.length === 0 ? (
+                  <div className="py-12 px-6 text-center text-muted-foreground">
+                    <p className="font-medium text-foreground">No maintenance requests found</p>
+                    <p className="text-sm mt-1">Try adjusting your search query.</p>
+                  </div>
+                ) : (
+                  filteredRequests.map((request: any) => (
+                    <div key={request.id} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{request.title}</p>
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{request.description}</p>
+                        </div>
+                        {getStatusBadge(request.status)}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Home className="h-4 w-4" />
+                          <span>Unit {request.units?.unit_number || 'N/A'}</span>
+                        </div>
+                        {getPriorityBadge(request.priority)}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                        <span>{request.properties?.name || 'No property'}</span>
+                        <span>{format(new Date(request.created_at), 'MMM dd, yyyy')}</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button variant="outline" size="sm" onClick={() => openEdit(request)}>
+                          Edit
+                        </Button>
+                        {request.status === 'completed' ? (
+                          <Button variant="outline" size="sm" onClick={() => handleStatusChange(request.id, 'in_progress', request.status)}>
+                            Reopen
+                          </Button>
+                        ) : (
+                          <Button size="sm" onClick={() => handleStatusChange(request.id, 'completed', request.status)}>
+                            Complete
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -367,11 +421,7 @@ export default function Maintenance() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">Loading...</TableCell>
-                </TableRow>
-              ) : filteredRequests.length === 0 ? (
+              {filteredRequests.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No maintenance requests found
@@ -453,6 +503,9 @@ export default function Maintenance() {
               )}
             </TableBody>
           </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

@@ -1,4 +1,4 @@
-import { useAuth } from '@/contexts/AuthContext';
+﻿import { useAuth } from '@/contexts/AuthContext';
 import { useMyMembership } from '@/hooks/useCompanies';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ export default function PendingApproval() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-xl shadow-lg">
             EP
           </div>
-          <span className="font-bold text-2xl text-foreground">EstatePro</span>
+          <span className="font-bold text-2xl text-foreground">FishGate</span>
         </div>
 
         <Card className="card-shadow-lg border-0">
@@ -82,3 +82,4 @@ export default function PendingApproval() {
     </div>
   );
 }
+

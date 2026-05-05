@@ -24,6 +24,8 @@ import { SmartSearchInsights } from '@/components/ai/SmartSearchInsights';
 import { PredictiveAnalytics } from '@/components/ai/PredictiveAnalytics';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 function StatCard({ 
   title, value, subtitle, icon: Icon, iconColor, trend, href 
@@ -64,19 +66,37 @@ function StatCard({
 export default function Dashboard() {
   const { data: stats, isLoading } = useDashboardStats();
   const { formatCurrency } = useSettings();
+  const navigate = useNavigate();
 
   return (
     <div className="space-y-6 max-w-[1600px]">
       {/* Header */}
       <div className="animate-fade-in">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           Welcome back — here's your portfolio overview.
         </p>
       </div>
 
+      {!isLoading && !stats && (
+        <Card className="border-dashed">
+          <CardContent className="py-10 text-center space-y-3">
+            <p className="text-base font-semibold text-foreground">We could not load your portfolio stats</p>
+            <p className="text-sm text-muted-foreground">Please refresh or continue with core operations from the sections below.</p>
+            <div className="flex flex-col sm:flex-row justify-center gap-2">
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                Reload Dashboard
+              </Button>
+              <Button onClick={() => navigate('/reports')}>
+                Open Reports
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* KPI Cards — 4 columns */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-[104px] rounded-xl" />
@@ -158,7 +178,7 @@ export default function Dashboard() {
       </div>
 
       {/* Financial alerts — 4 columns */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-[104px] rounded-xl" />

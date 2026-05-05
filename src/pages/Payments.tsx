@@ -202,6 +202,37 @@ export default function Payments() {
     toast({ title: 'Export complete', description: 'Payments exported as CSV.' });
   };
 
+  const handleDownloadReceipt = (payment: any) => {
+    downloadCsv(`receipt-${(payment.receipt_number || payment.id.slice(0, 8))}.csv`, [
+      {
+        receipt_number: payment.receipt_number || '',
+        date: format(new Date(payment.created_at), 'yyyy-MM-dd'),
+        tenant: payment.tenants?.name || payment.payer_name || '',
+        payer_email: payment.payer_email || '',
+        invoice: payment.invoices?.invoice_number || '',
+        amount: payment.amount,
+        method: getMethodLabel(payment.method),
+        status: payment.status,
+        momo_phone: payment.momo_phone || '',
+        momo_transaction_id: payment.momo_transaction_id || '',
+        reference: payment.reference || '',
+        notes: payment.notes || '',
+      },
+    ]);
+    toast({ title: 'Receipt downloaded', description: 'Payment receipt saved as CSV.' });
+  };
+
+  const handleSendReceipt = async (payment: any) => {
+    try {
+      await supabase.functions.invoke('send-payment-confirmation', {
+        body: { paymentId: payment.id },
+      });
+      toast({ title: 'Receipt Sent', description: `Receipt sent to ${payment.tenants?.name || 'tenant'}.` });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Failed to send receipt', variant: 'destructive' });
+    }
+  };
+
   const handleCreate = async () => {
     if (!formData.tenant_id || !formData.invoice_id || !formData.amount) {
       toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
@@ -284,12 +315,12 @@ export default function Payments() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Payments</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Payments</h1>
           <p className="text-muted-foreground mt-1">Track and manage all payment transactions</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsRecordOpen(true)}>
+        <Button className="gap-2 w-full sm:w-auto" onClick={() => setIsRecordOpen(true)}>
           <Plus className="h-4 w-4" />
           Record Payment
         </Button>
@@ -362,12 +393,12 @@ export default function Payments() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
+        <div className="grid grid-cols-2 sm:flex gap-2">
+          <Button variant="outline" className="gap-2 w-full sm:w-auto">
             <Filter className="h-4 w-4" />
             Filter
           </Button>
-          <Button variant="outline" className="gap-2" onClick={handleExport}>
+          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={handleExport}>
             <Download className="h-4 w-4" />
             Export
           </Button>
@@ -376,15 +407,65 @@ export default function Payments() {
 
       {/* Loading State */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <Card className="card-shadow-md">
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm">Loading payment activity...</p>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Payments Table */}
       {!isLoading && (
         <Card className="card-shadow-md">
           <CardContent className="p-0">
+            <div className="md:hidden divide-y">
+              {filteredPayments.length === 0 ? (
+                <div className="py-12 px-6 text-center text-muted-foreground">
+                  <p className="font-medium text-foreground">No payments found</p>
+                  <p className="text-sm mt-1">Try adjusting your search query.</p>
+                </div>
+              ) : (
+                filteredPayments.map((payment: any) => (
+                  <div key={payment.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{payment.receipt_number || 'No receipt number'}</p>
+                        <p className="text-xs text-muted-foreground">{format(new Date(payment.created_at), 'MMM dd, yyyy')}</p>
+                      </div>
+                      {getStatusBadge(payment.status)}
+                    </div>
+
+                    <div className="space-y-1 text-sm">
+                      <p className="font-medium">{payment.tenants?.name || payment.payer_name || 'Guest'}</p>
+                      {payment.payer_email ? <p className="text-xs text-muted-foreground">{payment.payer_email}</p> : null}
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        {getMethodIcon(payment.method)}
+                        <span>{getMethodLabel(payment.method)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-lg font-semibold">{formatCurrency(payment.amount)}</p>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleDownloadReceipt(payment)}>
+                          <Receipt className="h-4 w-4 mr-1" />
+                          Receipt
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => void handleSendReceipt(payment)}>
+                          <Send className="h-4 w-4 mr-1" />
+                          Send
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -445,41 +526,10 @@ export default function Payments() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onSelect={() => {
-                                downloadCsv(`receipt-${(payment.receipt_number || payment.id.slice(0, 8))}.csv`, [
-                                  {
-                                    receipt_number: payment.receipt_number || '',
-                                    date: format(new Date(payment.created_at), 'yyyy-MM-dd'),
-                                    tenant: payment.tenants?.name || payment.payer_name || '',
-                                    payer_email: payment.payer_email || '',
-                                    invoice: payment.invoices?.invoice_number || '',
-                                    amount: payment.amount,
-                                    method: getMethodLabel(payment.method),
-                                    status: payment.status,
-                                    momo_phone: payment.momo_phone || '',
-                                    momo_transaction_id: payment.momo_transaction_id || '',
-                                    reference: payment.reference || '',
-                                    notes: payment.notes || '',
-                                  },
-                                ]);
-                                toast({ title: 'Receipt downloaded', description: 'Payment receipt saved as CSV.' });
-                              }}
-                            >
+                            <DropdownMenuItem onSelect={() => handleDownloadReceipt(payment)}>
                               <Receipt className="h-4 w-4 mr-2" /> Download Receipt
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={async () => {
-                                try {
-                                  await supabase.functions.invoke('send-payment-confirmation', {
-                                    body: { paymentId: payment.id },
-                                  });
-                                  toast({ title: 'Receipt Sent', description: `Receipt sent to ${payment.tenants?.name || 'tenant'}.` });
-                                } catch (error: any) {
-                                  toast({ title: 'Error', description: error.message || 'Failed to send receipt', variant: 'destructive' });
-                                }
-                              }}
-                            >
+                            <DropdownMenuItem onSelect={() => void handleSendReceipt(payment)}>
                               <Send className="h-4 w-4 mr-2" /> Send Receipt to Tenant
                             </DropdownMenuItem>
                             {payment.tenant_id ? (
@@ -497,6 +547,7 @@ export default function Payments() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       )}

@@ -1,13 +1,30 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildCorsHeaders,
+  checkRateLimit,
+  handleCorsPreflight,
+} from "../_shared/security.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+function jsonResponse(req: Request, body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+  });
+}
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return handleCorsPreflight(req);
+
+  const rateCheck = checkRateLimit(req, {
+    keyPrefix: "ai-financial-insights",
+    limit: 30,
+    windowMs: 60_000,
+  });
+
+  if (!rateCheck.allowed) {
+    return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
+  }
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -222,14 +239,10 @@ If data is limited, still provide insights based on what's available. Focus on p
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResponse(req, { error: "Payment required" }, 402);
       }
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
@@ -251,14 +264,9 @@ If data is limited, still provide insights based on what's available. Focus on p
       insights = JSON.parse(content.replace(/```json\n?|\n?```/g, ''));
     }
 
-    return new Response(JSON.stringify({ insights, raw_stats: financialContext.summary }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse(req, { insights, raw_stats: financialContext.summary });
   } catch (error) {
     console.error("Financial insights error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });

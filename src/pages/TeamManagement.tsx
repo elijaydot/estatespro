@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { 
   Users, UserPlus, Building2, Shield, Clock, CheckCircle2, 
   XCircle, Copy, Ban, MapPin, Loader2, Plus, Trash2, Pencil 
@@ -68,7 +68,7 @@ export default function TeamManagement() {
   const handleInvite = async () => {
     if (!inviteEmail || !activeCompanyId) return;
     const result = await createInvite.mutateAsync({ companyId: activeCompanyId, email: inviteEmail });
-    const appUrl = import.meta.env.VITE_SUPABASE_URL ? 'https://estatespro.lovable.app' : window.location.origin;
+    const appUrl = import.meta.env.VITE_SUPABASE_URL ? 'https://fishgate.lovable.app' : window.location.origin;
     const inviteUrl = `${appUrl}/signup?pm_invite=${result.token}`;
     await navigator.clipboard.writeText(inviteUrl);
     toast({ title: 'Invite link copied!', description: `Invite link for ${inviteEmail} has been copied to clipboard.` });
@@ -535,7 +535,7 @@ export default function TeamManagement() {
                         <p className="font-medium">{invite.email}</p>
                         <p className="text-xs text-muted-foreground">
                           Sent: {new Date(invite.created_at).toLocaleDateString()}
-                          {' · '}
+                          {' - '}
                           Expires: {new Date(invite.expires_at).toLocaleDateString()}
                         </p>
                       </div>
@@ -591,7 +591,7 @@ export default function TeamManagement() {
                               <p className="font-medium text-foreground">{company.name}</p>
                               <div className="flex gap-3 text-sm text-muted-foreground">
                                 {company.email && <span>{company.email}</span>}
-                                {company.phone && <span>• {company.phone}</span>}
+                                {company.phone && <span>- {company.phone}</span>}
                               </div>
                               {company.address && (
                                 <p className="text-xs text-muted-foreground">{company.address}</p>
@@ -692,3 +692,4 @@ export default function TeamManagement() {
     </div>
   );
 }
+
