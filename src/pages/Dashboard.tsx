@@ -93,11 +93,11 @@ export default function Dashboard() {
             </Button>
             <Button variant="secondary" className="h-auto py-3 flex-col gap-1 rounded-xl" onClick={() => navigate('/tenants?add=true')}>
               <Users className="h-4 w-4" />
-              <span className="text-[11px]">Customer</span>
+              <span className="text-[11px]">Tenant</span>
             </Button>
             <Button variant="secondary" className="h-auto py-3 flex-col gap-1 rounded-xl" onClick={() => navigate('/maintenance')}>
               <FileText className="h-4 w-4" />
-              <span className="text-[11px]">Expense</span>
+              <span className="text-[11px]">Request</span>
             </Button>
             <Button variant="secondary" className="h-auto py-3 flex-col gap-1 rounded-xl" onClick={() => navigate('/reports')}>
               <TrendingUp className="h-4 w-4" />

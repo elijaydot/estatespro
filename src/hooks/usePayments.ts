@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 export interface Payment {
   id: string;
@@ -23,17 +24,25 @@ export interface Payment {
 }
 
 export function usePayments() {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['payments'],
+    queryKey: ['payments', activeCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('payments')
         .select(`
           *,
           tenants:tenant_id(id, name, email, property_id, unit_id),
-          invoices:invoice_id(id, invoice_number, amount)
+          invoices:invoice_id(id, invoice_number, amount, property_id, properties:property_id(company_id))
         `)
         .order('created_at', { ascending: false });
+
+      if (activeCompanyId) {
+        query = query.eq('invoices.properties.company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data;
@@ -42,18 +51,25 @@ export function usePayments() {
 }
 
 export function usePayment(id: string) {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['payments', id],
+    queryKey: ['payments', id, activeCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('payments')
         .select(`
           *,
           tenants:tenant_id(id, name, email),
-          invoices:invoice_id(id, invoice_number, amount)
+          invoices:invoice_id(id, invoice_number, amount, property_id, properties:property_id(company_id))
         `)
-        .eq('id', id)
-        .single();
+        .eq('id', id);
+
+      if (activeCompanyId) {
+        query = query.eq('invoices.properties.company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data;

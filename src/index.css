@@ -124,6 +124,24 @@
 }
 
 @layer utilities {
+  .sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--sidebar-border)) transparent;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 7px;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--sidebar-border));
+    border-radius: 9999px;
+  }
+
   svg.lucide-sparkles,
   svg.lucide-wand-sparkles {
     display: none !important;

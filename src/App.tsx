@@ -6,6 +6,7 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
+import { ActiveCompanyProvider } from "@/contexts/ActiveCompanyContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { TenantPortalLayout } from "@/pages/tenant-portal/TenantPortalLayout";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -38,6 +39,7 @@ const GuestBookingPortal = lazy(() => import("./pages/GuestBookingPortal"));
 const TeamManagement = lazy(() => import("./pages/TeamManagement"));
 const TenantExitWorkflow = lazy(() => import("./pages/TenantExitWorkflow"));
 const HelpSupport = lazy(() => import("./pages/HelpSupport"));
+const Broadcasts = lazy(() => import("./pages/Broadcasts"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Tenant Portal
@@ -170,6 +172,7 @@ function AppRoutes() {
       <Route path="/reports" element={<PrivateRoute>{withSuspense(<Reports />)}</PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute>{withSuspense(<Settings />)}</PrivateRoute>} />
       <Route path="/support" element={<PrivateRoute>{withSuspense(<HelpSupport />)}</PrivateRoute>} />
+      <Route path="/broadcasts" element={<PrivateRoute>{withSuspense(<Broadcasts />)}</PrivateRoute>} />
       
       {/* Tenant Portal Routes */}
       <Route path="/tenant/login" element={withSuspense(<TenantLogin />)} />
@@ -185,6 +188,7 @@ function AppRoutes() {
       <Route path="/tenant/lease/sign/:id" element={<TenantPortalRoute>{withSuspense(<TenantLeaseSign />)}</TenantPortalRoute>} />
       <Route path="/tenant/messages" element={<TenantPortalRoute>{withSuspense(<TenantMessages />)}</TenantPortalRoute>} />
       <Route path="/tenant/notifications" element={<TenantPortalRoute>{withSuspense(<TenantNotifications />)}</TenantPortalRoute>} />
+      <Route path="/tenant/support" element={<TenantPortalRoute>{withSuspense(<HelpSupport />)}</TenantPortalRoute>} />
       
       {/* Legacy portal routes */}
       <Route path="/portal" element={<Navigate to="/tenant" replace />} />
@@ -204,11 +208,13 @@ const App = () => (
     <TooltipProvider>
       <AuthProvider>
         <SettingsProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
+          <ActiveCompanyProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </ActiveCompanyProvider>
         </SettingsProvider>
       </AuthProvider>
     </TooltipProvider>

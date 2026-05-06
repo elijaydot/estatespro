@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 export interface RecurringBill {
   id: string;
@@ -18,8 +19,10 @@ export interface RecurringBill {
 }
 
 export function useRecurringBills(propertyId?: string, tenantId?: string) {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['recurring_bills', propertyId, tenantId],
+    queryKey: ['recurring_bills', propertyId, tenantId, activeCompanyId],
     queryFn: async () => {
       let query = supabase
         .from('recurring_bills')
@@ -29,6 +32,22 @@ export function useRecurringBills(propertyId?: string, tenantId?: string) {
           tenants:tenant_id(id, name)
         `)
         .order('created_at', { ascending: false });
+
+      if (activeCompanyId) {
+        const { data: scopedProperties, error: scopedPropertiesError } = await supabase
+          .from('properties')
+          .select('id')
+          .eq('company_id', activeCompanyId);
+
+        if (scopedPropertiesError) throw scopedPropertiesError;
+
+        const propertyIds = (scopedProperties || []).map((property) => property.id);
+        if (propertyIds.length === 0) {
+          return [];
+        }
+
+        query = query.in('property_id', propertyIds);
+      }
 
       if (propertyId) {
         query = query.eq('property_id', propertyId);

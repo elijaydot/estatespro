@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -16,7 +17,10 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { companies, activeCompanyId } = useActiveCompany();
   const { data: unreadCount = 0 } = useUnreadNotificationsCount();
+
+  const activeCompanyName = companies.find((company) => company.id === activeCompanyId)?.name || profile?.name || 'FishGate';
 
   useEffect(() => {
     const prefetchRoutes = () => {
@@ -56,7 +60,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             </Sheet>
 
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground truncate">{profile?.name || 'FishGate'}</p>
+              <p className="text-sm font-semibold text-foreground truncate">{activeCompanyName}</p>
               <p className="text-[11px] text-muted-foreground truncate">Your organization overview</p>
             </div>
 

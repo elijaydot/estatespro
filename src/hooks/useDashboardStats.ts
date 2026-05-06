@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 export interface DashboardStats {
   totalProperties: number;
@@ -22,15 +23,48 @@ export interface DashboardStats {
 }
 
 export function useDashboardStats() {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['dashboard-stats'],
+    queryKey: ['dashboard-stats', activeCompanyId],
     queryFn: async (): Promise<DashboardStats> => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Fetch all data in parallel
+      let propertiesQuery = supabase.from('properties').select('id, total_units, occupied_units, company_id');
+      if (activeCompanyId) {
+        propertiesQuery = propertiesQuery.eq('company_id', activeCompanyId);
+      }
+
+      const { data: propertiesData, error: propertiesError } = await propertiesQuery;
+      if (propertiesError) throw propertiesError;
+
+      const propertyIds = (propertiesData || []).map((property) => property.id);
+
+      if (propertyIds.length === 0) {
+        return {
+          totalProperties: 0,
+          totalUnits: 0,
+          occupiedUnits: 0,
+          occupancyRate: 0,
+          activeTenants: 0,
+          monthlyRevenue: 0,
+          pendingPayments: 0,
+          pendingPaymentsCount: 0,
+          overduePayments: 0,
+          overduePaymentsCount: 0,
+          maintenanceRequests: 0,
+          maintenanceInProgress: 0,
+          upcomingRenewals: 0,
+          shortletConversionRate: 0,
+          shortletAcceptanceRate: 0,
+          shortletAvgTimeToPayHours: 0,
+          shortletTotalBookings: 0,
+        };
+      }
+
+      // Fetch scoped data in parallel
       const [
-        propertiesRes,
         unitsRes,
         tenantsRes,
         bookingsRes,
@@ -38,29 +72,33 @@ export function useDashboardStats() {
         paymentsRes,
         maintenanceRes,
       ] = await Promise.all([
-        supabase.from('properties').select('id, total_units, occupied_units'),
-        supabase.from('units').select('id, status'),
-        supabase.from('tenants').select('id, status, lease_end_date'),
-        supabase.from('bookings').select('id, status, payment_status, created_at, guest_response_status'),
-        supabase.from('invoices').select('id, amount, paid_amount, status, due_date'),
-        supabase.from('payments').select('id, amount, status, created_at, booking_id'),
-        supabase.from('maintenance_requests').select('id, status'),
+        supabase.from('units').select('id, status').in('property_id', propertyIds),
+        supabase.from('tenants').select('id, status, lease_end_date').in('property_id', propertyIds),
+        supabase.from('bookings').select('id, status, payment_status, created_at, guest_response_status').in('property_id', propertyIds),
+        supabase.from('invoices').select('id, amount, paid_amount, status, due_date').in('property_id', propertyIds),
+        supabase.from('payments').select('id, amount, status, created_at, booking_id').in('invoice_id', []),
+        supabase.from('maintenance_requests').select('id, status').in('property_id', propertyIds),
       ]);
 
-      if (propertiesRes.error) throw propertiesRes.error;
       if (unitsRes.error) throw unitsRes.error;
       if (tenantsRes.error) throw tenantsRes.error;
       if (bookingsRes.error) throw bookingsRes.error;
       if (invoicesRes.error) throw invoicesRes.error;
-      if (paymentsRes.error) throw paymentsRes.error;
       if (maintenanceRes.error) throw maintenanceRes.error;
 
-      const properties = propertiesRes.data || [];
+      const invoiceIds = (invoicesRes.data || []).map((invoice) => invoice.id);
+      const paymentsResScoped = invoiceIds.length > 0
+        ? await supabase.from('payments').select('id, amount, status, created_at, booking_id').in('invoice_id', invoiceIds)
+        : { data: [], error: null };
+
+      if (paymentsResScoped.error) throw paymentsResScoped.error;
+
+      const properties = propertiesData || [];
       const units = unitsRes.data || [];
       const tenants = tenantsRes.data || [];
       const bookings = bookingsRes.data || [];
       const invoices = invoicesRes.data || [];
-      const payments = paymentsRes.data || [];
+      const payments = paymentsResScoped.data || [];
       const maintenance = maintenanceRes.data || [];
 
       // Calculate stats
@@ -169,29 +207,61 @@ export function useDashboardStats() {
 }
 
 export function useRecentActivity() {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['recent-activity'],
+    queryKey: ['recent-activity', activeCompanyId],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      let propertiesQuery = supabase.from('properties').select('id, company_id');
+      if (activeCompanyId) {
+        propertiesQuery = propertiesQuery.eq('company_id', activeCompanyId);
+      }
+
+      const { data: scopedProperties, error: scopedPropertiesError } = await propertiesQuery;
+      if (scopedPropertiesError) throw scopedPropertiesError;
+
+      const propertyIds = (scopedProperties || []).map((property) => property.id);
+      if (propertyIds.length === 0) return [];
+
+      const { data: scopedTenants } = await supabase
+        .from('tenants')
+        .select('id')
+        .in('property_id', propertyIds);
+      const tenantIds = (scopedTenants || []).map((tenant) => tenant.id);
+
+      const { data: scopedInvoices } = await supabase
+        .from('invoices')
+        .select('id')
+        .in('property_id', propertyIds);
+      const invoiceIds = (scopedInvoices || []).map((invoice) => invoice.id);
+
       // Fetch recent payments, maintenance requests, and invoices
       const [paymentsRes, maintenanceRes, invoicesRes] = await Promise.all([
-        supabase
-          .from('payments')
-          .select('id, amount, created_at, tenants:tenant_id(name)')
-          .order('created_at', { ascending: false })
-          .limit(5),
+        invoiceIds.length > 0
+          ? supabase
+              .from('payments')
+              .select('id, amount, created_at, tenants:tenant_id(name)')
+              .in('invoice_id', invoiceIds)
+              .order('created_at', { ascending: false })
+              .limit(5)
+          : Promise.resolve({ data: [], error: null } as any),
         supabase
           .from('maintenance_requests')
           .select('id, title, status, created_at, updated_at')
+          .in('property_id', propertyIds)
           .order('updated_at', { ascending: false })
           .limit(5),
-        supabase
-          .from('invoices')
-          .select('id, invoice_number, status, created_at, tenants:tenant_id(name)')
-          .order('created_at', { ascending: false })
-          .limit(5),
+        tenantIds.length > 0
+          ? supabase
+              .from('invoices')
+              .select('id, invoice_number, status, created_at, tenants:tenant_id(name)')
+              .in('property_id', propertyIds)
+              .order('created_at', { ascending: false })
+              .limit(5)
+          : Promise.resolve({ data: [], error: null } as any),
       ]);
 
       const activities: Array<{
@@ -252,8 +322,10 @@ export function useRecentActivity() {
 }
 
 export function useUpcomingRenewals() {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['upcoming-renewals'],
+    queryKey: ['upcoming-renewals', activeCompanyId],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -262,14 +334,20 @@ export function useUpcomingRenewals() {
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('tenants')
-        .select('id, name, lease_end_date, units:unit_id(unit_number), properties:property_id(name)')
+        .select('id, name, lease_end_date, units:unit_id(unit_number), properties:property_id(name, company_id)')
         .eq('status', 'active')
         .gte('lease_end_date', now.toISOString().split('T')[0])
         .lte('lease_end_date', thirtyDaysFromNow.toISOString().split('T')[0])
         .order('lease_end_date', { ascending: true })
         .limit(10);
+
+      if (activeCompanyId) {
+        query = query.eq('properties.company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -294,11 +372,34 @@ export function useUpcomingRenewals() {
 }
 
 export function useRevenueData() {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['revenue-chart-data'],
+    queryKey: ['revenue-chart-data', activeCompanyId],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+
+      let propertiesQuery = supabase.from('properties').select('id, company_id');
+      if (activeCompanyId) {
+        propertiesQuery = propertiesQuery.eq('company_id', activeCompanyId);
+      }
+
+      const { data: scopedProperties, error: scopedPropertiesError } = await propertiesQuery;
+      if (scopedPropertiesError) throw scopedPropertiesError;
+
+      const propertyIds = (scopedProperties || []).map((property) => property.id);
+      if (propertyIds.length === 0) return [];
+
+      const { data: scopedInvoices, error: scopedInvoicesError } = await supabase
+        .from('invoices')
+        .select('id')
+        .in('property_id', propertyIds);
+
+      if (scopedInvoicesError) throw scopedInvoicesError;
+
+      const invoiceIds = (scopedInvoices || []).map((invoice) => invoice.id);
+      if (invoiceIds.length === 0) return [];
 
       // Get payments from last 6 months
       const sixMonthsAgo = new Date();
@@ -308,6 +409,7 @@ export function useRevenueData() {
       const { data, error } = await supabase
         .from('payments')
         .select('amount, created_at, status')
+        .in('invoice_id', invoiceIds)
         .gte('created_at', sixMonthsAgo.toISOString())
         .eq('status', 'completed')
         .order('created_at', { ascending: true });

@@ -29,11 +29,12 @@ import {
   useRemoveCompanyMember,
 } from '@/hooks/useCompanies';
 import { useProperties } from '@/hooks/useProperties';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 export default function TeamManagement() {
   const { isLandlord } = useUserRole();
   const { data: companies, isLoading: loadingCompanies } = useMyCompanies();
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+  const { activeCompanyId, setActiveCompanyId } = useActiveCompany();
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
@@ -42,11 +43,11 @@ export default function TeamManagement() {
   const [assignPropertyId, setAssignPropertyId] = useState('');
   const [editCompanyDialogOpen, setEditCompanyDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<{ id: string; name: string; email: string; phone: string; address: string } | null>(null);
-  const activeCompanyId = selectedCompanyId || companies?.[0]?.id || '';
+  const resolvedCompanyId = activeCompanyId || companies?.[0]?.id || '';
   
-  const { data: members, isLoading: loadingMembers } = useCompanyMembers(activeCompanyId);
-  const { data: assignments } = usePMAssignments(activeCompanyId);
-  const { data: invites } = usePMInvites(activeCompanyId);
+  const { data: members, isLoading: loadingMembers } = useCompanyMembers(resolvedCompanyId);
+  const { data: assignments } = usePMAssignments(resolvedCompanyId);
+  const { data: invites } = usePMInvites(resolvedCompanyId);
   const { data: properties } = useProperties();
   
   const updateStatus = useUpdateMemberStatus();
@@ -63,11 +64,11 @@ export default function TeamManagement() {
   const deactivatedMembers = members?.filter(m => m.status === 'deactivated') || [];
 
   // Company properties (those with company_id set)
-  const companyProperties = properties?.filter((p: any) => p.company_id === activeCompanyId) || [];
+  const companyProperties = properties?.filter((p: any) => p.company_id === resolvedCompanyId) || [];
 
   const handleInvite = async () => {
-    if (!inviteEmail || !activeCompanyId) return;
-    const result = await createInvite.mutateAsync({ companyId: activeCompanyId, email: inviteEmail });
+    if (!inviteEmail || !resolvedCompanyId) return;
+    const result = await createInvite.mutateAsync({ companyId: resolvedCompanyId, email: inviteEmail });
     const appUrl = import.meta.env.VITE_SUPABASE_URL ? 'https://fishgate.lovable.app' : window.location.origin;
     const inviteUrl = `${appUrl}/signup?pm_invite=${result.token}`;
     await navigator.clipboard.writeText(inviteUrl);
@@ -77,9 +78,9 @@ export default function TeamManagement() {
   };
 
   const handleAssign = async () => {
-    if (!assignManagerId || !assignPropertyId || !activeCompanyId) return;
+    if (!assignManagerId || !assignPropertyId || !resolvedCompanyId) return;
     await assignPM.mutateAsync({
-      companyId: activeCompanyId,
+      companyId: resolvedCompanyId,
       propertyId: assignPropertyId,
       managerId: assignManagerId,
     });
@@ -123,8 +124,8 @@ export default function TeamManagement() {
   const handleDeleteCompany = async (company: any) => {
     if (!confirm(`Are you sure you want to delete "${company.name}"? This will also remove all associated members and assignments. This action cannot be undone.`)) return;
     await deleteCompany.mutateAsync(company.id);
-    if (selectedCompanyId === company.id) {
-      setSelectedCompanyId('');
+    if (resolvedCompanyId === company.id) {
+      setActiveCompanyId(null);
     }
   };
 
@@ -223,7 +224,7 @@ export default function TeamManagement() {
           <CardContent className="pt-4">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
               <Label className="whitespace-nowrap">Active Company:</Label>
-              <Select value={activeCompanyId} onValueChange={setSelectedCompanyId}>
+              <Select value={resolvedCompanyId} onValueChange={setActiveCompanyId}>
                 <SelectTrigger className="w-full sm:max-w-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -599,7 +600,7 @@ export default function TeamManagement() {
                                 <p className="text-xs text-muted-foreground">{company.address}</p>
                               )}
                               <div className="flex gap-2 mt-1">
-                                {activeCompanyId === company.id && (
+                                {resolvedCompanyId === company.id && (
                                   <>
                                     <Badge variant="secondary" className="text-xs">{memberCount} managers</Badge>
                                     <Badge variant="secondary" className="text-xs">{propCount} properties</Badge>

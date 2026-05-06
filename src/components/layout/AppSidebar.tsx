@@ -11,6 +11,7 @@ import {
   Wrench,
   Bell,
   MessageSquare,
+  Megaphone,
   Settings,
   LogOut,
   ChevronLeft,
@@ -32,7 +33,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { useMyCompanies, useMyMembership } from '@/hooks/useCompanies';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 interface AppSidebarProps {
   mobile?: boolean;
@@ -82,6 +83,8 @@ const sharedSections: NavSection[] = [
   },
 ];
 
+const managerCommunicationItem: NavItem = { icon: Megaphone, label: 'Broadcasts', href: '/broadcasts' };
+
 const landlordOnlySection: NavSection = {
   title: 'Admin',
   items: [{ icon: UserCog, label: 'Team', href: '/team' }],
@@ -97,11 +100,17 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
   const location = useLocation();
   const { user, profile, logout } = useAuth();
   const { isLandlord, role } = useUserRole();
-  const { data: ownedCompanies = [] } = useMyCompanies();
-  const { data: membership } = useMyMembership();
+  const { companies, activeCompanyId, setActiveCompanyId } = useActiveCompany();
   const collapsedView = !mobile && collapsed;
 
-  const navSections = isLandlord ? [landlordOnlySection, ...sharedSections] : sharedSections;
+  const navSectionsBase = isLandlord ? [landlordOnlySection, ...sharedSections] : sharedSections;
+  const navSections = navSectionsBase.map((section) => {
+    if (section.title !== 'Communication') return section;
+    if (role === 'landlord' || role === 'property_manager') {
+      return { ...section, items: [...section.items.slice(0, 1), managerCommunicationItem, ...section.items.slice(1)] };
+    }
+    return section;
+  });
 
   const handleLogout = async () => {
     await logout();
@@ -128,11 +137,7 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
     return location.pathname === href || location.pathname.startsWith(`${href}/`);
   };
 
-  const visibleCompanies = ownedCompanies.length > 0
-    ? ownedCompanies
-    : membership?.companies
-      ? [membership.companies]
-      : [];
+  const visibleCompanies = companies;
 
   return (
     <aside
@@ -170,9 +175,22 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
                 <div className="rounded-lg border border-sidebar-border/80 bg-sidebar-accent/60 p-2 space-y-1">
                   {visibleCompanies.length > 0 ? (
                     visibleCompanies.map((company) => (
-                      <div key={company.id} className="rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/85 bg-sidebar/30">
+                      <button
+                        key={company.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveCompanyId(company.id);
+                          onNavigate?.();
+                        }}
+                        className={cn(
+                          'w-full text-left rounded-md px-2 py-1.5 text-sm transition-colors',
+                          activeCompanyId === company.id
+                            ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                            : 'text-sidebar-foreground/85 bg-sidebar/30 hover:bg-sidebar-accent'
+                        )}
+                      >
                         {company.name}
-                      </div>
+                      </button>
                     ))
                   ) : (
                     <div className="rounded-md px-2 py-1.5 text-xs text-sidebar-foreground/70 bg-sidebar/30">
@@ -205,7 +223,7 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3">
+        <nav className="flex-1 overflow-y-auto py-4 px-3 sidebar-scroll">
           {mobile && (
             <div className="mb-4 p-3 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/60">
               <p className="text-[11px] uppercase tracking-[0.12em] text-sidebar-foreground/60 mb-2">Quick actions</p>

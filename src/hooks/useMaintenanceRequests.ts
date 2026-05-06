@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 export interface MaintenanceRequest {
   id: string;
@@ -19,18 +20,26 @@ export interface MaintenanceRequest {
 }
 
 export function useMaintenanceRequests() {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['maintenance_requests'],
+    queryKey: ['maintenance_requests', activeCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('maintenance_requests')
         .select(`
           *,
           units:unit_id(id, unit_number, property_id),
-          properties:property_id(id, name),
+          properties:property_id(id, name, company_id),
           tenants:tenant_id(id, name, email)
         `)
         .order('created_at', { ascending: false });
+
+      if (activeCompanyId) {
+        query = query.eq('properties.company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data;
@@ -39,19 +48,26 @@ export function useMaintenanceRequests() {
 }
 
 export function useMaintenanceRequest(id: string) {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['maintenance_requests', id],
+    queryKey: ['maintenance_requests', id, activeCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('maintenance_requests')
         .select(`
           *,
           units:unit_id(id, unit_number),
-          properties:property_id(id, name),
+          properties:property_id(id, name, company_id),
           tenants:tenant_id(id, name, email)
         `)
-        .eq('id', id)
-        .single();
+        .eq('id', id);
+
+      if (activeCompanyId) {
+        query = query.eq('properties.company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data;

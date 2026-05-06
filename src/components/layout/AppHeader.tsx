@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 type QuickAddType = 'property' | 'unit' | 'tenant' | 'lease' | 'invoice';
 
@@ -43,6 +44,7 @@ export function AppHeader() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const { companies, activeCompanyId } = useActiveCompany();
 
   const { data: unreadCount = 0 } = useUnreadNotificationsCount();
 
@@ -113,6 +115,8 @@ export function AppHeader() {
     searchInputRef.current?.focus();
   };
 
+  const activeCompanyName = companies.find((company) => company.id === activeCompanyId)?.name;
+
   return (
     <header className="h-16 bg-card/90 border-b border-border/70 px-6 flex items-center justify-between gap-4 backdrop-blur-sm">
       {/* Search */}
@@ -142,6 +146,11 @@ export function AppHeader() {
           >
             FishGate Flow
           </button>
+          {activeCompanyName && (
+            <Badge variant="outline" className="hidden lg:flex border-border/80 bg-background/90 text-foreground h-9 px-3 rounded-full">
+              {activeCompanyName}
+            </Badge>
+          )}
           {filteredResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 overflow-hidden">
               {filteredResults.map((result, index) => (

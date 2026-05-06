@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 export interface Booking {
   id: string;
@@ -30,13 +31,31 @@ export interface Booking {
 }
 
 export function useBookings(propertyId?: string) {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['bookings', propertyId],
+    queryKey: ['bookings', propertyId, activeCompanyId],
     queryFn: async () => {
       let query = supabase
         .from('bookings')
         .select('*, properties(name), units(unit_number)')
         .order('check_in', { ascending: false });
+
+      if (activeCompanyId) {
+        const { data: scopedProperties, error: scopedPropertiesError } = await supabase
+          .from('properties')
+          .select('id')
+          .eq('company_id', activeCompanyId);
+
+        if (scopedPropertiesError) throw scopedPropertiesError;
+
+        const propertyIds = (scopedProperties || []).map((property) => property.id);
+        if (propertyIds.length === 0) {
+          return [] as Booking[];
+        }
+
+        query = query.in('property_id', propertyIds);
+      }
 
       if (propertyId) {
         query = query.eq('property_id', propertyId);

@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications, useMarkAsRead, useMarkAllAsRead, useDeleteNotification, useClearAllNotifications, useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useBroadcastAnnouncements } from '@/hooks/useBroadcasts';
 
 const typeIcons = {
   info: Info,
@@ -43,16 +44,12 @@ export default function Notifications() {
   const navigate = useNavigate();
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const { data: notifications = [], isLoading } = useNotifications();
+  const { data: announcements = [], isLoading: announcementsLoading } = useBroadcastAnnouncements();
   const { data: unreadCount = 0 } = useUnreadNotificationsCount();
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
   const deleteNotification = useDeleteNotification();
   const clearAll = useClearAllNotifications();
-
-  const announcementItems = notifications.filter((item) => {
-    const title = (item.title || '').toLowerCase();
-    return item.type === 'info' || title.includes('announcement') || title.includes('notice');
-  });
 
   const handleMarkAsRead = async (id: string) => {
     await markAsRead.mutateAsync(id);
@@ -116,19 +113,21 @@ export default function Notifications() {
             <CardContent className="pt-2">
               {isLoading ? (
                 <div className="text-center py-8 text-muted-foreground">Loading announcements...</div>
-              ) : announcementItems.length === 0 ? (
+              ) : announcementsLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading announcements...</div>
+              ) : announcements.length === 0 ? (
                 renderEmpty('There are no entries on your list.', 'Announcements from FishGate will appear here.', 'megaphone')
               ) : (
                 <div className="space-y-2 py-2">
-                  {announcementItems.map((notification) => (
-                    <div key={notification.id} className="p-4 rounded-lg border bg-card space-y-2">
+                  {announcements.map((announcement) => (
+                    <div key={announcement.id} className="p-4 rounded-lg border bg-card space-y-2">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="font-medium text-foreground">{notification.title}</p>
+                        <p className="font-medium text-foreground">{announcement.title}</p>
                         <Badge variant="outline" className="text-xs">Announcement</Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">{notification.message}</p>
+                      <p className="text-sm text-muted-foreground">{announcement.message}</p>
                       <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(announcement.created_at), { addSuffix: true })}
                       </p>
                     </div>
                   ))}
