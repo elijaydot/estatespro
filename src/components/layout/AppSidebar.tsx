@@ -15,6 +15,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Home,
   Receipt,
   RefreshCw,
@@ -30,6 +32,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { useMyCompanies, useMyMembership } from '@/hooks/useCompanies';
 
 interface AppSidebarProps {
   mobile?: boolean;
@@ -90,9 +93,12 @@ const bottomNavItems = [
 
 export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [showCompanies, setShowCompanies] = useState(false);
   const location = useLocation();
   const { user, profile, logout } = useAuth();
   const { isLandlord, role } = useUserRole();
+  const { data: ownedCompanies = [] } = useMyCompanies();
+  const { data: membership } = useMyMembership();
   const collapsedView = !mobile && collapsed;
 
   const navSections = isLandlord ? [landlordOnlySection, ...sharedSections] : sharedSections;
@@ -122,6 +128,12 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
     return location.pathname === href || location.pathname.startsWith(`${href}/`);
   };
 
+  const visibleCompanies = ownedCompanies.length > 0
+    ? ownedCompanies
+    : membership?.companies
+      ? [membership.companies]
+      : [];
+
   return (
     <aside
       className={cn(
@@ -133,15 +145,53 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
     >
       <div className="flex h-full flex-col">
         {/* Logo */}
-        <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
-          <Link to="/dashboard" className="flex items-center gap-3" onClick={onNavigate}>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground font-bold text-lg">
-              FG
+        <div className={cn("border-b border-sidebar-border", mobile ? 'p-4' : 'flex h-16 items-center justify-between px-4')}>
+          {mobile ? (
+            <div className="space-y-3">
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 text-left"
+                onClick={() => setShowCompanies((prev) => !prev)}
+              >
+                <Avatar className="h-12 w-12 border border-sidebar-border">
+                  <AvatarImage src={profile?.avatar_url || undefined} />
+                  <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">
+                    {profile?.name ? getInitials(profile.name) : 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-sidebar-foreground truncate">{profile?.name || 'FishGate user'}</p>
+                  <p className="text-sm text-sidebar-foreground/75 truncate">{profile?.email || user?.email}</p>
+                </div>
+                {showCompanies ? <ChevronUp className="h-4 w-4 text-sidebar-foreground/70" /> : <ChevronDown className="h-4 w-4 text-sidebar-foreground/70" />}
+              </button>
+
+              {showCompanies && (
+                <div className="rounded-lg border border-sidebar-border/80 bg-sidebar-accent/60 p-2 space-y-1">
+                  {visibleCompanies.length > 0 ? (
+                    visibleCompanies.map((company) => (
+                      <div key={company.id} className="rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/85 bg-sidebar/30">
+                        {company.name}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-md px-2 py-1.5 text-xs text-sidebar-foreground/70 bg-sidebar/30">
+                      No linked companies
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            {!collapsedView && (
-              <span className="font-semibold text-lg text-sidebar-foreground">FishGate</span>
-            )}
-          </Link>
+          ) : (
+            <Link to="/dashboard" className="flex items-center gap-3" onClick={onNavigate}>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground font-bold text-lg">
+                FG
+              </div>
+              {!collapsedView && (
+                <span className="font-semibold text-lg text-sidebar-foreground">FishGate</span>
+              )}
+            </Link>
+          )}
           {!mobile && (
             <Button
               variant="ghost"

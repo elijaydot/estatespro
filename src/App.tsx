@@ -37,6 +37,7 @@ const Bookings = lazy(() => import("./pages/Bookings"));
 const GuestBookingPortal = lazy(() => import("./pages/GuestBookingPortal"));
 const TeamManagement = lazy(() => import("./pages/TeamManagement"));
 const TenantExitWorkflow = lazy(() => import("./pages/TenantExitWorkflow"));
+const HelpSupport = lazy(() => import("./pages/HelpSupport"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Tenant Portal
@@ -168,6 +169,7 @@ function AppRoutes() {
       <Route path="/notifications" element={<PrivateRoute>{withSuspense(<Notifications />)}</PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute>{withSuspense(<Reports />)}</PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute>{withSuspense(<Settings />)}</PrivateRoute>} />
+      <Route path="/support" element={<PrivateRoute>{withSuspense(<HelpSupport />)}</PrivateRoute>} />
       
       {/* Tenant Portal Routes */}
       <Route path="/tenant/login" element={withSuspense(<TenantLogin />)} />

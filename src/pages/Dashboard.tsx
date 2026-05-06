@@ -8,6 +8,8 @@ import {
   Wrench,
   Calendar,
   ArrowUpRight,
+  Receipt,
+  FileText,
   Sparkles,
   WandSparkles,
 } from 'lucide-react';
@@ -76,8 +78,54 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 max-w-[1600px]">
+      <div className="md:hidden space-y-4 animate-fade-in">
+        <div className="rounded-2xl border border-border/60 bg-card/95 p-4 card-shadow-md">
+          <p className="text-sm font-semibold text-foreground">Welcome back {stats ? '' : ''}</p>
+          <p className="text-xs text-muted-foreground mt-1">Here is your organization overview</p>
+        </div>
+
+        <div className="rounded-2xl border border-border/60 bg-card p-4 card-shadow-md">
+          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground mb-3">Quick Actions</p>
+          <div className="grid grid-cols-4 gap-2">
+            <Button variant="secondary" className="h-auto py-3 flex-col gap-1 rounded-xl" onClick={() => navigate('/invoices?add=true')}>
+              <Receipt className="h-4 w-4" />
+              <span className="text-[11px]">Invoice</span>
+            </Button>
+            <Button variant="secondary" className="h-auto py-3 flex-col gap-1 rounded-xl" onClick={() => navigate('/tenants?add=true')}>
+              <Users className="h-4 w-4" />
+              <span className="text-[11px]">Customer</span>
+            </Button>
+            <Button variant="secondary" className="h-auto py-3 flex-col gap-1 rounded-xl" onClick={() => navigate('/maintenance')}>
+              <FileText className="h-4 w-4" />
+              <span className="text-[11px]">Expense</span>
+            </Button>
+            <Button variant="secondary" className="h-auto py-3 flex-col gap-1 rounded-xl" onClick={() => navigate('/reports')}>
+              <TrendingUp className="h-4 w-4" />
+              <span className="text-[11px]">Analytics</span>
+            </Button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border/60 bg-card p-4 card-shadow-md">
+          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Receivables Summary</p>
+          <p className="mt-2 text-2xl font-bold text-foreground">
+            {isLoading || !stats ? '--' : formatCurrency(stats.pendingPayments + stats.overduePayments)}
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-xl bg-primary/5 border border-primary/20 p-3">
+              <p className="text-xs text-muted-foreground">Current</p>
+              <p className="font-semibold text-foreground mt-1">{isLoading || !stats ? '--' : formatCurrency(stats.pendingPayments)}</p>
+            </div>
+            <div className="rounded-xl bg-destructive/5 border border-destructive/20 p-3">
+              <p className="text-xs text-muted-foreground">Overdue</p>
+              <p className="font-semibold text-foreground mt-1">{isLoading || !stats ? '--' : formatCurrency(stats.overduePayments)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
-      <div className="animate-fade-in">
+      <div className="animate-fade-in hidden md:block">
         <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm p-4 sm:p-5 card-shadow-md overflow-hidden relative">
           <div className="absolute -top-16 -right-10 h-44 w-44 rounded-full bg-accent/20 blur-2xl" aria-hidden />
           <div className="absolute -bottom-16 left-10 h-32 w-32 rounded-full bg-primary/15 blur-2xl" aria-hidden />
