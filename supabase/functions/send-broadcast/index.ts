@@ -92,21 +92,41 @@ serve(async (req) => {
       return json({ error: "Forbidden" }, 403);
     }
 
-    if (propertyId) {
-      const propertyQuery = adminClient
+    let allowedPropertyIds: string[] = [];
+
+    if (isOwner) {
+      const { data: ownedProperties, error: ownedPropertiesError } = await adminClient
         .from("properties")
-        .select("id, company_id")
-        .eq("id", propertyId)
+        .select("id")
         .eq("company_id", companyId);
 
-      if (isApprovedPm) {
-        propertyQuery.eq("user_id", userId);
+      if (ownedPropertiesError) {
+        console.error("Failed to fetch company properties", ownedPropertiesError);
+        return json({ error: "Failed to resolve property scope" }, 500);
       }
 
-      const { data: property } = await propertyQuery.maybeSingle();
-      if (!property) {
-        return json({ error: "Invalid property scope" }, 400);
+      allowedPropertyIds = (ownedProperties ?? []).map((property) => property.id);
+    } else {
+      const { data: assignedProperties, error: assignedPropertiesError } = await adminClient
+        .from("property_manager_assignments")
+        .select("property_id")
+        .eq("company_id", companyId)
+        .eq("manager_id", userId);
+
+      if (assignedPropertiesError) {
+        console.error("Failed to fetch PM assignments", assignedPropertiesError);
+        return json({ error: "Failed to resolve property scope" }, 500);
       }
+
+      allowedPropertyIds = (assignedProperties ?? []).map((assignment) => assignment.property_id);
+    }
+
+    if (allowedPropertyIds.length === 0) {
+      return json({ error: "No allowed properties found for this company" }, 403);
+    }
+
+    if (propertyId && !allowedPropertyIds.includes(propertyId)) {
+      return json({ error: "Invalid property scope" }, 400);
     }
 
     if (unitId) {
@@ -144,14 +164,12 @@ serve(async (req) => {
       return json({ error: "Failed to create broadcast" }, 500);
     }
 
+    const scopedPropertyIds = propertyId ? [propertyId] : allowedPropertyIds;
+
     let tenantQuery = adminClient
       .from("tenants")
       .select("id, tenant_user_id, property_id, unit_id")
-      .eq("user_id", isOwner ? userId : userId);
-
-    if (propertyId) {
-      tenantQuery = tenantQuery.eq("property_id", propertyId);
-    }
+      .in("property_id", scopedPropertyIds);
 
     if (unitId) {
       tenantQuery = tenantQuery.eq("unit_id", unitId);
