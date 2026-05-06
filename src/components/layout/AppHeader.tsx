@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Search, Plus, Building, Home, Users, FileText, Receipt, Sparkles, Command } from 'lucide-react';
+import { Bell, Search, Plus, Building, Home, Users, FileText, Receipt, Command } from 'lucide-react';
 import { safeSearch } from '@/lib/safeSearch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,7 @@ type SearchResult = {
 export function AppHeader() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { data: unreadCount = 0 } = useUnreadNotificationsCount();
 
@@ -108,6 +109,10 @@ export function AppHeader() {
     }
   };
 
+  const handleFlowClick = () => {
+    searchInputRef.current?.focus();
+  };
+
   return (
     <header className="h-16 bg-card/90 border-b border-border/70 px-6 flex items-center justify-between gap-4 backdrop-blur-sm">
       {/* Search */}
@@ -116,6 +121,7 @@ export function AppHeader() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
+              ref={searchInputRef}
               placeholder="Search properties, tenants..."
               className="pl-10 pr-14 bg-secondary/70 border border-border/60 focus-visible:ring-2 focus-visible:ring-ring"
               value={searchQuery}
@@ -129,10 +135,13 @@ export function AppHeader() {
             </div>
           </div>
 
-          <Badge variant="outline" className="hidden md:flex border-primary/30 bg-primary/5 text-primary gap-1 h-9 px-3 rounded-full">
-            <Sparkles className="h-3.5 w-3.5" />
+          <button
+            type="button"
+            onClick={handleFlowClick}
+            className="hidden md:flex items-center h-9 px-3 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-medium hover:bg-primary/10 transition-colors"
+          >
             FishGate Flow
-          </Badge>
+          </button>
           {filteredResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 overflow-hidden">
               {filteredResults.map((result, index) => (

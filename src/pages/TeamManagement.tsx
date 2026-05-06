@@ -163,15 +163,15 @@ export default function TeamManagement() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Team Management</h1>
           <p className="text-muted-foreground mt-1">Manage property managers and property assignments</p>
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full md:w-auto">
           <Dialog open={companyDialogOpen} onOpenChange={setCompanyDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2 w-full md:w-auto">
                 <Building2 className="h-4 w-4" />
                 Add Company
               </Button>
@@ -192,7 +192,7 @@ export default function TeamManagement() {
           </Dialog>
           <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button className="gap-2 w-full md:w-auto">
                 <UserPlus className="h-4 w-4" />
                 Invite Manager
               </Button>
@@ -221,10 +221,10 @@ export default function TeamManagement() {
       {companies && companies.length > 1 && (
         <Card>
           <CardContent className="pt-4">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
               <Label className="whitespace-nowrap">Active Company:</Label>
               <Select value={activeCompanyId} onValueChange={setSelectedCompanyId}>
-                <SelectTrigger className="max-w-xs">
+                <SelectTrigger className="w-full sm:max-w-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -239,7 +239,8 @@ export default function TeamManagement() {
       )}
 
       <Tabs defaultValue="members" className="space-y-4">
-        <TabsList>
+        <div className="w-full overflow-x-auto pb-1">
+        <TabsList className="min-w-max">
           <TabsTrigger value="members" className="gap-2">
             <Users className="h-4 w-4" />
             Members
@@ -262,6 +263,7 @@ export default function TeamManagement() {
             Companies ({companies?.length || 0})
           </TabsTrigger>
         </TabsList>
+        </div>
 
         {/* Members Tab */}
         <TabsContent value="members" className="space-y-4">
@@ -277,7 +279,7 @@ export default function TeamManagement() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {pendingMembers.map(member => (
-                  <div key={member.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                  <div key={member.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border bg-card">
                     <div className="flex items-center gap-3">
                       <Avatar>
                         <AvatarFallback className="bg-primary/10 text-primary">
@@ -289,7 +291,7 @@ export default function TeamManagement() {
                         <p className="text-sm text-muted-foreground">{member.profiles?.email}</p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
                         onClick={() => updateStatus.mutate({ memberId: member.id, status: 'approved' })}
@@ -329,7 +331,7 @@ export default function TeamManagement() {
                     const memberAssignments = assignments?.filter(a => a.manager_id === member.user_id) || [];
                     return (
                       <div key={member.id} className="p-4 rounded-lg border bg-card">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-3">
                             <Avatar>
                               <AvatarFallback className="bg-success/10 text-success">
@@ -350,7 +352,7 @@ export default function TeamManagement() {
                               )}
                             </div>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-2">
                             {getStatusBadge(member.status)}
                             <Button
                               size="sm"
@@ -390,7 +392,7 @@ export default function TeamManagement() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {deactivatedMembers.map(member => (
-                  <div key={member.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                  <div key={member.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border bg-muted/30">
                     <div className="flex items-center gap-3">
                       <Avatar className="opacity-50">
                         <AvatarFallback>{member.profiles?.name?.charAt(0) || 'U'}</AvatarFallback>
@@ -485,7 +487,7 @@ export default function TeamManagement() {
                   {assignments.map(assignment => {
                     const member = members?.find(m => m.user_id === assignment.manager_id);
                     return (
-                      <div key={assignment.id} className="flex items-center justify-between p-3 rounded-lg border">
+                      <div key={assignment.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border">
                         <div className="flex items-center gap-4">
                           <Avatar>
                             <AvatarFallback className="bg-primary/10 text-primary">
@@ -530,7 +532,7 @@ export default function TeamManagement() {
               ) : (
                 <div className="space-y-3">
                   {invites.map((invite: any) => (
-                    <div key={invite.id} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div key={invite.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border">
                       <div>
                         <p className="font-medium">{invite.email}</p>
                         <p className="text-xs text-muted-foreground">
@@ -582,7 +584,7 @@ export default function TeamManagement() {
                     const propCount = companyProperties.length;
                     return (
                       <div key={company.id} className="p-4 rounded-lg border bg-card">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg bg-primary/10">
                               <Building2 className="h-5 w-5 text-primary" />
@@ -606,7 +608,7 @@ export default function TeamManagement() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-2">
                             <Button
                               size="sm"
                               variant="outline"

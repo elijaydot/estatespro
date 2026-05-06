@@ -1,10 +1,9 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { Menu, Plus, Sparkles, Wrench } from 'lucide-react';
+import { Menu, Plus, Wrench } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AppSidebar } from './AppSidebar';
 import { AppHeader } from './AppHeader';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 interface AppLayoutProps {
@@ -46,10 +45,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               </div>
               <div>
                 <span className="font-semibold text-foreground leading-none">FishGate</span>
-                <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                  <Sparkles className="h-3 w-3" />
-                  Smart operations cockpit
-                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Smart operations cockpit</p>
               </div>
             </div>
 
@@ -65,10 +61,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             </Sheet>
           </div>
 
-          <div className="mt-2.5 flex items-center justify-between gap-2">
-            <Badge variant="secondary" className="bg-primary/10 text-primary border border-primary/20">
-              Week 4 Polish
-            </Badge>
+          <div className="mt-2.5 flex items-center justify-end gap-2">
             <div className="flex items-center gap-1.5">
               <Button asChild size="sm" variant="secondary" className="h-8 px-3 rounded-full">
                 <Link to="/tenants?add=true">

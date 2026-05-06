@@ -159,20 +159,20 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
           {mobile && (
             <div className="mb-4 p-3 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/60">
               <p className="text-[11px] uppercase tracking-[0.12em] text-sidebar-foreground/60 mb-2">Quick actions</p>
-              <div className="grid grid-cols-3 gap-2">
-                <Button asChild size="sm" variant="secondary" className="h-8 text-xs bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
+              <div className="grid grid-cols-2 gap-2">
+                <Button asChild size="sm" variant="secondary" className="h-9 text-xs justify-center bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
                   <RouterLink to="/tenants?add=true" onClick={onNavigate}>
                     <Zap className="h-3.5 w-3.5 mr-1" />
                     Tenant
                   </RouterLink>
                 </Button>
-                <Button asChild size="sm" variant="secondary" className="h-8 text-xs bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
+                <Button asChild size="sm" variant="secondary" className="h-9 text-xs justify-center bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
                   <RouterLink to="/payments?add=true" onClick={onNavigate}>
                     <Wallet className="h-3.5 w-3.5 mr-1" />
                     Payment
                   </RouterLink>
                 </Button>
-                <Button asChild size="sm" variant="secondary" className="h-8 text-xs bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
+                <Button asChild size="sm" variant="secondary" className="h-9 text-xs justify-center col-span-2 bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
                   <RouterLink to="/maintenance?add=true" onClick={onNavigate}>
                     <Wrench className="h-3.5 w-3.5 mr-1" />
                     Request
