@@ -1364,6 +1364,60 @@ export type Database = {
         }
         Relationships: []
       }
+      security_audit_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          ip_address: string | null
+          metadata: Json
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      security_recovery_codes: {
+        Row: {
+          code_hash: string
+          created_at: string
+          id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code_hash: string
+          created_at?: string
+          id?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code_hash?: string
+          created_at?: string
+          id?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       tenant_exits: {
         Row: {
           completed_at: string | null
@@ -1698,6 +1752,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consume_recovery_code: { Args: { p_code: string }; Returns: boolean }
       get_company_property_ids: {
         Args: { _user_id: string }
         Returns: string[]
@@ -1752,6 +1807,15 @@ export type Database = {
         Returns: boolean
       }
       is_company_owner: { Args: { _user_id: string }; Returns: boolean }
+      log_security_event: {
+        Args: {
+          p_event_type: string
+          p_ip_address?: string
+          p_metadata?: Json
+          p_user_agent?: string
+        }
+        Returns: string
+      }
       process_payment:
         | {
             Args: {
@@ -1779,6 +1843,7 @@ export type Database = {
             }
             Returns: string
           }
+      set_recovery_codes: { Args: { p_codes: string[] }; Returns: number }
       tenant_lease_update_guard: {
         Args: {
           p_created_at: string
