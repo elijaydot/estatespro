@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense, type ReactNode } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { ActiveCompanyProvider } from "@/contexts/ActiveCompanyContext";
@@ -40,6 +40,7 @@ const TeamManagement = lazy(() => import("./pages/TeamManagement"));
 const TenantExitWorkflow = lazy(() => import("./pages/TenantExitWorkflow"));
 const HelpSupport = lazy(() => import("./pages/HelpSupport"));
 const Broadcasts = lazy(() => import("./pages/Broadcasts"));
+const MfaChallenge = lazy(() => import("./pages/MfaChallenge"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Tenant Portal
@@ -51,6 +52,7 @@ const TenantMaintenance = lazy(() => import("./pages/tenant-portal/TenantMainten
 const TenantLease = lazy(() => import("./pages/tenant-portal/TenantLease"));
 const TenantMessages = lazy(() => import("./pages/tenant-portal/TenantMessages"));
 const TenantNotifications = lazy(() => import("./pages/tenant-portal/TenantNotifications"));
+const TenantSettings = lazy(() => import("./pages/tenant-portal/TenantSettings"));
 const TenantLeaseSign = lazy(() => import("./pages/tenant-portal/TenantLeaseSign"));
 const TenantLogin = lazy(() => import("./pages/tenant-portal/TenantLogin"));
 const TenantSignup = lazy(() => import("./pages/tenant-portal/TenantSignup"));
@@ -73,11 +75,12 @@ function FullPageLoading() {
 }
 
 function PrivateRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, mfa } = useAuth();
   const { role, isLoading: roleLoading, isPropertyManager, isTenant } = useUserRole();
   const { data: membership, isLoading: membershipLoading } = useMyMembership();
+  const location = useLocation();
 
-  if (authLoading || roleLoading || membershipLoading) {
+  if (authLoading || roleLoading || membershipLoading || mfa.isLoading) {
     return <FullPageLoading />;
   }
   
@@ -95,6 +98,14 @@ function PrivateRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
+  if (mfa.needsChallenge && location.pathname !== '/mfa-challenge') {
+    return <Navigate to="/mfa-challenge" replace />;
+  }
+
+  if ((role === 'landlord' || role === 'property_manager') && !mfa.isEnabled && location.pathname !== '/settings') {
+    return <Navigate to="/settings?tab=security&enforce_mfa=1" replace />;
+  }
+
   // If PM, check membership status
   if (isPropertyManager && membership) {
     if (membership.status !== 'approved') {
@@ -106,10 +117,10 @@ function PrivateRoute({ children }: { children: ReactNode }) {
 }
 
 function TenantPortalRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, mfa } = useAuth();
   const { role, isLoading: roleLoading } = useUserRole();
 
-  if (authLoading || roleLoading) {
+  if (authLoading || roleLoading || mfa.isLoading) {
     return <FullPageLoading />;
   }
   
@@ -120,19 +131,45 @@ function TenantPortalRoute({ children }: { children: ReactNode }) {
   if (role !== 'tenant') {
     return <Navigate to="/dashboard" replace />;
   }
+
+  if (mfa.needsChallenge) {
+    return <Navigate to="/mfa-challenge" replace />;
+  }
   
   return <TenantPortalLayout>{children}</TenantPortalLayout>;
 }
 
-function PublicRoute({ children }: { children: ReactNode }) {
+function AuthenticatedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { role, isLoading: roleLoading } = useUserRole();
 
   if (authLoading || roleLoading) {
     return <FullPageLoading />;
   }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (role === 'tenant') {
+    return <TenantPortalLayout>{children}</TenantPortalLayout>;
+  }
+
+  return <AppLayout>{children}</AppLayout>;
+}
+
+function PublicRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading: authLoading, mfa } = useAuth();
+  const { role, isLoading: roleLoading } = useUserRole();
+
+  if (authLoading || roleLoading || mfa.isLoading) {
+    return <FullPageLoading />;
+  }
   
   if (isAuthenticated) {
+    if (mfa.needsChallenge) {
+      return <Navigate to="/mfa-challenge" replace />;
+    }
     return <Navigate to={role === 'tenant' ? '/tenant' : '/dashboard'} replace />;
   }
   
@@ -147,6 +184,7 @@ function AppRoutes() {
       <Route path="/signup" element={<PublicRoute>{withSuspense(<Signup />)}</PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute>{withSuspense(<ForgotPassword />)}</PublicRoute>} />
       <Route path="/reset-password" element={<PublicRoute>{withSuspense(<ResetPassword />)}</PublicRoute>} />
+      <Route path="/mfa-challenge" element={<AuthenticatedRoute>{withSuspense(<MfaChallenge />)}</AuthenticatedRoute>} />
       <Route path="/book/:propertyId" element={withSuspense(<GuestBookingPage />)} />
       <Route path="/bookings/guest-action" element={withSuspense(<GuestBookingActionPage />)} />
       
@@ -188,6 +226,7 @@ function AppRoutes() {
       <Route path="/tenant/lease/sign/:id" element={<TenantPortalRoute>{withSuspense(<TenantLeaseSign />)}</TenantPortalRoute>} />
       <Route path="/tenant/messages" element={<TenantPortalRoute>{withSuspense(<TenantMessages />)}</TenantPortalRoute>} />
       <Route path="/tenant/notifications" element={<TenantPortalRoute>{withSuspense(<TenantNotifications />)}</TenantPortalRoute>} />
+      <Route path="/tenant/settings" element={<TenantPortalRoute>{withSuspense(<TenantSettings />)}</TenantPortalRoute>} />
       <Route path="/tenant/support" element={<TenantPortalRoute>{withSuspense(<HelpSupport />)}</TenantPortalRoute>} />
       
       {/* Legacy portal routes */}

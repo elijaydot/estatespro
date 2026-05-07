@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Settings as SettingsIcon, Globe, Building2, Palette, FileText, Bell, ClipboardCheck, User, CreditCard } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Settings as SettingsIcon, Globe, Building2, Palette, FileText, Bell, ClipboardCheck, User, CreditCard, Shield } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { GeneralSettings } from '@/components/settings/GeneralSettings';
@@ -9,6 +10,7 @@ import { LeaseDocumentSettings } from '@/components/settings/LeaseDocumentSettin
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { InspectionChecklistSettings } from '@/components/settings/InspectionChecklistSettings';
 import { PaymentSettings } from '@/components/settings/PaymentSettings';
+import { SecuritySettings } from '@/components/settings/SecuritySettings';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User, description: 'Account details' },
@@ -17,12 +19,24 @@ const tabs = [
   { id: 'appearance', label: 'Appearance', icon: Palette, description: 'Colors & theme' },
   { id: 'lease', label: 'Lease Documents', icon: FileText, description: 'PDF styling' },
   { id: 'payments', label: 'Payments', icon: CreditCard, description: 'Gateway & manual' },
+  { id: 'security', label: 'Security', icon: Shield, description: 'MFA and account protection' },
   { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Alerts & emails' },
   { id: 'inspections', label: 'Inspections', icon: ClipboardCheck, description: 'Checklists' },
 ];
 
 export default function Settings() {
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('profile');
+
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab');
+    if (!requestedTab) return;
+
+    const exists = tabs.some((tab) => tab.id === requestedTab);
+    if (exists) {
+      setActiveTab(requestedTab);
+    }
+  }, [searchParams]);
 
   return (
     <div className="animate-fade-in">
@@ -83,6 +97,7 @@ export default function Settings() {
           {activeTab === 'appearance' && <AppearanceSettings />}
           {activeTab === 'lease' && <LeaseDocumentSettings />}
           {activeTab === 'payments' && <PaymentSettingsWrapper />}
+          {activeTab === 'security' && <SecuritySettingsWrapper />}
           {activeTab === 'notifications' && <NotificationSettings />}
           {activeTab === 'inspections' && <InspectionChecklistWrapper />}
         </div>
@@ -123,6 +138,18 @@ function InspectionChecklistWrapper() {
         <p className="text-sm text-muted-foreground">Manage default items for tenant exit inspections</p>
       </div>
       <InspectionChecklistSettings />
+    </div>
+  );
+}
+
+function SecuritySettingsWrapper() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-foreground">Security</h2>
+        <p className="text-sm text-muted-foreground">Set up and manage multi-factor authentication for your account.</p>
+      </div>
+      <SecuritySettings />
     </div>
   );
 }

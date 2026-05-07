@@ -14,6 +14,7 @@ import {
   Receipt,
   RefreshCw,
   CircleHelp,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -23,6 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 import { TenantChatbot } from '@/components/ai/TenantChatbot';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
+import { MfaReminderBanner } from '@/components/security/MfaReminderBanner';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/tenant' },
@@ -33,6 +35,7 @@ const navItems = [
   { label: 'Lease', icon: FileText, href: '/tenant/lease' },
   { label: 'Messages', icon: MessageSquare, href: '/tenant/messages' },
   { label: 'Notifications', icon: Bell, href: '/tenant/notifications' },
+  { label: 'Settings', icon: Shield, href: '/tenant/settings' },
 ];
 
 interface TenantPortalLayoutProps {
@@ -265,7 +268,10 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
       </header>
 
       <main className="lg:pl-64">
-        <div className="p-6 lg:p-8">{children}</div>
+        <div className="p-6 lg:p-8">
+          <MfaReminderBanner />
+          {children}
+        </div>
       </main>
 
       <TenantChatbot />

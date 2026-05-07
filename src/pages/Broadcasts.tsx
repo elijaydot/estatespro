@@ -13,6 +13,8 @@ import { useUnits } from '@/hooks/useUnits';
 import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 import { formatDistanceToNow } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useStepUpGuard } from '@/hooks/useStepUpGuard';
+import { logSecurityEvent } from '@/lib/security';
 
 const audienceLabel: Record<string, string> = {
   all: 'All users',
@@ -38,19 +40,37 @@ export default function Broadcasts() {
 
   const { data: units = [] } = useUnits(selectedPropertyId);
   const sendBroadcast = useSendBroadcast();
+  const { ensureAal2 } = useStepUpGuard();
 
   const activeCompanyName = useMemo(
     () => companies.find((company) => company.id === activeCompanyId)?.name || 'No active company',
     [companies, activeCompanyId]
   );
 
-  const handleSend = () => {
+  const handleSend = async () => {
+    const canProceed = await ensureAal2('broadcasts.send');
+    if (!canProceed) return;
+
     sendBroadcast.mutate({
       title,
       message,
       targetRole,
       propertyId: selectedPropertyId,
       unitId: selectedUnitId,
+    }, {
+      onSuccess: async () => {
+        await logSecurityEvent('broadcast_sent', {
+          targetRole,
+          propertyId: selectedPropertyId || null,
+          unitId: selectedUnitId || null,
+        });
+      },
+      onError: async (error: any) => {
+        await logSecurityEvent('broadcast_send_failed', {
+          targetRole,
+          reason: error?.message || 'unknown',
+        });
+      },
     });
 
     setTitle('');

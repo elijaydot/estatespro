@@ -30,6 +30,8 @@ import {
 } from '@/hooks/useCompanies';
 import { useProperties } from '@/hooks/useProperties';
 import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useStepUpGuard } from '@/hooks/useStepUpGuard';
+import { logSecurityEvent } from '@/lib/security';
 
 export default function TeamManagement() {
   const { isLandlord } = useUserRole();
@@ -58,6 +60,7 @@ export default function TeamManagement() {
   const updateCompany = useUpdateCompany();
   const deleteCompany = useDeleteCompany();
   const removeMember = useRemoveCompanyMember();
+  const { ensureAal2 } = useStepUpGuard();
 
   const approvedMembers = members?.filter(m => m.status === 'approved') || [];
   const pendingMembers = members?.filter(m => m.status === 'pending') || [];
@@ -67,30 +70,46 @@ export default function TeamManagement() {
   const companyProperties = properties?.filter((p: any) => p.company_id === resolvedCompanyId) || [];
 
   const handleInvite = async () => {
+    const canProceed = await ensureAal2('team.invite_manager');
+    if (!canProceed) return;
+
     if (!inviteEmail || !resolvedCompanyId) return;
     const result = await createInvite.mutateAsync({ companyId: resolvedCompanyId, email: inviteEmail });
     const appUrl = import.meta.env.VITE_SUPABASE_URL ? 'https://fishgate.lovable.app' : window.location.origin;
     const inviteUrl = `${appUrl}/signup?pm_invite=${result.token}`;
     await navigator.clipboard.writeText(inviteUrl);
+    await logSecurityEvent('team_invite_created', { companyId: resolvedCompanyId, email: inviteEmail });
     toast({ title: 'Invite link copied!', description: `Invite link for ${inviteEmail} has been copied to clipboard.` });
     setInviteEmail('');
     setInviteDialogOpen(false);
   };
 
   const handleAssign = async () => {
+    const canProceed = await ensureAal2('team.assign_property_manager');
+    if (!canProceed) return;
+
     if (!assignManagerId || !assignPropertyId || !resolvedCompanyId) return;
     await assignPM.mutateAsync({
       companyId: resolvedCompanyId,
       propertyId: assignPropertyId,
       managerId: assignManagerId,
     });
+    await logSecurityEvent('team_assignment_created', {
+      companyId: resolvedCompanyId,
+      managerId: assignManagerId,
+      propertyId: assignPropertyId,
+    });
     setAssignManagerId('');
     setAssignPropertyId('');
   };
 
   const handleCreateCompany = async () => {
+    const canProceed = await ensureAal2('team.create_company');
+    if (!canProceed) return;
+
     if (!newCompanyName.trim()) return;
-    await createCompany.mutateAsync({ name: newCompanyName.trim() });
+    const created = await createCompany.mutateAsync({ name: newCompanyName.trim() });
+    await logSecurityEvent('company_created', { companyId: created?.id || null, name: newCompanyName.trim() });
     setNewCompanyName('');
     setCompanyDialogOpen(false);
   };
@@ -107,6 +126,9 @@ export default function TeamManagement() {
   };
 
   const handleUpdateCompany = async () => {
+    const canProceed = await ensureAal2('team.update_company');
+    if (!canProceed) return;
+
     if (!editingCompany) return;
     await updateCompany.mutateAsync({
       companyId: editingCompany.id,
@@ -117,16 +139,59 @@ export default function TeamManagement() {
         address: editingCompany.address || null,
       },
     });
+    await logSecurityEvent('company_updated', {
+      companyId: editingCompany.id,
+      name: editingCompany.name,
+    });
     setEditCompanyDialogOpen(false);
     setEditingCompany(null);
   };
 
   const handleDeleteCompany = async (company: any) => {
+    const canProceed = await ensureAal2('team.delete_company');
+    if (!canProceed) return;
+
     if (!confirm(`Are you sure you want to delete "${company.name}"? This will also remove all associated members and assignments. This action cannot be undone.`)) return;
     await deleteCompany.mutateAsync(company.id);
+    await logSecurityEvent('company_deleted', { companyId: company.id, name: company.name });
     if (resolvedCompanyId === company.id) {
       setActiveCompanyId(null);
     }
+  };
+
+  const handleUpdateMemberStatus = async (memberId: string, status: string) => {
+    const canProceed = await ensureAal2('team.update_member_status');
+    if (!canProceed) return;
+
+    await updateStatus.mutateAsync({ memberId, status });
+    await logSecurityEvent('team_member_status_updated', { memberId, status });
+  };
+
+  const handleRemoveMember = async (memberId: string, memberName: string) => {
+    const canProceed = await ensureAal2('team.remove_member');
+    if (!canProceed) return;
+
+    if (!confirm(`Are you sure you want to remove ${memberName || 'this manager'}? This action cannot be undone.`)) return;
+    await removeMember.mutateAsync(memberId);
+    await logSecurityEvent('team_member_removed', { memberId, memberName });
+  };
+
+  const handleRemoveAssignment = async (assignmentId: string) => {
+    const canProceed = await ensureAal2('team.remove_assignment');
+    if (!canProceed) return;
+
+    await removeAssignment.mutateAsync(assignmentId);
+    await logSecurityEvent('team_assignment_removed', { assignmentId });
+  };
+
+  const handleCopyInviteLink = async (invite: any) => {
+    const canProceed = await ensureAal2('team.copy_invite_link');
+    if (!canProceed) return;
+
+    const url = `${window.location.origin}/signup?pm_invite=${invite.token}`;
+    await navigator.clipboard.writeText(url);
+    await logSecurityEvent('team_invite_link_copied', { inviteId: invite.id, email: invite.email });
+    toast({ title: 'Copied!', description: 'Invite link copied to clipboard' });
   };
 
   const getStatusBadge = (status: string) => {
@@ -295,7 +360,7 @@ export default function TeamManagement() {
                     <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
-                        onClick={() => updateStatus.mutate({ memberId: member.id, status: 'approved' })}
+                        onClick={() => void handleUpdateMemberStatus(member.id, 'approved')}
                         disabled={updateStatus.isPending}
                         className="gap-1"
                       >
@@ -304,7 +369,7 @@ export default function TeamManagement() {
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => updateStatus.mutate({ memberId: member.id, status: 'rejected' })}
+                        onClick={() => void handleUpdateMemberStatus(member.id, 'rejected')}
                         disabled={updateStatus.isPending}
                         className="gap-1"
                       >
@@ -359,7 +424,7 @@ export default function TeamManagement() {
                               size="sm"
                               variant="outline"
                               className="text-warning hover:text-warning"
-                              onClick={() => updateStatus.mutate({ memberId: member.id, status: 'deactivated' })}
+                              onClick={() => void handleUpdateMemberStatus(member.id, 'deactivated')}
                             >
                               <Ban className="h-3 w-3 mr-1" /> Deactivate
                             </Button>
@@ -367,11 +432,7 @@ export default function TeamManagement() {
                               size="sm"
                               variant="outline"
                               className="text-destructive hover:text-destructive"
-                              onClick={() => {
-                                if (confirm(`Are you sure you want to remove ${member.profiles?.name || 'this manager'}? This action cannot be undone.`)) {
-                                  removeMember.mutate(member.id);
-                                }
-                              }}
+                              onClick={() => void handleRemoveMember(member.id, member.profiles?.name || 'this manager')}
                             >
                               <Trash2 className="h-3 w-3 mr-1" /> Remove
                             </Button>
@@ -406,7 +467,7 @@ export default function TeamManagement() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => updateStatus.mutate({ memberId: member.id, status: 'approved' })}
+                      onClick={() => void handleUpdateMemberStatus(member.id, 'approved')}
                     >
                       Reactivate
                     </Button>
@@ -507,7 +568,7 @@ export default function TeamManagement() {
                           size="sm"
                           variant="ghost"
                           className="text-destructive"
-                          onClick={() => removeAssignment.mutate(assignment.id)}
+                          onClick={() => void handleRemoveAssignment(assignment.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -551,11 +612,7 @@ export default function TeamManagement() {
                           size="sm"
                           variant="outline"
                           className="gap-1"
-                          onClick={() => {
-                            const url = `${window.location.origin}/signup?pm_invite=${invite.token}`;
-                            navigator.clipboard.writeText(url);
-                            toast({ title: 'Copied!', description: 'Invite link copied to clipboard' });
-                          }}
+                          onClick={() => void handleCopyInviteLink(invite)}
                         >
                           <Copy className="h-3 w-3" /> Copy Link
                         </Button>

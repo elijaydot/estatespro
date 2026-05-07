@@ -57,6 +57,8 @@ import { useInvoices } from '@/hooks/useInvoices';
 import { useTenants } from '@/hooks/useTenants';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { useStepUpGuard } from '@/hooks/useStepUpGuard';
+import { logSecurityEvent } from '@/lib/security';
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -149,6 +151,7 @@ export default function Payments() {
   const { data: invoices = [] } = useInvoices();
   const { data: tenants = [] } = useTenants();
   const createPayment = useCreatePayment();
+  const { ensureAal2 } = useStepUpGuard();
 
   const tenantOptions = tenants.map((tenant: any) => ({
     value: tenant.id,
@@ -225,23 +228,31 @@ export default function Payments() {
   };
 
   const handleSendReceipt = async (payment: any) => {
+    const canProceed = await ensureAal2('payments.send_receipt');
+    if (!canProceed) return;
+
     try {
       await supabase.functions.invoke('send-payment-confirmation', {
         body: { paymentId: payment.id },
       });
+      await logSecurityEvent('payment_receipt_sent', { paymentId: payment.id });
       toast({ title: 'Receipt Sent', description: `Receipt sent to ${payment.tenants?.name || 'tenant'}.` });
     } catch (error: any) {
+      await logSecurityEvent('payment_receipt_failed', { paymentId: payment.id, reason: error?.message || 'unknown' });
       toast({ title: 'Error', description: error.message || 'Failed to send receipt', variant: 'destructive' });
     }
   };
 
   const handleCreate = async () => {
+    const canProceed = await ensureAal2('payments.record');
+    if (!canProceed) return;
+
     if (!formData.tenant_id || !formData.invoice_id || !formData.amount) {
       toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
       return;
     }
 
-    await createPayment.mutateAsync({
+    const payment = await createPayment.mutateAsync({
       tenant_id: formData.tenant_id,
       invoice_id: formData.invoice_id,
       amount: formData.amount,
@@ -250,6 +261,13 @@ export default function Payments() {
       momo_transaction_id: formData.momo_transaction_id || null,
       reference: formData.reference || null,
       notes: formData.notes || null,
+    });
+
+    await logSecurityEvent('payment_recorded', {
+      paymentId: payment?.id || null,
+      invoiceId: formData.invoice_id,
+      amount: formData.amount,
+      method: formData.method,
     });
 
     setIsRecordOpen(false);
@@ -266,6 +284,9 @@ export default function Payments() {
   };
 
   const handleGenerateCheckoutLink = async () => {
+    const canProceed = await ensureAal2('payments.generate_checkout_link');
+    if (!canProceed) return;
+
     if (!formData.invoice_id) {
       toast({ title: 'Error', description: 'Please select an invoice first', variant: 'destructive' });
       return;
@@ -298,6 +319,12 @@ export default function Payments() {
       if (error) throw new Error(error.message || 'Unable to generate checkout link');
       if (!data?.checkoutUrl) throw new Error(data?.error || 'No checkout URL returned');
 
+      await logSecurityEvent('payment_checkout_link_generated', {
+        invoiceId: formData.invoice_id,
+        amount,
+        gateway: checkoutGateway,
+      });
+
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(data.checkoutUrl);
       }
@@ -308,6 +335,11 @@ export default function Payments() {
         description: 'Payment link was opened in a new tab and copied to your clipboard.',
       });
     } catch (error: any) {
+      await logSecurityEvent('payment_checkout_link_failed', {
+        invoiceId: formData.invoice_id || null,
+        gateway: checkoutGateway,
+        reason: error?.message || 'unknown',
+      });
       toast({ title: 'Error', description: error.message || 'Failed to generate payment link', variant: 'destructive' });
     } finally {
       setCheckoutLoading(false);

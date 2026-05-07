@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { MfaReminderBanner } from '@/components/security/MfaReminderBanner';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -97,6 +98,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         </div>
 
         <main className="flex-1 p-4 lg:p-6">
+          <MfaReminderBanner />
           <div className="animate-fade-in">
             {children}
           </div>
