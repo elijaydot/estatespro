@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings as SettingsIcon, Globe, Building2, Palette, FileText, Bell, ClipboardCheck, User, CreditCard } from 'lucide-react';
+import { Settings as SettingsIcon, Globe, Building2, Palette, FileText, Bell, ClipboardCheck, User, CreditCard, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { GeneralSettings } from '@/components/settings/GeneralSettings';
@@ -9,9 +9,11 @@ import { LeaseDocumentSettings } from '@/components/settings/LeaseDocumentSettin
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { InspectionChecklistSettings } from '@/components/settings/InspectionChecklistSettings';
 import { PaymentSettings } from '@/components/settings/PaymentSettings';
+import { SecuritySettings } from '@/components/settings/SecuritySettings';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User, description: 'Account details' },
+  { id: 'security', label: 'Security', icon: ShieldCheck, description: 'MFA & sign-in' },
   { id: 'general', label: 'General', icon: Globe, description: 'Regional & currency' },
   { id: 'company', label: 'Company', icon: Building2, description: 'Company details' },
   { id: 'appearance', label: 'Appearance', icon: Palette, description: 'Colors & theme' },
@@ -78,6 +80,7 @@ export default function Settings() {
         {/* Content */}
         <div className="flex-1 min-w-0">
           {activeTab === 'profile' && <ProfileSettings />}
+          {activeTab === 'security' && <SecuritySettings />}
           {activeTab === 'general' && <GeneralSettings />}
           {activeTab === 'company' && <CompanySettingsWrapper />}
           {activeTab === 'appearance' && <AppearanceSettings />}
