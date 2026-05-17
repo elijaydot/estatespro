@@ -1726,6 +1726,39 @@ export type Database = {
           },
         ]
       }
+      user_mfa: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          enrolled_at: string | null
+          last_verified_at: string | null
+          secret_ciphertext: string | null
+          secret_iv: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          enrolled_at?: string | null
+          last_verified_at?: string | null
+          secret_ciphertext?: string | null
+          secret_iv?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          enrolled_at?: string | null
+          last_verified_at?: string | null
+          secret_ciphertext?: string | null
+          secret_iv?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1760,6 +1793,15 @@ export type Database = {
       get_message_participant_name: {
         Args: { _participant_id: string }
         Returns: string
+      }
+      get_mfa_status: {
+        Args: never
+        Returns: {
+          enabled: boolean
+          enrolled_at: string
+          last_verified_at: string
+          recovery_codes_remaining: number
+        }[]
       }
       get_payment_settings_for_property: {
         Args: { p_property_id: string }
