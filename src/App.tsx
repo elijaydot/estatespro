@@ -9,6 +9,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { TenantPortalLayout } from "@/pages/tenant-portal/TenantPortalLayout";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useMyMembership } from "@/hooks/useCompanies";
+import { useMfaStatus, isMfaSessionVerified } from "@/hooks/useMfa";
+import MfaChallenge from "./pages/MfaChallenge";
 
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -53,6 +55,16 @@ import GuestBookingPage from "./pages/guest-booking/GuestBookingPage";
 import GuestBookingActionPage from "./pages/guest-booking/GuestBookingActionPage";
 const queryClient = new QueryClient();
 
+function MfaGate({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const { status, loading } = useMfaStatus();
+  if (loading) return null;
+  if (status?.enabled && !isMfaSessionVerified(user?.id)) {
+    return <Navigate to="/mfa-challenge" replace />;
+  }
+  return <>{children}</>;
+}
+
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
   const { role, isLoading: roleLoading, isPropertyManager } = useUserRole();
@@ -69,7 +81,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     }
   }
   
-  return <AppLayout>{children}</AppLayout>;
+  return <MfaGate><AppLayout>{children}</AppLayout></MfaGate>;
 }
 
 function TenantPortalRoute({ children }: { children: React.ReactNode }) {
@@ -79,7 +91,14 @@ function TenantPortalRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/tenant/login" replace />;
   }
   
-  return <TenantPortalLayout>{children}</TenantPortalLayout>;
+  return <MfaGate><TenantPortalLayout>{children}</TenantPortalLayout></MfaGate>;
+}
+
+function MfaChallengeRoute() {
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (isMfaSessionVerified(user?.id)) return <Navigate to="/dashboard" replace />;
+  return <MfaChallenge />;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
