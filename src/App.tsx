@@ -117,6 +117,7 @@ function AppRoutes() {
       {/* Public Routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+      <Route path="/mfa-challenge" element={<MfaChallengeRoute />} />
       <Route path="/book/:propertyId" element={<GuestBookingPage />} />
       <Route path="/bookings/guest-action" element={<GuestBookingActionPage />} />
       
