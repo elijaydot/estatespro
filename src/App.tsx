@@ -11,6 +11,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { TenantPortalLayout } from "@/pages/tenant-portal/TenantPortalLayout";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useMyMembership } from "@/hooks/useCompanies";
+import { isDeviceTrusted } from "@/lib/trustedDevice";
 
 import PendingApproval from "./pages/PendingApproval";
 
@@ -76,7 +77,7 @@ function FullPageLoading() {
 }
 
 function PrivateRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading: authLoading, mfa } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, mfa, user } = useAuth();
   const { role, isLoading: roleLoading, isPropertyManager, isTenant } = useUserRole();
   const { data: membership, isLoading: membershipLoading } = useMyMembership();
   const location = useLocation();
@@ -97,7 +98,8 @@ function PrivateRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (mfa.needsChallenge && location.pathname !== "/mfa-challenge") {
+  const trusted = isDeviceTrusted(user?.id);
+  if (mfa.needsChallenge && !trusted && location.pathname !== "/mfa-challenge") {
     return <Navigate to="/mfa-challenge" replace />;
   }
 
@@ -115,7 +117,7 @@ function PrivateRoute({ children }: { children: ReactNode }) {
 }
 
 function TenantPortalRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading: authLoading, mfa } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, mfa, user } = useAuth();
   const { role, isLoading: roleLoading } = useUserRole();
 
   if (authLoading || roleLoading || mfa.isLoading) {
@@ -130,7 +132,7 @@ function TenantPortalRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (mfa.needsChallenge) {
+  if (mfa.needsChallenge && !isDeviceTrusted(user?.id)) {
     return <Navigate to="/mfa-challenge" replace />;
   }
 
@@ -157,7 +159,7 @@ function AuthenticatedRoute({ children }: { children: ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading: authLoading, mfa } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, mfa, user } = useAuth();
   const { role, isLoading: roleLoading } = useUserRole();
 
   if (authLoading || roleLoading || mfa.isLoading) {
@@ -165,7 +167,7 @@ function PublicRoute({ children }: { children: ReactNode }) {
   }
 
   if (isAuthenticated) {
-    if (mfa.needsChallenge) {
+    if (mfa.needsChallenge && !isDeviceTrusted(user?.id)) {
       return <Navigate to="/mfa-challenge" replace />;
     }
     return <Navigate to={role === "tenant" ? "/tenant" : "/dashboard"} replace />;
