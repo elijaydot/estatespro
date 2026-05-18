@@ -1,15 +1,42 @@
-import { useMemo, useState } from "react";
-import { ShieldCheck, ShieldAlert, Loader2, Smartphone, Lock, RefreshCcw, Copy } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ShieldCheck,
+  ShieldAlert,
+  Loader2,
+  Smartphone,
+  Lock,
+  RefreshCcw,
+  Copy,
+  Download,
+  Activity,
+  MonitorSmartphone,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
 import { generateRecoveryCodes, saveRecoveryCodes, logSecurityEvent } from "@/lib/security";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  getTrustedDeviceExpiry,
+  revokeTrustedDevice,
+} from "@/lib/trustedDevice";
+import { downloadFile } from "@/lib/download";
 
 function formatQrDataUri(rawQr: string) {
   if (!rawQr) return "";
@@ -17,8 +44,70 @@ function formatQrDataUri(rawQr: string) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(rawQr)}`;
 }
 
+function buildRecoveryCodesText(codes: string[], email?: string | null) {
+  const lines = [
+    "FishGate — Two-factor recovery codes",
+    "==========================================",
+    email ? `Account: ${email}` : "",
+    `Generated: ${new Date().toLocaleString()}`,
+    "",
+    "Each code can be used ONCE to sign in if you lose your authenticator.",
+    "Store these somewhere safe (password manager, printed copy).",
+    "",
+    ...codes.map((c, i) => `${String(i + 1).padStart(2, "0")}.  ${c}`),
+    "",
+    "If you suspect these were exposed, regenerate them in Settings → Security.",
+  ];
+  return lines.filter((l) => l !== "").join("\n") + "\n";
+}
+
+type AuditEvent = {
+  id: string;
+  event_type: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  ip_address: string | null;
+  user_agent: string | null;
+};
+
+const ACTIVITY_EVENT_TYPES = [
+  "mfa_enabled",
+  "mfa_disabled",
+  "mfa_enable_failed",
+  "mfa_disable_failed",
+  "mfa_challenge_passed",
+  "mfa_challenge_failed",
+  "mfa_verify_failed",
+  "recovery_codes_generated",
+  "recovery_codes_regenerated",
+  "recovery_code_used",
+  "recovery_code_failed",
+  "mfa_device_trusted",
+  "login_failed",
+];
+
+const EVENT_LABEL: Record<string, string> = {
+  mfa_enabled: "MFA enabled",
+  mfa_disabled: "MFA disabled",
+  mfa_enable_failed: "MFA enable failed",
+  mfa_disable_failed: "MFA disable failed",
+  mfa_challenge_passed: "MFA challenge passed",
+  mfa_challenge_failed: "MFA challenge failed",
+  mfa_verify_failed: "MFA verification failed",
+  recovery_codes_generated: "Recovery codes generated",
+  recovery_codes_regenerated: "Recovery codes regenerated",
+  recovery_code_used: "Recovery code used",
+  recovery_code_failed: "Recovery code failed",
+  mfa_device_trusted: "Device trusted (30 days)",
+  login_failed: "Failed login attempt",
+};
+
+function isFailureEvent(type: string) {
+  return type.endsWith("_failed");
+}
+
 export function SecuritySettings() {
-  const { mfa, enrollMfaTotp, verifyMfaEnrollment, disableMfa } = useAuth();
+  const { mfa, enrollMfaTotp, verifyMfaEnrollment, disableMfa, user, profile } = useAuth();
   const { isManager } = useUserRole();
   const { toast } = useToast();
 
@@ -35,9 +124,42 @@ export function SecuritySettings() {
   const [disableCode, setDisableCode] = useState("");
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [isGeneratingRecovery, setIsGeneratingRecovery] = useState(false);
+  const [confirmRegenOpen, setConfirmRegenOpen] = useState(false);
+
+  const [events, setEvents] = useState<AuditEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [trustedExpiry, setTrustedExpiry] = useState<Date | null>(null);
 
   const isSwitchChecked = mfa.isEnabled || !!enrollmentData;
   const requiresMfa = useMemo(() => isManager, [isManager]);
+  const accountEmail = profile?.email ?? user?.email ?? null;
+
+  useEffect(() => {
+    setTrustedExpiry(getTrustedDeviceExpiry(user?.id));
+  }, [user?.id]);
+
+  const loadActivity = async () => {
+    if (!user?.id) return;
+    setEventsLoading(true);
+    const { data, error } = await (supabase as any)
+      .from("security_audit_events")
+      .select("id, event_type, metadata, created_at, ip_address, user_agent")
+      .eq("user_id", user.id)
+      .in("event_type", ACTIVITY_EVENT_TYPES)
+      .order("created_at", { ascending: false })
+      .limit(25);
+    setEventsLoading(false);
+    if (error) {
+      console.error("activity load error", error);
+      return;
+    }
+    setEvents((data as AuditEvent[]) || []);
+  };
+
+  useEffect(() => {
+    loadActivity();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, mfa.isEnabled]);
 
   const startEnrollment = async () => {
     setIsPreparingEnrollment(true);
@@ -70,6 +192,7 @@ export function SecuritySettings() {
 
     if (error) {
       await logSecurityEvent("mfa_enable_failed", { reason: error.message || "verify_error" });
+      await loadActivity();
       toast({ title: "Invalid code", description: error.message || "Could not verify your MFA code.", variant: "destructive" });
       return;
     }
@@ -77,6 +200,7 @@ export function SecuritySettings() {
     setEnrollmentData(null);
     setVerifyCode("");
     await logSecurityEvent("mfa_enabled");
+    await loadActivity();
     toast({ title: "MFA enabled", description: "Your account now has two-step verification." });
   };
 
@@ -96,6 +220,7 @@ export function SecuritySettings() {
 
     if (error) {
       await logSecurityEvent("mfa_disable_failed", { reason: error.message || "disable_error" });
+      await loadActivity();
       toast({ title: "Could not disable MFA", description: error.message || "Please try again.", variant: "destructive" });
       return;
     }
@@ -103,33 +228,29 @@ export function SecuritySettings() {
     setDisablePassword("");
     setDisableCode("");
     setRecoveryCodes([]);
+    revokeTrustedDevice(user?.id);
+    setTrustedExpiry(null);
     await logSecurityEvent("mfa_disabled");
+    await loadActivity();
     toast({ title: "MFA disabled", description: "Two-step verification has been turned off." });
   };
 
-  const handleGenerateRecoveryCodes = async () => {
-    if (!mfa.isEnabled) {
-      toast({
-        title: "Enable MFA first",
-        description: "Recovery codes are only available after MFA is enabled.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const doGenerateRecoveryCodes = async (isRegenerate: boolean) => {
     setIsGeneratingRecovery(true);
     try {
       const generated = generateRecoveryCodes(10);
       const saved = await saveRecoveryCodes(generated);
-      if (saved < 1) {
-        throw new Error("No recovery codes were saved.");
-      }
+      if (saved < 1) throw new Error("No recovery codes were saved.");
 
       setRecoveryCodes(generated);
-      await logSecurityEvent("recovery_codes_generated", { count: saved });
+      await logSecurityEvent(
+        isRegenerate ? "recovery_codes_regenerated" : "recovery_codes_generated",
+        { count: saved },
+      );
+      await loadActivity();
       toast({
-        title: "Recovery codes generated",
-        description: "Save these one-time codes in a secure place. They will only be shown once.",
+        title: isRegenerate ? "Recovery codes regenerated" : "Recovery codes generated",
+        description: "Save these one-time codes now — previous codes are no longer valid.",
       });
     } catch (error: any) {
       toast({
@@ -142,10 +263,43 @@ export function SecuritySettings() {
     }
   };
 
+  const handleGenerateClick = () => {
+    if (!mfa.isEnabled) {
+      toast({
+        title: "Enable MFA first",
+        description: "Recovery codes are only available after MFA is enabled.",
+        variant: "destructive",
+      });
+      return;
+    }
+    // If user already has codes shown OR previously generated, confirm
+    setConfirmRegenOpen(true);
+  };
+
   const handleCopyRecoveryCodes = async () => {
     if (recoveryCodes.length === 0) return;
     await navigator.clipboard.writeText(recoveryCodes.join("\n"));
     toast({ title: "Copied", description: "Recovery codes copied to clipboard." });
+  };
+
+  const handleDownloadRecoveryCodes = () => {
+    if (recoveryCodes.length === 0) return;
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadFile(
+      `fishgate-recovery-codes-${stamp}.txt`,
+      buildRecoveryCodesText(recoveryCodes, accountEmail),
+      "text/plain;charset=utf-8",
+    );
+    toast({ title: "Downloaded", description: "Recovery codes saved to your device." });
+  };
+
+  const handleRevokeTrusted = () => {
+    revokeTrustedDevice(user?.id);
+    setTrustedExpiry(null);
+    toast({
+      title: "Device trust removed",
+      description: "MFA will be required on next login from this browser.",
+    });
   };
 
   const handleToggleChange = (checked: boolean) => {
@@ -276,7 +430,7 @@ export function SecuritySettings() {
                   <Lock className="h-4 w-4 text-muted-foreground" />
                   <p className="text-sm font-medium">Backup and recovery codes</p>
                 </div>
-                <Button variant="outline" onClick={handleGenerateRecoveryCodes} disabled={isGeneratingRecovery || isBusy}>
+                <Button variant="outline" onClick={handleGenerateClick} disabled={isGeneratingRecovery || isBusy}>
                   {isGeneratingRecovery ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -285,7 +439,7 @@ export function SecuritySettings() {
                   ) : (
                     <>
                       <RefreshCcw className="h-4 w-4 mr-2" />
-                      Generate Codes
+                      {recoveryCodes.length > 0 ? "Regenerate Codes" : "Generate Codes"}
                     </>
                   )}
                 </Button>
@@ -304,11 +458,45 @@ export function SecuritySettings() {
                       </div>
                     ))}
                   </div>
-                  <Button variant="outline" size="sm" onClick={handleCopyRecoveryCodes}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy Codes
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="default" size="sm" onClick={handleDownloadRecoveryCodes}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download (.txt)
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleCopyRecoveryCodes}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Codes
+                    </Button>
+                  </div>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    These codes will not be shown again. Save them now.
+                  </p>
                 </div>
+              )}
+            </div>
+          )}
+
+          {mfa.isEnabled && (
+            <div className="space-y-3 rounded-lg border p-4">
+              <div className="flex items-center gap-2">
+                <MonitorSmartphone className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium">Trusted device</p>
+              </div>
+              {trustedExpiry ? (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    This browser is trusted until{" "}
+                    <span className="font-medium text-foreground">{trustedExpiry.toLocaleString()}</span>.
+                    MFA will be skipped on login here until then.
+                  </p>
+                  <Button variant="outline" size="sm" onClick={handleRevokeTrusted}>
+                    Forget this device
+                  </Button>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  This browser is not trusted. You can enable “Remember this device for 30 days” on the next MFA challenge.
+                </p>
               )}
             </div>
           )}
@@ -362,6 +550,100 @@ export function SecuritySettings() {
           )}
         </CardContent>
       </Card>
+
+      {/* Activity */}
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-base font-semibold text-foreground">Recent security activity</p>
+                <p className="text-xs text-muted-foreground">
+                  MFA changes and failed sign-in attempts for your account (last 25 events).
+                </p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" onClick={loadActivity} disabled={eventsLoading}>
+              {eventsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+            </Button>
+          </div>
+
+          {eventsLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+            </div>
+          ) : events.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No security events recorded yet.</p>
+          ) : (
+            <ul className="divide-y rounded-md border">
+              {events.map((e) => {
+                const failed = isFailureEvent(e.event_type);
+                return (
+                  <li key={e.id} className="flex items-start justify-between gap-3 p-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={
+                            "inline-block h-2 w-2 rounded-full " +
+                            (failed ? "bg-destructive" : "bg-emerald-500")
+                          }
+                        />
+                        <span className="text-sm font-medium text-foreground">
+                          {EVENT_LABEL[e.event_type] ?? e.event_type}
+                        </span>
+                      </div>
+                      {e.user_agent && (
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {e.user_agent}
+                        </p>
+                      )}
+                    </div>
+                    <time className="text-xs text-muted-foreground whitespace-nowrap">
+                      {new Date(e.created_at).toLocaleString()}
+                    </time>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={confirmRegenOpen} onOpenChange={setConfirmRegenOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {recoveryCodes.length > 0 ? "Regenerate recovery codes?" : "Generate recovery codes?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {recoveryCodes.length > 0 ? (
+                <>
+                  This will <strong>invalidate all of your existing recovery codes</strong> and
+                  replace them with 10 new ones. Make sure you can save the new codes immediately —
+                  they are shown only once.
+                </>
+              ) : (
+                <>
+                  You'll receive 10 single-use codes to sign in if you lose access to your
+                  authenticator app. They will be shown only once — save them somewhere safe.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setConfirmRegenOpen(false);
+                await doGenerateRecoveryCodes(recoveryCodes.length > 0);
+              }}
+            >
+              {recoveryCodes.length > 0 ? "Yes, regenerate" : "Generate codes"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
