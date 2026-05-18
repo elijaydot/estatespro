@@ -141,6 +141,22 @@ export default function MfaChallenge() {
               />
             </div>
 
+            <label className="flex items-start gap-2 text-sm text-muted-foreground cursor-pointer">
+              <Checkbox
+                checked={rememberDevice}
+                onCheckedChange={(v) => setRememberDevice(v === true)}
+                disabled={isSubmitting || isRecoverySubmitting}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="font-medium text-foreground">Remember this device for 30 days</span>
+                <span className="block text-xs">
+                  Skip MFA on this browser. Don't use on shared computers.
+                </span>
+              </span>
+            </label>
+
+
             <Button className="w-full" type="submit" disabled={isSubmitting || roleLoading || code.length < 6}>
               {isSubmitting ? (
                 <>
