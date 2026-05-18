@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ShieldCheck, Loader2, LogOut } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
-import { useUserRole } from '@/hooks/useUserRole';
-import { useToast } from '@/hooks/use-toast';
-import { consumeRecoveryCode, logSecurityEvent } from '@/lib/security';
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ShieldCheck, Loader2, LogOut } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useToast } from "@/hooks/use-toast";
+import { consumeRecoveryCode, logSecurityEvent } from "@/lib/security";
 
 export default function MfaChallenge() {
   const navigate = useNavigate();
@@ -17,17 +17,17 @@ export default function MfaChallenge() {
   const { role, isLoading: roleLoading } = useUserRole();
   const { toast } = useToast();
 
-  const [code, setCode] = useState('');
-  const [recoveryCode, setRecoveryCode] = useState('');
+  const [code, setCode] = useState("");
+  const [recoveryCode, setRecoveryCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecoverySubmitting, setIsRecoverySubmitting] = useState(false);
 
   const nextRoute = useMemo(() => {
-    const requested = searchParams.get('next');
-    if (requested && requested.startsWith('/')) {
+    const requested = searchParams.get("next");
+    if (requested && requested.startsWith("/")) {
       return requested;
     }
-    return role === 'tenant' ? '/tenant' : '/dashboard';
+    return role === "tenant" ? "/tenant" : "/dashboard";
   }, [role, searchParams]);
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export default function MfaChallenge() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (code.length < 6) {
-      toast({ title: 'Code required', description: 'Enter the 6-digit code from your authenticator app.', variant: 'destructive' });
+      toast({ title: "Code required", description: "Enter the 6-digit code from your authenticator app.", variant: "destructive" });
       return;
     }
 
@@ -48,21 +48,21 @@ export default function MfaChallenge() {
     setIsSubmitting(false);
 
     if (error) {
-      await logSecurityEvent('mfa_challenge_failed', {
-        method: 'totp',
+      await logSecurityEvent("mfa_challenge_failed", {
+        method: "totp",
       });
       toast({
-        title: 'Verification failed',
-        description: error.message || 'The code was invalid. Try again.',
-        variant: 'destructive',
+        title: "Verification failed",
+        description: error.message || "The code was invalid. Try again.",
+        variant: "destructive",
       });
       return;
     }
 
-    await logSecurityEvent('mfa_challenge_passed', {
-      method: 'totp',
+    await logSecurityEvent("mfa_challenge_passed", {
+      method: "totp",
     });
-    toast({ title: 'Verified', description: 'MFA challenge completed.' });
+    toast({ title: "Verified", description: "MFA challenge completed." });
     navigate(nextRoute, { replace: true });
   };
 
@@ -70,7 +70,7 @@ export default function MfaChallenge() {
     event.preventDefault();
 
     if (!recoveryCode.trim()) {
-      toast({ title: 'Recovery code required', description: 'Enter one of your saved recovery codes.', variant: 'destructive' });
+      toast({ title: "Recovery code required", description: "Enter one of your saved recovery codes.", variant: "destructive" });
       return;
     }
 
@@ -79,23 +79,23 @@ export default function MfaChallenge() {
       const isValid = await consumeRecoveryCode(recoveryCode.trim().toUpperCase());
 
       if (!isValid) {
-        await logSecurityEvent('mfa_challenge_failed', { method: 'recovery_code' });
+        await logSecurityEvent("mfa_challenge_failed", { method: "recovery_code" });
         toast({
-          title: 'Invalid recovery code',
-          description: 'The recovery code is invalid or already used.',
-          variant: 'destructive',
+          title: "Invalid recovery code",
+          description: "The recovery code is invalid or already used.",
+          variant: "destructive",
         });
         return;
       }
 
-      await logSecurityEvent('mfa_challenge_passed', { method: 'recovery_code' });
-      toast({ title: 'Recovery code accepted', description: 'You are now signed in.' });
+      await logSecurityEvent("mfa_challenge_passed", { method: "recovery_code" });
+      toast({ title: "Recovery code accepted", description: "You are now signed in." });
       navigate(nextRoute, { replace: true });
     } catch (error: any) {
       toast({
-        title: 'Recovery check failed',
-        description: error?.message || 'Unable to verify recovery code.',
-        variant: 'destructive',
+        title: "Recovery check failed",
+        description: error?.message || "Unable to verify recovery code.",
+        variant: "destructive",
       });
     } finally {
       setIsRecoverySubmitting(false);
@@ -124,7 +124,7 @@ export default function MfaChallenge() {
                 maxLength={6}
                 placeholder="123456"
                 value={code}
-                onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
                 disabled={isSubmitting || roleLoading}
               />
             </div>
@@ -136,7 +136,7 @@ export default function MfaChallenge() {
                   Verifying...
                 </>
               ) : (
-                'Continue'
+                "Continue"
               )}
             </Button>
           </form>
@@ -158,7 +158,7 @@ export default function MfaChallenge() {
                     Checking code...
                   </>
                 ) : (
-                  'Use Recovery Code'
+                  "Use Recovery Code"
                 )}
               </Button>
             </form>
@@ -169,7 +169,7 @@ export default function MfaChallenge() {
             className="w-full"
             onClick={async () => {
               await logout();
-              navigate('/login', { replace: true });
+              navigate("/login", { replace: true });
             }}
           >
             <LogOut className="h-4 w-4 mr-2" />

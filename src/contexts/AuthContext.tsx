@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { clearMfaSession } from '@/hooks/useMfa';
 
 interface Profile {
   id: string;
@@ -235,6 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    clearMfaSession();
     await supabase.auth.signOut();
     setProfile(null);
   }, []);

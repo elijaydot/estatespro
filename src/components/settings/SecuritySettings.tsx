@@ -1,19 +1,19 @@
-import { useMemo, useState } from 'react';
-import { ShieldCheck, ShieldAlert, Loader2, Smartphone, Lock, RefreshCcw, Copy } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Switch } from '@/components/ui/switch';
-import { useAuth } from '@/contexts/AuthContext';
-import { useUserRole } from '@/hooks/useUserRole';
-import { useToast } from '@/hooks/use-toast';
-import { generateRecoveryCodes, saveRecoveryCodes, logSecurityEvent } from '@/lib/security';
+import { useMemo, useState } from "react";
+import { ShieldCheck, ShieldAlert, Loader2, Smartphone, Lock, RefreshCcw, Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useToast } from "@/hooks/use-toast";
+import { generateRecoveryCodes, saveRecoveryCodes, logSecurityEvent } from "@/lib/security";
 
 function formatQrDataUri(rawQr: string) {
-  if (!rawQr) return '';
-  if (rawQr.startsWith('data:image')) return rawQr;
+  if (!rawQr) return "";
+  if (rawQr.startsWith("data:image")) return rawQr;
   return `data:image/svg+xml;utf8,${encodeURIComponent(rawQr)}`;
 }
 
@@ -30,14 +30,13 @@ export function SecuritySettings() {
     secret: string;
     uri: string | null;
   } | null>(null);
-  const [verifyCode, setVerifyCode] = useState('');
-  const [disablePassword, setDisablePassword] = useState('');
-  const [disableCode, setDisableCode] = useState('');
+  const [verifyCode, setVerifyCode] = useState("");
+  const [disablePassword, setDisablePassword] = useState("");
+  const [disableCode, setDisableCode] = useState("");
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [isGeneratingRecovery, setIsGeneratingRecovery] = useState(false);
 
   const isSwitchChecked = mfa.isEnabled || !!enrollmentData;
-
   const requiresMfa = useMemo(() => isManager, [isManager]);
 
   const startEnrollment = async () => {
@@ -47,21 +46,21 @@ export function SecuritySettings() {
 
     if (error || !data) {
       toast({
-        title: 'Unable to start MFA setup',
-        description: error?.message || 'Please try again.',
-        variant: 'destructive',
+        title: "Unable to start MFA setup",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
       });
       return;
     }
 
     setEnrollmentData(data);
-    setVerifyCode('');
+    setVerifyCode("");
   };
 
   const handleEnableVerify = async () => {
     if (!enrollmentData) return;
     if (!verifyCode.trim()) {
-      toast({ title: 'Code required', description: 'Enter the 6-digit code from your authenticator app.', variant: 'destructive' });
+      toast({ title: "Code required", description: "Enter the 6-digit code from your authenticator app.", variant: "destructive" });
       return;
     }
 
@@ -70,23 +69,23 @@ export function SecuritySettings() {
     setIsBusy(false);
 
     if (error) {
-      await logSecurityEvent('mfa_enable_failed', { reason: error.message || 'verify_error' });
-      toast({ title: 'Invalid code', description: error.message || 'Could not verify your MFA code.', variant: 'destructive' });
+      await logSecurityEvent("mfa_enable_failed", { reason: error.message || "verify_error" });
+      toast({ title: "Invalid code", description: error.message || "Could not verify your MFA code.", variant: "destructive" });
       return;
     }
 
     setEnrollmentData(null);
-    setVerifyCode('');
-    await logSecurityEvent('mfa_enabled');
-    toast({ title: 'MFA enabled', description: 'Your account now has two-step verification.' });
+    setVerifyCode("");
+    await logSecurityEvent("mfa_enabled");
+    toast({ title: "MFA enabled", description: "Your account now has two-step verification." });
   };
 
   const handleDisable = async () => {
     if (!disablePassword.trim() || !disableCode.trim()) {
       toast({
-        title: 'Missing details',
-        description: 'Enter your password and a fresh authenticator code to disable MFA.',
-        variant: 'destructive',
+        title: "Missing details",
+        description: "Enter your password and a fresh authenticator code to disable MFA.",
+        variant: "destructive",
       });
       return;
     }
@@ -96,24 +95,24 @@ export function SecuritySettings() {
     setIsBusy(false);
 
     if (error) {
-      await logSecurityEvent('mfa_disable_failed', { reason: error.message || 'disable_error' });
-      toast({ title: 'Could not disable MFA', description: error.message || 'Please try again.', variant: 'destructive' });
+      await logSecurityEvent("mfa_disable_failed", { reason: error.message || "disable_error" });
+      toast({ title: "Could not disable MFA", description: error.message || "Please try again.", variant: "destructive" });
       return;
     }
 
-    setDisablePassword('');
-    setDisableCode('');
+    setDisablePassword("");
+    setDisableCode("");
     setRecoveryCodes([]);
-    await logSecurityEvent('mfa_disabled');
-    toast({ title: 'MFA disabled', description: 'Two-step verification has been turned off.' });
+    await logSecurityEvent("mfa_disabled");
+    toast({ title: "MFA disabled", description: "Two-step verification has been turned off." });
   };
 
   const handleGenerateRecoveryCodes = async () => {
     if (!mfa.isEnabled) {
       toast({
-        title: 'Enable MFA first',
-        description: 'Recovery codes are only available after MFA is enabled.',
-        variant: 'destructive',
+        title: "Enable MFA first",
+        description: "Recovery codes are only available after MFA is enabled.",
+        variant: "destructive",
       });
       return;
     }
@@ -123,20 +122,20 @@ export function SecuritySettings() {
       const generated = generateRecoveryCodes(10);
       const saved = await saveRecoveryCodes(generated);
       if (saved < 1) {
-        throw new Error('No recovery codes were saved.');
+        throw new Error("No recovery codes were saved.");
       }
 
       setRecoveryCodes(generated);
-      await logSecurityEvent('recovery_codes_generated', { count: saved });
+      await logSecurityEvent("recovery_codes_generated", { count: saved });
       toast({
-        title: 'Recovery codes generated',
-        description: 'Save these one-time codes in a secure place. They will only be shown once.',
+        title: "Recovery codes generated",
+        description: "Save these one-time codes in a secure place. They will only be shown once.",
       });
     } catch (error: any) {
       toast({
-        title: 'Failed to generate recovery codes',
-        description: error?.message || 'Please try again.',
-        variant: 'destructive',
+        title: "Failed to generate recovery codes",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsGeneratingRecovery(false);
@@ -145,8 +144,8 @@ export function SecuritySettings() {
 
   const handleCopyRecoveryCodes = async () => {
     if (recoveryCodes.length === 0) return;
-    await navigator.clipboard.writeText(recoveryCodes.join('\n'));
-    toast({ title: 'Copied', description: 'Recovery codes copied to clipboard.' });
+    await navigator.clipboard.writeText(recoveryCodes.join("\n"));
+    toast({ title: "Copied", description: "Recovery codes copied to clipboard." });
   };
 
   const handleToggleChange = (checked: boolean) => {
@@ -159,14 +158,14 @@ export function SecuritySettings() {
 
     if (mfa.isEnabled) {
       toast({
-        title: 'Confirm to disable MFA',
-        description: 'Use the disable section below to confirm with password and authenticator code.',
+        title: "Confirm to disable MFA",
+        description: "Use the disable section below to confirm with password and authenticator code.",
       });
       return;
     }
 
     setEnrollmentData(null);
-    setVerifyCode('');
+    setVerifyCode("");
   };
 
   return (
@@ -239,7 +238,7 @@ export function SecuritySettings() {
                   inputMode="numeric"
                   maxLength={6}
                   value={verifyCode}
-                  onChange={(event) => setVerifyCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onChange={(event) => setVerifyCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
                 />
               </div>
 
@@ -261,7 +260,7 @@ export function SecuritySettings() {
                   variant="ghost"
                   onClick={() => {
                     setEnrollmentData(null);
-                    setVerifyCode('');
+                    setVerifyCode("");
                   }}
                 >
                   Cancel
@@ -343,7 +342,7 @@ export function SecuritySettings() {
                     inputMode="numeric"
                     maxLength={6}
                     value={disableCode}
-                    onChange={(event) => setDisableCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onChange={(event) => setDisableCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
                     placeholder="123456"
                   />
                 </div>
@@ -356,7 +355,7 @@ export function SecuritySettings() {
                     Disabling...
                   </>
                 ) : (
-                  'Disable MFA'
+                  "Disable MFA"
                 )}
               </Button>
             </div>

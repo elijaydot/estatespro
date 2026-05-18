@@ -60,6 +60,7 @@ const TenantForgotPassword = lazy(() => import("./pages/tenant-portal/TenantForg
 const TenantResetPassword = lazy(() => import("./pages/tenant-portal/TenantResetPassword"));
 const GuestBookingPage = lazy(() => import("./pages/guest-booking/GuestBookingPage"));
 const GuestBookingActionPage = lazy(() => import("./pages/guest-booking/GuestBookingActionPage"));
+
 const queryClient = new QueryClient();
 
 function withSuspense(node: ReactNode) {
@@ -83,36 +84,33 @@ function PrivateRoute({ children }: { children: ReactNode }) {
   if (authLoading || roleLoading || membershipLoading || mfa.isLoading) {
     return <FullPageLoading />;
   }
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  // Tenant users are isolated to tenant routes.
   if (isTenant) {
     return <Navigate to="/tenant" replace />;
   }
 
-  // Only landlord/PM roles may access manager routes.
-  if (role !== 'landlord' && role !== 'property_manager') {
+  if (role !== "landlord" && role !== "property_manager") {
     return <Navigate to="/login" replace />;
   }
 
-  if (mfa.needsChallenge && location.pathname !== '/mfa-challenge') {
+  if (mfa.needsChallenge && location.pathname !== "/mfa-challenge") {
     return <Navigate to="/mfa-challenge" replace />;
   }
 
-  if ((role === 'landlord' || role === 'property_manager') && !mfa.isEnabled && location.pathname !== '/settings') {
+  if ((role === "landlord" || role === "property_manager") && !mfa.isEnabled && location.pathname !== "/settings") {
     return <Navigate to="/settings?tab=security&enforce_mfa=1" replace />;
   }
 
-  // If PM, check membership status
   if (isPropertyManager && membership) {
-    if (membership.status !== 'approved') {
+    if (membership.status !== "approved") {
       return <PendingApproval />;
     }
   }
-  
+
   return <AppLayout>{children}</AppLayout>;
 }
 
@@ -123,19 +121,19 @@ function TenantPortalRoute({ children }: { children: ReactNode }) {
   if (authLoading || roleLoading || mfa.isLoading) {
     return <FullPageLoading />;
   }
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/tenant/login" replace />;
   }
 
-  if (role !== 'tenant') {
+  if (role !== "tenant") {
     return <Navigate to="/dashboard" replace />;
   }
 
   if (mfa.needsChallenge) {
     return <Navigate to="/mfa-challenge" replace />;
   }
-  
+
   return <TenantPortalLayout>{children}</TenantPortalLayout>;
 }
 
@@ -151,7 +149,7 @@ function AuthenticatedRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (role === 'tenant') {
+  if (role === "tenant") {
     return <TenantPortalLayout>{children}</TenantPortalLayout>;
   }
 
@@ -165,21 +163,20 @@ function PublicRoute({ children }: { children: ReactNode }) {
   if (authLoading || roleLoading || mfa.isLoading) {
     return <FullPageLoading />;
   }
-  
+
   if (isAuthenticated) {
     if (mfa.needsChallenge) {
       return <Navigate to="/mfa-challenge" replace />;
     }
-    return <Navigate to={role === 'tenant' ? '/tenant' : '/dashboard'} replace />;
+    return <Navigate to={role === "tenant" ? "/tenant" : "/dashboard"} replace />;
   }
-  
+
   return <>{children}</>;
 }
 
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public Routes */}
       <Route path="/login" element={<PublicRoute>{withSuspense(<Login />)}</PublicRoute>} />
       <Route path="/signup" element={<PublicRoute>{withSuspense(<Signup />)}</PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute>{withSuspense(<ForgotPassword />)}</PublicRoute>} />
@@ -187,8 +184,7 @@ function AppRoutes() {
       <Route path="/mfa-challenge" element={<AuthenticatedRoute>{withSuspense(<MfaChallenge />)}</AuthenticatedRoute>} />
       <Route path="/book/:propertyId" element={withSuspense(<GuestBookingPage />)} />
       <Route path="/bookings/guest-action" element={withSuspense(<GuestBookingActionPage />)} />
-      
-      {/* Protected Routes */}
+
       <Route path="/dashboard" element={<PrivateRoute>{withSuspense(<Dashboard />)}</PrivateRoute>} />
       <Route path="/team" element={<PrivateRoute>{withSuspense(<TeamManagement />)}</PrivateRoute>} />
       <Route path="/properties" element={<PrivateRoute>{withSuspense(<Properties />)}</PrivateRoute>} />
@@ -211,8 +207,7 @@ function AppRoutes() {
       <Route path="/settings" element={<PrivateRoute>{withSuspense(<Settings />)}</PrivateRoute>} />
       <Route path="/support" element={<PrivateRoute>{withSuspense(<HelpSupport />)}</PrivateRoute>} />
       <Route path="/broadcasts" element={<PrivateRoute>{withSuspense(<Broadcasts />)}</PrivateRoute>} />
-      
-      {/* Tenant Portal Routes */}
+
       <Route path="/tenant/login" element={withSuspense(<TenantLogin />)} />
       <Route path="/tenant/signup" element={withSuspense(<TenantSignup />)} />
       <Route path="/tenant/forgot-password" element={withSuspense(<TenantForgotPassword />)} />
@@ -228,15 +223,11 @@ function AppRoutes() {
       <Route path="/tenant/notifications" element={<TenantPortalRoute>{withSuspense(<TenantNotifications />)}</TenantPortalRoute>} />
       <Route path="/tenant/settings" element={<TenantPortalRoute>{withSuspense(<TenantSettings />)}</TenantPortalRoute>} />
       <Route path="/tenant/support" element={<TenantPortalRoute>{withSuspense(<HelpSupport />)}</TenantPortalRoute>} />
-      
-      {/* Legacy portal routes */}
+
       <Route path="/portal" element={<Navigate to="/tenant" replace />} />
       <Route path="/portal/*" element={<Navigate to="/tenant" replace />} />
-      
-      {/* Redirects */}
+
       <Route path="/" element={<Navigate to="/login" replace />} />
-      
-      {/* 404 */}
       <Route path="*" element={withSuspense(<NotFound />)} />
     </Routes>
   );
