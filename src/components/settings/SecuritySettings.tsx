@@ -36,7 +36,7 @@ import {
   getTrustedDeviceExpiry,
   revokeTrustedDevice,
 } from "@/lib/trustedDevice";
-import { downloadFile } from "@/lib/download";
+import { downloadTextFile } from "@/lib/download";
 
 function formatQrDataUri(rawQr: string) {
   if (!rawQr) return "";
