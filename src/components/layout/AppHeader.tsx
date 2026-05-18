@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Search, Plus, Building, Home, Users, FileText, Receipt } from 'lucide-react';
+import { Bell, Search, Plus, Building, Home, Users, FileText, Receipt, Command } from 'lucide-react';
 import { safeSearch } from '@/lib/safeSearch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,28 +13,38 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { SearchableSelect } from '@/components/ui/searchable-select';
-import { toast } from '@/components/ui/use-toast';
-import { useCreateProperty, useProperties } from '@/hooks/useProperties';
-import { useCreateUnit, useUnits } from '@/hooks/useUnits';
-import { useCreateTenant, useTenants } from '@/hooks/useTenants';
+import { useProperties } from '@/hooks/useProperties';
+import { useTenants } from '@/hooks/useTenants';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
-type QuickAddType = 'property' | 'unit' | 'tenant' | 'lease' | 'invoice' | null;
+type QuickAddType = 'property' | 'unit' | 'tenant' | 'lease' | 'invoice';
+
+type SearchProperty = {
+  id: string;
+  name?: string;
+  address?: string;
+  city?: string;
+};
+
+type SearchTenant = {
+  id: string;
+  name?: string;
+  email?: string;
+};
+
+type SearchResult = {
+  label: string;
+  sublabel: string;
+  path: string;
+  type: 'Property' | 'Tenant';
+};
 
 export function AppHeader() {
   const navigate = useNavigate();
-  const [quickAddType, setQuickAddType] = useState<QuickAddType>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const { companies, activeCompanyId } = useActiveCompany();
 
   const { data: unreadCount = 0 } = useUnreadNotificationsCount();
 
@@ -59,31 +69,38 @@ export function AppHeader() {
     }
   };
 
-  const [searchResults, setSearchResults] = useState<Array<{ label: string; path: string; type: string }>>([]);
-  const [isSearching, setIsSearching] = useState(false);
-
   const { data: properties = [] } = useProperties();
   const allTenants = useTenants();
   const tenants = allTenants.data || [];
 
   // Live search across properties and tenants
-  const filteredResults = searchQuery.trim().length >= 2
+  const filteredResults: SearchResult[] = searchQuery.trim().length >= 2
     ? [
-        ...properties
-          .filter((p: any) =>
-            safeSearch(p.name).includes(searchQuery.toLowerCase()) ||
-            safeSearch(p.address).includes(searchQuery.toLowerCase()) ||
-            safeSearch(p.city).includes(searchQuery.toLowerCase())
+        ...(properties as SearchProperty[])
+          .filter((property) =>
+            safeSearch(property.name || '').includes(searchQuery.toLowerCase()) ||
+            safeSearch(property.address || '').includes(searchQuery.toLowerCase()) ||
+            safeSearch(property.city || '').includes(searchQuery.toLowerCase())
           )
           .slice(0, 5)
-          .map((p: any) => ({ label: p.name, sublabel: p.address, path: `/properties/${p.id}`, type: 'Property' })),
-        ...tenants
-          .filter((t: any) =>
-            safeSearch(t.name).includes(searchQuery.toLowerCase()) ||
-            safeSearch(t.email).includes(searchQuery.toLowerCase())
+          .map((property) => ({
+            label: property.name || 'Unnamed property',
+            sublabel: property.address || 'No address',
+            path: `/properties/${property.id}`,
+            type: 'Property' as const,
+          })),
+        ...(tenants as SearchTenant[])
+          .filter((tenant) =>
+            safeSearch(tenant.name || '').includes(searchQuery.toLowerCase()) ||
+            safeSearch(tenant.email || '').includes(searchQuery.toLowerCase())
           )
           .slice(0, 5)
-          .map((t: any) => ({ label: t.name, sublabel: t.email, path: `/tenants/${t.id}`, type: 'Tenant' })),
+          .map((tenant) => ({
+            label: tenant.name || 'Unnamed tenant',
+            sublabel: tenant.email || 'No email',
+            path: `/tenants/${tenant.id}`,
+            type: 'Tenant' as const,
+          })),
       ]
     : [];
 
@@ -94,25 +111,51 @@ export function AppHeader() {
     }
   };
 
+  const handleFlowClick = () => {
+    searchInputRef.current?.focus();
+  };
+
+  const activeCompanyName = companies.find((company) => company.id === activeCompanyId)?.name;
+
   return (
-    <header className="sticky top-0 z-30 h-16 bg-card border-b border-border px-6 flex items-center justify-between gap-4">
+    <header className="h-16 bg-card/90 border-b border-border/70 px-6 flex items-center justify-between gap-4 backdrop-blur-sm">
       {/* Search */}
-      <div className="flex-1 max-w-md">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search properties, tenants..."
-            className="pl-10 bg-secondary/50 border-0 focus-visible:ring-1 focus-visible:ring-ring"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleSearch}
-            onBlur={() => setTimeout(() => setSearchQuery(''), 200)}
-          />
+      <div className="flex-1 max-w-2xl">
+        <div className="relative flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              ref={searchInputRef}
+              placeholder="Search properties, tenants..."
+              className="pl-10 pr-14 bg-secondary/70 border border-border/60 focus-visible:ring-2 focus-visible:ring-ring"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleSearch}
+              onBlur={() => setTimeout(() => setSearchQuery(''), 200)}
+            />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden xl:flex items-center gap-1 rounded-md border border-border/80 bg-background/85 px-2 py-0.5 text-[10px] text-muted-foreground">
+              <Command className="h-3 w-3" />
+              K
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleFlowClick}
+            className="hidden md:flex items-center h-9 px-3 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-medium hover:bg-primary/10 transition-colors"
+          >
+            FishGate Flow
+          </button>
+          {activeCompanyName && (
+            <Badge variant="outline" className="hidden lg:flex border-border/80 bg-background/90 text-foreground h-9 px-3 rounded-full">
+              {activeCompanyName}
+            </Badge>
+          )}
           {filteredResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 overflow-hidden">
-              {filteredResults.map((result, i) => (
+              {filteredResults.map((result, index) => (
                 <button
-                  key={i}
+                  key={`${result.path}-${index}`}
                   className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-secondary/50 text-left transition-colors"
                   onMouseDown={() => {
                     navigate(result.path);
@@ -136,7 +179,7 @@ export function AppHeader() {
         {/* Quick Add */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="sm" className="gap-2">
+            <Button size="sm" className="gap-2 rounded-full px-4">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Quick Add</span>
             </Button>

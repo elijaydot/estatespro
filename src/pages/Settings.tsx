@@ -1,34 +1,45 @@
-import { useState } from 'react';
-import { Settings as SettingsIcon, Globe, Building2, Palette, FileText, Bell, ClipboardCheck, User, CreditCard, ShieldCheck } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { ProfileSettings } from '@/components/settings/ProfileSettings';
-import { GeneralSettings } from '@/components/settings/GeneralSettings';
-import { CompanySettings } from '@/components/settings/CompanySettings';
-import { AppearanceSettings } from '@/components/settings/AppearanceSettings';
-import { LeaseDocumentSettings } from '@/components/settings/LeaseDocumentSettings';
-import { NotificationSettings } from '@/components/settings/NotificationSettings';
-import { InspectionChecklistSettings } from '@/components/settings/InspectionChecklistSettings';
-import { PaymentSettings } from '@/components/settings/PaymentSettings';
-import { SecuritySettings } from '@/components/settings/SecuritySettings';
+import { useEffect, useState } from "react";
+import { Settings as SettingsIcon, Globe, Building2, Palette, FileText, Bell, ClipboardCheck, User, CreditCard, Shield } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { ProfileSettings } from "@/components/settings/ProfileSettings";
+import { GeneralSettings } from "@/components/settings/GeneralSettings";
+import { CompanySettings } from "@/components/settings/CompanySettings";
+import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
+import { LeaseDocumentSettings } from "@/components/settings/LeaseDocumentSettings";
+import { NotificationSettings } from "@/components/settings/NotificationSettings";
+import { InspectionChecklistSettings } from "@/components/settings/InspectionChecklistSettings";
+import { PaymentSettings } from "@/components/settings/PaymentSettings";
+import { SecuritySettings } from "@/components/settings/SecuritySettings";
 
 const tabs = [
-  { id: 'profile', label: 'Profile', icon: User, description: 'Account details' },
-  { id: 'security', label: 'Security', icon: ShieldCheck, description: 'MFA & sign-in' },
-  { id: 'general', label: 'General', icon: Globe, description: 'Regional & currency' },
-  { id: 'company', label: 'Company', icon: Building2, description: 'Company details' },
-  { id: 'appearance', label: 'Appearance', icon: Palette, description: 'Colors & theme' },
-  { id: 'lease', label: 'Lease Documents', icon: FileText, description: 'PDF styling' },
-  { id: 'payments', label: 'Payments', icon: CreditCard, description: 'Gateway & manual' },
-  { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Alerts & emails' },
-  { id: 'inspections', label: 'Inspections', icon: ClipboardCheck, description: 'Checklists' },
+  { id: "profile", label: "Profile", icon: User, description: "Account details" },
+  { id: "security", label: "Security", icon: Shield, description: "MFA and account protection" },
+  { id: "general", label: "General", icon: Globe, description: "Regional & currency" },
+  { id: "company", label: "Company", icon: Building2, description: "Company details" },
+  { id: "appearance", label: "Appearance", icon: Palette, description: "Colors & theme" },
+  { id: "lease", label: "Lease Documents", icon: FileText, description: "PDF styling" },
+  { id: "payments", label: "Payments", icon: CreditCard, description: "Gateway & manual" },
+  { id: "notifications", label: "Notifications", icon: Bell, description: "Alerts & emails" },
+  { id: "inspections", label: "Inspections", icon: ClipboardCheck, description: "Checklists" },
 ];
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState('profile');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState("profile");
+
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab");
+    if (!requestedTab) return;
+
+    const exists = tabs.some((tab) => tab.id === requestedTab);
+    if (exists) {
+      setActiveTab(requestedTab);
+    }
+  }, [searchParams]);
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
@@ -42,7 +53,6 @@ export default function Settings() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Sidebar Nav */}
         <nav className="lg:w-64 shrink-0">
           <div className="lg:sticky lg:top-4 space-y-1">
             {tabs.map((tab) => {
@@ -77,17 +87,16 @@ export default function Settings() {
           </div>
         </nav>
 
-        {/* Content */}
         <div className="flex-1 min-w-0">
-          {activeTab === 'profile' && <ProfileSettings />}
-          {activeTab === 'security' && <SecuritySettings />}
-          {activeTab === 'general' && <GeneralSettings />}
-          {activeTab === 'company' && <CompanySettingsWrapper />}
-          {activeTab === 'appearance' && <AppearanceSettings />}
-          {activeTab === 'lease' && <LeaseDocumentSettings />}
-          {activeTab === 'payments' && <PaymentSettingsWrapper />}
-          {activeTab === 'notifications' && <NotificationSettings />}
-          {activeTab === 'inspections' && <InspectionChecklistWrapper />}
+          {activeTab === "profile" && <ProfileSettings />}
+          {activeTab === "security" && <SecuritySettingsWrapper />}
+          {activeTab === "general" && <GeneralSettings />}
+          {activeTab === "company" && <CompanySettingsWrapper />}
+          {activeTab === "appearance" && <AppearanceSettings />}
+          {activeTab === "lease" && <LeaseDocumentSettings />}
+          {activeTab === "payments" && <PaymentSettingsWrapper />}
+          {activeTab === "notifications" && <NotificationSettings />}
+          {activeTab === "inspections" && <InspectionChecklistWrapper />}
         </div>
       </div>
     </div>
@@ -126,6 +135,18 @@ function InspectionChecklistWrapper() {
         <p className="text-sm text-muted-foreground">Manage default items for tenant exit inspections</p>
       </div>
       <InspectionChecklistSettings />
+    </div>
+  );
+}
+
+function SecuritySettingsWrapper() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-foreground">Security</h2>
+        <p className="text-sm text-muted-foreground">Set up and manage multi-factor authentication for your account.</p>
+      </div>
+      <SecuritySettings />
     </div>
   );
 }

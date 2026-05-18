@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 export interface Invoice {
   id: string;
@@ -24,18 +25,26 @@ export interface Invoice {
 }
 
 export function useInvoices() {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['invoices'],
+    queryKey: ['invoices', activeCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('invoices')
         .select(`
           *,
           tenants:tenant_id(id, name, email),
-          properties:property_id(id, name),
+          properties:property_id(id, name, company_id),
           units:unit_id(id, unit_number)
         `)
         .order('created_at', { ascending: false });
+
+      if (activeCompanyId) {
+        query = query.eq('properties.company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data;
@@ -44,19 +53,26 @@ export function useInvoices() {
 }
 
 export function useInvoice(id: string) {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['invoices', id],
+    queryKey: ['invoices', id, activeCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('invoices')
         .select(`
           *,
           tenants:tenant_id(id, name, email),
-          properties:property_id(id, name),
+          properties:property_id(id, name, company_id),
           units:unit_id(id, unit_number)
         `)
-        .eq('id', id)
-        .single();
+        .eq('id', id);
+
+      if (activeCompanyId) {
+        query = query.eq('properties.company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data;

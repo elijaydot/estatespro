@@ -13,6 +13,9 @@ import {
   Check,
   CheckCheck,
   Radio,
+  RefreshCcw,
+  Sparkles,
+  WandSparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,18 +51,28 @@ import {
   useSendMessage,
   useMarkAsRead,
   useDeleteMessage,
+  type Message,
 } from '@/hooks/useMessages';
-import { useTenants } from '@/hooks/useTenants';
+import { useTenants, type Tenant } from '@/hooks/useTenants';
 import { useAuth } from '@/contexts/AuthContext';
 import { SuggestedReplies } from '@/components/ai/SuggestedReplies';
 import ReactMarkdown from 'react-markdown';
+
+type TenantWithRelations = Tenant & {
+  tenant_user_id: string | null;
+};
+
+type ThreadMessage = Message & {
+  isFromMe: boolean;
+  senderName: string;
+};
 
 interface MessageThread {
   tenantId: string;
   tenantName: string;
   tenantEmail: string;
-  messages: any[];
-  lastMessage: any;
+  messages: ThreadMessage[];
+  lastMessage: Message;
   unreadCount: number;
 }
 
@@ -87,9 +100,12 @@ export default function MessagesPageV2() {
   });
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { data: allMessages = [], isLoading } = useMessages();
+  const { data: allMessages = [], isLoading, isError, error } = useMessages();
   const { data: unreadCount = 0 } = useUnreadCount();
   const { data: tenants = [] } = useTenants();
+
+  const messageRows = allMessages as Message[];
+  const tenantRows = tenants as TenantWithRelations[];
 
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
@@ -101,14 +117,14 @@ export default function MessagesPageV2() {
     const threadMap = new Map<string, MessageThread>();
     const currentUserId = user?.id;
 
-    allMessages.forEach((msg: any) => {
+    messageRows.forEach((msg) => {
       // For landlord/PM: sender_id is their auth.uid(), recipient_id for tenant msgs is tenant.id
       // For tenant: sender_id is tenant.id, recipient_id is landlord auth.uid()
       const isSentByMe = msg.sender_id === currentUserId;
       const otherPartyId = isSentByMe ? msg.recipient_id : msg.sender_id;
 
       // Find tenant info - match by tenant.id (domain) OR tenant_user_id (auth)
-      const tenant = tenants.find((t: any) =>
+      const tenant = tenantRows.find((t) =>
         t.id === otherPartyId || t.tenant_user_id === otherPartyId
       );
 
@@ -144,7 +160,7 @@ export default function MessagesPageV2() {
     });
 
     threadMap.forEach((thread) => {
-      thread.messages.sort((a: any, b: any) =>
+      thread.messages.sort((a, b) =>
         new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
     });
@@ -152,14 +168,14 @@ export default function MessagesPageV2() {
     return Array.from(threadMap.values()).sort((a, b) =>
       new Date(b.lastMessage.created_at).getTime() - new Date(a.lastMessage.created_at).getTime()
     );
-  }, [allMessages, tenants, user?.id]);
+  }, [messageRows, tenantRows, user?.id]);
 
   // Keep selected thread in sync when messages update
   useEffect(() => {
-    if (selectedThread) {
-      const updated = threads.find(t => t.tenantId === selectedThread.tenantId);
-      if (updated) setSelectedThread(updated);
-    }
+    setSelectedThread((current) => {
+      if (!current) return current;
+      return threads.find((t) => t.tenantId === current.tenantId) ?? current;
+    });
   }, [threads]);
 
   // Auto-scroll to bottom on new messages
@@ -182,7 +198,7 @@ export default function MessagesPageV2() {
   });
 
   // Compose: use tenant.id as recipient (domain ID, not auth uid)
-  const recipientOptions = tenants.map((t: any) => ({
+  const recipientOptions = tenantRows.map((t) => ({
     value: t.id,
     label: t.name,
     description: t.email,
@@ -253,27 +269,70 @@ export default function MessagesPageV2() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Messages</h1>
-          <p className="text-muted-foreground mt-1">Communicate with your tenants in real time</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/80 flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" />
+            Comms hub
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Messages</h1>
+          <p className="text-muted-foreground mt-1">Communicate with tenants in a focused, real-time workspace</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full sm:w-auto">
           <Button
             variant={showUnreadOnly ? 'default' : 'outline'}
             onClick={() => setShowUnreadOnly((current) => !current)}
-            className="gap-2"
+            className="gap-2 w-full rounded-full px-4"
           >
             <Mail className="h-4 w-4" />
             {showUnreadOnly ? 'Unread Only' : 'All Threads'}
           </Button>
-          <Button onClick={() => setIsComposeOpen(true)} className="gap-2">
+          <Button onClick={() => setIsComposeOpen(true)} className="gap-2 w-full rounded-full px-4">
             <Plus className="h-4 w-4" />
             New Message
           </Button>
         </div>
       </div>
 
+      <Card className="border border-border/70 bg-card/85 backdrop-blur-sm card-shadow-md overflow-hidden">
+        <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <WandSparkles className="h-4 w-4 text-primary" />
+              Conversation cockpit
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Search threads faster, focus unread messages, and reply with AI suggestions.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="rounded-full px-3 py-1 border-primary/30 text-primary">
+              Threads {threads.length}
+            </Badge>
+            <Badge variant="outline" className="rounded-full px-3 py-1 border-warning/30 text-warning">
+              Unread {unreadCount}
+            </Badge>
+            <Badge variant="outline" className="rounded-full px-3 py-1 border-success/30 text-success">
+              Messages {allMessages.length}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      {isError && (
+        <Card className="card-shadow-md border-destructive/20">
+          <CardContent className="py-8">
+            <div className="text-center space-y-3">
+              <Mail className="h-8 w-8 text-destructive mx-auto" />
+              <p className="font-medium">Could not load messages</p>
+              <p className="text-sm text-muted-foreground">{(error as Error)?.message || 'Please try again.'}</p>
+              <Button variant="outline" onClick={() => window.location.reload()} className="gap-2">
+                <RefreshCcw className="h-4 w-4" />
+                Retry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <Card className="card-shadow-sm">
+        <Card className="card-shadow-sm animate-enter stagger-1">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-xl bg-primary/10">
@@ -286,7 +345,7 @@ export default function MessagesPageV2() {
             </div>
           </CardContent>
         </Card>
-        <Card className="card-shadow-sm">
+        <Card className="card-shadow-sm animate-enter stagger-2">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-xl bg-warning/10">
@@ -299,7 +358,7 @@ export default function MessagesPageV2() {
             </div>
           </CardContent>
         </Card>
-        <Card className="card-shadow-sm">
+        <Card className="card-shadow-sm animate-enter stagger-3">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-xl bg-success/10">
@@ -315,7 +374,7 @@ export default function MessagesPageV2() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1 card-shadow-md">
+        <Card className="lg:col-span-1 card-shadow-md border-border/70 animate-enter stagger-2">
           <CardHeader className="pb-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -323,7 +382,7 @@ export default function MessagesPageV2() {
                 placeholder="Search conversations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 h-11 border-border/70 bg-card/80"
               />
             </div>
           </CardHeader>
@@ -331,24 +390,30 @@ export default function MessagesPageV2() {
             <div className="space-y-1 p-2">
               {isLoading ? (
                 <div className="p-4 text-center text-muted-foreground">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-                  Loading...
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 pulse-soft" />
+                  Loading conversations...
                 </div>
               ) : filteredThreads.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
                   <Mail className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>No conversations yet</p>
+                  <p className="font-medium text-foreground">No conversations found</p>
+                  <p className="text-xs mt-1">Try clearing search or start a new message.</p>
+                  <Button size="sm" className="rounded-full mt-4" onClick={() => setIsComposeOpen(true)}>
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Start conversation
+                  </Button>
                 </div>
               ) : (
-                filteredThreads.map((thread) => (
+                filteredThreads.map((thread, index) => (
                   <button
                     key={thread.tenantId}
                     onClick={() => handleSelectThread(thread)}
-                    className={`w-full text-left p-4 rounded-lg transition-colors ${
+                    style={{ animationDelay: `${Math.min(index, 6) * 45}ms` }}
+                    className={`w-full text-left p-4 rounded-lg transition-colors border ${
                       selectedThread?.tenantId === thread.tenantId
-                        ? 'bg-primary/10 border border-primary/20'
-                        : 'hover:bg-muted'
-                    }`}
+                        ? 'bg-primary/10 border-primary/20 shadow-sm'
+                        : 'border-transparent hover:bg-muted/70'
+                    } animate-enter`}
                   >
                     <div className="flex items-start gap-3">
                       <div className="relative">
@@ -389,7 +454,7 @@ export default function MessagesPageV2() {
           </ScrollArea>
         </Card>
 
-        <Card className="lg:col-span-2 card-shadow-md flex flex-col">
+        <Card className="lg:col-span-2 card-shadow-md border-border/70 flex flex-col animate-enter stagger-3">
           {selectedThread ? (
             <>
               <CardHeader className="pb-3 border-b">
@@ -414,15 +479,15 @@ export default function MessagesPageV2() {
                 </div>
               </CardHeader>
 
-              <ScrollArea className="flex-1 p-4" style={{ height: '350px' }}>
+              <ScrollArea className="flex-1 p-4" style={{ height: '380px' }}>
                 <div className="space-y-4">
-                  {selectedThread.messages.map((msg: any) => (
+                  {selectedThread.messages.map((msg) => (
                     <div
                       key={msg.id}
                       className={`flex ${msg.isFromMe ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-[80%] rounded-lg p-4 ${
+                        className={`max-w-[84%] rounded-xl p-4 shadow-sm ${
                           msg.isFromMe
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-muted'
@@ -491,6 +556,10 @@ export default function MessagesPageV2() {
               <p className="text-sm text-muted-foreground mt-1">
                 Choose a tenant from the list to view messages
               </p>
+              <Button size="sm" className="rounded-full mt-4" onClick={() => setIsComposeOpen(true)}>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                New Message
+              </Button>
             </CardContent>
           )}
         </Card>

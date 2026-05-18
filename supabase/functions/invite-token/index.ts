@@ -1,26 +1,36 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import {
+  buildCorsHeaders,
+  checkRateLimit,
+  handleCorsPreflight,
+  validateRequestSignature,
+} from "../_shared/security.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
   });
 }
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflight(req);
   }
 
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return jsonResponse(req, { error: "Method not allowed" }, 405);
+  }
+
+  const rateCheck = checkRateLimit(req, {
+    keyPrefix: "invite-token",
+    limit: 40,
+    windowMs: 60_000,
+  });
+
+  if (!rateCheck.allowed) {
+    return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
   }
 
   try {
@@ -28,16 +38,17 @@ serve(async (req: Request) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
     if (!supabaseUrl || !serviceRoleKey) {
-      return jsonResponse({ error: "Missing server configuration" }, 500);
+      return jsonResponse(req, { error: "Missing server configuration" }, 500);
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
-    const body = await req.json();
+    const rawBody = await req.text();
+    const body = rawBody ? JSON.parse(rawBody) : {};
     const operation = body?.operation as string | undefined;
 
     if (operation === "validate_tenant") {
       const token = (body?.token as string | undefined)?.trim();
-      if (!token) return jsonResponse({ error: "token is required" }, 400);
+      if (!token) return jsonResponse(req, { error: "token is required" }, 400);
 
       const { data, error } = await supabase
         .from("tenant_invites")
@@ -47,10 +58,10 @@ serve(async (req: Request) => {
         .is("used_at", null)
         .maybeSingle();
 
-      if (error) return jsonResponse({ error: error.message }, 500);
-      if (!data) return jsonResponse({ success: true, invite: null });
+      if (error) return jsonResponse(req, { error: error.message }, 500);
+      if (!data) return jsonResponse(req, { success: true, invite: null });
 
-      return jsonResponse({
+      return jsonResponse(req, {
         success: true,
         invite: {
           ...data,
@@ -61,7 +72,7 @@ serve(async (req: Request) => {
 
     if (operation === "validate_pm") {
       const token = (body?.token as string | undefined)?.trim();
-      if (!token) return jsonResponse({ error: "token is required" }, 400);
+      if (!token) return jsonResponse(req, { error: "token is required" }, 400);
 
       const { data, error } = await supabase
         .from("pm_invites")
@@ -71,10 +82,10 @@ serve(async (req: Request) => {
         .is("used_at", null)
         .maybeSingle();
 
-      if (error) return jsonResponse({ error: error.message }, 500);
-      if (!data) return jsonResponse({ success: true, invite: null });
+      if (error) return jsonResponse(req, { error: error.message }, 500);
+      if (!data) return jsonResponse(req, { success: true, invite: null });
 
-      return jsonResponse({
+      return jsonResponse(req, {
         success: true,
         invite: {
           id: data.id,
@@ -87,9 +98,18 @@ serve(async (req: Request) => {
     }
 
     if (operation === "consume_pm") {
+      const requireInviteSignature = Deno.env.get("REQUIRE_INVITE_SIGNATURE") === "true";
+      const validSignature = await validateRequestSignature(req, rawBody, {
+        required: requireInviteSignature,
+      });
+
+      if (!validSignature) {
+        return jsonResponse(req, { error: "Invalid request signature" }, 401);
+      }
+
       const token = (body?.token as string | undefined)?.trim();
       const email = (body?.email as string | undefined)?.trim().toLowerCase();
-      if (!token || !email) return jsonResponse({ error: "token and email are required" }, 400);
+      if (!token || !email) return jsonResponse(req, { error: "token and email are required" }, 400);
 
       const { data: invite, error: inviteError } = await supabase
         .from("pm_invites")
@@ -97,14 +117,14 @@ serve(async (req: Request) => {
         .eq("token", token)
         .maybeSingle();
 
-      if (inviteError) return jsonResponse({ error: inviteError.message }, 500);
-      if (!invite) return jsonResponse({ error: "Invalid invite token" }, 404);
-      if (invite.used_at) return jsonResponse({ success: true, alreadyUsed: true });
+      if (inviteError) return jsonResponse(req, { error: inviteError.message }, 500);
+      if (!invite) return jsonResponse(req, { error: "Invalid invite token" }, 404);
+      if (invite.used_at) return jsonResponse(req, { success: true, alreadyUsed: true });
       if (new Date(invite.expires_at).getTime() <= Date.now()) {
-        return jsonResponse({ error: "Invite token has expired" }, 400);
+        return jsonResponse(req, { error: "Invite token has expired" }, 400);
       }
       if ((invite.email || "").toLowerCase() !== email) {
-        return jsonResponse({ error: "Invite email does not match" }, 403);
+        return jsonResponse(req, { error: "Invite email does not match" }, 403);
       }
 
       const { error: updateError } = await supabase
@@ -113,14 +133,14 @@ serve(async (req: Request) => {
         .eq("id", invite.id)
         .is("used_at", null);
 
-      if (updateError) return jsonResponse({ error: updateError.message }, 500);
+      if (updateError) return jsonResponse(req, { error: updateError.message }, 500);
 
-      return jsonResponse({ success: true, consumed: true });
+      return jsonResponse(req, { success: true, consumed: true });
     }
 
-    return jsonResponse({ error: "Unsupported operation" }, 400);
+    return jsonResponse(req, { error: "Unsupported operation" }, 400);
   } catch (error: any) {
     console.error("invite-token error:", error);
-    return jsonResponse({ error: error?.message || "Internal server error" }, 500);
+    return jsonResponse(req, { error: error?.message || "Internal server error" }, 500);
   }
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { 
   Users, UserPlus, Building2, Shield, Clock, CheckCircle2, 
   XCircle, Copy, Ban, MapPin, Loader2, Plus, Trash2, Pencil 
@@ -29,11 +29,14 @@ import {
   useRemoveCompanyMember,
 } from '@/hooks/useCompanies';
 import { useProperties } from '@/hooks/useProperties';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useStepUpGuard } from '@/hooks/useStepUpGuard';
+import { logSecurityEvent } from '@/lib/security';
 
 export default function TeamManagement() {
   const { isLandlord } = useUserRole();
   const { data: companies, isLoading: loadingCompanies } = useMyCompanies();
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+  const { activeCompanyId, setActiveCompanyId } = useActiveCompany();
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
@@ -42,11 +45,11 @@ export default function TeamManagement() {
   const [assignPropertyId, setAssignPropertyId] = useState('');
   const [editCompanyDialogOpen, setEditCompanyDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<{ id: string; name: string; email: string; phone: string; address: string } | null>(null);
-  const activeCompanyId = selectedCompanyId || companies?.[0]?.id || '';
+  const resolvedCompanyId = activeCompanyId || companies?.[0]?.id || '';
   
-  const { data: members, isLoading: loadingMembers } = useCompanyMembers(activeCompanyId);
-  const { data: assignments } = usePMAssignments(activeCompanyId);
-  const { data: invites } = usePMInvites(activeCompanyId);
+  const { data: members, isLoading: loadingMembers } = useCompanyMembers(resolvedCompanyId);
+  const { data: assignments } = usePMAssignments(resolvedCompanyId);
+  const { data: invites } = usePMInvites(resolvedCompanyId);
   const { data: properties } = useProperties();
   
   const updateStatus = useUpdateMemberStatus();
@@ -57,39 +60,56 @@ export default function TeamManagement() {
   const updateCompany = useUpdateCompany();
   const deleteCompany = useDeleteCompany();
   const removeMember = useRemoveCompanyMember();
+  const { ensureAal2 } = useStepUpGuard();
 
   const approvedMembers = members?.filter(m => m.status === 'approved') || [];
   const pendingMembers = members?.filter(m => m.status === 'pending') || [];
   const deactivatedMembers = members?.filter(m => m.status === 'deactivated') || [];
 
   // Company properties (those with company_id set)
-  const companyProperties = properties?.filter((p: any) => p.company_id === activeCompanyId) || [];
+  const companyProperties = properties?.filter((p: any) => p.company_id === resolvedCompanyId) || [];
 
   const handleInvite = async () => {
-    if (!inviteEmail || !activeCompanyId) return;
-    const result = await createInvite.mutateAsync({ companyId: activeCompanyId, email: inviteEmail });
-    const appUrl = import.meta.env.VITE_SUPABASE_URL ? 'https://estatespro.lovable.app' : window.location.origin;
+    const canProceed = await ensureAal2('team.invite_manager');
+    if (!canProceed) return;
+
+    if (!inviteEmail || !resolvedCompanyId) return;
+    const result = await createInvite.mutateAsync({ companyId: resolvedCompanyId, email: inviteEmail });
+    const appUrl = import.meta.env.VITE_SUPABASE_URL ? 'https://fishgate.lovable.app' : window.location.origin;
     const inviteUrl = `${appUrl}/signup?pm_invite=${result.token}`;
     await navigator.clipboard.writeText(inviteUrl);
+    await logSecurityEvent('team_invite_created', { companyId: resolvedCompanyId, email: inviteEmail });
     toast({ title: 'Invite link copied!', description: `Invite link for ${inviteEmail} has been copied to clipboard.` });
     setInviteEmail('');
     setInviteDialogOpen(false);
   };
 
   const handleAssign = async () => {
-    if (!assignManagerId || !assignPropertyId || !activeCompanyId) return;
+    const canProceed = await ensureAal2('team.assign_property_manager');
+    if (!canProceed) return;
+
+    if (!assignManagerId || !assignPropertyId || !resolvedCompanyId) return;
     await assignPM.mutateAsync({
-      companyId: activeCompanyId,
+      companyId: resolvedCompanyId,
       propertyId: assignPropertyId,
       managerId: assignManagerId,
+    });
+    await logSecurityEvent('team_assignment_created', {
+      companyId: resolvedCompanyId,
+      managerId: assignManagerId,
+      propertyId: assignPropertyId,
     });
     setAssignManagerId('');
     setAssignPropertyId('');
   };
 
   const handleCreateCompany = async () => {
+    const canProceed = await ensureAal2('team.create_company');
+    if (!canProceed) return;
+
     if (!newCompanyName.trim()) return;
-    await createCompany.mutateAsync({ name: newCompanyName.trim() });
+    const created = await createCompany.mutateAsync({ name: newCompanyName.trim() });
+    await logSecurityEvent('company_created', { companyId: created?.id || null, name: newCompanyName.trim() });
     setNewCompanyName('');
     setCompanyDialogOpen(false);
   };
@@ -106,6 +126,9 @@ export default function TeamManagement() {
   };
 
   const handleUpdateCompany = async () => {
+    const canProceed = await ensureAal2('team.update_company');
+    if (!canProceed) return;
+
     if (!editingCompany) return;
     await updateCompany.mutateAsync({
       companyId: editingCompany.id,
@@ -116,16 +139,59 @@ export default function TeamManagement() {
         address: editingCompany.address || null,
       },
     });
+    await logSecurityEvent('company_updated', {
+      companyId: editingCompany.id,
+      name: editingCompany.name,
+    });
     setEditCompanyDialogOpen(false);
     setEditingCompany(null);
   };
 
   const handleDeleteCompany = async (company: any) => {
+    const canProceed = await ensureAal2('team.delete_company');
+    if (!canProceed) return;
+
     if (!confirm(`Are you sure you want to delete "${company.name}"? This will also remove all associated members and assignments. This action cannot be undone.`)) return;
     await deleteCompany.mutateAsync(company.id);
-    if (selectedCompanyId === company.id) {
-      setSelectedCompanyId('');
+    await logSecurityEvent('company_deleted', { companyId: company.id, name: company.name });
+    if (resolvedCompanyId === company.id) {
+      setActiveCompanyId(null);
     }
+  };
+
+  const handleUpdateMemberStatus = async (memberId: string, status: string) => {
+    const canProceed = await ensureAal2('team.update_member_status');
+    if (!canProceed) return;
+
+    await updateStatus.mutateAsync({ memberId, status });
+    await logSecurityEvent('team_member_status_updated', { memberId, status });
+  };
+
+  const handleRemoveMember = async (memberId: string, memberName: string) => {
+    const canProceed = await ensureAal2('team.remove_member');
+    if (!canProceed) return;
+
+    if (!confirm(`Are you sure you want to remove ${memberName || 'this manager'}? This action cannot be undone.`)) return;
+    await removeMember.mutateAsync(memberId);
+    await logSecurityEvent('team_member_removed', { memberId, memberName });
+  };
+
+  const handleRemoveAssignment = async (assignmentId: string) => {
+    const canProceed = await ensureAal2('team.remove_assignment');
+    if (!canProceed) return;
+
+    await removeAssignment.mutateAsync(assignmentId);
+    await logSecurityEvent('team_assignment_removed', { assignmentId });
+  };
+
+  const handleCopyInviteLink = async (invite: any) => {
+    const canProceed = await ensureAal2('team.copy_invite_link');
+    if (!canProceed) return;
+
+    const url = `${window.location.origin}/signup?pm_invite=${invite.token}`;
+    await navigator.clipboard.writeText(url);
+    await logSecurityEvent('team_invite_link_copied', { inviteId: invite.id, email: invite.email });
+    toast({ title: 'Copied!', description: 'Invite link copied to clipboard' });
   };
 
   const getStatusBadge = (status: string) => {
@@ -163,15 +229,15 @@ export default function TeamManagement() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Team Management</h1>
           <p className="text-muted-foreground mt-1">Manage property managers and property assignments</p>
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full md:w-auto">
           <Dialog open={companyDialogOpen} onOpenChange={setCompanyDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2 w-full md:w-auto">
                 <Building2 className="h-4 w-4" />
                 Add Company
               </Button>
@@ -192,7 +258,7 @@ export default function TeamManagement() {
           </Dialog>
           <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button className="gap-2 w-full md:w-auto">
                 <UserPlus className="h-4 w-4" />
                 Invite Manager
               </Button>
@@ -221,10 +287,10 @@ export default function TeamManagement() {
       {companies && companies.length > 1 && (
         <Card>
           <CardContent className="pt-4">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
               <Label className="whitespace-nowrap">Active Company:</Label>
-              <Select value={activeCompanyId} onValueChange={setSelectedCompanyId}>
-                <SelectTrigger className="max-w-xs">
+              <Select value={resolvedCompanyId} onValueChange={setActiveCompanyId}>
+                <SelectTrigger className="w-full sm:max-w-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -239,7 +305,8 @@ export default function TeamManagement() {
       )}
 
       <Tabs defaultValue="members" className="space-y-4">
-        <TabsList>
+        <div className="w-full overflow-x-auto pb-1">
+        <TabsList className="min-w-max">
           <TabsTrigger value="members" className="gap-2">
             <Users className="h-4 w-4" />
             Members
@@ -262,6 +329,7 @@ export default function TeamManagement() {
             Companies ({companies?.length || 0})
           </TabsTrigger>
         </TabsList>
+        </div>
 
         {/* Members Tab */}
         <TabsContent value="members" className="space-y-4">
@@ -277,7 +345,7 @@ export default function TeamManagement() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {pendingMembers.map(member => (
-                  <div key={member.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                  <div key={member.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border bg-card">
                     <div className="flex items-center gap-3">
                       <Avatar>
                         <AvatarFallback className="bg-primary/10 text-primary">
@@ -289,10 +357,10 @@ export default function TeamManagement() {
                         <p className="text-sm text-muted-foreground">{member.profiles?.email}</p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
-                        onClick={() => updateStatus.mutate({ memberId: member.id, status: 'approved' })}
+                        onClick={() => void handleUpdateMemberStatus(member.id, 'approved')}
                         disabled={updateStatus.isPending}
                         className="gap-1"
                       >
@@ -301,7 +369,7 @@ export default function TeamManagement() {
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => updateStatus.mutate({ memberId: member.id, status: 'rejected' })}
+                        onClick={() => void handleUpdateMemberStatus(member.id, 'rejected')}
                         disabled={updateStatus.isPending}
                         className="gap-1"
                       >
@@ -329,7 +397,7 @@ export default function TeamManagement() {
                     const memberAssignments = assignments?.filter(a => a.manager_id === member.user_id) || [];
                     return (
                       <div key={member.id} className="p-4 rounded-lg border bg-card">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-3">
                             <Avatar>
                               <AvatarFallback className="bg-success/10 text-success">
@@ -350,13 +418,13 @@ export default function TeamManagement() {
                               )}
                             </div>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-2">
                             {getStatusBadge(member.status)}
                             <Button
                               size="sm"
                               variant="outline"
                               className="text-warning hover:text-warning"
-                              onClick={() => updateStatus.mutate({ memberId: member.id, status: 'deactivated' })}
+                              onClick={() => void handleUpdateMemberStatus(member.id, 'deactivated')}
                             >
                               <Ban className="h-3 w-3 mr-1" /> Deactivate
                             </Button>
@@ -364,11 +432,7 @@ export default function TeamManagement() {
                               size="sm"
                               variant="outline"
                               className="text-destructive hover:text-destructive"
-                              onClick={() => {
-                                if (confirm(`Are you sure you want to remove ${member.profiles?.name || 'this manager'}? This action cannot be undone.`)) {
-                                  removeMember.mutate(member.id);
-                                }
-                              }}
+                              onClick={() => void handleRemoveMember(member.id, member.profiles?.name || 'this manager')}
                             >
                               <Trash2 className="h-3 w-3 mr-1" /> Remove
                             </Button>
@@ -390,7 +454,7 @@ export default function TeamManagement() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {deactivatedMembers.map(member => (
-                  <div key={member.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                  <div key={member.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border bg-muted/30">
                     <div className="flex items-center gap-3">
                       <Avatar className="opacity-50">
                         <AvatarFallback>{member.profiles?.name?.charAt(0) || 'U'}</AvatarFallback>
@@ -403,7 +467,7 @@ export default function TeamManagement() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => updateStatus.mutate({ memberId: member.id, status: 'approved' })}
+                      onClick={() => void handleUpdateMemberStatus(member.id, 'approved')}
                     >
                       Reactivate
                     </Button>
@@ -485,7 +549,7 @@ export default function TeamManagement() {
                   {assignments.map(assignment => {
                     const member = members?.find(m => m.user_id === assignment.manager_id);
                     return (
-                      <div key={assignment.id} className="flex items-center justify-between p-3 rounded-lg border">
+                      <div key={assignment.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border">
                         <div className="flex items-center gap-4">
                           <Avatar>
                             <AvatarFallback className="bg-primary/10 text-primary">
@@ -504,7 +568,7 @@ export default function TeamManagement() {
                           size="sm"
                           variant="ghost"
                           className="text-destructive"
-                          onClick={() => removeAssignment.mutate(assignment.id)}
+                          onClick={() => void handleRemoveAssignment(assignment.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -530,12 +594,12 @@ export default function TeamManagement() {
               ) : (
                 <div className="space-y-3">
                   {invites.map((invite: any) => (
-                    <div key={invite.id} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div key={invite.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border">
                       <div>
                         <p className="font-medium">{invite.email}</p>
                         <p className="text-xs text-muted-foreground">
                           Sent: {new Date(invite.created_at).toLocaleDateString()}
-                          {' · '}
+                          {' - '}
                           Expires: {new Date(invite.expires_at).toLocaleDateString()}
                         </p>
                       </div>
@@ -548,11 +612,7 @@ export default function TeamManagement() {
                           size="sm"
                           variant="outline"
                           className="gap-1"
-                          onClick={() => {
-                            const url = `${window.location.origin}/signup?pm_invite=${invite.token}`;
-                            navigator.clipboard.writeText(url);
-                            toast({ title: 'Copied!', description: 'Invite link copied to clipboard' });
-                          }}
+                          onClick={() => void handleCopyInviteLink(invite)}
                         >
                           <Copy className="h-3 w-3" /> Copy Link
                         </Button>
@@ -582,7 +642,7 @@ export default function TeamManagement() {
                     const propCount = companyProperties.length;
                     return (
                       <div key={company.id} className="p-4 rounded-lg border bg-card">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg bg-primary/10">
                               <Building2 className="h-5 w-5 text-primary" />
@@ -591,13 +651,13 @@ export default function TeamManagement() {
                               <p className="font-medium text-foreground">{company.name}</p>
                               <div className="flex gap-3 text-sm text-muted-foreground">
                                 {company.email && <span>{company.email}</span>}
-                                {company.phone && <span>• {company.phone}</span>}
+                                {company.phone && <span>- {company.phone}</span>}
                               </div>
                               {company.address && (
                                 <p className="text-xs text-muted-foreground">{company.address}</p>
                               )}
                               <div className="flex gap-2 mt-1">
-                                {activeCompanyId === company.id && (
+                                {resolvedCompanyId === company.id && (
                                   <>
                                     <Badge variant="secondary" className="text-xs">{memberCount} managers</Badge>
                                     <Badge variant="secondary" className="text-xs">{propCount} properties</Badge>
@@ -606,7 +666,7 @@ export default function TeamManagement() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-2">
                             <Button
                               size="sm"
                               variant="outline"
@@ -692,3 +752,4 @@ export default function TeamManagement() {
     </div>
   );
 }
+

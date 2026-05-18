@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { format, differenceInDays, addDays, parseISO, isWithinInterval } from 'date-fns';
 import {
@@ -482,7 +482,7 @@ export default function GuestBookingPage() {
               <CardTitle>Book Your Stay</CardTitle>
               <CardDescription>
                 {selectedUnitData
-                  ? `Unit ${selectedUnitData.unit_number} · ${nightlyRate.toLocaleString()} / night`
+                  ? `Unit ${selectedUnitData.unit_number} - ${nightlyRate.toLocaleString()} / night`
                   : 'Select a unit to get started'}
               </CardDescription>
             </CardHeader>
@@ -574,7 +574,7 @@ export default function GuestBookingPage() {
                     <Separator />
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">{nightlyRate.toLocaleString()} × {nights} night{nights > 1 ? 's' : ''}</span>
+                        <span className="text-muted-foreground">{nightlyRate.toLocaleString()} x {nights} night{nights > 1 ? 's' : ''}</span>
                         <span>{totalAmount.toLocaleString()}</span>
                       </div>
                       <Separator />
@@ -614,8 +614,9 @@ export default function GuestBookingPage() {
 
       {/* Footer */}
       <div className="border-t bg-muted/30 py-6 text-center text-sm text-muted-foreground">
-        Powered by <strong>EstatesPro</strong>
+        Powered by <strong>FishGate</strong>
       </div>
     </div>
   );
 }
+

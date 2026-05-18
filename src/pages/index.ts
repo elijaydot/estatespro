@@ -17,4 +17,6 @@ export { default as Bookings } from './Bookings';
 export { default as RecurringBills } from './RecurringBills';
 export { default as Login } from './Login';
 export { default as Signup } from './Signup';
+export { default as ForgotPassword } from './ForgotPassword';
+export { default as ResetPassword } from './ResetPassword';
 export { default as NotFound } from './NotFound';

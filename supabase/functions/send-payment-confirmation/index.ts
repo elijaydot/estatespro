@@ -1,31 +1,45 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@2.0.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import {
+  buildCorsHeaders,
+  checkRateLimit,
+  handleCorsPreflight,
+} from "../_shared/security.ts";
 
 interface SendPaymentConfirmationRequest {
   paymentId: string;
+}
+
+function jsonResponse(req: Request, body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+  });
 }
 
 const handler = async (req: Request): Promise<Response> => {
   console.log("send-payment-confirmation function called");
   
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflight(req);
+  }
+
+  const rateCheck = checkRateLimit(req, {
+    keyPrefix: "send-payment-confirmation",
+    limit: 30,
+    windowMs: 60_000,
+  });
+
+  if (!rateCheck.allowed) {
+    return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
   }
 
   try {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
       console.error("RESEND_API_KEY not configured");
-      return new Response(
-        JSON.stringify({ error: 'Email service not configured' }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return jsonResponse(req, { error: 'Email service not configured' }, 500);
     }
 
     const resend = new Resend(resendApiKey);
@@ -37,10 +51,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Validate authentication
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return jsonResponse(req, { error: 'Unauthorized' }, 401);
     }
 
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
@@ -51,19 +62,13 @@ const handler = async (req: Request): Promise<Response> => {
     
     if (userError || !user) {
       console.error("Auth verification failed:", userError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return jsonResponse(req, { error: 'Unauthorized' }, 401);
     }
 
     const { paymentId }: SendPaymentConfirmationRequest = await req.json();
     
     if (!paymentId) {
-      return new Response(
-        JSON.stringify({ error: 'paymentId is required' }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return jsonResponse(req, { error: 'paymentId is required' }, 400);
     }
 
     console.log("Processing payment confirmation for:", paymentId);
@@ -83,18 +88,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (paymentError || !payment) {
       console.error("Payment not found:", paymentError);
-      return new Response(
-        JSON.stringify({ error: 'Payment not found' }),
-        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return jsonResponse(req, { error: 'Payment not found' }, 404);
     }
 
     // Verify ownership
     if (payment.user_id !== user.id) {
-      return new Response(
-        JSON.stringify({ error: 'Forbidden' }),
-        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return jsonResponse(req, { error: 'Forbidden' }, 403);
     }
 
     // Get company settings
@@ -241,16 +240,10 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    return new Response(
-      JSON.stringify({ success: true, emailsSent }),
-      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
+    return jsonResponse(req, { success: true, emailsSent });
   } catch (error: any) {
     console.error("Error in send-payment-confirmation:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
+    return jsonResponse(req, { error: error.message }, 500);
   }
 };
 

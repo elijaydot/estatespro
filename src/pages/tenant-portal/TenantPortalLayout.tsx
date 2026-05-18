@@ -1,10 +1,10 @@
-import { ReactNode } from 'react';
-import { Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  DollarSign, 
-  Wrench, 
-  FileText, 
+import { ReactNode, useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  DollarSign,
+  Wrench,
+  FileText,
   MessageSquare,
   Bell,
   LogOut,
@@ -13,6 +13,8 @@ import {
   Loader2,
   Receipt,
   RefreshCw,
+  CircleHelp,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -20,8 +22,9 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
-import { useEffect } from 'react';
 import { TenantChatbot } from '@/components/ai/TenantChatbot';
+import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
+import { MfaReminderBanner } from '@/components/security/MfaReminderBanner';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/tenant' },
@@ -32,6 +35,7 @@ const navItems = [
   { label: 'Lease', icon: FileText, href: '/tenant/lease' },
   { label: 'Messages', icon: MessageSquare, href: '/tenant/messages' },
   { label: 'Notifications', icon: Bell, href: '/tenant/notifications' },
+  { label: 'Settings', icon: Shield, href: '/tenant/settings' },
 ];
 
 interface TenantPortalLayoutProps {
@@ -70,30 +74,30 @@ const getInitials = (name: string) => {
   if (!name) return '?';
   return name
     .split(' ')
-    .map(n => n[0])
+    .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
 };
 
 export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const navigate = useNavigate();
   const { logout, session, refreshSession, isLoading: authLoading } = useAuth();
   const { data: portalData, isLoading } = useTenantPortalData();
+  const { data: unreadCount = 0 } = useUnreadNotificationsCount();
 
   const handleLogout = () => {
     logout();
     navigate('/tenant/login');
   };
 
-  // Refresh session on mount to ensure token is valid
   useEffect(() => {
     if (session) {
       refreshSession();
     }
   }, []);
 
-  // Handle session timeout - redirect to login if no session
   useEffect(() => {
     if (!authLoading && !session) {
       navigate('/tenant/login', { replace: true });
@@ -104,7 +108,6 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
   const unitNumber = portalData?.unit?.unit_number;
   const propertyName = portalData?.property?.name || 'Property';
 
-  // Show loading while checking auth
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -115,26 +118,22 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Desktop Sidebar */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-1 flex-col bg-card border-r border-border">
-          {/* Logo */}
           <div className="flex h-16 items-center gap-2 px-6 border-b border-border">
             <div className="p-2 rounded-lg bg-primary">
               <Home className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
               <span className="font-bold text-foreground">Tenant Portal</span>
-              <p className="text-xs text-muted-foreground">{propertyName}</p>
+              <p className="text-xs text-muted-foreground truncate max-w-[140px]">{propertyName}</p>
             </div>
           </div>
 
-          {/* Navigation */}
           <div className="flex-1 px-4 py-6">
             <NavLinks />
           </div>
 
-          {/* User Section */}
           <div className="p-4 border-t border-border">
             {isLoading ? (
               <div className="flex items-center justify-center py-2">
@@ -169,54 +168,112 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
         </div>
       </aside>
 
-      {/* Mobile Header */}
-      <header className="lg:hidden sticky top-0 z-50 flex h-16 items-center gap-4 border-b border-border bg-card px-4">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0">
-            <div className="flex flex-col h-full">
-              <div className="flex h-16 items-center gap-2 px-6 border-b border-border">
-                <div className="p-2 rounded-lg bg-primary">
-                  <Home className="h-5 w-5 text-primary-foreground" />
+      <header className="lg:hidden sticky top-0 z-50 border-b border-border/70 bg-card/95 backdrop-blur-sm px-4 py-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Open navigation">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-64 p-0 [&>button]:hidden">
+              <div className="flex flex-col h-full">
+                <div className="flex h-16 items-center gap-2 px-6 border-b border-border">
+                  <div className="p-2 rounded-lg bg-primary">
+                    <Home className="h-5 w-5 text-primary-foreground" />
+                  </div>
+                  <span className="font-bold text-foreground">Tenant Portal</span>
                 </div>
-                <span className="font-bold text-foreground">Tenant Portal</span>
+                <div className="flex-1 px-4 py-6">
+                  <NavLinks onNavigate={() => setMobileNavOpen(false)} />
+                </div>
+                <div className="p-4 border-t border-border">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-muted-foreground"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </Button>
+                </div>
               </div>
-              <div className="flex-1 px-4 py-6">
-                <NavLinks />
-              </div>
-              <div className="p-4 border-t border-border">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-muted-foreground"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign Out
-                </Button>
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-primary">
-            <Home className="h-4 w-4 text-primary-foreground" />
+            </SheetContent>
+          </Sheet>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-foreground truncate">{propertyName}</p>
+            <p className="text-[11px] text-muted-foreground truncate">Tenant organization overview</p>
           </div>
-          <span className="font-semibold text-foreground">Tenant Portal</span>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full border border-border/70"
+              onClick={() => navigate('/tenant/support')}
+              aria-label="Open support"
+            >
+              <CircleHelp className="h-4.5 w-4.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative h-9 w-9 rounded-full border border-border/70"
+              onClick={() => navigate('/tenant/notifications')}
+              aria-label="Open notifications"
+            >
+              <Bell className="h-4.5 w-4.5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold flex items-center justify-center leading-none">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
       </header>
 
-      {/* Main Content */}
+      <header className="hidden lg:flex sticky top-0 z-40 h-16 items-center justify-between border-b border-border/70 bg-card/95 backdrop-blur-sm px-6 lg:ml-64">
+        <div>
+          <p className="text-sm font-semibold text-foreground truncate">{propertyName}</p>
+          <p className="text-[11px] text-muted-foreground truncate">Tenant organization overview</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-full border border-border/70"
+            onClick={() => navigate('/tenant/support')}
+            aria-label="Open support"
+          >
+            <CircleHelp className="h-4.5 w-4.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative h-9 w-9 rounded-full border border-border/70"
+            onClick={() => navigate('/tenant/notifications')}
+            aria-label="Open notifications"
+          >
+            <Bell className="h-4.5 w-4.5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold flex items-center justify-center leading-none">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </Button>
+        </div>
+      </header>
+
       <main className="lg:pl-64">
         <div className="p-6 lg:p-8">
+          <MfaReminderBanner />
           {children}
         </div>
       </main>
 
-      {/* AI Chatbot */}
       <TenantChatbot />
     </div>
   );

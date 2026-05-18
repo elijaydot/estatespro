@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -45,9 +45,12 @@ export default function Login() {
         {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-8">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-xl shadow-lg">
-            EP
+            FG
           </div>
-          <span className="font-bold text-2xl text-foreground">EstatePro</span>
+          <div>
+            <span className="font-bold text-2xl text-foreground leading-none block">FishGate</span>
+            <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80">Property OS</span>
+          </div>
         </div>
 
         <Card className="card-shadow-lg border-0">
@@ -123,7 +126,7 @@ export default function Login() {
 
             <div className="mt-4 pt-4 border-t text-center">
               <Link to="/tenant/login" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                Are you a tenant? <span className="font-medium text-primary">Access Tenant Portal →</span>
+                Are you a tenant? <span className="font-medium text-primary">Access Tenant Portal -&gt;</span>
               </Link>
             </div>
           </CardContent>
@@ -132,3 +135,4 @@ export default function Login() {
     </div>
   );
 }
+

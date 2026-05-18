@@ -17,6 +17,8 @@ import {
   XCircle,
   Loader2,
   Send,
+  Sparkles,
+  Rocket,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,6 +57,8 @@ import { useInvoices } from '@/hooks/useInvoices';
 import { useTenants } from '@/hooks/useTenants';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { useStepUpGuard } from '@/hooks/useStepUpGuard';
+import { logSecurityEvent } from '@/lib/security';
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -147,6 +151,7 @@ export default function Payments() {
   const { data: invoices = [] } = useInvoices();
   const { data: tenants = [] } = useTenants();
   const createPayment = useCreatePayment();
+  const { ensureAal2 } = useStepUpGuard();
 
   const tenantOptions = tenants.map((tenant: any) => ({
     value: tenant.id,
@@ -202,13 +207,52 @@ export default function Payments() {
     toast({ title: 'Export complete', description: 'Payments exported as CSV.' });
   };
 
+  const handleDownloadReceipt = (payment: any) => {
+    downloadCsv(`receipt-${(payment.receipt_number || payment.id.slice(0, 8))}.csv`, [
+      {
+        receipt_number: payment.receipt_number || '',
+        date: format(new Date(payment.created_at), 'yyyy-MM-dd'),
+        tenant: payment.tenants?.name || payment.payer_name || '',
+        payer_email: payment.payer_email || '',
+        invoice: payment.invoices?.invoice_number || '',
+        amount: payment.amount,
+        method: getMethodLabel(payment.method),
+        status: payment.status,
+        momo_phone: payment.momo_phone || '',
+        momo_transaction_id: payment.momo_transaction_id || '',
+        reference: payment.reference || '',
+        notes: payment.notes || '',
+      },
+    ]);
+    toast({ title: 'Receipt downloaded', description: 'Payment receipt saved as CSV.' });
+  };
+
+  const handleSendReceipt = async (payment: any) => {
+    const canProceed = await ensureAal2('payments.send_receipt');
+    if (!canProceed) return;
+
+    try {
+      await supabase.functions.invoke('send-payment-confirmation', {
+        body: { paymentId: payment.id },
+      });
+      await logSecurityEvent('payment_receipt_sent', { paymentId: payment.id });
+      toast({ title: 'Receipt Sent', description: `Receipt sent to ${payment.tenants?.name || 'tenant'}.` });
+    } catch (error: any) {
+      await logSecurityEvent('payment_receipt_failed', { paymentId: payment.id, reason: error?.message || 'unknown' });
+      toast({ title: 'Error', description: error.message || 'Failed to send receipt', variant: 'destructive' });
+    }
+  };
+
   const handleCreate = async () => {
+    const canProceed = await ensureAal2('payments.record');
+    if (!canProceed) return;
+
     if (!formData.tenant_id || !formData.invoice_id || !formData.amount) {
       toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
       return;
     }
 
-    await createPayment.mutateAsync({
+    const payment = await createPayment.mutateAsync({
       tenant_id: formData.tenant_id,
       invoice_id: formData.invoice_id,
       amount: formData.amount,
@@ -217,6 +261,13 @@ export default function Payments() {
       momo_transaction_id: formData.momo_transaction_id || null,
       reference: formData.reference || null,
       notes: formData.notes || null,
+    });
+
+    await logSecurityEvent('payment_recorded', {
+      paymentId: payment?.id || null,
+      invoiceId: formData.invoice_id,
+      amount: formData.amount,
+      method: formData.method,
     });
 
     setIsRecordOpen(false);
@@ -233,6 +284,9 @@ export default function Payments() {
   };
 
   const handleGenerateCheckoutLink = async () => {
+    const canProceed = await ensureAal2('payments.generate_checkout_link');
+    if (!canProceed) return;
+
     if (!formData.invoice_id) {
       toast({ title: 'Error', description: 'Please select an invoice first', variant: 'destructive' });
       return;
@@ -265,6 +319,12 @@ export default function Payments() {
       if (error) throw new Error(error.message || 'Unable to generate checkout link');
       if (!data?.checkoutUrl) throw new Error(data?.error || 'No checkout URL returned');
 
+      await logSecurityEvent('payment_checkout_link_generated', {
+        invoiceId: formData.invoice_id,
+        amount,
+        gateway: checkoutGateway,
+      });
+
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(data.checkoutUrl);
       }
@@ -275,6 +335,11 @@ export default function Payments() {
         description: 'Payment link was opened in a new tab and copied to your clipboard.',
       });
     } catch (error: any) {
+      await logSecurityEvent('payment_checkout_link_failed', {
+        invoiceId: formData.invoice_id || null,
+        gateway: checkoutGateway,
+        reason: error?.message || 'unknown',
+      });
       toast({ title: 'Error', description: error.message || 'Failed to generate payment link', variant: 'destructive' });
     } finally {
       setCheckoutLoading(false);
@@ -284,20 +349,47 @@ export default function Payments() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Payments</h1>
-          <p className="text-muted-foreground mt-1">Track and manage all payment transactions</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/80 flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" />
+            Cashflow control
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Payments</h1>
+          <p className="text-muted-foreground mt-1">Track collections, failures, and gateway checkout flow</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsRecordOpen(true)}>
+        <Button className="gap-2 w-full sm:w-auto rounded-full px-5" onClick={() => setIsRecordOpen(true)}>
           <Plus className="h-4 w-4" />
           Record Payment
         </Button>
       </div>
 
+      <Card className="border border-border/70 bg-card/85 backdrop-blur-sm card-shadow-md overflow-hidden">
+        <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Rocket className="h-4 w-4 text-primary" />
+              Payment operations cockpit
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Fast access to checkout links, receipts, and retry workflows.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="rounded-full px-3 py-1 border-success/30 text-success">
+              Received {formatCurrency(stats.totalReceived)}
+            </Badge>
+            <Badge variant="outline" className="rounded-full px-3 py-1 border-warning/30 text-warning">
+              Pending {formatCurrency(stats.pendingAmount)}
+            </Badge>
+            <Badge variant="outline" className="rounded-full px-3 py-1 border-destructive/30 text-destructive">
+              Failed {stats.failedCount}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="card-shadow-md">
+        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-1">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -310,7 +402,7 @@ export default function Payments() {
             </div>
           </CardContent>
         </Card>
-        <Card className="card-shadow-md">
+        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-2">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -323,7 +415,7 @@ export default function Payments() {
             </div>
           </CardContent>
         </Card>
-        <Card className="card-shadow-md">
+        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-3">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -336,7 +428,7 @@ export default function Payments() {
             </div>
           </CardContent>
         </Card>
-        <Card className="card-shadow-md">
+        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-4">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -357,17 +449,17 @@ export default function Payments() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by tenant, receipt, or invoice..."
-            className="pl-10"
+            className="pl-10 h-11 border-border/70 bg-card/80"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
+        <div className="grid grid-cols-2 sm:flex gap-2">
+          <Button variant="outline" className="gap-2 w-full sm:w-auto rounded-full px-4">
             <Filter className="h-4 w-4" />
             Filter
           </Button>
-          <Button variant="outline" className="gap-2" onClick={handleExport}>
+          <Button variant="outline" className="gap-2 w-full sm:w-auto rounded-full px-4" onClick={handleExport}>
             <Download className="h-4 w-4" />
             Export
           </Button>
@@ -376,15 +468,69 @@ export default function Payments() {
 
       {/* Loading State */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <Card className="card-shadow-md">
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm">Loading payment activity...</p>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Payments Table */}
       {!isLoading && (
-        <Card className="card-shadow-md">
+        <Card className="card-shadow-md border-border/70 animate-enter stagger-2">
           <CardContent className="p-0">
+            <div className="md:hidden divide-y">
+              {filteredPayments.length === 0 ? (
+                <div className="py-12 px-6 text-center text-muted-foreground">
+                  <p className="font-medium text-foreground">No payments found</p>
+                  <p className="text-sm mt-1">Try adjusting your search query or record a payment.</p>
+                  <Button size="sm" className="mt-4 rounded-full" onClick={() => setIsRecordOpen(true)}>
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Record first payment
+                  </Button>
+                </div>
+              ) : (
+                filteredPayments.map((payment: any, index: number) => (
+                  <div key={payment.id} className={`p-4 space-y-3 animate-enter ${index < 5 ? `stagger-${(index % 5) + 1}` : ''}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{payment.receipt_number || 'No receipt number'}</p>
+                        <p className="text-xs text-muted-foreground">{format(new Date(payment.created_at), 'MMM dd, yyyy')}</p>
+                      </div>
+                      {getStatusBadge(payment.status)}
+                    </div>
+
+                    <div className="space-y-1 text-sm">
+                      <p className="font-medium">{payment.tenants?.name || payment.payer_name || 'Guest'}</p>
+                      {payment.payer_email ? <p className="text-xs text-muted-foreground">{payment.payer_email}</p> : null}
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        {getMethodIcon(payment.method)}
+                        <span>{getMethodLabel(payment.method)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-lg font-semibold">{formatCurrency(payment.amount)}</p>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleDownloadReceipt(payment)}>
+                          <Receipt className="h-4 w-4 mr-1" />
+                          Receipt
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => void handleSendReceipt(payment)}>
+                          <Send className="h-4 w-4 mr-1" />
+                          Send
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -402,7 +548,13 @@ export default function Payments() {
                 {filteredPayments.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      No payments found
+                      <div className="space-y-3 py-4">
+                        <p>No payments found</p>
+                        <Button size="sm" className="rounded-full" onClick={() => setIsRecordOpen(true)}>
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          Record first payment
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -445,41 +597,10 @@ export default function Payments() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onSelect={() => {
-                                downloadCsv(`receipt-${(payment.receipt_number || payment.id.slice(0, 8))}.csv`, [
-                                  {
-                                    receipt_number: payment.receipt_number || '',
-                                    date: format(new Date(payment.created_at), 'yyyy-MM-dd'),
-                                    tenant: payment.tenants?.name || payment.payer_name || '',
-                                    payer_email: payment.payer_email || '',
-                                    invoice: payment.invoices?.invoice_number || '',
-                                    amount: payment.amount,
-                                    method: getMethodLabel(payment.method),
-                                    status: payment.status,
-                                    momo_phone: payment.momo_phone || '',
-                                    momo_transaction_id: payment.momo_transaction_id || '',
-                                    reference: payment.reference || '',
-                                    notes: payment.notes || '',
-                                  },
-                                ]);
-                                toast({ title: 'Receipt downloaded', description: 'Payment receipt saved as CSV.' });
-                              }}
-                            >
+                            <DropdownMenuItem onSelect={() => handleDownloadReceipt(payment)}>
                               <Receipt className="h-4 w-4 mr-2" /> Download Receipt
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={async () => {
-                                try {
-                                  await supabase.functions.invoke('send-payment-confirmation', {
-                                    body: { paymentId: payment.id },
-                                  });
-                                  toast({ title: 'Receipt Sent', description: `Receipt sent to ${payment.tenants?.name || 'tenant'}.` });
-                                } catch (error: any) {
-                                  toast({ title: 'Error', description: error.message || 'Failed to send receipt', variant: 'destructive' });
-                                }
-                              }}
-                            >
+                            <DropdownMenuItem onSelect={() => void handleSendReceipt(payment)}>
                               <Send className="h-4 w-4 mr-2" /> Send Receipt to Tenant
                             </DropdownMenuItem>
                             {payment.tenant_id ? (
@@ -497,6 +618,7 @@ export default function Payments() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       )}

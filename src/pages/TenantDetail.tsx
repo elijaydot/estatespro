@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -299,7 +299,7 @@ export default function TenantDetail() {
 
       if (error) throw error;
 
-      const appUrl = 'https://estatespro.lovable.app';
+      const appUrl = 'https://fishgate.lovable.app';
       const inviteLink = `${appUrl}/tenant/signup?invite=${token}`;
       await navigator.clipboard.writeText(inviteLink);
       
@@ -371,7 +371,7 @@ export default function TenantDetail() {
             <div className="flex items-center gap-4 text-muted-foreground mt-1">
               <span className="flex items-center gap-1">
                 <Home className="h-4 w-4" />
-                {tenant.units ? `Unit ${tenant.units.unit_number}` : 'No unit'} • {tenant.properties?.name || 'No property'}
+                {tenant.units ? `Unit ${tenant.units.unit_number}` : 'No unit'} - {tenant.properties?.name || 'No property'}
               </span>
             </div>
           </div>
@@ -755,7 +755,7 @@ export default function TenantDetail() {
                 id="message"
                 value={messageBody}
                 onChange={(e) => setMessageBody(e.target.value)}
-                placeholder="Type your message…"
+                placeholder="Type your message..."
                 rows={6}
               />
             </div>
@@ -1038,3 +1038,4 @@ export default function TenantDetail() {
     </div>
   );
 }
+

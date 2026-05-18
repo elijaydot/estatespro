@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 export interface Property {
   id: string;
@@ -22,13 +23,21 @@ export interface Property {
 }
 
 export function useProperties() {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['properties'],
+    queryKey: ['properties', activeCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('properties')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (activeCompanyId) {
+        query = query.eq('company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as Property[];
@@ -37,14 +46,21 @@ export function useProperties() {
 }
 
 export function useProperty(id: string) {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['properties', id],
+    queryKey: ['properties', id, activeCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('properties')
         .select('*')
-        .eq('id', id)
-        .single();
+        .eq('id', id);
+
+      if (activeCompanyId) {
+        query = query.eq('company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data as Property;
@@ -55,6 +71,7 @@ export function useProperty(id: string) {
 
 export function useCreateProperty() {
   const queryClient = useQueryClient();
+  const { activeCompanyId } = useActiveCompany();
 
   return useMutation({
     mutationFn: async (property: Omit<Property, 'id' | 'created_at' | 'updated_at' | 'user_id'> & { company_id?: string | null }) => {
@@ -62,7 +79,7 @@ export function useCreateProperty() {
       if (!user) throw new Error('Not authenticated');
 
       // Auto-attach company_id if not provided
-      let companyId = property.company_id;
+      let companyId = property.company_id || activeCompanyId;
       if (!companyId) {
         const { data: companies } = await supabase
           .from('companies')

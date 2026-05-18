@@ -1,19 +1,36 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import {
+  buildCorsHeaders,
+  checkRateLimit,
+  handleCorsPreflight,
+} from "../_shared/security.ts";
 
 interface AcceptInviteRequest {
   token: string;
   tenantUserId: string;
 }
 
+function jsonResponse(req: Request, body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+  });
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflight(req);
+  }
+
+  const rateCheck = checkRateLimit(req, {
+    keyPrefix: "accept-tenant-invite",
+    limit: 30,
+    windowMs: 60_000,
+  });
+
+  if (!rateCheck.allowed) {
+    return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
   }
 
   try {
@@ -23,10 +40,7 @@ const handler = async (req: Request): Promise<Response> => {
     // 1. Verify authentication
     const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
     const tokenJwt = authHeader.replace("Bearer ", "");
@@ -35,10 +49,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (authError || !user) {
       console.error("JWT verification failed:", authError);
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
     // Use service client to bypass RLS for DB writes
@@ -47,18 +58,12 @@ const handler = async (req: Request): Promise<Response> => {
     const { token, tenantUserId }: AcceptInviteRequest = await req.json();
 
     if (!token || !tenantUserId) {
-      return new Response(
-        JSON.stringify({ error: "Missing token or tenantUserId" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Missing token or tenantUserId" }, 400);
     }
 
     // 2. Verify tenantUserId matches authenticated user
     if (user.id !== tenantUserId) {
-      return new Response(
-        JSON.stringify({ error: "User ID mismatch" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "User ID mismatch" }, 403);
     }
 
     // 3. Validate token
@@ -70,34 +75,22 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (inviteError || !invite) {
       console.error("Invite lookup error:", inviteError);
-      return new Response(
-        JSON.stringify({ error: "Invalid invite token" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Invalid invite token" }, 404);
     }
 
     if (invite.used_at) {
-      return new Response(
-        JSON.stringify({ error: "Invite already used" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Invite already used" }, 400);
     }
 
     // Check if invite has expired
     if (new Date(invite.expires_at) < new Date()) {
-      return new Response(
-        JSON.stringify({ error: "This invite link has expired. Please request a new one." }),
-        { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "This invite link has expired. Please request a new one." }, 410);
     }
 
     // 4. Verify authenticated user's email matches the invite email
     if (user.email?.toLowerCase() !== invite.email?.toLowerCase()) {
       console.error("Email mismatch: user=", user.email, "invite=", invite.email);
-      return new Response(
-        JSON.stringify({ error: "This invite was sent to a different email address" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "This invite was sent to a different email address" }, 403);
     }
 
     // 5. Mark as used
@@ -116,17 +109,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (updateTenantError) throw updateTenantError;
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse(req, { success: true });
 
   } catch (error: any) {
     console.error("Error in accept-tenant-invite:", error);
-    return new Response(
-      JSON.stringify({ error: "An unexpected error occurred" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse(req, { error: "An unexpected error occurred" }, 500);
   }
 };
 

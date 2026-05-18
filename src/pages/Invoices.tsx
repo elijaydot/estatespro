@@ -16,6 +16,8 @@ import {
   DollarSign,
   Edit,
   Loader2,
+  Sparkles,
+  Rocket,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,10 +52,24 @@ import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
 import { useSettings } from '@/contexts/SettingsContext';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { useInvoices, useCreateInvoice, useUpdateInvoice } from '@/hooks/useInvoices';
-import { useTenants } from '@/hooks/useTenants';
+import { useInvoices, useCreateInvoice, useUpdateInvoice, type Invoice } from '@/hooks/useInvoices';
+import { useTenants, type Tenant } from '@/hooks/useTenants';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+
+type TenantWithRelations = Tenant & {
+  units?: { unit_number: string | null } | null;
+};
+
+type InvoiceWithRelations = Invoice & {
+  tenants?: { name: string | null } | null;
+  properties?: { name: string | null } | null;
+  units?: { unit_number: string | null } | null;
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  return error instanceof Error && error.message ? error.message : fallback;
+};
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -99,7 +115,7 @@ export default function Invoices() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceWithRelations | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   // Handle ?add=true query parameter from Quick Add
@@ -119,27 +135,30 @@ export default function Invoices() {
     due_date: '',
   });
 
-  const { data: invoices = [], isLoading } = useInvoices();
+  const { data: invoices = [], isLoading, isError, error } = useInvoices();
   const { data: tenants = [] } = useTenants();
   const createInvoice = useCreateInvoice();
   const updateInvoice = useUpdateInvoice();
 
-  const tenantOptions = tenants.map((tenant: any) => ({
+  const invoiceRows = invoices as InvoiceWithRelations[];
+  const tenantRows = tenants as TenantWithRelations[];
+
+  const tenantOptions = tenantRows.map((tenant) => ({
     value: tenant.id,
     label: tenant.name,
     description: tenant.units ? `Unit ${tenant.units.unit_number}` : tenant.email,
   }));
 
   const stats = {
-    totalInvoiced: invoices.reduce((sum: number, inv: any) => sum + inv.amount, 0),
-    totalPaid: invoices.reduce((sum: number, inv: any) => sum + inv.paid_amount, 0),
-    overdueAmount: invoices
-      .filter((inv: any) => inv.status === 'overdue')
-      .reduce((sum: number, inv: any) => sum + inv.amount - inv.paid_amount, 0),
-    pendingCount: invoices.filter((inv: any) => inv.status === 'pending' || inv.status === 'partial').length,
+    totalInvoiced: invoiceRows.reduce((sum, inv) => sum + inv.amount, 0),
+    totalPaid: invoiceRows.reduce((sum, inv) => sum + inv.paid_amount, 0),
+    overdueAmount: invoiceRows
+      .filter((inv) => inv.status === 'overdue')
+      .reduce((sum, inv) => sum + inv.amount - inv.paid_amount, 0),
+    pendingCount: invoiceRows.filter((inv) => inv.status === 'pending' || inv.status === 'partial').length,
   };
 
-  const filteredInvoices = invoices.filter((invoice: any) => {
+  const filteredInvoices = invoiceRows.filter((invoice) => {
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (
@@ -154,7 +173,7 @@ export default function Invoices() {
   const handleExport = () => {
     downloadCsv(
       'invoices-export.csv',
-      invoices.map((inv: any) => ({
+      invoiceRows.map((inv) => ({
         invoice_number: inv.invoice_number,
         tenant: inv.tenants?.name || inv.guest_name || '',
         guest_email: inv.guest_email || '',
@@ -196,9 +215,9 @@ export default function Invoices() {
       } else {
         URL.revokeObjectURL(htmlUrl);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error downloading PDF:', error);
-      toast({ title: 'Error', description: error.message || 'Failed to generate invoice PDF', variant: 'destructive' });
+      toast({ title: 'Error', description: getErrorMessage(error, 'Failed to generate invoice PDF'), variant: 'destructive' });
     } finally {
       setDownloadingId(null);
     }
@@ -210,7 +229,7 @@ export default function Invoices() {
       return;
     }
 
-    const selectedTenant = tenants.find((t: any) => t.id === formData.tenant_id);
+    const selectedTenant = tenantRows.find((t) => t.id === formData.tenant_id);
     
     await createInvoice.mutateAsync({
       tenant_id: formData.tenant_id,
@@ -254,7 +273,7 @@ export default function Invoices() {
     });
   };
 
-  const openEdit = (invoice: any) => {
+  const openEdit = (invoice: InvoiceWithRelations) => {
     setSelectedInvoice(invoice);
     setFormData({
       tenant_id: invoice.tenant_id,
@@ -270,20 +289,45 @@ export default function Invoices() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Invoices</h1>
-          <p className="text-muted-foreground mt-1">Create and manage tenant invoices</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/80 flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" />
+            Revenue command
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Invoices</h1>
+          <p className="text-muted-foreground mt-1">Create, track, and settle tenant billing in one flow</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
+        <Button className="gap-2 w-full sm:w-auto rounded-full px-5" onClick={() => setIsCreateOpen(true)}>
           <Plus className="h-4 w-4" />
           Create Invoice
         </Button>
       </div>
 
+      <Card className="border border-border/70 bg-card/85 backdrop-blur-sm card-shadow-md overflow-hidden">
+        <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Rocket className="h-4 w-4 text-primary" />
+              Billing cockpit
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Move from invoice creation to payment reconciliation faster.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="rounded-full px-3 py-1 border-warning/30 text-warning">Pending {stats.pendingCount}</Badge>
+            <Badge variant="outline" className="rounded-full px-3 py-1 border-destructive/30 text-destructive">
+              Overdue {formatCurrency(stats.overdueAmount)}
+            </Badge>
+            <Badge variant="outline" className="rounded-full px-3 py-1 border-success/30 text-success">
+              Collected {formatCurrency(stats.totalPaid)}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="card-shadow-md">
+        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-1">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -296,7 +340,7 @@ export default function Invoices() {
             </div>
           </CardContent>
         </Card>
-        <Card className="card-shadow-md">
+        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-2">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -309,7 +353,7 @@ export default function Invoices() {
             </div>
           </CardContent>
         </Card>
-        <Card className="card-shadow-md">
+        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-3">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -322,7 +366,7 @@ export default function Invoices() {
             </div>
           </CardContent>
         </Card>
-        <Card className="card-shadow-md">
+        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-4">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -343,17 +387,17 @@ export default function Invoices() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by tenant, invoice number, or property..."
-            className="pl-10"
+            className="pl-10 h-11 border-border/70 bg-card/80"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
+        <div className="grid grid-cols-2 sm:flex gap-2">
+          <Button variant="outline" className="gap-2 w-full sm:w-auto rounded-full px-4">
             <Filter className="h-4 w-4" />
             Filter
           </Button>
-          <Button variant="outline" className="gap-2" onClick={handleExport}>
+          <Button variant="outline" className="gap-2 w-full sm:w-auto rounded-full px-4" onClick={handleExport}>
             <Download className="h-4 w-4" />
             Export
           </Button>
@@ -362,15 +406,94 @@ export default function Invoices() {
 
       {/* Loading State */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <Card className="card-shadow-md">
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm">Loading invoices...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isError && !isLoading && (
+        <Card className="card-shadow-md border-destructive/20">
+          <CardContent className="py-10 text-center space-y-3">
+            <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
+            <p className="font-medium">Could not load invoices</p>
+            <p className="text-sm text-muted-foreground">
+              {(error as Error)?.message || 'Please check your connection and try again.'}
+            </p>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* Invoices Table */}
-      {!isLoading && (
-        <Card className="card-shadow-md">
+      {!isLoading && !isError && (
+        <Card className="card-shadow-md border-border/70 animate-enter stagger-2">
           <CardContent className="p-0">
+            <div className="md:hidden divide-y">
+              {filteredInvoices.length === 0 ? (
+                <div className="py-12 px-6 text-center text-muted-foreground">
+                  <p className="font-medium text-foreground">No invoices found</p>
+                  <p className="text-sm mt-1">Try adjusting your search query or create a new invoice.</p>
+                  <Button size="sm" className="mt-4 rounded-full" onClick={() => setIsCreateOpen(true)}>
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Create first invoice
+                  </Button>
+                </div>
+              ) : (
+                filteredInvoices.map((invoice, index) => (
+                  <div key={invoice.id} className={`p-4 space-y-3 animate-enter ${index < 5 ? `stagger-${(index % 5) + 1}` : ''}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{invoice.invoice_number}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Due {format(new Date(invoice.due_date), 'MMM dd, yyyy')}
+                        </p>
+                      </div>
+                      {getStatusBadge(invoice.status)}
+                    </div>
+
+                    <div className="space-y-1 text-sm">
+                      <p className="font-medium">{invoice.tenants?.name || invoice.guest_name || 'Guest Booking'}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{invoice.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {invoice.properties?.name || '-'} {invoice.units ? `• Unit ${invoice.units.unit_number}` : ''}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-semibold">{formatCurrency(invoice.amount)}</p>
+                        <p className={`text-xs ${invoice.amount - invoice.paid_amount > 0 ? 'text-destructive' : 'text-success'}`}>
+                          Balance {formatCurrency(invoice.amount - invoice.paid_amount)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownloadPdf(invoice.id)}
+                          disabled={downloadingId === invoice.id}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          PDF
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(invoice)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -389,11 +512,17 @@ export default function Invoices() {
                 {filteredInvoices.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                      No invoices found
+                      <div className="space-y-3 py-4">
+                        <p>No invoices found</p>
+                        <Button size="sm" className="rounded-full" onClick={() => setIsCreateOpen(true)}>
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          Create first invoice
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredInvoices.map((invoice: any) => (
+                  filteredInvoices.map((invoice) => (
                     <TableRow key={invoice.id}>
                       <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
                       <TableCell>
@@ -465,6 +594,7 @@ export default function Invoices() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       )}

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 export interface Tenant {
   id: string;
@@ -28,17 +29,25 @@ export interface Tenant {
 }
 
 export function useTenants() {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['tenants'],
+    queryKey: ['tenants', activeCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('tenants')
         .select(`
           *,
-          properties:property_id(id, name),
+          properties:property_id(id, name, company_id),
           units:unit_id(id, unit_number)
         `)
         .order('created_at', { ascending: false });
+
+      if (activeCompanyId) {
+        query = query.eq('properties.company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data;
@@ -47,18 +56,25 @@ export function useTenants() {
 }
 
 export function useTenant(id: string) {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['tenants', id],
+    queryKey: ['tenants', id, activeCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('tenants')
         .select(`
           *,
-          properties:property_id(id, name),
+          properties:property_id(id, name, company_id),
           units:unit_id(id, unit_number)
         `)
-        .eq('id', id)
-        .single();
+        .eq('id', id);
+
+      if (activeCompanyId) {
+        query = query.eq('properties.company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data;

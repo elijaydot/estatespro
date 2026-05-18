@@ -1,13 +1,13 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+﻿import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import {
+  buildCorsHeaders,
+  checkRateLimit,
+  handleCorsPreflight,
+} from "../_shared/security.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 interface InviteRequest {
   tenantId: string;
@@ -17,19 +17,33 @@ interface InviteRequest {
   origin?: string;
 }
 
+function jsonResponse(req: Request, body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+  });
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflight(req);
+  }
+
+  const rateCheck = checkRateLimit(req, {
+    keyPrefix: "send-tenant-invite",
+    limit: 30,
+    windowMs: 60_000,
+  });
+
+  if (!rateCheck.allowed) {
+    return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
   }
 
   try {
     // Verify authentication
     const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -49,10 +63,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(tokenJwt);
     if (authError || !user) {
       console.error("JWT verification failed:", authError);
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
     const userId = user.id;
@@ -62,10 +73,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Validate input
     if (!tenantId || !email) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Missing required fields" }, 400);
     }
 
     // Check if tenant already has a linked account (is already active)
@@ -77,17 +85,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (tenantError) {
       console.error("Error fetching tenant:", tenantError);
-      return new Response(
-        JSON.stringify({ error: "Tenant not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Tenant not found" }, 404);
     }
 
     if (tenant.tenant_user_id) {
-      return new Response(
-        JSON.stringify({ error: "This tenant already has an active portal account and cannot be invited again." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "This tenant already has an active portal account and cannot be invited again." }, 400);
     }
 
     const isTenantOwner = tenant.user_id === userId;
@@ -101,10 +103,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     if (!isTenantOwner && !isApprovedPm) {
-      return new Response(
-        JSON.stringify({ error: "Forbidden: You do not have access to this tenant" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Forbidden: You do not have access to this tenant" }, 403);
     }
 
     // Fetch company settings for branding
@@ -153,7 +152,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Published app URL - use this as the default for production invites
-    const PUBLISHED_APP_URL = "https://estatespro.lovable.app";
+    const PUBLISHED_APP_URL = "https://fishgate.lovable.app";
     
     // Determine App URL
     let appUrl: string = origin || "";
@@ -228,7 +227,7 @@ const handler = async (req: Request): Promise<Response> => {
             emailSent: false,
             warning: "Email could not be sent. Please verify a domain at resend.com to send emails. Use 'Copy Invite Link' to share manually."
           }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
         );
       }
       
@@ -240,23 +239,18 @@ const handler = async (req: Request): Promise<Response> => {
           emailSent: false,
           warning: `Email failed: ${emailResponse.error.message}. Use the invite link to share manually.`
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
     console.log("Email sent successfully:", emailResponse);
 
-    return new Response(
-      JSON.stringify({ success: true, inviteId: invite.id, emailSent: true }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse(req, { success: true, inviteId: invite.id, emailSent: true });
   } catch (error: any) {
     console.error("Error in send-tenant-invite:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse(req, { error: error.message }, 500);
   }
 };
 
 serve(handler);
+

@@ -1,20 +1,24 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import {
+  buildCorsHeaders,
+  checkRateLimit,
+  handleCorsPreflight,
+  validateRequestSignature,
+} from "../_shared/security.ts";
+import {
+  createCorrelationId,
+  emitAuditEvent,
+} from "../_shared/observability.ts";
 
 type Gateway = "paystack" | "flutterwave";
 type Source = "tenant_invoice" | "landlord_invoice" | "guest_booking";
 type PaymentMethod = "card" | "bank_transfer" | "mtn_momo" | "link";
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
   });
 }
 
@@ -207,7 +211,7 @@ async function createFlutterwaveCheckout(opts: {
         name: opts.name,
       },
       customizations: {
-        title: "EstatesPro Payment",
+        title: "FishGate Payment",
         description: "Invoice payment",
       },
       meta: opts.metadata,
@@ -223,19 +227,37 @@ async function createFlutterwaveCheckout(opts: {
 }
 
 serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+  if (req.method === "OPTIONS") return handleCorsPreflight(req);
+  if (req.method !== "POST") return jsonResponse(req, { error: "Method not allowed" }, 405);
+
+  const rateCheck = checkRateLimit(req, {
+    keyPrefix: "payment-checkout",
+    limit: 80,
+    windowMs: 60_000,
+  });
+
+  if (!rateCheck.allowed) {
+    await emitAuditEvent({
+      event_type: "payment.checkout.rate_limited",
+      source: "payment-checkout",
+      severity: "warning",
+      details: { method: req.method },
+    });
+    return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
+  }
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
     if (!supabaseUrl || !serviceRoleKey) {
-      return jsonResponse({ error: "Missing server configuration" }, 500);
+      return jsonResponse(req, { error: "Missing server configuration" }, 500);
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
-    const body = await req.json();
+    const rawBody = await req.text();
+    const body = rawBody ? JSON.parse(rawBody) : {};
+    const correlationId = (body?.correlationId as string | undefined) || createCorrelationId();
 
     const source = body?.source as Source | undefined;
     const paymentMethod = (body?.paymentMethod || "link") as PaymentMethod;
@@ -244,11 +266,39 @@ serve(async (req: Request) => {
     const explicitGateway = getGatewayFromInput(body?.gateway);
     const callbackUrl = body?.callbackUrl as string | undefined;
 
-    if (!source) return jsonResponse({ error: "source is required" }, 400);
+    if (!source) return jsonResponse(req, { error: "source is required" }, 400);
+
+    await emitAuditEvent({
+      event_type: "payment.checkout.initiated",
+      source: "payment-checkout",
+      severity: "info",
+      correlation_id: correlationId,
+      details: {
+        source,
+        paymentMethod,
+        explicitGateway,
+      },
+    });
 
     if (source === "guest_booking") {
+      const mustSignGuestRequests = Deno.env.get("REQUIRE_GUEST_SIGNED_REQUESTS") === "true";
+      const validSignature = await validateRequestSignature(req, rawBody, {
+        required: mustSignGuestRequests,
+      });
+
+      if (!validSignature) {
+        await emitAuditEvent({
+          event_type: "payment.checkout.invalid_signature",
+          source: "payment-checkout",
+          severity: "warning",
+          correlation_id: correlationId,
+          details: { source: "guest_booking" },
+        });
+        return jsonResponse(req, { error: "Invalid request signature" }, 401);
+      }
+
       const bookingToken = (body?.bookingToken as string | undefined)?.trim();
-      if (!bookingToken) return jsonResponse({ error: "bookingToken is required" }, 400);
+      if (!bookingToken) return jsonResponse(req, { error: "bookingToken is required" }, 400);
 
       const { data: booking, error: bookingError } = await supabase
         .from("bookings")
@@ -256,21 +306,21 @@ serve(async (req: Request) => {
         .eq("guest_action_token", bookingToken)
         .single();
 
-      if (bookingError || !booking) return jsonResponse({ error: "Invalid booking token" }, 404);
-      if (booking.status === "cancelled") return jsonResponse({ error: "Booking is cancelled" }, 400);
+      if (bookingError || !booking) return jsonResponse(req, { error: "Invalid booking token" }, 404);
+      if (booking.status === "cancelled") return jsonResponse(req, { error: "Booking is cancelled" }, 400);
 
       const invoice = await ensureBookingInvoice(supabase, booking);
       const remaining = Math.max(0, Number(invoice.amount) - Number(invoice.paid_amount));
-      if (remaining <= 0) return jsonResponse({ error: "Booking is already fully paid" }, 400);
+      if (remaining <= 0) return jsonResponse(req, { error: "Booking is already fully paid" }, 400);
 
       const amount = amountInput > 0 ? amountInput : remaining;
       if (amount <= 0 || amount > remaining + 0.0001) {
-        return jsonResponse({ error: "Invalid payment amount" }, 400);
+        return jsonResponse(req, { error: "Invalid payment amount" }, 400);
       }
 
       const paymentSettings = await resolvePaymentSettings(supabase, booking.property_id, booking.user_id);
       if (!paymentSettings) {
-        return jsonResponse({ error: "No payment gateway configured for this property" }, 400);
+        return jsonResponse(req, { error: "No payment gateway configured for this property" }, 400);
       }
 
       const gateway = explicitGateway || (paymentSettings.preferred_method === "flutterwave" ? "flutterwave" : "paystack");
@@ -291,7 +341,7 @@ serve(async (req: Request) => {
       if (gateway === "paystack") {
         const secretKey = getGatewaySecret("paystack", paymentSettings.user_id || booking.user_id);
         if (!paymentSettings.paystack_enabled || !secretKey) {
-          return jsonResponse({ error: "Paystack is not enabled for this property" }, 400);
+          return jsonResponse(req, { error: "Paystack is not enabled for this property" }, 400);
         }
 
         checkoutUrl = await createPaystackCheckout({
@@ -306,7 +356,7 @@ serve(async (req: Request) => {
       } else {
         const secretKey = getGatewaySecret("flutterwave", paymentSettings.user_id || booking.user_id);
         if (!paymentSettings.flutterwave_enabled || !secretKey) {
-          return jsonResponse({ error: "Flutterwave is not enabled for this property" }, 400);
+          return jsonResponse(req, { error: "Flutterwave is not enabled for this property" }, 400);
         }
 
         checkoutUrl = await createFlutterwaveCheckout({
@@ -322,7 +372,7 @@ serve(async (req: Request) => {
         });
       }
 
-      return jsonResponse({
+      return jsonResponse(req, {
         success: true,
         source,
         gateway,
@@ -330,15 +380,16 @@ serve(async (req: Request) => {
         amount,
         invoiceId: invoice.id,
         checkoutUrl,
+        correlationId,
       });
     }
 
     // Auth required for tenant/landlord invoice checkout
     const user = await getUserFromBearer(req, supabaseUrl, serviceRoleKey);
-    if (!user) return jsonResponse({ error: "Unauthorized" }, 401);
+    if (!user) return jsonResponse(req, { error: "Unauthorized" }, 401);
 
     const invoiceId = (body?.invoiceId as string | undefined)?.trim();
-    if (!invoiceId) return jsonResponse({ error: "invoiceId is required" }, 400);
+    if (!invoiceId) return jsonResponse(req, { error: "invoiceId is required" }, 400);
 
     const { data: invoice, error: invoiceError } = await supabase
       .from("invoices")
@@ -346,7 +397,7 @@ serve(async (req: Request) => {
       .eq("id", invoiceId)
       .single();
 
-    if (invoiceError || !invoice) return jsonResponse({ error: "Invoice not found" }, 404);
+    if (invoiceError || !invoice) return jsonResponse(req, { error: "Invoice not found" }, 404);
 
     const { data: tenant } = invoice.tenant_id
       ? await supabase
@@ -360,24 +411,24 @@ serve(async (req: Request) => {
     const isTenant = !!tenant?.tenant_user_id && tenant.tenant_user_id === user.id;
 
     if (!isOwner && !isTenant) {
-      return jsonResponse({ error: "Forbidden" }, 403);
+      return jsonResponse(req, { error: "Forbidden" }, 403);
     }
 
     if (!invoice.tenant_id || !tenant) {
-      return jsonResponse({ error: "This invoice is not linked to a tenant" }, 400);
+      return jsonResponse(req, { error: "This invoice is not linked to a tenant" }, 400);
     }
 
     const remaining = Math.max(0, Number(invoice.amount) - Number(invoice.paid_amount));
-    if (remaining <= 0) return jsonResponse({ error: "Invoice is already fully paid" }, 400);
+    if (remaining <= 0) return jsonResponse(req, { error: "Invoice is already fully paid" }, 400);
 
     const amount = amountInput > 0 ? amountInput : remaining;
     if (amount <= 0 || amount > remaining + 0.0001) {
-      return jsonResponse({ error: "Invalid payment amount" }, 400);
+      return jsonResponse(req, { error: "Invalid payment amount" }, 400);
     }
 
     const paymentSettings = await resolvePaymentSettings(supabase, invoice.property_id, invoice.user_id);
     if (!paymentSettings) {
-      return jsonResponse({ error: "No payment gateway configured for this property" }, 400);
+      return jsonResponse(req, { error: "No payment gateway configured for this property" }, 400);
     }
 
     const gateway = explicitGateway || (paymentSettings.preferred_method === "flutterwave" ? "flutterwave" : "paystack");
@@ -401,7 +452,7 @@ serve(async (req: Request) => {
     if (gateway === "paystack") {
       const secretKey = getGatewaySecret("paystack", paymentSettings.user_id || invoice.user_id);
       if (!paymentSettings.paystack_enabled || !secretKey) {
-        return jsonResponse({ error: "Paystack is not enabled for this property" }, 400);
+        return jsonResponse(req, { error: "Paystack is not enabled for this property" }, 400);
       }
 
       checkoutUrl = await createPaystackCheckout({
@@ -416,7 +467,7 @@ serve(async (req: Request) => {
     } else {
       const secretKey = getGatewaySecret("flutterwave", paymentSettings.user_id || invoice.user_id);
       if (!paymentSettings.flutterwave_enabled || !secretKey) {
-        return jsonResponse({ error: "Flutterwave is not enabled for this property" }, 400);
+        return jsonResponse(req, { error: "Flutterwave is not enabled for this property" }, 400);
       }
 
       checkoutUrl = await createFlutterwaveCheckout({
@@ -432,7 +483,7 @@ serve(async (req: Request) => {
       });
     }
 
-    return jsonResponse({
+    return jsonResponse(req, {
       success: true,
       source,
       gateway,
@@ -440,9 +491,16 @@ serve(async (req: Request) => {
       amount,
       invoiceId: invoice.id,
       checkoutUrl,
+      correlationId,
     });
   } catch (error: any) {
     console.error("payment-checkout error:", error);
-    return jsonResponse({ error: error?.message || "Internal server error" }, 500);
+    await emitAuditEvent({
+      event_type: "payment.checkout.failed",
+      source: "payment-checkout",
+      severity: "error",
+      details: { message: error?.message || "Internal server error" },
+    });
+    return jsonResponse(req, { error: error?.message || "Internal server error" }, 500);
   }
 });

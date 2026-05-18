@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 export interface Lease {
   id: string;
@@ -26,18 +27,26 @@ export interface Lease {
 }
 
 export function useLeases() {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['leases'],
+    queryKey: ['leases', activeCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('leases')
         .select(`
           *,
           tenants:tenant_id(id, name, email, phone),
-          properties:property_id(id, name),
+          properties:property_id(id, name, company_id),
           units:unit_id(id, unit_number)
         `)
         .order('created_at', { ascending: false });
+
+      if (activeCompanyId) {
+        query = query.eq('properties.company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data;
@@ -46,19 +55,26 @@ export function useLeases() {
 }
 
 export function useLease(id: string) {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['leases', id],
+    queryKey: ['leases', id, activeCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('leases')
         .select(`
           *,
           tenants:tenant_id(id, name, email, phone),
-          properties:property_id(id, name, address, city),
+          properties:property_id(id, name, address, city, company_id),
           units:unit_id(id, unit_number, rent_amount)
         `)
-        .eq('id', id)
-        .single();
+        .eq('id', id);
+
+      if (activeCompanyId) {
+        query = query.eq('properties.company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data;
