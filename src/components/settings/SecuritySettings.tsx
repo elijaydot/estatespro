@@ -285,7 +285,7 @@ export function SecuritySettings() {
   const handleDownloadRecoveryCodes = () => {
     if (recoveryCodes.length === 0) return;
     const stamp = new Date().toISOString().slice(0, 10);
-    downloadFile(
+    downloadTextFile(
       `fishgate-recovery-codes-${stamp}.txt`,
       buildRecoveryCodesText(recoveryCodes, accountEmail),
       "text/plain;charset=utf-8",
