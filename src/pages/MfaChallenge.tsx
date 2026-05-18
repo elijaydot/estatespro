@@ -5,20 +5,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
 import { consumeRecoveryCode, logSecurityEvent } from "@/lib/security";
+import { trustThisDevice } from "@/lib/trustedDevice";
 
 export default function MfaChallenge() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { mfa, verifyMfaChallenge, logout } = useAuth();
+  const { mfa, verifyMfaChallenge, logout, user } = useAuth();
   const { role, isLoading: roleLoading } = useUserRole();
   const { toast } = useToast();
 
   const [code, setCode] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
+  const [rememberDevice, setRememberDevice] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecoverySubmitting, setIsRecoverySubmitting] = useState(false);
 
@@ -59,8 +62,13 @@ export default function MfaChallenge() {
       return;
     }
 
+    if (rememberDevice && user?.id) {
+      trustThisDevice(user.id);
+      await logSecurityEvent("mfa_device_trusted", { days: 30 });
+    }
     await logSecurityEvent("mfa_challenge_passed", {
       method: "totp",
+      remembered_device: rememberDevice,
     });
     toast({ title: "Verified", description: "MFA challenge completed." });
     navigate(nextRoute, { replace: true });
@@ -88,7 +96,11 @@ export default function MfaChallenge() {
         return;
       }
 
-      await logSecurityEvent("mfa_challenge_passed", { method: "recovery_code" });
+      if (rememberDevice && user?.id) {
+        trustThisDevice(user.id);
+        await logSecurityEvent("mfa_device_trusted", { days: 30, via: "recovery_code" });
+      }
+      await logSecurityEvent("mfa_challenge_passed", { method: "recovery_code", remembered_device: rememberDevice });
       toast({ title: "Recovery code accepted", description: "You are now signed in." });
       navigate(nextRoute, { replace: true });
     } catch (error: any) {
