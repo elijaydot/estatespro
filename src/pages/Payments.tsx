@@ -264,7 +264,7 @@ export default function Payments() {
     });
 
     await logSecurityEvent('payment_recorded', {
-      paymentId: payment?.id || null,
+      paymentId: (payment as any)?.id ?? (typeof payment === 'string' ? payment : null),
       invoiceId: formData.invoice_id,
       amount: formData.amount,
       method: formData.method,
