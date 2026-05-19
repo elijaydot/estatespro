@@ -130,8 +130,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      setMfaState((prev) => ({ ...prev, isLoading: true }));
-
       const [{ data: aalData }, factors] = await Promise.all([
         mfaApi.getAuthenticatorAssuranceLevel(),
         listMfaFactors(),

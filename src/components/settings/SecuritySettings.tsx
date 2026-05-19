@@ -232,7 +232,6 @@ export function SecuritySettings() {
     } finally {
       // Guarantees setup controls recover after errors/retries.
       setIsPreparingEnrollment(false);
-      await refreshMfaState();
     }
   };
 
