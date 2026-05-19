@@ -8,10 +8,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from '@/components/ui/use-toast';
 import { useCompanySettings, useUpdateCompanySettings, uploadCompanyLogo } from '@/hooks/useCompanySettings';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useMyMembership } from '@/hooks/useCompanies';
 
 export function CompanySettings() {
-  const { data: settings, isLoading } = useCompanySettings();
-  const updateSettings = useUpdateCompanySettings();
+  const { activeCompanyId, companies, isLoading: activeCompanyLoading } = useActiveCompany();
+  const { isLandlord, isPropertyManager } = useUserRole();
+  const { data: membership } = useMyMembership();
+  const { data: settings, isLoading } = useCompanySettings(activeCompanyId);
+  const updateSettings = useUpdateCompanySettings(activeCompanyId);
   const [isUploading, setIsUploading] = useState(false);
   const [formData, setFormData] = useState({
     company_name: '',
@@ -33,9 +39,22 @@ export function CompanySettings() {
     }
   }, [settings]);
 
+  const activeCompanyName = companies.find((company) => company.id === activeCompanyId)?.name || 'Unknown company';
+  const canEditLimitedFields = isLandlord || (isPropertyManager && membership?.status === 'approved');
+  const canEditNameAndLogo = isLandlord;
+
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!canEditNameAndLogo) {
+      toast({
+        title: 'Permission required',
+        description: 'Only landlords can update company name and logo.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -51,7 +70,7 @@ export function CompanySettings() {
 
     setIsUploading(true);
     try {
-      const logoUrl = await uploadCompanyLogo(file);
+      const logoUrl = await uploadCompanyLogo(file, activeCompanyId);
       setFormData(prev => ({ ...prev, logo_url: logoUrl }));
       toast({ title: 'Success', description: 'Logo uploaded successfully' });
     } catch (error: any) {
@@ -62,14 +81,33 @@ export function CompanySettings() {
   };
 
   const handleSave = async () => {
+    if (!canEditLimitedFields) {
+      toast({
+        title: 'Permission required',
+        description: 'You do not have permission to edit company profile details.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     await updateSettings.mutateAsync(formData);
   };
 
-  if (isLoading) {
+  if (isLoading || activeCompanyLoading) {
     return (
       <Card className="card-shadow-md">
         <CardContent className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!activeCompanyId) {
+    return (
+      <Card className="card-shadow-md">
+        <CardContent className="py-10">
+          <p className="text-sm text-muted-foreground">Select a company first to edit its profile details.</p>
         </CardContent>
       </Card>
     );
@@ -85,7 +123,7 @@ export function CompanySettings() {
           <div>
             <CardTitle>Company Details</CardTitle>
             <CardDescription>
-              Your company information appears on tenant invites and the tenant portal
+              Editing: {activeCompanyName}. Changes apply to this active company.
             </CardDescription>
           </div>
         </div>
@@ -118,11 +156,11 @@ export function CompanySettings() {
                 accept="image/*"
                 className="hidden"
                 onChange={handleLogoUpload}
-                disabled={isUploading}
+                disabled={isUploading || !canEditNameAndLogo}
               />
             </Label>
             <p className="text-xs text-muted-foreground">
-              Recommended: Square image, max 2MB
+              Recommended: Square image, max 2MB. Landlords can update logo.
             </p>
           </div>
         </div>
@@ -135,6 +173,7 @@ export function CompanySettings() {
             value={formData.company_name}
             onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
             placeholder="e.g., ABC Property Management"
+            disabled={!canEditNameAndLogo}
           />
         </div>
 
@@ -151,6 +190,7 @@ export function CompanySettings() {
               value={formData.company_email}
               onChange={(e) => setFormData(prev => ({ ...prev, company_email: e.target.value }))}
               placeholder="contact@company.com"
+              disabled={!canEditLimitedFields}
             />
           </div>
           <div className="grid gap-2">
@@ -163,6 +203,7 @@ export function CompanySettings() {
               value={formData.company_phone}
               onChange={(e) => setFormData(prev => ({ ...prev, company_phone: e.target.value }))}
               placeholder="+250 XX XXX XXXX"
+              disabled={!canEditLimitedFields}
             />
           </div>
         </div>
@@ -179,13 +220,20 @@ export function CompanySettings() {
             onChange={(e) => setFormData(prev => ({ ...prev, company_address: e.target.value }))}
             placeholder="Enter your company address"
             rows={2}
+            disabled={!canEditLimitedFields}
           />
         </div>
+
+        {!canEditLimitedFields && (
+          <p className="text-xs text-muted-foreground">
+            You currently have view-only access to company profile details.
+          </p>
+        )}
 
         {/* Save Button */}
         <Button 
           onClick={handleSave} 
-          disabled={updateSettings.isPending}
+          disabled={updateSettings.isPending || !canEditLimitedFields}
           className="gap-2"
         >
           {updateSettings.isPending ? (
