@@ -210,6 +210,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             factors: [],
           }));
         }
+
+        // Keep MFA status aligned with auth transitions (login/logout/token refresh)
+        // without blocking route rendering.
+        setTimeout(() => {
+          void refreshMfaState();
+        }, 0);
       }
     );
 
@@ -225,11 +231,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchProfile]);
+  }, [fetchProfile, refreshMfaState]);
 
   useEffect(() => {
     refreshMfaState();
-  }, [refreshMfaState]);
+  }, [refreshMfaState, session]);
 
   const login = useCallback(async (email: string, password: string) => {
     try {
@@ -317,12 +323,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })),
       });
 
-      // Clean up any leftover unverified factors (and same-named duplicates)
-      // so re-enrollment doesn't 422 with "factor already exists".
+      const verifiedFactors = factorsBefore.filter((factor) => factor.status === 'verified');
+      if (verifiedFactors.length > 0) {
+        const currentLevel = mfaState.currentLevel ?? 'aal1';
+        const guidance = currentLevel === 'aal2'
+          ? 'MFA is already enabled. Use your authenticator code at login, or disable MFA first before creating a new factor.'
+          : 'MFA is already enabled. Complete MFA challenge first, then continue using your existing factor.';
+        return { data: null, error: new Error(guidance) };
+      }
+
+      // Clean up only leftover unverified factors so retries do not fail.
       try {
         const existing = await listMfaFactors();
         for (const f of existing) {
-          if (f?.id && (f.status !== 'verified' || f.friendly_name === friendlyName)) {
+          if (f?.id && f.status !== 'verified') {
             logMfaClient('enroll-cleanup-unenroll-attempt', {
               factorId: f.id,
               status: f.status,
@@ -352,6 +366,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (error) {
+        if ((error.message || '').toLowerCase().includes('aal2 required')) {
+          return {
+            data: null,
+            error: new Error('MFA is already enrolled on this account. Please complete the MFA code challenge to continue.'),
+          };
+        }
         return { data: null, error };
       }
 
@@ -374,7 +394,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       return { data: null, error: error as Error };
     }
-  }, [listMfaFactors, refreshMfaState]);
+  }, [listMfaFactors, mfaState.currentLevel, refreshMfaState]);
 
   const verifyMfaEnrollment = useCallback(async (factorId: string, code: string) => {
     try {

@@ -218,9 +218,20 @@ export function SecuritySettings() {
       const { data, error } = await enrollMfaTotp();
 
       if (error || !data) {
+        const message = error?.message || "Please try again.";
+
+        if (/already enabled|already enrolled|aal2 required/i.test(message)) {
+          await refreshMfaState();
+          toast({
+            title: "MFA already configured",
+            description: "Use your authenticator code at login. If you need a new factor, disable MFA first in this Security tab.",
+          });
+          return;
+        }
+
         toast({
           title: "Unable to start MFA setup",
-          description: error?.message || "Please try again.",
+          description: message,
           variant: "destructive",
         });
         return;
