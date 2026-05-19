@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -129,15 +129,18 @@ export function SecuritySettings() {
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [trustedExpiry, setTrustedExpiry] = useState<Date | null>(null);
+  const disableSectionRef = useRef<HTMLDivElement | null>(null);
 
   const isSwitchChecked = mfa.isEnabled || !!enrollmentData;
   const canStartEnrollment = !mfa.isEnabled && !isBusy && !isPreparingEnrollment;
   const requiresMfa = useMemo(() => isManager, [isManager]);
   const accountEmail = profile?.email ?? user?.email ?? null;
 
-  const syncMfaUiState = async (reason: string) => {
+  const syncMfaUiState = async (reason: string, refreshAuthSession = false) => {
     console.info('[MFA][UI] sync-start', { reason });
-    await refreshSession();
+    if (refreshAuthSession) {
+      await refreshSession();
+    }
     await refreshMfaState();
     console.info('[MFA][UI] sync-complete', { reason });
   };
@@ -186,10 +189,11 @@ export function SecuritySettings() {
 
       setEnrollmentData(data);
       setVerifyCode("");
+      console.info('[MFA][UI] enrollment-data-ready', { factorId: data.factorId });
     } finally {
       // Guarantees setup controls recover after errors/retries.
       setIsPreparingEnrollment(false);
-      await syncMfaUiState('start-enrollment');
+      await refreshMfaState();
     }
   };
 
@@ -208,13 +212,13 @@ export function SecuritySettings() {
       await logSecurityEvent("mfa_enable_failed", { reason: error.message || "verify_error" });
       await loadActivity();
       toast({ title: "Invalid code", description: error.message || "Could not verify your MFA code.", variant: "destructive" });
-      await syncMfaUiState('enable-verify-error');
+      await syncMfaUiState('enable-verify-error', false);
       return;
     }
 
     setEnrollmentData(null);
     setVerifyCode("");
-    await syncMfaUiState('enable-verify-success');
+    await syncMfaUiState('enable-verify-success', true);
     await logSecurityEvent("mfa_enabled");
     await loadActivity();
     toast({ title: "MFA enabled", description: "Your account now has two-step verification." });
@@ -238,7 +242,7 @@ export function SecuritySettings() {
       await logSecurityEvent("mfa_disable_failed", { reason: error.message || "disable_error" });
       await loadActivity();
       toast({ title: "Could not disable MFA", description: error.message || "Please try again.", variant: "destructive" });
-      await syncMfaUiState('disable-error');
+      await syncMfaUiState('disable-error', false);
       return;
     }
 
@@ -249,7 +253,7 @@ export function SecuritySettings() {
     setVerifyCode("");
     revokeTrustedDevice(user?.id);
     setTrustedExpiry(null);
-    await syncMfaUiState('disable-success');
+    await syncMfaUiState('disable-success', true);
     await logSecurityEvent("mfa_disabled");
     await loadActivity();
     toast({ title: "MFA disabled", description: "Two-step verification has been turned off." });
@@ -331,9 +335,13 @@ export function SecuritySettings() {
     }
 
     if (mfa.isEnabled) {
+      disableSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.setTimeout(() => {
+        document.getElementById("mfa-disable-password")?.focus();
+      }, 250);
       toast({
         title: "Confirm to disable MFA",
-        description: "Use the disable section below to confirm with password and authenticator code.",
+        description: "Use the disable form below. We moved you there and focused the password field.",
       });
       return;
     }
@@ -462,7 +470,7 @@ export function SecuritySettings() {
           )}
 
           {mfa.isEnabled && (
-            <div className="space-y-4 rounded-lg border p-4">
+            <div ref={disableSectionRef} className="space-y-4 rounded-lg border p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Lock className="h-4 w-4 text-muted-foreground" />
