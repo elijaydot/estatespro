@@ -74,6 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const getMfaApi = () => (supabase.auth as any).mfa;
 
+  const logMfaClient = (step: string, details?: Record<string, unknown>) => {
+    console.info('[MFA][Client]', step, details ?? {});
+  };
+
   const listMfaFactors = useCallback(async (): Promise<MfaFactor[]> => {
     const mfaApi = getMfaApi();
     if (!mfaApi) return [];
@@ -96,7 +100,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshMfaState = useCallback(async () => {
-    if (!session) {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+    if (!currentSession) {
       setMfaState((prev) => ({
         ...prev,
         isLoading: false,
@@ -137,6 +143,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nextLevel = (aalData?.nextLevel as string | null) || null;
       const needsChallenge = isEnabled && currentLevel !== 'aal2' && nextLevel === 'aal2';
 
+      logMfaClient('refresh-state', {
+        isEnabled,
+        needsChallenge,
+        currentLevel,
+        nextLevel,
+        factorCount: factors.length,
+        verifiedCount: verifiedFactors.length,
+      });
+
       setMfaState({
         isSupported: true,
         isLoading: false,
@@ -150,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Error refreshing MFA state:', error);
       setMfaState((prev) => ({ ...prev, isLoading: false }));
     }
-  }, [listMfaFactors, session]);
+  }, [listMfaFactors]);
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
@@ -293,13 +308,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('MFA is not supported in this environment.');
       }
 
+      const factorsBefore = await listMfaFactors();
+      logMfaClient('enroll-start-factor-list', {
+        friendlyName,
+        factorsBefore: factorsBefore.map((factor) => ({
+          id: factor.id,
+          status: factor.status,
+          factorType: factor.factor_type,
+          friendlyName: factor.friendly_name,
+        })),
+      });
+
       // Clean up any leftover unverified factors (and same-named duplicates)
       // so re-enrollment doesn't 422 with "factor already exists".
       try {
         const existing = await listMfaFactors();
         for (const f of existing) {
           if (f?.id && (f.status !== 'verified' || f.friendly_name === friendlyName)) {
+            logMfaClient('enroll-cleanup-unenroll-attempt', {
+              factorId: f.id,
+              status: f.status,
+              factorType: f.factor_type,
+              friendlyName: f.friendly_name,
+            });
             await mfaApi.unenroll({ factorId: f.id });
+            logMfaClient('enroll-cleanup-unenroll-success', { factorId: f.id });
           }
         }
       } catch (cleanupErr) {
@@ -331,6 +364,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         uri: data.totp?.uri || null,
       };
 
+      logMfaClient('enroll-created-response', {
+        factorId: enrollment.factorId,
+        hasQrCode: Boolean(enrollment.qrCode),
+        hasSecret: Boolean(enrollment.secret),
+        hasUri: Boolean(enrollment.uri),
+      });
+
       await refreshMfaState();
       return { data: enrollment, error: null };
     } catch (error) {
@@ -344,6 +384,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mfaApi) {
         throw new Error('MFA is not supported in this environment.');
       }
+
+      logMfaClient('enroll-verify-start', { factorId });
 
       const { data: challenge, error: challengeError } = await mfaApi.challenge({ factorId });
       if (challengeError) {
@@ -361,11 +403,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       await refreshMfaState();
+      const factorsAfter = await listMfaFactors();
+      logMfaClient('enroll-verify-final-response', {
+        factorId,
+        verifiedCount: factorsAfter.filter((factor) => factor.status === 'verified').length,
+        factorsAfter: factorsAfter.map((factor) => ({
+          id: factor.id,
+          status: factor.status,
+          factorType: factor.factor_type,
+        })),
+      });
       return { error: null };
     } catch (error) {
       return { error: error as Error };
     }
-  }, [refreshMfaState]);
+  }, [listMfaFactors, refreshMfaState]);
 
   const verifyMfaChallenge = useCallback(async (code: string) => {
     try {
@@ -426,6 +478,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const factors = await listMfaFactors();
       const verifiedFactors = factors.filter((factor) => factor.status === 'verified');
 
+      logMfaClient('disable-start-factor-list', {
+        totalFactors: factors.length,
+        verifiedFactors: verifiedFactors.map((factor) => ({
+          id: factor.id,
+          status: factor.status,
+          factorType: factor.factor_type,
+          friendlyName: factor.friendly_name,
+        })),
+      });
+
       if (verifiedFactors.length === 0) {
         await refreshMfaState();
         return { error: null };
@@ -448,13 +510,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       for (const factor of verifiedFactors) {
+        logMfaClient('disable-unenroll-attempt', {
+          factorId: factor.id,
+          status: factor.status,
+          factorType: factor.factor_type,
+        });
         const { error } = await mfaApi.unenroll({ factorId: factor.id });
         if (error) {
+          logMfaClient('disable-unenroll-failed', {
+            factorId: factor.id,
+            message: error.message,
+          });
           return { error };
         }
+        logMfaClient('disable-unenroll-success', { factorId: factor.id });
       }
 
       await refreshMfaState();
+      const factorsAfter = await listMfaFactors();
+      logMfaClient('disable-final-factor-list', {
+        totalFactors: factorsAfter.length,
+        verifiedCount: factorsAfter.filter((factor) => factor.status === 'verified').length,
+      });
       return { error: null };
     } catch (error) {
       return { error: error as Error };

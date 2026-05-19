@@ -107,7 +107,7 @@ function isFailureEvent(type: string) {
 }
 
 export function SecuritySettings() {
-  const { mfa, enrollMfaTotp, verifyMfaEnrollment, disableMfa, user, profile } = useAuth();
+  const { mfa, enrollMfaTotp, verifyMfaEnrollment, disableMfa, refreshMfaState, refreshSession, user, profile } = useAuth();
   const { isManager } = useUserRole();
   const { toast } = useToast();
 
@@ -131,8 +131,16 @@ export function SecuritySettings() {
   const [trustedExpiry, setTrustedExpiry] = useState<Date | null>(null);
 
   const isSwitchChecked = mfa.isEnabled || !!enrollmentData;
+  const canStartEnrollment = !mfa.isEnabled && !isBusy && !isPreparingEnrollment;
   const requiresMfa = useMemo(() => isManager, [isManager]);
   const accountEmail = profile?.email ?? user?.email ?? null;
+
+  const syncMfaUiState = async (reason: string) => {
+    console.info('[MFA][UI] sync-start', { reason });
+    await refreshSession();
+    await refreshMfaState();
+    console.info('[MFA][UI] sync-complete', { reason });
+  };
 
   useEffect(() => {
     setTrustedExpiry(getTrustedDeviceExpiry(user?.id));
@@ -162,21 +170,27 @@ export function SecuritySettings() {
   }, [user?.id, mfa.isEnabled]);
 
   const startEnrollment = async () => {
+    console.info('[MFA][UI] start-enrollment-click');
     setIsPreparingEnrollment(true);
-    const { data, error } = await enrollMfaTotp();
-    setIsPreparingEnrollment(false);
+    try {
+      const { data, error } = await enrollMfaTotp();
 
-    if (error || !data) {
-      toast({
-        title: "Unable to start MFA setup",
-        description: error?.message || "Please try again.",
-        variant: "destructive",
-      });
-      return;
+      if (error || !data) {
+        toast({
+          title: "Unable to start MFA setup",
+          description: error?.message || "Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setEnrollmentData(data);
+      setVerifyCode("");
+    } finally {
+      // Guarantees setup controls recover after errors/retries.
+      setIsPreparingEnrollment(false);
+      await syncMfaUiState('start-enrollment');
     }
-
-    setEnrollmentData(data);
-    setVerifyCode("");
   };
 
   const handleEnableVerify = async () => {
@@ -194,11 +208,13 @@ export function SecuritySettings() {
       await logSecurityEvent("mfa_enable_failed", { reason: error.message || "verify_error" });
       await loadActivity();
       toast({ title: "Invalid code", description: error.message || "Could not verify your MFA code.", variant: "destructive" });
+      await syncMfaUiState('enable-verify-error');
       return;
     }
 
     setEnrollmentData(null);
     setVerifyCode("");
+    await syncMfaUiState('enable-verify-success');
     await logSecurityEvent("mfa_enabled");
     await loadActivity();
     toast({ title: "MFA enabled", description: "Your account now has two-step verification." });
@@ -222,14 +238,18 @@ export function SecuritySettings() {
       await logSecurityEvent("mfa_disable_failed", { reason: error.message || "disable_error" });
       await loadActivity();
       toast({ title: "Could not disable MFA", description: error.message || "Please try again.", variant: "destructive" });
+      await syncMfaUiState('disable-error');
       return;
     }
 
     setDisablePassword("");
     setDisableCode("");
     setRecoveryCodes([]);
+    setEnrollmentData(null);
+    setVerifyCode("");
     revokeTrustedDevice(user?.id);
     setTrustedExpiry(null);
+    await syncMfaUiState('disable-success');
     await logSecurityEvent("mfa_disabled");
     await loadActivity();
     toast({ title: "MFA disabled", description: "Two-step verification has been turned off." });
@@ -349,9 +369,27 @@ export function SecuritySettings() {
               ) : (
                 <span className="text-xs px-2 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400">Disabled</span>
               )}
-              <Switch checked={isSwitchChecked} onCheckedChange={handleToggleChange} disabled={isBusy || isPreparingEnrollment} />
+              <Switch checked={isSwitchChecked} onCheckedChange={handleToggleChange} disabled={isBusy} />
             </div>
           </div>
+
+          {!mfa.isEnabled && !enrollmentData && (
+            <div>
+              <Button onClick={() => void startEnrollment()} disabled={!canStartEnrollment}>
+                {isPreparingEnrollment ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Preparing setup...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-4 w-4 mr-2" />
+                    Set up MFA
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
 
           <Alert>
             <Smartphone className="h-4 w-4" />
