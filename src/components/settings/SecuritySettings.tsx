@@ -70,6 +70,9 @@ type AuditEvent = {
   user_agent: string | null;
 };
 
+const getPendingEnrollmentStorageKey = (userId?: string) =>
+  userId ? `fg.mfa.pendingEnrollment:${userId}` : null;
+
 const ACTIVITY_EVENT_TYPES = [
   "mfa_enabled",
   "mfa_disabled",
@@ -136,6 +139,41 @@ export function SecuritySettings() {
   const requiresMfa = useMemo(() => isManager, [isManager]);
   const accountEmail = profile?.email ?? user?.email ?? null;
 
+  useEffect(() => {
+    const key = getPendingEnrollmentStorageKey(user?.id);
+    if (!key || mfa.isEnabled || enrollmentData) return;
+
+    try {
+      const raw = sessionStorage.getItem(key);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        factorId: string;
+        qrCode: string;
+        secret: string;
+        uri: string | null;
+      };
+
+      if (parsed?.factorId && parsed?.qrCode && parsed?.secret) {
+        setEnrollmentData(parsed);
+        console.info('[MFA][UI] enrollment-data-restored', { factorId: parsed.factorId });
+      }
+    } catch (error) {
+      console.warn('[MFA][UI] failed to restore pending enrollment', error);
+    }
+  }, [enrollmentData, mfa.isEnabled, user?.id]);
+
+  useEffect(() => {
+    const key = getPendingEnrollmentStorageKey(user?.id);
+    if (!key) return;
+
+    if (!enrollmentData || mfa.isEnabled) {
+      sessionStorage.removeItem(key);
+      return;
+    }
+
+    sessionStorage.setItem(key, JSON.stringify(enrollmentData));
+  }, [enrollmentData, mfa.isEnabled, user?.id]);
+
   const syncMfaUiState = async (reason: string, refreshAuthSession = false) => {
     console.info('[MFA][UI] sync-start', { reason });
     if (refreshAuthSession) {
@@ -173,6 +211,7 @@ export function SecuritySettings() {
   }, [user?.id, mfa.isEnabled]);
 
   const startEnrollment = async () => {
+    if (isPreparingEnrollment || isBusy) return;
     console.info('[MFA][UI] start-enrollment-click');
     setIsPreparingEnrollment(true);
     try {
@@ -328,6 +367,7 @@ export function SecuritySettings() {
 
   const handleToggleChange = (checked: boolean) => {
     if (checked) {
+      if (isPreparingEnrollment || isBusy) return;
       if (!mfa.isEnabled && !enrollmentData) {
         void startEnrollment();
       }
