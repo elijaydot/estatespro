@@ -32,9 +32,13 @@ export function AppLayout({ children }: AppLayoutProps) {
       void import('@/pages/Tenants');
     };
 
-    if ('requestIdleCallback' in window) {
-      const handle = window.requestIdleCallback(() => prefetchRoutes());
-      return () => window.cancelIdleCallback(handle);
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    if (typeof w.requestIdleCallback === 'function') {
+      const handle = w.requestIdleCallback(() => prefetchRoutes());
+      return () => w.cancelIdleCallback?.(handle);
     }
 
     const timeout = window.setTimeout(prefetchRoutes, 1200);
