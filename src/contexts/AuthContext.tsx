@@ -293,10 +293,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('MFA is not supported in this environment.');
       }
 
-      const { data, error } = await mfaApi.enroll({
+      // Clean up any leftover unverified factors (and same-named duplicates)
+      // so re-enrollment doesn't 422 with "factor already exists".
+      try {
+        const existing = await listMfaFactors();
+        for (const f of existing) {
+          if (f?.id && (f.status !== 'verified' || f.friendly_name === friendlyName)) {
+            await mfaApi.unenroll({ factorId: f.id });
+          }
+        }
+      } catch (cleanupErr) {
+        console.warn('MFA cleanup before enroll failed:', cleanupErr);
+      }
+
+      let { data, error } = await mfaApi.enroll({
         factorType: 'totp',
         friendlyName,
       });
+
+      // Fallback: if Supabase still reports the name as taken, retry with a unique suffix.
+      if (error && /already exists/i.test(error.message || '')) {
+        const uniqueName = `${friendlyName} (${new Date().toISOString().slice(0, 16).replace('T', ' ')})`;
+        ({ data, error } = await mfaApi.enroll({
+          factorType: 'totp',
+          friendlyName: uniqueName,
+        }));
+      }
 
       if (error) {
         return { data: null, error };
@@ -314,7 +336,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       return { data: null, error: error as Error };
     }
-  }, [refreshMfaState]);
+  }, [listMfaFactors, refreshMfaState]);
 
   const verifyMfaEnrollment = useCallback(async (factorId: string, code: string) => {
     try {
