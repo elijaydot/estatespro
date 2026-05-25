@@ -6,9 +6,11 @@ import {
   checkRateLimit,
   handleCorsPreflight,
 } from "../_shared/security.ts";
+import { resolveCompanyBranding } from "../_shared/company-branding.ts";
 
 interface SendPaymentConfirmationRequest {
   paymentId: string;
+  companyId?: string;
 }
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
@@ -65,7 +67,7 @@ const handler = async (req: Request): Promise<Response> => {
       return jsonResponse(req, { error: 'Unauthorized' }, 401);
     }
 
-    const { paymentId }: SendPaymentConfirmationRequest = await req.json();
+    const { paymentId, companyId }: SendPaymentConfirmationRequest = await req.json();
     
     if (!paymentId) {
       return jsonResponse(req, { error: 'paymentId is required' }, 400);
@@ -96,12 +98,14 @@ const handler = async (req: Request): Promise<Response> => {
       return jsonResponse(req, { error: 'Forbidden' }, 403);
     }
 
-    // Get company settings
-    const { data: companySettings } = await supabase
-      .from('company_settings')
-      .select('*')
-      .eq('user_id', payment.user_id)
-      .maybeSingle();
+    const branding = await resolveCompanyBranding({
+      supabase,
+      userId: payment.user_id,
+      companyId: companyId || null,
+      paymentId,
+      invoiceId: payment.invoice_id || null,
+      bookingId: payment.booking_id || null,
+    });
 
     // Get property owner's profile
     const { data: ownerProfile } = await supabase
@@ -114,9 +118,9 @@ const handler = async (req: Request): Promise<Response> => {
     const invoice = payment.invoices;
     const recipientName = tenant?.name || payment.payer_name || invoice?.guest_name || 'Guest';
     const recipientEmail = tenant?.email || payment.payer_email || invoice?.guest_email || null;
-    const companyName = companySettings?.company_name || 'Property Management';
-    const logoHtml = companySettings?.logo_url 
-      ? `<img src="${companySettings.logo_url}" alt="${companyName}" style="max-height: 60px; margin-bottom: 20px;" />`
+    const companyName = branding.companyName;
+    const logoHtml = branding.logoUrl 
+      ? `<img src="${branding.logoUrl}" alt="${companyName}" style="max-height: 60px; margin-bottom: 20px;" />`
       : '';
 
     const paymentDate = new Date(payment.created_at).toLocaleDateString('en-US', {
@@ -192,7 +196,7 @@ const handler = async (req: Request): Promise<Response> => {
 
           <div class="footer">
             <p>Thank you for your payment!</p>
-            <p>${companyName}<br>${companySettings?.company_email || ''}</p>
+            <p>${companyName}<br>${branding.companyEmail || ''}</p>
           </div>
         </div>
       </body>
@@ -200,8 +204,8 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailsSent = [];
-    const fromEmail = companySettings?.company_email 
-      ? `${companyName} <${companySettings.company_email}>`
+    const fromEmail = branding.companyEmail 
+      ? `${companyName} <${branding.companyEmail}>`
       : `${companyName} <noreply@resend.dev>`;
 
     // Send to tenant

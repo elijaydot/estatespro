@@ -67,6 +67,7 @@ import { useUnits } from '@/hooks/useUnits';
 import { useSettings } from '@/contexts/SettingsContext';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Pending', variant: 'outline' },
@@ -102,6 +103,7 @@ export default function Bookings() {
   const updateBooking = useUpdateBooking();
   const deleteBooking = useDeleteBooking();
   const { formatCurrency } = useSettings();
+  const { activeCompanyId } = useActiveCompany();
 
   // Short-let properties only
   const shortLetProperties = properties.filter((p: any) => p.type === 'short_let');
@@ -226,6 +228,7 @@ export default function Bookings() {
         bookingId,
         emailType,
         origin: window.location.origin,
+        companyId: activeCompanyId,
       };
 
       try {

@@ -6,6 +6,7 @@ import {
 	checkRateLimit,
 	handleCorsPreflight,
 } from "../_shared/security.ts";
+import { resolveCompanyBranding } from "../_shared/company-branding.ts";
 
 const defaultCorsHeaders = {
 	"Access-Control-Allow-Origin": (Deno.env.get("ALLOWED_ORIGINS") ?? "").split(",")[0]?.trim() || "null",
@@ -135,6 +136,7 @@ serve(async (req) => {
 			const user = await requireUserFromBearer(req, supabaseUrl, serviceRoleKey);
 
 			const bookingId = body?.bookingId as string | undefined;
+			const companyId = body?.companyId as string | undefined;
 			const emailType = body?.emailType as EmailType | undefined;
 			const customMessage = body?.customMessage as string | undefined;
 			const appUrl = getAppUrl(body?.origin);
@@ -171,15 +173,17 @@ serve(async (req) => {
 				invoice = await ensureBookingInvoice(supabase, booking);
 			}
 
-			const { data: companySettings } = await supabase
-				.from("company_settings")
-				.select("company_name, company_email")
-				.eq("user_id", booking.user_id)
-				.maybeSingle();
+			const branding = await resolveCompanyBranding({
+				supabase,
+				userId: booking.user_id,
+				companyId: companyId || null,
+				bookingId: booking.id,
+				propertyId: booking.property_id || null,
+			});
 
-			const companyName = companySettings?.company_name || "FishGate";
-			const fromEmail = companySettings?.company_email
-				? `${companyName} <${companySettings.company_email}>`
+			const companyName = branding.companyName || "FishGate";
+			const fromEmail = branding.companyEmail
+				? `${companyName} <${branding.companyEmail}>`
 				: `${companyName} <noreply@resend.dev>`;
 
 			const actionBase = `${appUrl}/bookings/guest-action?token=${encodeURIComponent(token)}`;

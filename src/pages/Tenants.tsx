@@ -67,6 +67,7 @@ import { TenantPreviewCard } from '@/components/forms/TenantPreviewCard';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { useTenantExits } from '@/hooks/useTenantExits';
 import { Card, CardContent } from '@/components/ui/card';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 const getLeaseStatusBadge = (leaseEndDate: string | null) => {
   if (!leaseEndDate) return <Badge className="bg-muted text-muted-foreground">No Lease</Badge>;
@@ -95,6 +96,7 @@ export default function Tenants() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
   const { user } = useAuth();
+  const { activeCompanyId } = useActiveCompany();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
@@ -227,6 +229,7 @@ export default function Tenants() {
           landlordName: user?.email || 'Property Manager',
           propertyName: property?.name || 'Your Property',
           origin: window.location.origin,
+          companyId: activeCompanyId,
         },
       });
 

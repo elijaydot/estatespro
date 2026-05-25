@@ -5,9 +5,11 @@ import {
   checkRateLimit,
   handleCorsPreflight,
 } from "../_shared/security.ts";
+import { resolveCompanyBranding } from "../_shared/company-branding.ts";
 
 interface GenerateInvoicePdfRequest {
   invoiceId: string;
+  companyId?: string;
 }
 
 function escapeHtml(input: unknown): string {
@@ -89,7 +91,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Authenticated user:", userId);
 
     // Parse and validate request body
-    const { invoiceId }: GenerateInvoicePdfRequest = await req.json();
+    const { invoiceId, companyId }: GenerateInvoicePdfRequest = await req.json();
     
     if (!invoiceId || typeof invoiceId !== 'string') {
       return new Response(
@@ -135,21 +137,22 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get company settings for the invoice owner
-    const { data: companySettings } = await supabase
-      .from('company_settings')
-      .select('*')
-      .eq('user_id', invoice.user_id)
-      .maybeSingle();
+    const branding = await resolveCompanyBranding({
+      supabase,
+      userId: invoice.user_id,
+      companyId: companyId || null,
+      invoiceId,
+      propertyId: invoice.property_id || null,
+    });
 
     const tenant = invoice.tenants;
     const property = invoice.properties;
     const unit = invoice.units;
-    const safeCompanyName = escapeHtml(companySettings?.company_name || 'Property Management');
-    const safeCompanyLogo = safeImageUrl(companySettings?.logo_url || '');
-    const safeCompanyAddress = escapeHtml(companySettings?.company_address || '');
-    const safeCompanyEmail = escapeHtml(companySettings?.company_email || '');
-    const safeCompanyPhone = escapeHtml(companySettings?.company_phone || '');
+    const safeCompanyName = escapeHtml(branding.companyName);
+    const safeCompanyLogo = safeImageUrl(branding.logoUrl || '');
+    const safeCompanyAddress = escapeHtml(branding.companyAddress || '');
+    const safeCompanyEmail = escapeHtml(branding.companyEmail || '');
+    const safeCompanyPhone = escapeHtml(branding.companyPhone || '');
     const safeInvoiceNumber = escapeHtml(invoice.invoice_number);
     const safeInvoiceStatus = escapeHtml(invoice.status.toUpperCase());
     const safeTenantName = escapeHtml(tenant?.name || 'N/A');

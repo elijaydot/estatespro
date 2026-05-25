@@ -55,6 +55,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useInvoices, useCreateInvoice, useUpdateInvoice, type Invoice } from '@/hooks/useInvoices';
 import { useTenants, type Tenant } from '@/hooks/useTenants';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 import { format } from 'date-fns';
 
 type TenantWithRelations = Tenant & {
@@ -112,6 +113,7 @@ export default function Invoices() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
+  const { activeCompanyId } = useActiveCompany();
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -195,7 +197,7 @@ export default function Invoices() {
     setDownloadingId(invoiceId);
     try {
       const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
-        body: { invoiceId },
+        body: { invoiceId, companyId: activeCompanyId },
       });
 
       if (error) throw new Error(error.message || 'Failed to generate PDF');

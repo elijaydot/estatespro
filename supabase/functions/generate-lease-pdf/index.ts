@@ -5,9 +5,11 @@ import {
   checkRateLimit,
   handleCorsPreflight,
 } from "../_shared/security.ts";
+import { resolveCompanyBranding } from "../_shared/company-branding.ts";
 
 interface GeneratePdfRequest {
   leaseId: string;
+  companyId?: string;
 }
 
 function escapeHtml(input: unknown): string {
@@ -82,7 +84,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const userId = user.id;
-    const { leaseId }: GeneratePdfRequest = await req.json();
+    const { leaseId, companyId }: GeneratePdfRequest = await req.json();
     
     if (!leaseId || typeof leaseId !== 'string') {
       return new Response(
@@ -135,20 +137,21 @@ const handler = async (req: Request): Promise<Response> => {
       .eq('user_id', lease.user_id)
       .single();
 
-    // Fetch company settings for branding
-    const { data: companySettings } = await supabase
-      .from('company_settings')
-      .select('company_name, company_email, company_phone, company_address, logo_url')
-      .eq('user_id', lease.user_id)
-      .single();
+    const branding = await resolveCompanyBranding({
+      supabase,
+      userId: lease.user_id,
+      companyId: companyId || null,
+      leaseId,
+      propertyId: lease.property_id || null,
+    });
 
     const font = appSettings?.lease_font || 'Georgia';
     const primaryColor = appSettings?.lease_primary_color || '#1e3a5f';
     const secondaryColor = appSettings?.lease_secondary_color || '#2563eb';
     const headerBg = appSettings?.lease_header_color || '#f0f7ff';
     const currencySymbol = appSettings?.currency_symbol || '$';
-    const companyName = companySettings?.company_name || 'Property Management';
-    const companyLogo = companySettings?.logo_url || '';
+    const companyName = branding.companyName;
+    const companyLogo = branding.logoUrl || '';
 
     const tenant = lease.tenants;
     const property = lease.properties;

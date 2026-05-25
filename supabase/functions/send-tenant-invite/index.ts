@@ -6,6 +6,7 @@ import {
   checkRateLimit,
   handleCorsPreflight,
 } from "../_shared/security.ts";
+import { resolveCompanyBranding } from "../_shared/company-branding.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -15,6 +16,7 @@ interface InviteRequest {
   landlordName: string;
   propertyName: string;
   origin?: string;
+  companyId?: string;
 }
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
@@ -68,7 +70,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const userId = user.id;
 
-    const { tenantId, email, landlordName, propertyName, origin }: InviteRequest = await req.json();
+    const { tenantId, email, landlordName, propertyName, origin, companyId }: InviteRequest = await req.json();
     console.log("Received invite request for:", email, "Origin:", origin);
 
     // Validate input
@@ -106,15 +108,15 @@ const handler = async (req: Request): Promise<Response> => {
       return jsonResponse(req, { error: "Forbidden: You do not have access to this tenant" }, 403);
     }
 
-    // Fetch company settings for branding
-    const { data: companySettings } = await supabaseAdmin
-      .from("company_settings")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
+    const branding = await resolveCompanyBranding({
+      supabase: supabaseAdmin,
+      userId,
+      companyId: companyId || null,
+      propertyId: tenant.property_id || null,
+    });
 
-    const companyName = companySettings?.company_name || landlordName || "Property Management";
-    const companyLogo = companySettings?.logo_url || null;
+    const companyName = branding.companyName || landlordName || "Property Management";
+    const companyLogo = branding.logoUrl || null;
 
     // Generate invite token
     const token = crypto.randomUUID() + "-" + Date.now().toString(36);

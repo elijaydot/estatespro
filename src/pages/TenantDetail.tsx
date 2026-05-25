@@ -71,6 +71,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { PortalStatusBadge } from '@/components/tenants/PortalStatusBadge';
 import { useSendMessage } from '@/hooks/useMessages';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 const getLeaseStatusBadge = (leaseEndDate: string | null) => {
   if (!leaseEndDate) return <Badge className="bg-muted text-muted-foreground">No Lease</Badge>;
@@ -113,6 +114,7 @@ export default function TenantDetail() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
   const { user } = useAuth();
+  const { activeCompanyId } = useActiveCompany();
 
   const { data: tenant, isLoading } = useTenant(id || '');
   const { data: properties = [] } = useProperties();
@@ -254,6 +256,7 @@ export default function TenantDetail() {
           landlordName: user?.email || 'Property Manager',
           propertyName: property?.name || 'Your Property',
           origin: window.location.origin,
+          companyId: activeCompanyId,
         },
       });
 

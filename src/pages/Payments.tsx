@@ -59,6 +59,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useStepUpGuard } from '@/hooks/useStepUpGuard';
 import { logSecurityEvent } from '@/lib/security';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -132,6 +133,7 @@ const paymentMethodOptions = [
 export default function Payments() {
   const navigate = useNavigate();
   const { formatCurrency } = useSettings();
+  const { activeCompanyId } = useActiveCompany();
   const [searchQuery, setSearchQuery] = useState('');
   const [isRecordOpen, setIsRecordOpen] = useState(false);
   const [checkoutGateway, setCheckoutGateway] = useState<'paystack' | 'flutterwave'>('paystack');
@@ -233,7 +235,7 @@ export default function Payments() {
 
     try {
       await supabase.functions.invoke('send-payment-confirmation', {
-        body: { paymentId: payment.id },
+        body: { paymentId: payment.id, companyId: activeCompanyId },
       });
       await logSecurityEvent('payment_receipt_sent', { paymentId: payment.id });
       toast({ title: 'Receipt Sent', description: `Receipt sent to ${payment.tenants?.name || 'tenant'}.` });

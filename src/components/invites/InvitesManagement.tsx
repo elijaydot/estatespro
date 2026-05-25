@@ -37,6 +37,7 @@ import { useTenantInvites, useDeleteTenantInvite, useCreateTenantInvite } from '
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProperties } from '@/hooks/useProperties';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 const getInviteStatus = (invite: any) => {
   if (invite.used_at) {
@@ -50,6 +51,7 @@ const getInviteStatus = (invite: any) => {
 
 export function InvitesManagement() {
   const { user } = useAuth();
+  const { activeCompanyId } = useActiveCompany();
   const { data: invites = [], isLoading } = useTenantInvites();
   const { data: properties = [] } = useProperties();
   const deleteInvite = useDeleteTenantInvite();
@@ -85,6 +87,7 @@ export function InvitesManagement() {
           landlordName: user?.email || 'Property Manager',
           propertyName: property?.name || 'Your Property',
           origin: window.location.origin,
+          companyId: activeCompanyId,
         },
       });
 

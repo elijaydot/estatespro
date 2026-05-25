@@ -53,6 +53,7 @@ import { useTenants } from '@/hooks/useTenants';
 import { useCreateNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { DocumentIntelligence } from '@/components/ai/DocumentIntelligence';
+import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -124,6 +125,7 @@ This Lease Agreement is entered into between the Landlord and Tenant identified 
 export default function Leases() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
+  const { activeCompanyId } = useActiveCompany();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -303,7 +305,7 @@ export default function Leases() {
   const handleDownloadPdf = async (leaseId: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('generate-lease-pdf', {
-        body: { leaseId },
+        body: { leaseId, companyId: activeCompanyId },
       });
 
       if (error) throw new Error(error.message || 'Failed to generate PDF');
