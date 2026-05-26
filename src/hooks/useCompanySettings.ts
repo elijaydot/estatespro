@@ -62,14 +62,7 @@ export function useCompanySettings(companyId?: string | null) {
         } as CompanySettings;
       }
 
-      const { data, error } = await supabase
-        .from('company_settings')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) throw error;
-      return data as CompanySettings | null;
+      return null;
     },
     enabled: companyId !== undefined,
   });
@@ -99,25 +92,6 @@ export function useUpdateCompanySettings(companyId?: string | null) {
         .single();
 
       if (companyError) throw companyError;
-
-      // Compatibility dual-write while email/PDF functions are being migrated.
-      const { error: legacyError } = await supabase
-        .from('company_settings')
-        .upsert({
-          user_id: user.id,
-          company_id: companyId,
-          company_name: settings.company_name ?? null,
-          company_email: settings.company_email ?? null,
-          company_phone: settings.company_phone ?? null,
-          company_address: settings.company_address ?? null,
-          logo_url: settings.logo_url ?? null,
-        }, {
-          onConflict: 'user_id',
-        });
-
-      if (legacyError) {
-        console.warn('Legacy company_settings dual-write failed', legacyError);
-      }
 
       return companyData;
     },

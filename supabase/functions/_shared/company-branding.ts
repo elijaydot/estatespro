@@ -1,6 +1,6 @@
 type AnyClient = any;
 
-export type BrandingSource = 'companies' | 'company_settings' | 'default';
+export type BrandingSource = 'companies' | 'default';
 
 export type ResolvedCompanyBranding = {
   companyId: string | null;
@@ -36,7 +36,6 @@ async function resolveCompanyIdFromProperty(supabase: AnyClient, propertyId: str
 export async function resolveCompanyBranding(input: ResolveBrandingInput): Promise<ResolvedCompanyBranding> {
   const {
     supabase,
-    userId = null,
     propertyId = null,
     invoiceId = null,
     leaseId = null,
@@ -134,26 +133,6 @@ export async function resolveCompanyBranding(input: ResolveBrandingInput): Promi
         companyAddress: company.address || null,
         logoUrl: company.logo_url || null,
         source: 'companies',
-      };
-    }
-  }
-
-  if (userId) {
-    const { data: legacy } = await supabase
-      .from('company_settings')
-      .select('company_name, company_email, company_phone, company_address, logo_url')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (legacy) {
-      return {
-        companyId: resolvedCompanyId,
-        companyName: legacy.company_name || 'Property Management',
-        companyEmail: legacy.company_email || null,
-        companyPhone: legacy.company_phone || null,
-        companyAddress: legacy.company_address || null,
-        logoUrl: legacy.logo_url || null,
-        source: 'company_settings',
       };
     }
   }

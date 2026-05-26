@@ -144,6 +144,14 @@ const handler = async (req: Request): Promise<Response> => {
       leaseId,
       propertyId: lease.property_id || null,
     });
+    console.log("brand.resolve", {
+      function: "generate-lease-pdf",
+      source: branding.source,
+      requestedCompanyId: companyId || null,
+      resolvedCompanyId: branding.companyId,
+      leaseId,
+      propertyId: lease.property_id || null,
+    });
 
     const font = appSettings?.lease_font || 'Georgia';
     const primaryColor = appSettings?.lease_primary_color || '#1e3a5f';
@@ -462,6 +470,7 @@ const handler = async (req: Request): Promise<Response> => {
       status: 200,
       headers: { 
         "Content-Type": "text/html",
+        "X-Branding-Source": branding.source,
         ...corsHeaders 
       },
     });

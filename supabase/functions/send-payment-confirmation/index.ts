@@ -106,6 +106,15 @@ const handler = async (req: Request): Promise<Response> => {
       invoiceId: payment.invoice_id || null,
       bookingId: payment.booking_id || null,
     });
+    console.log("brand.resolve", {
+      function: "send-payment-confirmation",
+      source: branding.source,
+      requestedCompanyId: companyId || null,
+      resolvedCompanyId: branding.companyId,
+      invoiceId: payment.invoice_id || null,
+      paymentId,
+      propertyId: payment.property_id || null,
+    });
 
     // Get property owner's profile
     const { data: ownerProfile } = await supabase
@@ -244,7 +253,12 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    return jsonResponse(req, { success: true, emailsSent });
+    return jsonResponse(req, { 
+      success: true, 
+      emailsSent, 
+      brandingSource: branding.source, 
+      companyId: branding.companyId 
+    });
   } catch (error: any) {
     console.error("Error in send-payment-confirmation:", error);
     return jsonResponse(req, { error: error.message }, 500);

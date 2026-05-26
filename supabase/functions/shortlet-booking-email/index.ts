@@ -180,6 +180,15 @@ serve(async (req) => {
 				bookingId: booking.id,
 				propertyId: booking.property_id || null,
 			});
+			console.log("brand.resolve", {
+				function: "shortlet-booking-email",
+				source: branding.source,
+				requestedCompanyId: companyId || null,
+				resolvedCompanyId: branding.companyId,
+				bookingId: booking.id,
+				propertyId: booking.property_id || null,
+				emailType,
+			});
 
 			const companyName = branding.companyName || "FishGate";
 			const fromEmail = branding.companyEmail
@@ -243,7 +252,13 @@ serve(async (req) => {
 				.update({ last_status_email_sent_at: new Date().toISOString(), last_status_email_type: emailType })
 				.eq("id", booking.id);
 
-			return jsonResponse({ success: true, token, invoiceId: invoice?.id || null });
+			return jsonResponse({
+				success: true,
+				token,
+				invoiceId: invoice?.id || null,
+				brandingSource: branding.source,
+				companyId: branding.companyId,
+			});
 		}
 
 		if (operation === "get_action_context") {

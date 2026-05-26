@@ -114,6 +114,14 @@ const handler = async (req: Request): Promise<Response> => {
       companyId: companyId || null,
       propertyId: tenant.property_id || null,
     });
+    console.log("brand.resolve", {
+      function: "send-tenant-invite",
+      source: branding.source,
+      requestedCompanyId: companyId || null,
+      resolvedCompanyId: branding.companyId,
+      tenantId: tenant.id,
+      propertyId: tenant.property_id || null,
+    });
 
     const companyName = branding.companyName || landlordName || "Property Management";
     const companyLogo = branding.logoUrl || null;
@@ -239,6 +247,8 @@ const handler = async (req: Request): Promise<Response> => {
           inviteId: invite.id,
           inviteLink,
           emailSent: false,
+            brandingSource: branding.source,
+            companyId: branding.companyId,
           warning: `Email failed: ${emailResponse.error.message}. Use the invite link to share manually.`
         }),
         { status: 200, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } }
@@ -247,7 +257,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Email sent successfully:", emailResponse);
 
-    return jsonResponse(req, { success: true, inviteId: invite.id, emailSent: true });
+    return jsonResponse(req, {
+      success: true,
+      inviteId: invite.id,
+      emailSent: true,
+      brandingSource: branding.source,
+      companyId: branding.companyId,
+    });
   } catch (error: any) {
     console.error("Error in send-tenant-invite:", error);
     return jsonResponse(req, { error: error.message }, 500);

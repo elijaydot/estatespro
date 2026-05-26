@@ -144,6 +144,14 @@ const handler = async (req: Request): Promise<Response> => {
       invoiceId,
       propertyId: invoice.property_id || null,
     });
+    console.log("brand.resolve", {
+      function: "generate-invoice-pdf",
+      source: branding.source,
+      requestedCompanyId: companyId || null,
+      resolvedCompanyId: branding.companyId,
+      invoiceId,
+      propertyId: invoice.property_id || null,
+    });
 
     const tenant = invoice.tenants;
     const property = invoice.properties;
@@ -396,6 +404,7 @@ const handler = async (req: Request): Promise<Response> => {
       status: 200,
       headers: { 
         "Content-Type": "text/html",
+        "X-Branding-Source": branding.source,
         ...corsHeaders 
       },
     });
