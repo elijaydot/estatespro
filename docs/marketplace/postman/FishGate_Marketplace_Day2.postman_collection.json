@@ -1,0 +1,102 @@
+{
+  "info": {
+    "name": "FishGate Marketplace Day2",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Smoke tests for marketplace-public and marketplace-inquiry edge functions"
+  },
+  "item": [
+    {
+      "name": "Public Listings - List",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/marketplace-public?mode=list&page=1&page_size=5",
+          "host": ["{{baseUrl}}"],
+          "path": ["marketplace-public"],
+          "query": [
+            { "key": "mode", "value": "list" },
+            { "key": "page", "value": "1" },
+            { "key": "page_size", "value": "5" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Public Listings - Detail",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/marketplace-public?mode=detail&id_or_slug={{listingIdOrSlug}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["marketplace-public"],
+          "query": [
+            { "key": "mode", "value": "detail" },
+            { "key": "id_or_slug", "value": "{{listingIdOrSlug}}" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Inquiry - Create",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"listing_id\": \"{{listingId}}\",\n  \"full_name\": \"Test Prospect\",\n  \"phone_e164\": \"+2348000000000\",\n  \"email\": \"test@example.com\",\n  \"message\": \"Interested in this listing\",\n  \"budget_min\": 1500000,\n  \"budget_max\": 3000000,\n  \"consent_marketing\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/marketplace-inquiry",
+          "host": ["{{baseUrl}}"],
+          "path": ["marketplace-inquiry"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Inquiry - Idempotency Replay",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"listing_id\": \"{{listingId}}\",\n  \"full_name\": \"Test Prospect\",\n  \"phone_e164\": \"+2348000000000\",\n  \"email\": \"test@example.com\",\n  \"message\": \"Interested in this listing\",\n  \"budget_min\": 1500000,\n  \"budget_max\": 3000000,\n  \"consent_marketing\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/marketplace-inquiry",
+          "host": ["{{baseUrl}}"],
+          "path": ["marketplace-inquiry"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://zuwpvevqijwkkucmpkkr.supabase.co/functions/v1"
+    },
+    {
+      "key": "listingId",
+      "value": "REPLACE_WITH_LIVE_LISTING_UUID"
+    },
+    {
+      "key": "listingIdOrSlug",
+      "value": "REPLACE_WITH_LIVE_LISTING_UUID_OR_SLUG"
+    },
+    {
+      "key": "idempotencyKey",
+      "value": "marketplace-inquiry-smoke-001"
+    }
+  ]
+}

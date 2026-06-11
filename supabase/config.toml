@@ -62,3 +62,9 @@ verify_jwt = false
 
 [functions.send-broadcast]
 verify_jwt = false
+
+[functions.marketplace-public]
+verify_jwt = false
+
+[functions.marketplace-inquiry]
+verify_jwt = false

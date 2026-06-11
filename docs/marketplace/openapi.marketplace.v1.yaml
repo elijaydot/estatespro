@@ -1,0 +1,266 @@
+openapi: 3.0.3
+info:
+  title: FishGate Marketplace API
+  version: 1.0.0-day2
+  description: |
+    Day 2 smoke-test API surface for FishGate marketplace functions.
+    This spec targets deployed Supabase Edge Function routes.
+servers:
+  - url: https://{projectRef}.supabase.co/functions/v1
+    description: Supabase Edge Functions (cloud)
+    variables:
+      projectRef:
+        default: zuwpvevqijwkkucmpkkr
+tags:
+  - name: Marketplace Public
+  - name: Marketplace Inquiry
+paths:
+  /marketplace-public:
+    get:
+      tags: [Marketplace Public]
+      summary: Get marketplace listings or listing detail
+      description: |
+        Use query mode=list for listing search.
+        Use query mode=detail with id_or_slug for listing detail.
+      parameters:
+        - in: query
+          name: mode
+          schema:
+            type: string
+            enum: [list, detail]
+            default: list
+          description: list for search results, detail for a single listing.
+        - in: query
+          name: id_or_slug
+          schema:
+            type: string
+          description: Required when mode=detail.
+        - in: query
+          name: city
+          schema:
+            type: string
+          description: Optional city filter for mode=list.
+        - in: query
+          name: area
+          schema:
+            type: string
+          description: Optional area filter for mode=list.
+        - in: query
+          name: min_rent
+          schema:
+            type: number
+          description: Optional minimum rent filter.
+        - in: query
+          name: max_rent
+          schema:
+            type: number
+          description: Optional maximum rent filter.
+        - in: query
+          name: bedrooms
+          schema:
+            type: integer
+          description: Optional bedroom count filter.
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page index for mode=list.
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Page size for mode=list.
+      responses:
+        "200":
+          description: Listings or listing detail response.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/PublicListingsResponse"
+                  - $ref: "#/components/schemas/PublicListingDetailResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /marketplace-inquiry:
+    post:
+      tags: [Marketplace Inquiry]
+      summary: Create inquiry and lead
+      description: |
+        Creates a marketplace inquiry and lead atomically using idempotency.
+        Repeating the same Idempotency-Key returns the existing inquiry.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+          description: Unique client-generated idempotency key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InquiryCreateRequest"
+      responses:
+        "201":
+          description: Inquiry created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InquiryCreateResponse"
+        "200":
+          description: Idempotent replay response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InquiryCreateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  schemas:
+    PublicListing:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        title: { type: string }
+        city: { type: string }
+        area: { type: string, nullable: true }
+        rent_amount: { type: number }
+        currency: { type: string }
+        bedrooms: { type: integer, nullable: true }
+        bathrooms: { type: integer, nullable: true }
+        available_from: { type: string, format: date, nullable: true }
+        verification_state: { type: string }
+        published_at: { type: string, format: date-time, nullable: true }
+        company_name: { type: string }
+        company_logo_url: { type: string, nullable: true }
+        cover_media_url: { type: string, nullable: true }
+
+    PublicListingDetail:
+      allOf:
+        - $ref: "#/components/schemas/PublicListing"
+        - type: object
+          properties:
+            description: { type: string, nullable: true }
+            media:
+              type: array
+              items:
+                $ref: "#/components/schemas/ListingMedia"
+
+    ListingMedia:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        storage_path: { type: string }
+        is_cover: { type: boolean }
+        sort_order: { type: integer }
+
+    PublicListingsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicListing"
+        error:
+          nullable: true
+        meta:
+          type: object
+          properties:
+            page: { type: integer }
+            page_size: { type: integer }
+            count: { type: integer }
+            correlationId: { type: string }
+
+    PublicListingDetailResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/PublicListingDetail"
+        error:
+          nullable: true
+        meta:
+          type: object
+          properties:
+            correlationId: { type: string }
+
+    InquiryCreateRequest:
+      type: object
+      required: [listing_id, full_name, phone_e164]
+      properties:
+        listing_id: { type: string, format: uuid }
+        full_name: { type: string }
+        phone_e164: { type: string }
+        email: { type: string, format: email, nullable: true }
+        message: { type: string, nullable: true }
+        move_in_date: { type: string, format: date, nullable: true }
+        budget_min: { type: number, nullable: true }
+        budget_max: { type: number, nullable: true }
+        consent_marketing: { type: boolean, default: false }
+
+    InquiryCreateResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            inquiry_id: { type: string, format: uuid }
+            lead_id: { type: string, format: uuid }
+            reused: { type: boolean }
+        error:
+          nullable: true
+        meta:
+          type: object
+          properties:
+            correlationId: { type: string }
+
+    ErrorResponse:
+      type: object
+      properties:
+        error: { type: string }
+
+  responses:
+    BadRequest:
+      description: Invalid request payload or parameters.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found or not available.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    RateLimited:
+      description: Too many requests.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
