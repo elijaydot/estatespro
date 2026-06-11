@@ -665,6 +665,242 @@ export type Database = {
           },
         ]
       }
+      lead_activities: {
+        Row: {
+          activity_type: string
+          actor_user_id: string | null
+          channel: string | null
+          created_at: string
+          id: string
+          lead_id: string
+          occurred_at: string
+          payload_json: Json
+        }
+        Insert: {
+          activity_type: string
+          actor_user_id?: string | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          lead_id: string
+          occurred_at?: string
+          payload_json?: Json
+        }
+        Update: {
+          activity_type?: string
+          actor_user_id?: string | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string
+          occurred_at?: string
+          payload_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_contacts: {
+        Row: {
+          consent_marketing: boolean
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          lead_id: string
+          phone_e164: string
+          preferred_channel: string | null
+        }
+        Insert: {
+          consent_marketing?: boolean
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          lead_id: string
+          phone_e164: string
+          preferred_channel?: string | null
+        }
+        Update: {
+          consent_marketing?: boolean
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          lead_id?: string
+          phone_e164?: string
+          preferred_channel?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_stage_history: {
+        Row: {
+          actor_user_id: string | null
+          changed_at: string
+          from_stage: string | null
+          id: string
+          lead_id: string
+          reason: string | null
+          to_stage: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          changed_at?: string
+          from_stage?: string | null
+          id?: string
+          lead_id: string
+          reason?: string | null
+          to_stage: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          changed_at?: string
+          from_stage?: string | null
+          id?: string
+          lead_id?: string
+          reason?: string | null
+          to_stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_stage_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          due_at: string
+          id: string
+          lead_id: string
+          notes: string | null
+          owner_user_id: string
+          status: string
+          task_type: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          due_at: string
+          id?: string
+          lead_id: string
+          notes?: string | null
+          owner_user_id: string
+          status?: string
+          task_type: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          due_at?: string
+          id?: string
+          lead_id?: string
+          notes?: string | null
+          owner_user_id?: string
+          status?: string
+          task_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tasks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          assigned_to: string | null
+          company_id: string
+          converted_at: string | null
+          created_at: string
+          created_by: string | null
+          first_seen_at: string
+          id: string
+          last_activity_at: string | null
+          listing_id: string | null
+          lost_reason: string | null
+          priority: string
+          score: number
+          source: string
+          stage: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          company_id: string
+          converted_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          first_seen_at?: string
+          id?: string
+          last_activity_at?: string | null
+          listing_id?: string | null
+          lost_reason?: string | null
+          priority?: string
+          score?: number
+          source?: string
+          stage?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          company_id?: string
+          converted_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          first_seen_at?: string
+          id?: string
+          last_activity_at?: string | null
+          listing_id?: string | null
+          lost_reason?: string | null
+          priority?: string
+          score?: number
+          source?: string
+          stage?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lease_attachments: {
         Row: {
           created_at: string
@@ -836,6 +1072,47 @@ export type Database = {
           },
         ]
       }
+      listing_media: {
+        Row: {
+          created_at: string
+          id: string
+          is_cover: boolean
+          listing_id: string
+          media_type: string
+          moderation_state: string
+          sort_order: number
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_cover?: boolean
+          listing_id: string
+          media_type?: string
+          moderation_state?: string
+          sort_order?: number
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_cover?: boolean
+          listing_id?: string
+          media_type?: string
+          moderation_state?: string
+          sort_order?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_media_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maintenance_requests: {
         Row: {
           assigned_to: string | null
@@ -909,6 +1186,185 @@ export type Database = {
           },
         ]
       }
+      marketplace_inquiries: {
+        Row: {
+          budget_max: number | null
+          budget_min: number | null
+          company_id: string
+          consent_marketing: boolean
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          idempotency_key: string
+          lead_id: string
+          listing_id: string
+          message: string | null
+          move_in_date: string | null
+          phone_e164: string
+          risk_state: string
+          source_ip: string | null
+        }
+        Insert: {
+          budget_max?: number | null
+          budget_min?: number | null
+          company_id: string
+          consent_marketing?: boolean
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          idempotency_key: string
+          lead_id: string
+          listing_id: string
+          message?: string | null
+          move_in_date?: string | null
+          phone_e164: string
+          risk_state?: string
+          source_ip?: string | null
+        }
+        Update: {
+          budget_max?: number | null
+          budget_min?: number | null
+          company_id?: string
+          consent_marketing?: boolean
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          idempotency_key?: string
+          lead_id?: string
+          listing_id?: string
+          message?: string | null
+          move_in_date?: string | null
+          phone_e164?: string
+          risk_state?: string
+          source_ip?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_inquiries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_inquiries_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_inquiries_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketplace_listings: {
+        Row: {
+          address_hash: string | null
+          archived_at: string | null
+          area: string | null
+          available_from: string | null
+          bathrooms: number | null
+          bedrooms: number | null
+          city: string
+          company_id: string
+          created_at: string
+          created_by: string
+          currency: string
+          description: string | null
+          id: string
+          paused_at: string | null
+          property_id: string | null
+          published_at: string | null
+          rent_amount: number
+          slug: string
+          status: string
+          title: string
+          unit_id: string | null
+          updated_at: string
+          verification_state: string
+        }
+        Insert: {
+          address_hash?: string | null
+          archived_at?: string | null
+          area?: string | null
+          available_from?: string | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city: string
+          company_id: string
+          created_at?: string
+          created_by: string
+          currency?: string
+          description?: string | null
+          id?: string
+          paused_at?: string | null
+          property_id?: string | null
+          published_at?: string | null
+          rent_amount: number
+          slug: string
+          status?: string
+          title: string
+          unit_id?: string | null
+          updated_at?: string
+          verification_state?: string
+        }
+        Update: {
+          address_hash?: string | null
+          archived_at?: string | null
+          area?: string | null
+          available_from?: string | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          paused_at?: string | null
+          property_id?: string | null
+          published_at?: string | null
+          rent_amount?: number
+          slug?: string
+          status?: string
+          title?: string
+          unit_id?: string | null
+          updated_at?: string
+          verification_state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_listings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           client_message_id: string | null
@@ -968,6 +1424,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      moderation_cases: {
+        Row: {
+          assigned_moderator: string | null
+          closed_at: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          opened_at: string
+          queue: string
+          reason_code: string
+          resolution_notes: string | null
+          severity: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_moderator?: string | null
+          closed_at?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          opened_at?: string
+          queue?: string
+          reason_code: string
+          resolution_notes?: string | null
+          severity: string
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_moderator?: string | null
+          closed_at?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          opened_at?: string
+          queue?: string
+          reason_code?: string
+          resolution_notes?: string | null
+          severity?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -1786,6 +2290,26 @@ export type Database = {
     }
     Functions: {
       consume_recovery_code: { Args: { p_code: string }; Returns: boolean }
+      create_marketplace_inquiry: {
+        Args: {
+          p_budget_max?: number
+          p_budget_min?: number
+          p_consent_marketing?: boolean
+          p_email?: string
+          p_full_name: string
+          p_idempotency_key: string
+          p_listing_id: string
+          p_message?: string
+          p_move_in_date?: string
+          p_phone_e164: string
+          p_source_ip?: string
+        }
+        Returns: {
+          inquiry_id: string
+          lead_id: string
+          reused: boolean
+        }[]
+      }
       get_company_property_ids: {
         Args: { _user_id: string }
         Returns: string[]
@@ -1829,6 +2353,53 @@ export type Database = {
         }[]
       }
       get_profile_role: { Args: { _user_id: string }; Returns: string }
+      get_public_marketplace_listing_detail: {
+        Args: { p_id_or_slug: string }
+        Returns: {
+          area: string
+          available_from: string
+          bathrooms: number
+          bedrooms: number
+          city: string
+          company_logo_url: string
+          company_name: string
+          currency: string
+          description: string
+          id: string
+          published_at: string
+          rent_amount: number
+          slug: string
+          title: string
+          verification_state: string
+        }[]
+      }
+      get_public_marketplace_listings: {
+        Args: {
+          p_area?: string
+          p_bedrooms?: number
+          p_city?: string
+          p_max_rent?: number
+          p_min_rent?: number
+          p_page?: number
+          p_page_size?: number
+        }
+        Returns: {
+          area: string
+          available_from: string
+          bathrooms: number
+          bedrooms: number
+          city: string
+          company_logo_url: string
+          company_name: string
+          currency: string
+          id: string
+          published_at: string
+          rent_amount: number
+          slug: string
+          title: string
+          verification_state: string
+        }[]
+      }
       get_tenant_id_by_user: { Args: { _user_id: string }; Returns: string[] }
       get_tenant_property_id: { Args: { _user_id: string }; Returns: string[] }
       get_tenant_unit_id: { Args: { _user_id: string }; Returns: string[] }
