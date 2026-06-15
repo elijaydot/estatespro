@@ -61,6 +61,8 @@ const TenantForgotPassword = lazy(() => import("./pages/tenant-portal/TenantForg
 const TenantResetPassword = lazy(() => import("./pages/tenant-portal/TenantResetPassword"));
 const GuestBookingPage = lazy(() => import("./pages/guest-booking/GuestBookingPage"));
 const GuestBookingActionPage = lazy(() => import("./pages/guest-booking/GuestBookingActionPage"));
+const MarketplacePublic = lazy(() => import("./pages/MarketplacePublic"));
+const MarketplaceManage = lazy(() => import("./pages/MarketplaceManage"));
 
 const queryClient = new QueryClient();
 
@@ -186,6 +188,8 @@ function AppRoutes() {
       <Route path="/mfa-challenge" element={<AuthenticatedRoute>{withSuspense(<MfaChallenge />)}</AuthenticatedRoute>} />
       <Route path="/book/:propertyId" element={withSuspense(<GuestBookingPage />)} />
       <Route path="/bookings/guest-action" element={withSuspense(<GuestBookingActionPage />)} />
+      <Route path="/marketplace" element={withSuspense(<MarketplacePublic />)} />
+      <Route path="/marketplace/:idOrSlug" element={withSuspense(<MarketplacePublic />)} />
 
       <Route path="/dashboard" element={<PrivateRoute>{withSuspense(<Dashboard />)}</PrivateRoute>} />
       <Route path="/team" element={<PrivateRoute>{withSuspense(<TeamManagement />)}</PrivateRoute>} />
@@ -203,6 +207,7 @@ function AppRoutes() {
       <Route path="/recurring-bills" element={<PrivateRoute>{withSuspense(<RecurringBills />)}</PrivateRoute>} />
       <Route path="/messages" element={<PrivateRoute>{withSuspense(<MessagesPageV2 />)}</PrivateRoute>} />
       <Route path="/bookings" element={<PrivateRoute>{withSuspense(<Bookings />)}</PrivateRoute>} />
+      <Route path="/marketplace/manage" element={<PrivateRoute>{withSuspense(<MarketplaceManage />)}</PrivateRoute>} />
       <Route path="/guest-booking-portal" element={<PrivateRoute>{withSuspense(<GuestBookingPortal />)}</PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute>{withSuspense(<Notifications />)}</PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute>{withSuspense(<Reports />)}</PrivateRoute>} />

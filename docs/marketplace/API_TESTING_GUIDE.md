@@ -39,6 +39,10 @@ Expected:
 - Inquiry create returns 201 first call
 - Idempotency replay returns 200 with reused=true
 
+Important:
+- If you reuse an existing Idempotency-Key from earlier runs, the first request in your current session can return 200 with reused=true.
+- To force the full create-then-replay sequence, set a brand new idempotencyKey before running the two inquiry requests.
+
 ## Swagger/OpenAPI usage
 
 1. Open Swagger Editor at https://editor.swagger.io/
