@@ -182,14 +182,21 @@ export function useCrmLeads(companyId?: string | null) {
 
       if (error) throw error;
 
-      return ((data || []) as LeadRow[]).map((lead) => ({
-        ...lead,
-        listing_title: lead.marketplace_listings?.title ?? null,
-        listing_slug: lead.marketplace_listings?.slug ?? null,
-        contact_name: lead.lead_contacts?.[0]?.full_name ?? null,
-        contact_email: lead.lead_contacts?.[0]?.email ?? null,
-        contact_phone: lead.lead_contacts?.[0]?.phone_e164 ?? null,
-      })) as CrmLead[];
+      return ((data || []) as unknown as LeadRow[]).map((lead) => {
+        const contacts = Array.isArray(lead.lead_contacts)
+          ? lead.lead_contacts
+          : lead.lead_contacts
+            ? [lead.lead_contacts as unknown as { full_name: string | null; email: string | null; phone_e164: string | null }]
+            : [];
+        return {
+          ...lead,
+          listing_title: lead.marketplace_listings?.title ?? null,
+          listing_slug: lead.marketplace_listings?.slug ?? null,
+          contact_name: contacts[0]?.full_name ?? null,
+          contact_email: contacts[0]?.email ?? null,
+          contact_phone: contacts[0]?.phone_e164 ?? null,
+        };
+      }) as CrmLead[];
     },
     enabled: !!companyId,
   });
