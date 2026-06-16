@@ -314,7 +314,7 @@ export function useModerationCases(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as ModerationCase[];
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('moderation_cases')
         .select('id, entity_type, entity_id, reason_code, severity, state, queue, assigned_moderator, resolution_notes, opened_at, closed_at, created_at, updated_at')
         .eq('company_id', companyId)
