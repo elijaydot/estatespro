@@ -249,12 +249,15 @@ export function useManagedMarketplaceListings(companyId?: string | null) {
 
       const { data, error } = await supabase
         .from('marketplace_listings')
-        .select('id, company_id, title, slug, status, verification_state, city, area, rent_amount, currency, published_at, inquiry_count, created_at')
+        .select('id, company_id, title, slug, status, verification_state, city, area, rent_amount, currency, published_at, created_at')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as ManagedMarketplaceListing[];
+      return ((data || []) as unknown as Array<Omit<ManagedMarketplaceListing, 'inquiry_count'>>).map((row) => ({
+        ...row,
+        inquiry_count: 0,
+      })) as ManagedMarketplaceListing[];
     },
     enabled: !!companyId,
   });
