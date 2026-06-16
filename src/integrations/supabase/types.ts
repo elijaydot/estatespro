@@ -14,6 +14,61 @@ export type Database = {
   }
   public: {
     Tables: {
+      abuse_signals: {
+        Row: {
+          company_id: string
+          detected_at: string
+          id: string
+          inquiry_id: string | null
+          listing_id: string | null
+          metadata: Json
+          severity: string
+          signal_type: string
+        }
+        Insert: {
+          company_id: string
+          detected_at?: string
+          id?: string
+          inquiry_id?: string | null
+          listing_id?: string | null
+          metadata?: Json
+          severity: string
+          signal_type: string
+        }
+        Update: {
+          company_id?: string
+          detected_at?: string
+          id?: string
+          inquiry_id?: string | null
+          listing_id?: string | null
+          metadata?: Json
+          severity?: string
+          signal_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "abuse_signals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "abuse_signals_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "abuse_signals_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           accent_color: string | null
@@ -1113,6 +1168,92 @@ export type Database = {
           },
         ]
       }
+      listing_publish_history: {
+        Row: {
+          actor_user_id: string | null
+          changed_at: string
+          company_id: string
+          from_status: string
+          id: string
+          listing_id: string
+          metadata: Json
+          reason_code: string | null
+          to_status: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          changed_at?: string
+          company_id: string
+          from_status: string
+          id?: string
+          listing_id: string
+          metadata?: Json
+          reason_code?: string | null
+          to_status: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          changed_at?: string
+          company_id?: string
+          from_status?: string
+          id?: string
+          listing_id?: string
+          metadata?: Json
+          reason_code?: string | null
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_publish_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_publish_history_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      listing_search_index: {
+        Row: {
+          area_slug: string | null
+          city_slug: string
+          listing_id: string
+          searchable_text: unknown
+          seo_path: string
+          updated_at: string
+        }
+        Insert: {
+          area_slug?: string | null
+          city_slug: string
+          listing_id: string
+          searchable_text?: unknown
+          seo_path: string
+          updated_at?: string
+        }
+        Update: {
+          area_slug?: string | null
+          city_slug?: string
+          listing_id?: string
+          searchable_text?: unknown
+          seo_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_search_index_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: true
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maintenance_requests: {
         Row: {
           assigned_to: string | null
@@ -1421,6 +1562,57 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      moderation_actions: {
+        Row: {
+          action_type: string
+          actor_user_id: string | null
+          case_id: string
+          company_id: string
+          created_at: string
+          from_state: string | null
+          id: string
+          notes: string | null
+          to_state: string | null
+        }
+        Insert: {
+          action_type: string
+          actor_user_id?: string | null
+          case_id: string
+          company_id: string
+          created_at?: string
+          from_state?: string | null
+          id?: string
+          notes?: string | null
+          to_state?: string | null
+        }
+        Update: {
+          action_type?: string
+          actor_user_id?: string | null
+          case_id?: string
+          company_id?: string
+          created_at?: string
+          from_state?: string | null
+          id?: string
+          notes?: string | null
+          to_state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moderation_actions_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "moderation_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderation_actions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -1778,6 +1970,50 @@ export type Database = {
           },
         ]
       }
+      publisher_verifications: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          last_submitted_at: string
+          rejection_reason: string | null
+          state: string
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          last_submitted_at?: string
+          rejection_reason?: string | null
+          state?: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          last_submitted_at?: string
+          rejection_reason?: string | null
+          state?: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "publisher_verifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recurring_bills: {
         Row: {
           amount: number
@@ -1867,6 +2103,67 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      risk_decisions: {
+        Row: {
+          company_id: string
+          decided_at: string
+          decided_by: string | null
+          decision: string
+          id: string
+          inquiry_id: string | null
+          listing_id: string | null
+          metadata: Json
+          reason_codes: string[]
+          score: number
+        }
+        Insert: {
+          company_id: string
+          decided_at?: string
+          decided_by?: string | null
+          decision: string
+          id?: string
+          inquiry_id?: string | null
+          listing_id?: string | null
+          metadata?: Json
+          reason_codes?: string[]
+          score?: number
+        }
+        Update: {
+          company_id?: string
+          decided_at?: string
+          decided_by?: string | null
+          decision?: string
+          id?: string
+          inquiry_id?: string | null
+          listing_id?: string | null
+          metadata?: Json
+          reason_codes?: string[]
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_decisions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_decisions_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_decisions_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       security_audit_events: {
         Row: {
@@ -2284,6 +2581,50 @@ export type Database = {
         }
         Relationships: []
       }
+      verification_documents: {
+        Row: {
+          created_at: string
+          document_type: string
+          id: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          state: string
+          storage_path: string
+          verification_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_type: string
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          state?: string
+          storage_path: string
+          verification_id: string
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          state?: string
+          storage_path?: string
+          verification_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_documents_verification_id_fkey"
+            columns: ["verification_id"]
+            isOneToOne: false
+            referencedRelation: "publisher_verifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2309,6 +2650,18 @@ export type Database = {
           lead_id: string
           reused: boolean
         }[]
+      }
+      evaluate_marketplace_inquiry_risk: {
+        Args: { p_inquiry_id: string }
+        Returns: {
+          decision: string
+          reason_codes: string[]
+          score: number
+        }[]
+      }
+      generate_crm_followup_tasks: {
+        Args: { p_company_id: string }
+        Returns: number
       }
       get_company_property_ids: {
         Args: { _user_id: string }
@@ -2353,6 +2706,23 @@ export type Database = {
         }[]
       }
       get_profile_role: { Args: { _user_id: string }; Returns: string }
+      get_public_marketplace_areas: {
+        Args: { p_city_slug: string }
+        Returns: {
+          area_name: string
+          area_slug: string
+          city_slug: string
+          listing_count: number
+        }[]
+      }
+      get_public_marketplace_cities: {
+        Args: never
+        Returns: {
+          city_name: string
+          city_slug: string
+          listing_count: number
+        }[]
+      }
       get_public_marketplace_listing_detail: {
         Args: { p_id_or_slug: string }
         Returns: {
@@ -2380,6 +2750,30 @@ export type Database = {
           p_city?: string
           p_max_rent?: number
           p_min_rent?: number
+          p_page?: number
+          p_page_size?: number
+        }
+        Returns: {
+          area: string
+          available_from: string
+          bathrooms: number
+          bedrooms: number
+          city: string
+          company_logo_url: string
+          company_name: string
+          currency: string
+          id: string
+          published_at: string
+          rent_amount: number
+          slug: string
+          title: string
+          verification_state: string
+        }[]
+      }
+      get_public_marketplace_listings_by_location: {
+        Args: {
+          p_area_slug?: string
+          p_city_slug: string
           p_page?: number
           p_page_size?: number
         }
@@ -2456,7 +2850,12 @@ export type Database = {
             }
             Returns: string
           }
+      refresh_listing_search_index_for_listing: {
+        Args: { p_listing_id: string }
+        Returns: undefined
+      }
       set_recovery_codes: { Args: { p_codes: string[] }; Returns: number }
+      slugify_text: { Args: { p_input: string }; Returns: string }
       tenant_lease_update_guard: {
         Args: {
           p_created_at: string
