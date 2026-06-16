@@ -182,14 +182,21 @@ export function useCrmLeads(companyId?: string | null) {
 
       if (error) throw error;
 
-      return ((data || []) as LeadRow[]).map((lead) => ({
-        ...lead,
-        listing_title: lead.marketplace_listings?.title ?? null,
-        listing_slug: lead.marketplace_listings?.slug ?? null,
-        contact_name: lead.lead_contacts?.[0]?.full_name ?? null,
-        contact_email: lead.lead_contacts?.[0]?.email ?? null,
-        contact_phone: lead.lead_contacts?.[0]?.phone_e164 ?? null,
-      })) as CrmLead[];
+      return ((data || []) as unknown as LeadRow[]).map((lead) => {
+        const contacts = Array.isArray(lead.lead_contacts)
+          ? lead.lead_contacts
+          : lead.lead_contacts
+            ? [lead.lead_contacts as unknown as { full_name: string | null; email: string | null; phone_e164: string | null }]
+            : [];
+        return {
+          ...lead,
+          listing_title: lead.marketplace_listings?.title ?? null,
+          listing_slug: lead.marketplace_listings?.slug ?? null,
+          contact_name: contacts[0]?.full_name ?? null,
+          contact_email: contacts[0]?.email ?? null,
+          contact_phone: contacts[0]?.phone_e164 ?? null,
+        };
+      }) as CrmLead[];
     },
     enabled: !!companyId,
   });
@@ -242,12 +249,15 @@ export function useManagedMarketplaceListings(companyId?: string | null) {
 
       const { data, error } = await supabase
         .from('marketplace_listings')
-        .select('id, company_id, title, slug, status, verification_state, city, area, rent_amount, currency, published_at, inquiry_count, created_at')
+        .select('id, company_id, title, slug, status, verification_state, city, area, rent_amount, currency, published_at, created_at')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as ManagedMarketplaceListing[];
+      return ((data || []) as unknown as Array<Omit<ManagedMarketplaceListing, 'inquiry_count'>>).map((row) => ({
+        ...row,
+        inquiry_count: 0,
+      })) as ManagedMarketplaceListing[];
     },
     enabled: !!companyId,
   });
@@ -304,7 +314,7 @@ export function useModerationCases(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as ModerationCase[];
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('moderation_cases')
         .select('id, entity_type, entity_id, reason_code, severity, state, queue, assigned_moderator, resolution_notes, opened_at, closed_at, created_at, updated_at')
         .eq('company_id', companyId)

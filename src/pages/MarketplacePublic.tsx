@@ -74,6 +74,9 @@ export default function MarketplacePublic() {
     }
   }, [areaSlug, citySlug, idOrSlug, listings, navigate, selectedListingIdOrSlug]);
 
+  const detailQuery = useMarketplaceListingDetail(selectedListingIdOrSlug);
+  const detail = detailQuery.data;
+
   useEffect(() => {
     const pageTitle = detail?.title
       ? `${detail.title} | FishGate Marketplace`
@@ -97,8 +100,6 @@ export default function MarketplacePublic() {
     metaDescription.setAttribute('content', description);
   }, [areaFromPath, cityFromPath, detail?.description, detail?.title]);
 
-  const detailQuery = useMarketplaceListingDetail(selectedListingIdOrSlug);
-  const detail = detailQuery.data;
 
   const inquiryMutation = useCreateMarketplaceInquiry();
 
