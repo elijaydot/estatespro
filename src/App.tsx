@@ -63,6 +63,8 @@ const GuestBookingPage = lazy(() => import("./pages/guest-booking/GuestBookingPa
 const GuestBookingActionPage = lazy(() => import("./pages/guest-booking/GuestBookingActionPage"));
 const MarketplacePublic = lazy(() => import("./pages/MarketplacePublic"));
 const MarketplaceManage = lazy(() => import("./pages/MarketplaceManage"));
+const MarketplaceModeration = lazy(() => import("./pages/MarketplaceModeration"));
+const MarketplaceVerification = lazy(() => import("./pages/MarketplaceVerification"));
 
 const queryClient = new QueryClient();
 
@@ -190,6 +192,10 @@ function AppRoutes() {
       <Route path="/bookings/guest-action" element={withSuspense(<GuestBookingActionPage />)} />
       <Route path="/marketplace" element={withSuspense(<MarketplacePublic />)} />
       <Route path="/marketplace/:idOrSlug" element={withSuspense(<MarketplacePublic />)} />
+      <Route path="/rent" element={withSuspense(<MarketplacePublic />)} />
+      <Route path="/rent/:citySlug" element={withSuspense(<MarketplacePublic />)} />
+      <Route path="/rent/:citySlug/:areaSlug" element={withSuspense(<MarketplacePublic />)} />
+      <Route path="/rent/:citySlug/:areaSlug/:idOrSlug" element={withSuspense(<MarketplacePublic />)} />
 
       <Route path="/dashboard" element={<PrivateRoute>{withSuspense(<Dashboard />)}</PrivateRoute>} />
       <Route path="/team" element={<PrivateRoute>{withSuspense(<TeamManagement />)}</PrivateRoute>} />
@@ -208,6 +214,8 @@ function AppRoutes() {
       <Route path="/messages" element={<PrivateRoute>{withSuspense(<MessagesPageV2 />)}</PrivateRoute>} />
       <Route path="/bookings" element={<PrivateRoute>{withSuspense(<Bookings />)}</PrivateRoute>} />
       <Route path="/marketplace/manage" element={<PrivateRoute>{withSuspense(<MarketplaceManage />)}</PrivateRoute>} />
+      <Route path="/marketplace/moderation" element={<PrivateRoute>{withSuspense(<MarketplaceModeration />)}</PrivateRoute>} />
+      <Route path="/marketplace/verification" element={<PrivateRoute>{withSuspense(<MarketplaceVerification />)}</PrivateRoute>} />
       <Route path="/guest-booking-portal" element={<PrivateRoute>{withSuspense(<GuestBookingPortal />)}</PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute>{withSuspense(<Notifications />)}</PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute>{withSuspense(<Reports />)}</PrivateRoute>} />

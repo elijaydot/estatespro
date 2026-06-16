@@ -116,6 +116,37 @@ serve(async (req: Request) => {
       return jsonResponse(req, { error: "Unable to process inquiry" }, 500);
     }
 
+    let riskDecision: { score: number; decision: string; reason_codes: string[] } | null = null;
+
+    if (data?.inquiry_id) {
+      const { data: riskData, error: riskError } = await supabase
+        .rpc("evaluate_marketplace_inquiry_risk", {
+          p_inquiry_id: data.inquiry_id,
+        })
+        .single();
+
+      if (riskError) {
+        await emitAuditEvent({
+          event_type: "marketplace.inquiry.risk_evaluation_failed",
+          source: "marketplace-inquiry",
+          severity: "warning",
+          correlation_id: correlationId,
+          details: {
+            inquiry_id: data.inquiry_id,
+            message: riskError.message,
+          },
+        });
+      } else if (riskData) {
+        riskDecision = {
+          score: Number(riskData.score ?? 0),
+          decision: String(riskData.decision ?? "allow"),
+          reason_codes: Array.isArray(riskData.reason_codes)
+            ? riskData.reason_codes.map((value: unknown) => String(value))
+            : [],
+        };
+      }
+    }
+
     const statusCode = data?.reused ? 200 : 201;
 
     await emitAuditEvent({
@@ -128,6 +159,7 @@ serve(async (req: Request) => {
       details: {
         inquiry_id: data?.inquiry_id,
         listing_id: listingId,
+        risk_decision: riskDecision?.decision ?? null,
       },
     });
 
@@ -136,12 +168,14 @@ serve(async (req: Request) => {
         inquiry_id: data?.inquiry_id,
         lead_id: data?.lead_id,
         reused: Boolean(data?.reused),
+        risk: riskDecision,
       },
       error: null,
       meta: { correlationId },
     }, statusCode);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("marketplace-inquiry error", error);
-    return jsonResponse(req, { error: error?.message || "Internal server error" }, 500);
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return jsonResponse(req, { error: message }, 500);
   }
 });

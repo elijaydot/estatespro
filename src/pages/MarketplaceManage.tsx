@@ -5,8 +5,11 @@ import {
   Building2,
   CheckCircle2,
   CircleOff,
+  ShieldAlert,
+  ShieldCheck,
   Loader2,
   Megaphone,
+  Shield,
   ToggleLeft,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -17,6 +20,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import {
+  useModerationCases,
+  usePublisherVerification,
+  useUpdateModerationCaseState,
   useCrmLeads,
   useManagedMarketplaceListings,
   useToggleMarketplacePublish,
@@ -125,16 +131,20 @@ function LeadCard({
 
 export default function MarketplaceManage() {
   const { activeCompanyId, companies } = useActiveCompany();
-  const { isLandlord, isPropertyManager, role } = useUserRole();
+  const { isLandlord, isPropertyManager } = useUserRole();
 
   const leadsQuery = useCrmLeads(activeCompanyId);
   const listingsQuery = useManagedMarketplaceListings(activeCompanyId);
+  const moderationCasesQuery = useModerationCases(activeCompanyId);
+  const verificationQuery = usePublisherVerification(activeCompanyId);
 
   const updateLeadStage = useUpdateCrmLeadStage(activeCompanyId);
   const togglePublish = useToggleMarketplacePublish(activeCompanyId);
+  const updateModerationState = useUpdateModerationCaseState(activeCompanyId);
 
   const leads = useMemo(() => leadsQuery.data ?? [], [leadsQuery.data]);
   const listings = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
+  const moderationCases = useMemo(() => moderationCasesQuery.data ?? [], [moderationCasesQuery.data]);
 
   const groupedLeads = useMemo(() => {
     const bucket: Record<string, CrmLead[]> = {};
@@ -159,6 +169,8 @@ export default function MarketplaceManage() {
   }
 
   const companyName = companies.find((company) => company.id === activeCompanyId)?.name || 'Active company';
+  const verificationState = verificationQuery.data?.state ?? 'pending';
+  const verificationBadgeVariant = verificationState === 'verified' ? 'default' : verificationState === 'rejected' ? 'destructive' : 'secondary';
 
   return (
     <div className="space-y-6">
@@ -207,6 +219,38 @@ export default function MarketplaceManage() {
             <CardTitle className="text-2xl">{metrics.activeListings}</CardTitle>
           </CardHeader>
           <CardContent className="text-xs text-muted-foreground">Listings currently visible publicly.</CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Shield className="h-5 w-5" />
+          <h2 className="text-lg font-semibold">Verification + Trust Gate</h2>
+          {verificationQuery.isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {verificationState === 'verified' ? <ShieldCheck className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
+              Publisher Verification
+            </CardTitle>
+            <CardDescription>
+              Publish-to-live is now server-enforced for landlord role and verified publishers only.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Current state:</span>
+              <Badge variant={verificationBadgeVariant}>{verificationState}</Badge>
+            </div>
+            {verificationQuery.data?.rejection_reason && (
+              <p className="text-muted-foreground">Reason: {verificationQuery.data.rejection_reason}</p>
+            )}
+            {!verificationQuery.data && (
+              <p className="text-muted-foreground">No verification record yet. Submit verification artifacts to unlock publishing.</p>
+            )}
+          </CardContent>
         </Card>
       </section>
 
@@ -315,6 +359,66 @@ export default function MarketplaceManage() {
                 </a>
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="h-5 w-5" />
+          <h2 className="text-lg font-semibold">Moderation Queue</h2>
+          {(moderationCasesQuery.isLoading || updateModerationState.isPending) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Open and In-Review Cases</CardTitle>
+            <CardDescription>
+              Resolve flagged listing risk events before broad rollout.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {moderationCases.slice(0, 12).map((moderationCase) => (
+              <div key={moderationCase.id} className="rounded-xl border border-border/70 p-3">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-sm font-medium">{moderationCase.reason_code}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Severity: {moderationCase.severity} · Queue: {moderationCase.queue}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={moderationCase.state === 'open' ? 'destructive' : 'secondary'}>{moderationCase.state}</Badge>
+                    <Select
+                      value={moderationCase.state}
+                      onValueChange={(nextState) =>
+                        updateModerationState.mutate({
+                          caseId: moderationCase.id,
+                          state: nextState as 'open' | 'in_review' | 'resolved' | 'dismissed',
+                        })
+                      }
+                      disabled={!isPropertyManager && !isLandlord}
+                    >
+                      <SelectTrigger className="h-8 w-[130px] text-xs">
+                        <SelectValue placeholder="Set state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open" className="text-xs">Open</SelectItem>
+                        <SelectItem value="in_review" className="text-xs">In Review</SelectItem>
+                        <SelectItem value="resolved" className="text-xs">Resolved</SelectItem>
+                        <SelectItem value="dismissed" className="text-xs">Dismissed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {!moderationCasesQuery.isLoading && moderationCases.length === 0 && (
+              <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                No active moderation cases for this company.
+              </div>
+            )}
           </CardContent>
         </Card>
       </section>

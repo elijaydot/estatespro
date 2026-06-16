@@ -15,7 +15,7 @@ import {
 
 export default function MarketplacePublic() {
   const navigate = useNavigate();
-  const { idOrSlug } = useParams();
+  const { idOrSlug, citySlug, areaSlug } = useParams();
 
   const [city, setCity] = useState('');
   const [area, setArea] = useState('');
@@ -24,6 +24,9 @@ export default function MarketplacePublic() {
   const [bedrooms, setBedrooms] = useState('');
 
   const [selectedListingIdOrSlug, setSelectedListingIdOrSlug] = useState<string | null>(idOrSlug || null);
+
+  const cityFromPath = useMemo(() => (citySlug ? citySlug.replace(/-/g, ' ') : ''), [citySlug]);
+  const areaFromPath = useMemo(() => (areaSlug ? areaSlug.replace(/-/g, ' ') : ''), [areaSlug]);
 
   const [inquiryForm, setInquiryForm] = useState({
     full_name: '',
@@ -52,6 +55,11 @@ export default function MarketplacePublic() {
   const listings = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
 
   useEffect(() => {
+    if (cityFromPath) setCity(cityFromPath);
+    if (areaFromPath) setArea(areaFromPath);
+  }, [cityFromPath, areaFromPath]);
+
+  useEffect(() => {
     if (idOrSlug) {
       setSelectedListingIdOrSlug(idOrSlug);
       return;
@@ -61,9 +69,33 @@ export default function MarketplacePublic() {
       const first = listings[0];
       const next = first.slug || first.id;
       setSelectedListingIdOrSlug(next);
-      navigate(`/marketplace/${next}`, { replace: true });
+      const base = citySlug ? `/rent/${citySlug}${areaSlug ? `/${areaSlug}` : ''}` : '/marketplace';
+      navigate(`${base}/${next}`, { replace: true });
     }
-  }, [idOrSlug, listings, navigate, selectedListingIdOrSlug]);
+  }, [areaSlug, citySlug, idOrSlug, listings, navigate, selectedListingIdOrSlug]);
+
+  useEffect(() => {
+    const pageTitle = detail?.title
+      ? `${detail.title} | FishGate Marketplace`
+      : cityFromPath
+        ? `Rent in ${cityFromPath}${areaFromPath ? `, ${areaFromPath}` : ''} | FishGate`
+        : 'FishGate Marketplace | Verified Rentals';
+    document.title = pageTitle;
+
+    const description = detail?.description
+      ? `${detail.description.slice(0, 140)}${detail.description.length > 140 ? '...' : ''}`
+      : cityFromPath
+        ? `Browse verified rental listings in ${cityFromPath}${areaFromPath ? `, ${areaFromPath}` : ''}.`
+        : 'Browse verified rental listings and submit inquiry directly to landlords and managers.';
+
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+      metaDescription = document.createElement('meta');
+      metaDescription.setAttribute('name', 'description');
+      document.head.appendChild(metaDescription);
+    }
+    metaDescription.setAttribute('content', description);
+  }, [areaFromPath, cityFromPath, detail?.description, detail?.title]);
 
   const detailQuery = useMarketplaceListingDetail(selectedListingIdOrSlug);
   const detail = detailQuery.data;
@@ -72,7 +104,8 @@ export default function MarketplacePublic() {
 
   const handleSelectListing = (value: string) => {
     setSelectedListingIdOrSlug(value);
-    navigate(`/marketplace/${value}`);
+    const base = citySlug ? `/rent/${citySlug}${areaSlug ? `/${areaSlug}` : ''}` : '/marketplace';
+    navigate(`${base}/${value}`);
   };
 
   const onInquirySubmit = async (event: React.FormEvent) => {

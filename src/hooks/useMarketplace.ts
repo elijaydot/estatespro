@@ -47,6 +47,46 @@ export interface ManagedMarketplaceListing {
   created_at: string;
 }
 
+export interface ModerationCase {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  reason_code: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  state: 'open' | 'in_review' | 'resolved' | 'dismissed';
+  queue: string;
+  assigned_moderator: string | null;
+  resolution_notes: string | null;
+  opened_at: string;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PublisherVerification {
+  id: string;
+  company_id: string;
+  state: 'pending' | 'verified' | 'rejected' | 'needs_review';
+  verified_by: string | null;
+  verified_at: string | null;
+  rejection_reason: string | null;
+  last_submitted_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VerificationDocument {
+  id: string;
+  verification_id: string;
+  document_type: 'id_card' | 'business_registration' | 'utility_bill' | 'other';
+  storage_path: string;
+  state: 'pending' | 'approved' | 'rejected';
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+}
+
 type LeadRow = {
   id: string;
   company_id: string;
@@ -247,7 +287,205 @@ export function useToggleMarketplacePublish(companyId?: string | null) {
       toast({ title: 'Listing Updated', description: `${data.title} has been ${action}` });
     },
     onError: (error: Error) => {
-      toast({ title: 'Publish Toggle Failed', description: error.message, variant: 'destructive' });
+      const message =
+        error.message?.includes('ONLY_LANDLORD_CAN_CHANGE_LISTING_STATUS')
+          ? 'Only landlords can publish or pause listings.'
+          : error.message?.includes('VERIFICATION_REQUIRED_BEFORE_PUBLISH')
+            ? 'Listing must be verified before going live.'
+            : error.message;
+      toast({ title: 'Publish Toggle Failed', description: message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useModerationCases(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'moderation-cases', companyId],
+    queryFn: async () => {
+      if (!companyId) return [] as ModerationCase[];
+
+      const { data, error } = await supabase
+        .from('moderation_cases')
+        .select('id, entity_type, entity_id, reason_code, severity, state, queue, assigned_moderator, resolution_notes, opened_at, closed_at, created_at, updated_at')
+        .eq('company_id', companyId)
+        .order('opened_at', { ascending: true })
+        .limit(100);
+
+      if (error) throw error;
+      return (data || []) as ModerationCase[];
+    },
+    enabled: !!companyId,
+  });
+}
+
+export function useUpdateModerationCaseState(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      caseId,
+      state,
+      resolutionNotes,
+    }: {
+      caseId: string;
+      state: ModerationCase['state'];
+      resolutionNotes?: string;
+    }) => {
+      const now = new Date().toISOString();
+      const shouldClose = state === 'resolved' || state === 'dismissed';
+
+      const { data, error } = await supabase
+        .from('moderation_cases')
+        .update({
+          state,
+          resolution_notes: resolutionNotes ?? null,
+          closed_at: shouldClose ? now : null,
+        })
+        .eq('id', caseId)
+        .select('id, state')
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'moderation-cases', companyId] });
+      toast({ title: 'Moderation Updated', description: 'Case state updated successfully' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Moderation Update Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function usePublisherVerification(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'publisher-verification', companyId],
+    queryFn: async () => {
+      if (!companyId) return null as PublisherVerification | null;
+
+      const { data, error } = await supabase
+        .from('publisher_verifications')
+        .select('id, company_id, state, verified_by, verified_at, rejection_reason, last_submitted_at, created_at, updated_at')
+        .eq('company_id', companyId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return (data || null) as PublisherVerification | null;
+    },
+    enabled: !!companyId,
+  });
+}
+
+export function useVerificationDocuments(verificationId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'verification-documents', verificationId],
+    queryFn: async () => {
+      if (!verificationId) return [] as VerificationDocument[];
+
+      const { data, error } = await supabase
+        .from('verification_documents')
+        .select('id, verification_id, document_type, storage_path, state, reviewed_by, reviewed_at, rejection_reason, created_at')
+        .eq('verification_id', verificationId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as VerificationDocument[];
+    },
+    enabled: !!verificationId,
+  });
+}
+
+export function useSubmitPublisherVerification(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const { data: existing, error: existingError } = await supabase
+        .from('publisher_verifications')
+        .select('id')
+        .eq('company_id', companyId)
+        .maybeSingle();
+
+      if (existingError) throw existingError;
+
+      const payload = {
+        state: 'pending' as const,
+        rejection_reason: null,
+        last_submitted_at: new Date().toISOString(),
+      };
+
+      if (existing?.id) {
+        const { data, error } = await supabase
+          .from('publisher_verifications')
+          .update(payload)
+          .eq('id', existing.id)
+          .select('id, company_id, state, verified_by, verified_at, rejection_reason, last_submitted_at, created_at, updated_at')
+          .single();
+        if (error) throw error;
+        return data as PublisherVerification;
+      }
+
+      const { data, error } = await supabase
+        .from('publisher_verifications')
+        .insert({
+          company_id: companyId,
+          state: 'pending',
+          last_submitted_at: new Date().toISOString(),
+        })
+        .select('id, company_id, state, verified_by, verified_at, rejection_reason, last_submitted_at, created_at, updated_at')
+        .single();
+
+      if (error) throw error;
+      return data as PublisherVerification;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'publisher-verification', companyId] });
+      toast({ title: 'Verification Submitted', description: 'Publisher verification has been submitted for review.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Verification Submit Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useAddVerificationDocument(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      verificationId,
+      documentType,
+      storagePath,
+    }: {
+      verificationId: string;
+      documentType: VerificationDocument['document_type'];
+      storagePath: string;
+    }) => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const { data, error } = await supabase
+        .from('verification_documents')
+        .insert({
+          verification_id: verificationId,
+          document_type: documentType,
+          storage_path: storagePath,
+          state: 'pending',
+        })
+        .select('id, verification_id, document_type, storage_path, state, reviewed_by, reviewed_at, rejection_reason, created_at')
+        .single();
+
+      if (error) throw error;
+      return data as VerificationDocument;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'verification-documents', variables.verificationId] });
+      toast({ title: 'Document Added', description: 'Verification document has been attached.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Document Add Failed', description: error.message, variant: 'destructive' });
     },
   });
 }
