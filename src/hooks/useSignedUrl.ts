@@ -40,8 +40,8 @@ export function useSignedUrl(bucket: string, path: string | null) {
         } else {
           setSignedUrl(data.signedUrl);
         }
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to create signed URL');
         setSignedUrl(null);
       } finally {
         setIsLoading(false);

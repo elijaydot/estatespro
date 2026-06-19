@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 
 type QuickAddType = 'property' | 'unit' | 'tenant' | 'lease' | 'invoice';
 
@@ -116,6 +116,11 @@ export function AppHeader() {
   };
 
   const activeCompanyName = companies.find((company) => company.id === activeCompanyId)?.name;
+  const todayLabel = new Date().toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 
   return (
     <header className="h-16 bg-card/90 border-b border-border/70 px-6 flex items-center justify-between gap-4 backdrop-blur-sm">
@@ -151,6 +156,9 @@ export function AppHeader() {
               {activeCompanyName}
             </Badge>
           )}
+          <Badge variant="outline" className="hidden xl:flex border-primary/30 bg-primary/5 text-primary h-9 px-3 rounded-full font-display">
+            Today · {todayLabel}
+          </Badge>
           {filteredResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 overflow-hidden">
               {filteredResults.map((result, index) => (
@@ -179,7 +187,7 @@ export function AppHeader() {
         {/* Quick Add */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="sm" className="gap-2 rounded-full px-4">
+            <Button size="sm" className="gap-2 rounded-full px-5 font-display tracking-wide">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Quick Add</span>
             </Button>

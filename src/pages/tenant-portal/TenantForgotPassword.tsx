@@ -8,6 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'Please try again.';
+};
+
 export default function TenantForgotPassword() {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,10 +34,10 @@ export default function TenantForgotPassword() {
         description: 'Check your email for a password reset link.',
       });
       navigate('/tenant/login');
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Unable to send reset email',
-        description: err?.message ?? 'Please try again.',
+        description: getErrorMessage(err),
         variant: 'destructive',
       });
     } finally {

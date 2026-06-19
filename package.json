@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "check:contracts": "node scripts/check-contract-inventory.js",
     "preview": "vite preview",
     "test": "vitest run",
     "test:week2": "vitest run tests/week2 --reporter=verbose"

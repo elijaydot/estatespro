@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -58,20 +58,40 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { toast } from '@/components/ui/use-toast';
-import { useTenant, useUpdateTenant, useDeleteTenant } from '@/hooks/useTenants';
+import { useTenant, useUpdateTenant, useDeleteTenant, type Tenant } from '@/hooks/useTenants';
 import { useCreateTenantExit, useTenantExitsByTenant } from '@/hooks/useTenantExits';
-import { useProperties } from '@/hooks/useProperties';
-import { useUnits } from '@/hooks/useUnits';
-import { useInvoices } from '@/hooks/useInvoices';
-import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
-import { useTenantInvites } from '@/hooks/useTenantInvites';
-import { useSettings } from '@/contexts/SettingsContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useProperties, type Property } from '@/hooks/useProperties';
+import { useUnits, type Unit } from '@/hooks/useUnits';
+import { useInvoices, type Invoice } from '@/hooks/useInvoices';
+import { useMaintenanceRequests, type MaintenanceRequest } from '@/hooks/useMaintenanceRequests';
+import { useTenantInvites, type TenantInvite } from '@/hooks/useTenantInvites';
+import { useSettings } from '@/contexts/useSettings';
+import { useAuth } from '@/contexts/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { PortalStatusBadge } from '@/components/tenants/PortalStatusBadge';
 import { useSendMessage } from '@/hooks/useMessages';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
+
+type TenantRow = Tenant & {
+  units?: {
+    unit_number: string;
+  } | null;
+  properties?: {
+    name: string;
+  } | null;
+};
+
+type UnitRow = Unit & {
+  properties?: {
+    name: string;
+  } | null;
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'Unknown error';
+};
 
 const getLeaseStatusBadge = (leaseEndDate: string | null) => {
   if (!leaseEndDate) return <Badge className="bg-muted text-muted-foreground">No Lease</Badge>;
@@ -127,6 +147,11 @@ export default function TenantDetail() {
   const sendMessage = useSendMessage();
   const createExit = useCreateTenantExit();
   const { data: tenantExits = [] } = useTenantExitsByTenant(id);
+  const inviteRows = invites as TenantInvite[];
+  const propertyRows = properties as Property[];
+  const unitRows = units as UnitRow[];
+  const invoiceRows = invoices as Invoice[];
+  const maintenanceRows = maintenanceRequests as MaintenanceRequest[];
 
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [isCopyingLink, setIsCopyingLink] = useState(false);
@@ -134,7 +159,7 @@ export default function TenantDetail() {
   const [exitReason, setExitReason] = useState('lease_expiry');
 
   // Check if tenant has pending invite
-  const hasPendingInvite = invites.some((invite: any) => 
+  const hasPendingInvite = inviteRows.some((invite) => 
     invite.tenant_id === id && 
     !invite.used_at && 
     !isPast(new Date(invite.expires_at))
@@ -247,7 +272,7 @@ export default function TenantDetail() {
     
     setIsSendingInvite(true);
     try {
-      const property = properties.find((p: any) => p.id === tenant.property_id);
+      const property = propertyRows.find((p) => p.id === tenant.property_id);
 
       const { data, error } = await supabase.functions.invoke('send-tenant-invite', {
         body: {
@@ -271,8 +296,8 @@ export default function TenantDetail() {
       } else {
         toast({ title: 'Success', description: `Invite sent to ${tenant.email}` });
       }
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setIsSendingInvite(false);
     }
@@ -310,26 +335,26 @@ export default function TenantDetail() {
         title: 'Link Copied!', 
         description: 'Invite link copied to clipboard.' 
       });
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setIsCopyingLink(false);
     }
   };
 
   // Filter data for this tenant
-  const tenantInvoices = invoices.filter((inv: any) => inv.tenant_id === id);
-  const tenantMaintenance = maintenanceRequests.filter((m: any) => m.tenant_id === id);
+  const tenantInvoices = invoiceRows.filter((inv) => inv.tenant_id === id);
+  const tenantMaintenance = maintenanceRows.filter((m) => m.tenant_id === id);
 
-  const propertyOptions = properties.map((property: any) => ({
+  const propertyOptions = propertyRows.map((property) => ({
     value: property.id,
     label: property.name,
     description: `${property.city}, ${property.state}`,
   }));
 
-  const unitOptions = units
-    .filter((unit: any) => !formData.property_id || unit.property_id === formData.property_id)
-    .map((unit: any) => ({
+  const unitOptions = unitRows
+    .filter((unit) => !formData.property_id || unit.property_id === formData.property_id)
+    .map((unit) => ({
       value: unit.id,
       label: `Unit ${unit.unit_number}`,
       description: unit.properties?.name || '',
@@ -658,7 +683,7 @@ export default function TenantDetail() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {tenantInvoices.map((invoice: any) => (
+                        {tenantInvoices.map((invoice) => (
                           <TableRow key={invoice.id}>
                             <TableCell>{format(new Date(invoice.due_date), 'MMM dd, yyyy')}</TableCell>
                             <TableCell>{invoice.description}</TableCell>
@@ -686,7 +711,7 @@ export default function TenantDetail() {
                 <CardContent>
                   {tenantMaintenance.length > 0 ? (
                     <div className="space-y-4">
-                      {tenantMaintenance.map((request: any) => (
+                      {tenantMaintenance.map((request) => (
                         <div key={request.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
                           <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg bg-warning/10">
@@ -1007,7 +1032,7 @@ export default function TenantDetail() {
             </div>
             <div className="p-3 bg-muted rounded-lg text-sm space-y-1">
               <p><strong>Tenant:</strong> {tenant?.name}</p>
-              <p><strong>Unit:</strong> {tenant?.unit_id ? units.find((u: any) => u.id === tenant.unit_id)?.unit_number : 'N/A'}</p>
+              <p><strong>Unit:</strong> {tenant?.unit_id ? unitRows.find((u) => u.id === tenant.unit_id)?.unit_number : 'N/A'}</p>
               <p><strong>Security Deposit:</strong> {formatCurrency(tenant?.security_deposit || 0)}</p>
             </div>
           </div>

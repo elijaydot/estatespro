@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
 // Helper for tables not yet in auto-generated types
-const db = supabase as any;
-import { useAuth } from '@/contexts/AuthContext';
+const db = supabase;
+import { useAuth } from '@/contexts/useAuth';
 
 export interface Company {
   id: string;

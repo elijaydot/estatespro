@@ -1,22 +1,24 @@
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { ActiveCompanyContext, ActiveCompanyContextType } from './active-company-context-shared';
 
 export type CompanyOption = {
   id: string;
   name: string;
 };
 
-type ActiveCompanyContextType = {
-  activeCompanyId: string | null;
-  setActiveCompanyId: (companyId: string | null) => void;
-  companies: CompanyOption[];
-  isLoading: boolean;
+type CompanyMemberCompanyRow = {
+  companies: CompanyOption | null;
 };
 
-const ActiveCompanyContext = createContext<ActiveCompanyContextType | undefined>(undefined);
+type TenantCompanyRow = {
+  properties: {
+    companies: CompanyOption | null;
+  } | null;
+};
 
 function getStorageKey(userId?: string) {
   return `fishgate_active_company_${userId || 'anon'}`;
@@ -52,8 +54,8 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
 
         if (error) throw error;
 
-        return (data || [])
-          .map((item: any) => item.companies)
+        return ((data || []) as CompanyMemberCompanyRow[])
+          .map((item) => item.companies)
           .filter(Boolean) as CompanyOption[];
       }
 
@@ -66,8 +68,8 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
 
         if (error) throw error;
 
-        const mapped = (data || [])
-          .map((item: any) => item.properties?.companies)
+        const mapped = ((data || []) as TenantCompanyRow[])
+          .map((item) => item.properties?.companies)
           .filter(Boolean) as CompanyOption[];
 
         const unique = new Map<string, CompanyOption>();
@@ -107,7 +109,7 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
     setActiveCompanyIdState(companies[0].id);
   }, [companies, user?.id]);
 
-  const setActiveCompanyId = (companyId: string | null) => {
+  const setActiveCompanyId = useCallback((companyId: string | null) => {
     setActiveCompanyIdState(companyId);
     if (!user?.id) return;
 
@@ -116,7 +118,7 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
     } else {
       localStorage.removeItem(getStorageKey(user.id));
     }
-  };
+  }, [user?.id]);
 
   const value = useMemo(
     () => ({
@@ -125,16 +127,8 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
       companies,
       isLoading,
     }),
-    [activeCompanyId, companies, isLoading]
+    [activeCompanyId, companies, isLoading, setActiveCompanyId]
   );
 
   return <ActiveCompanyContext.Provider value={value}>{children}</ActiveCompanyContext.Provider>;
-}
-
-export function useActiveCompany() {
-  const context = useContext(ActiveCompanyContext);
-  if (!context) {
-    throw new Error('useActiveCompany must be used within an ActiveCompanyProvider');
-  }
-  return context;
 }

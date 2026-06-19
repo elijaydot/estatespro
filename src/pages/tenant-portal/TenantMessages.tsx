@@ -26,7 +26,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { toast } from '@/components/ui/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
@@ -42,6 +42,17 @@ interface TenantMessage {
   is_read: boolean;
   client_message_id?: string | null;
 }
+
+type TenantProfile = {
+  id: string;
+  user_id: string;
+  property_id: string | null;
+  properties?: {
+    name: string;
+    user_id: string;
+    company_id: string | null;
+  } | null;
+};
 
 function RenderContent({ content }: { content: string }) {
   return (
@@ -59,14 +70,14 @@ export default function TenantMessages() {
   const [newMessage, setNewMessage] = useState('');
   const [newSubject, setNewSubject] = useState('');
   const [isNewMessageOpen, setIsNewMessageOpen] = useState(false);
-  const [tenantProfile, setTenantProfile] = useState<any>(null);
+  const [tenantProfile, setTenantProfile] = useState<TenantProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let channel: any;
+    let channel: ReturnType<typeof supabase.channel> | undefined;
 
     async function loadData() {
       if (!user) return;
@@ -95,8 +106,8 @@ export default function TenantMessages() {
         setMessages((msgs || []) as TenantMessage[]);
 
         const unreadIds = (msgs || [])
-          .filter((message: any) => !message.is_read && message.recipient_id === tenant.id)
-          .map((message: any) => message.id);
+          .filter((message: TenantMessage) => !message.is_read && message.recipient_id === tenant.id)
+          .map((message: TenantMessage) => message.id);
 
         if (unreadIds.length > 0) {
           await supabase

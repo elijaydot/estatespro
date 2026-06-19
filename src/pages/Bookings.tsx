@@ -62,12 +62,24 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useBookings, useCreateBooking, useUpdateBooking, useDeleteBooking, Booking } from '@/hooks/useBookings';
-import { useProperties } from '@/hooks/useProperties';
-import { useUnits } from '@/hooks/useUnits';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useProperties, type Property } from '@/hooks/useProperties';
+import { useUnits, type Unit } from '@/hooks/useUnits';
+import { useSettings } from '@/contexts/useSettings';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
+
+type EmailType = 'status_update' | 'payment_request' | 'reminder' | 'check_in_details' | 'cancellation_notice';
+
+type FunctionErrorPayload = {
+  error?: string;
+  message?: string;
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'Could not send guest email.';
+};
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Pending', variant: 'outline' },
@@ -106,7 +118,7 @@ export default function Bookings() {
   const { activeCompanyId } = useActiveCompany();
 
   // Short-let properties only
-  const shortLetProperties = properties.filter((p: any) => p.type === 'short_let');
+  const shortLetProperties = properties.filter((p: Property) => p.type === 'short_let');
 
   const [form, setForm] = useState({
     property_id: '',
@@ -124,7 +136,7 @@ export default function Bookings() {
     special_requests: '',
   });
 
-  const filteredUnits = units.filter((u: any) => u.property_id === form.property_id);
+  const filteredUnits = units.filter((u: Unit) => u.property_id === form.property_id);
 
   const nights = form.check_in && form.check_out
     ? Math.max(0, differenceInDays(new Date(form.check_out), new Date(form.check_in)))
@@ -167,8 +179,9 @@ export default function Bookings() {
   };
 
   useEffect(() => {
+    const timers = autoEmailTimersRef.current;
     return () => {
-      Object.values(autoEmailTimersRef.current).forEach((timerId) => window.clearTimeout(timerId));
+      Object.values(timers).forEach((timerId) => window.clearTimeout(timerId));
     };
   }, []);
 
@@ -241,7 +254,7 @@ export default function Bookings() {
 
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
-      } catch (invokeError: any) {
+      } catch (invokeError: unknown) {
         // Fallback to direct fetch so we can expose clearer server details.
         const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
         const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shortlet-booking-email`;
@@ -257,9 +270,9 @@ export default function Bookings() {
         });
 
         const rawText = await res.text();
-        let parsed: any = null;
+        let parsed: FunctionErrorPayload | null = null;
         try {
-          parsed = rawText ? JSON.parse(rawText) : null;
+          parsed = rawText ? (JSON.parse(rawText) as FunctionErrorPayload) : null;
         } catch {
           parsed = null;
         }
@@ -273,7 +286,7 @@ export default function Bookings() {
           ]
             .filter(Boolean)
             .join(' - ');
-          throw new Error(message || invokeError?.message || 'Edge function request failed');
+          throw new Error(message || getErrorMessage(invokeError) || 'Edge function request failed');
         }
 
         if (parsed?.error) {
@@ -285,8 +298,8 @@ export default function Bookings() {
         title: 'Email Sent',
         description: 'Guest booking email sent successfully.',
       });
-    } catch (error: any) {
-      const rawMessage = error?.message || 'Could not send guest email.';
+    } catch (error: unknown) {
+      const rawMessage = getErrorMessage(error) || 'Could not send guest email.';
       const description = rawMessage.includes('Failed to send a request to the Edge Function')
         ? `${rawMessage} - Please deploy the edge function shortlet-booking-email and confirm RESEND_API_KEY is set.`
         : rawMessage;
@@ -362,10 +375,10 @@ export default function Bookings() {
     });
   };
 
-  const propertyOptions = shortLetProperties.map((p: any) => ({
+  const propertyOptions = shortLetProperties.map((p: Property) => ({
     value: p.id, label: p.name, description: p.address,
   }));
-  const unitOptions = filteredUnits.map((u: any) => ({
+  const unitOptions = filteredUnits.map((u: Unit) => ({
     value: u.id, label: `Unit ${u.unit_number}`, description: `Floor ${u.floor}`,
   }));
 
@@ -497,7 +510,7 @@ export default function Bookings() {
                 <SelectValue placeholder="Share Booking Link" />
               </SelectTrigger>
               <SelectContent>
-                {shortLetProperties.map((p: any) => (
+                {shortLetProperties.map((p: Property) => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -667,7 +680,7 @@ export default function Bookings() {
                           </TableCell>
                           <TableCell>
                             {booking.status === 'confirmed' || booking.status === 'pending' || booking.status === 'checked_in' ? (
-                              <Select onValueChange={(v: any) => handleSendGuestEmail(booking.id, v)}>
+                              <Select onValueChange={(v) => handleSendGuestEmail(booking.id, v as EmailType)}>
                                 <SelectTrigger className="w-[180px] h-8">
                                   <div className="flex items-center gap-2 text-xs">
                                     {sendingEmailForId === booking.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}

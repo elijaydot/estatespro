@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 import { TenantChatbot } from '@/components/ai/TenantChatbot';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
@@ -96,7 +96,7 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
     if (session) {
       refreshSession();
     }
-  }, []);
+  }, [session, refreshSession]);
 
   useEffect(() => {
     if (!authLoading && !session) {

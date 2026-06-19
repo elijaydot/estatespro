@@ -54,7 +54,7 @@ import {
   type Message,
 } from '@/hooks/useMessages';
 import { useTenants, type Tenant } from '@/hooks/useTenants';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { SuggestedReplies } from '@/components/ai/SuggestedReplies';
 import ReactMarkdown from 'react-markdown';
 

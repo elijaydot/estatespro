@@ -5,9 +5,9 @@ import { AppSidebar } from './AppSidebar';
 import { AppHeader } from './AppHeader';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { MfaReminderBanner } from '@/components/security/MfaReminderBanner';
 
 interface AppLayoutProps {
@@ -102,6 +102,24 @@ export function AppLayout({ children }: AppLayoutProps) {
         </div>
 
         <main className="flex-1 p-4 lg:p-6">
+          <div className="mb-4 rounded-xl border border-border/70 bg-card/85 backdrop-blur-sm px-3 py-2.5 card-shadow">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Operations Focus</p>
+                <p className="text-sm text-foreground font-medium truncate">
+                  Monitor exceptions, assign actions, and keep portfolio operations in motion.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <Button variant="outline" size="sm" className="rounded-full h-8" onClick={() => navigate('/payments')}>
+                  Payment Exceptions
+                </Button>
+                <Button variant="outline" size="sm" className="rounded-full h-8" onClick={() => navigate('/maintenance')}>
+                  Maintenance Queue
+                </Button>
+              </div>
+            </div>
+          </div>
           <MfaReminderBanner />
           <div className="animate-fade-in">
             {children}

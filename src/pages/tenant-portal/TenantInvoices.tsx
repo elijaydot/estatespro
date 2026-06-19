@@ -23,11 +23,32 @@ import {
 } from '@/components/ui/table';
 import { toast } from '@/components/ui/use-toast';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
+
+type PortalInvoice = {
+  id: string;
+  invoice_number: string | null;
+  description: string | null;
+  amount: number;
+  paid_amount: number;
+  due_date: string;
+  status: string;
+};
+
+type TenantPaymentSettings = {
+  paystack_enabled?: boolean;
+  flutterwave_enabled?: boolean;
+  payment_instructions?: string | null;
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -71,62 +92,8 @@ export default function TenantInvoices() {
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'bank_transfer' | 'mtn_momo' | 'link'>('link');
   const [gateway, setGateway] = useState<'paystack' | 'flutterwave'>('paystack');
 
-  const handleDownloadPdf = async (invoiceId: string) => {
-    setDownloadingId(invoiceId);
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
-        body: { invoiceId },
-      });
-
-      if (error) throw new Error(error.message || 'Failed to generate PDF');
-
-      const html = typeof data === 'string' ? data : await new Response(data).text();
-      const htmlBlob = new Blob([html], { type: 'text/html' });
-      const htmlUrl = URL.createObjectURL(htmlBlob);
-
-      const printWindow = window.open(htmlUrl, '_blank', 'noopener,noreferrer');
-      if (printWindow) {
-        printWindow.addEventListener('load', () => {
-          setTimeout(() => {
-            printWindow.print();
-            URL.revokeObjectURL(htmlUrl);
-          }, 500);
-        }, { once: true });
-      } else {
-        URL.revokeObjectURL(htmlUrl);
-      }
-    } catch (error: any) {
-      console.error('Error downloading PDF:', error);
-      toast({ title: 'Error', description: error.message || 'Failed to generate invoice PDF', variant: 'destructive' });
-    } finally {
-      setDownloadingId(null);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!portalData || !portalData.tenant) {
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <div className="text-center py-12">
-          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-xl font-semibold">Account Not Linked</h2>
-          <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-            Your account hasn't been linked to a tenant profile yet. 
-            Please contact your property manager for assistance.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const { invoices, paymentSettings } = portalData;
+  const invoices = (portalData?.invoices || []) as PortalInvoice[];
+  const paymentSettings = (portalData?.paymentSettings || null) as TenantPaymentSettings | null;
 
   const availableGateways = useMemo(() => {
     const gateways: Array<{ value: 'paystack' | 'flutterwave'; label: string }> = [];
@@ -168,8 +135,8 @@ export default function TenantInvoices() {
 
         toast({ title: 'Payment confirmed', description: 'Your payment was verified and recorded successfully.' });
         await queryClient.invalidateQueries({ queryKey: ['tenant_portal_data'] });
-      } catch (err: any) {
-        toast({ title: 'Verification failed', description: err.message || 'Could not verify payment.', variant: 'destructive' });
+      } catch (err: unknown) {
+        toast({ title: 'Verification failed', description: getErrorMessage(err, 'Could not verify payment.'), variant: 'destructive' });
       } finally {
         setSearchParams((prev) => {
           const next = new URLSearchParams(prev);
@@ -187,6 +154,52 @@ export default function TenantInvoices() {
 
     void verify();
   }, [searchParams, setSearchParams, queryClient]);
+
+  const filteredInvoices = invoices.filter(
+    (invoice) =>
+      invoice.invoice_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      invoice.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const stats = {
+    total: invoices.length,
+    pending: invoices.filter((invoice) => invoice.status === 'pending' || invoice.status === 'partial').length,
+    paid: invoices.filter((invoice) => invoice.status === 'paid').length,
+    totalAmount: invoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0),
+    totalPaid: invoices.reduce((sum, invoice) => sum + Number(invoice.paid_amount || 0), 0),
+  };
+
+  const handleDownloadPdf = async (invoiceId: string) => {
+    setDownloadingId(invoiceId);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
+        body: { invoiceId },
+      });
+
+      if (error) throw new Error(error.message || 'Failed to generate PDF');
+
+      const html = typeof data === 'string' ? data : await new Response(data).text();
+      const htmlBlob = new Blob([html], { type: 'text/html' });
+      const htmlUrl = URL.createObjectURL(htmlBlob);
+
+      const printWindow = window.open(htmlUrl, '_blank', 'noopener,noreferrer');
+      if (printWindow) {
+        printWindow.addEventListener('load', () => {
+          setTimeout(() => {
+            printWindow.print();
+            URL.revokeObjectURL(htmlUrl);
+          }, 500);
+        }, { once: true });
+      } else {
+        URL.revokeObjectURL(htmlUrl);
+      }
+    } catch (error: unknown) {
+      console.error('Error downloading PDF:', error);
+      toast({ title: 'Error', description: getErrorMessage(error, 'Failed to generate invoice PDF'), variant: 'destructive' });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const startCheckout = async (invoiceId: string, amount: number) => {
     if (availableGateways.length === 0) {
@@ -217,27 +230,35 @@ export default function TenantInvoices() {
       if (!data?.checkoutUrl) throw new Error(data?.error || 'No checkout URL returned');
 
       window.location.href = data.checkoutUrl;
-    } catch (err: any) {
-      toast({ title: 'Checkout failed', description: err.message || 'Unable to start checkout.', variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Checkout failed', description: getErrorMessage(err, 'Unable to start checkout.'), variant: 'destructive' });
     } finally {
       setCheckoutLoadingId(null);
     }
   };
 
-  const filteredInvoices = invoices.filter(
-    (invoice: any) =>
-      invoice.invoice_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
-  // Calculate stats
-  const stats = {
-    total: invoices.length,
-    pending: invoices.filter((i: any) => i.status === 'pending' || i.status === 'partial').length,
-    paid: invoices.filter((i: any) => i.status === 'paid').length,
-    totalAmount: invoices.reduce((sum: number, i: any) => sum + i.amount, 0),
-    totalPaid: invoices.reduce((sum: number, i: any) => sum + i.paid_amount, 0),
-  };
+  if (!portalData || !portalData.tenant) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="text-center py-12">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold">Account Not Linked</h2>
+          <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+            Your account hasn't been linked to a tenant profile yet.
+            Please contact your property manager for assistance.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -373,7 +394,7 @@ export default function TenantInvoices() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredInvoices.map((invoice: any) => {
+                {filteredInvoices.map((invoice) => {
                   const balance = invoice.amount - invoice.paid_amount;
                   return (
                     <TableRow key={invoice.id}>

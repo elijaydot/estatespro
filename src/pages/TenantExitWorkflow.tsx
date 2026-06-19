@@ -18,8 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/use-toast';
-import { useSettings } from '@/contexts/SettingsContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSettings } from '@/contexts/useSettings';
+import { useAuth } from '@/contexts/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -53,6 +53,11 @@ const REFUND_METHODS = [
   { value: 'mtn_momo', label: 'MTN MoMo' },
   { value: 'cheque', label: 'Cheque' },
 ];
+
+type ChecklistItemRow = {
+  item_name: string;
+  item_category: string;
+};
 
 export default function TenantExitWorkflow() {
   const { exitId } = useParams();
@@ -101,10 +106,10 @@ export default function TenantExitWorkflow() {
     if (exitId && inspectionItems.length === 0 && defaultChecklist.length > 0 && exitData?.status === 'inspection_pending' && !loadingItems) {
       createItems.mutate({
         exitId,
-        items: defaultChecklist.map((c: any) => ({ item_name: c.item_name, item_category: c.item_category })),
+        items: (defaultChecklist as ChecklistItemRow[]).map((c) => ({ item_name: c.item_name, item_category: c.item_category })),
       });
     }
-  }, [exitId, inspectionItems.length, defaultChecklist.length, exitData?.status, loadingItems]);
+  }, [exitId, inspectionItems.length, defaultChecklist.length, exitData?.status, loadingItems, createItems, defaultChecklist]);
 
   const handleUpdateItemCondition = (itemId: string, condition: string) => {
     updateItem.mutate({ itemId, exitId: exitId!, data: { condition } });
@@ -191,10 +196,9 @@ export default function TenantExitWorkflow() {
 
     // Update tenant status and unit status
     if (exitData) {
-      const db = supabase as any;
       await Promise.all([
-        db.from('tenants').update({ status: 'exited' }).eq('id', exitData.tenant_id),
-        db.from('units').update({ status: 'vacant' }).eq('id', exitData.unit_id),
+        supabase.from('tenants').update({ status: 'exited' }).eq('id', exitData.tenant_id),
+        supabase.from('units').update({ status: 'vacant' }).eq('id', exitData.unit_id),
       ]);
     }
 

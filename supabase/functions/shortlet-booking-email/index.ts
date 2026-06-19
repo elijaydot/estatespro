@@ -62,7 +62,25 @@ async function requireUserFromBearer(req: Request, supabaseUrl: string, serviceR
 	return data.user;
 }
 
-async function ensureBookingInvoice(supabase: any, booking: any) {
+type ShortletBooking = {
+	id: string;
+	user_id: string;
+	property_id: string;
+	unit_id: string | null;
+	guest_name: string;
+	guest_email: string;
+	total_amount: number;
+	check_in: string;
+	check_out: string;
+};
+
+type EmailSendResult = {
+	error?: {
+		message?: string;
+	};
+};
+
+async function ensureBookingInvoice(supabase: ReturnType<typeof createClient>, booking: ShortletBooking) {
 	const { data: existingInvoice } = await supabase
 		.from("invoices")
 		.select("id, amount, paid_amount, status, invoice_number, due_date")
@@ -243,8 +261,9 @@ serve(async (req) => {
 				html,
 			});
 
-			if ((emailResponse as any)?.error) {
-				return jsonResponse({ error: (emailResponse as any).error?.message || "Failed to send email" }, 500);
+			const emailResult = emailResponse as EmailSendResult;
+			if (emailResult?.error) {
+				return jsonResponse({ error: emailResult.error.message || "Failed to send email" }, 500);
 			}
 
 			await supabase
@@ -371,13 +390,13 @@ serve(async (req) => {
 		}
 
 		return jsonResponse({ error: "Unsupported operation" }, 400);
-	} catch (error: any) {
-		if (error?.message === "Unauthorized") {
+	} catch (error: unknown) {
+		if (error instanceof Error && error.message === "Unauthorized") {
 			return jsonResponse({ error: "Unauthorized" }, 401);
 		}
 
 		console.error("shortlet-booking-email error:", error);
-		return jsonResponse({ error: error?.message || "Internal server error" }, 500);
+		return jsonResponse({ error: error instanceof Error ? error.message : "Internal server error" }, 500);
 	}
 });
 

@@ -5,6 +5,16 @@ import {
   checkRateLimit,
   handleCorsPreflight,
 } from "../_shared/security.ts";
+
+type ListingRow = {
+  id: string;
+  [key: string]: unknown;
+};
+
+type ListingMediaRow = {
+  listing_id: string;
+  storage_path: string;
+};
 import { createCorrelationId, emitAuditEvent } from "../_shared/observability.ts";
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
@@ -130,8 +140,9 @@ serve(async (req: Request) => {
       return jsonResponse(req, { error: "Unable to fetch listings" }, 500);
     }
 
-    const listingIds = (rows ?? []).map((r: any) => r.id).filter(Boolean);
-    const coverByListingId = new Map<string, any>();
+    const typedRows = (rows ?? []) as ListingRow[];
+    const listingIds = typedRows.map((r) => r.id).filter(Boolean);
+    const coverByListingId = new Map<string, string>();
 
     if (listingIds.length > 0) {
       const { data: mediaRows } = await supabase
@@ -142,7 +153,7 @@ serve(async (req: Request) => {
         .order("is_cover", { ascending: false })
         .order("sort_order", { ascending: true });
 
-      for (const media of mediaRows ?? []) {
+      for (const media of (mediaRows ?? []) as ListingMediaRow[]) {
         if (!coverByListingId.has(media.listing_id)) {
           coverByListingId.set(media.listing_id, media.storage_path);
         }
@@ -150,7 +161,7 @@ serve(async (req: Request) => {
     }
 
     return jsonResponse(req, {
-      data: (rows ?? []).map((row: any) => ({
+      data: typedRows.map((row) => ({
         ...row,
         cover_media_url: coverByListingId.get(row.id) ?? null,
       })),
@@ -158,12 +169,12 @@ serve(async (req: Request) => {
       meta: {
         page,
         page_size: pageSize,
-        count: (rows ?? []).length,
+        count: typedRows.length,
         correlationId,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("marketplace-public error", error);
-    return jsonResponse(req, { error: error?.message || "Internal server error" }, 500);
+    return jsonResponse(req, { error: error instanceof Error ? error.message : "Internal server error" }, 500);
   }
 });

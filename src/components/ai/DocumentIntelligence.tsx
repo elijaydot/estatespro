@@ -7,7 +7,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 
 interface LeaseForSelect {
@@ -21,14 +20,74 @@ interface DocumentIntelligenceProps {
   leases: LeaseForSelect[];
 }
 
+type ExtractDateItem = {
+  label: string;
+  date: string;
+  importance: 'high' | 'medium' | 'low';
+};
+
+type ExtractFinancialItem = {
+  label: string;
+  amount: string;
+  frequency: string;
+};
+
+type ExtractClauseItem = {
+  title: string;
+  risk_level: 'high' | 'medium' | 'low';
+  summary: string;
+};
+
+type ExtractResult = {
+  key_dates?: ExtractDateItem[];
+  financial_terms?: ExtractFinancialItem[];
+  special_clauses?: ExtractClauseItem[];
+};
+
+type SummaryResult = {
+  overview?: string;
+  duration?: {
+    start?: string;
+    end?: string;
+    remaining_months?: number;
+  };
+  financials?: {
+    monthly_rent?: string;
+    security_deposit?: string;
+  };
+  risk_flags?: string[];
+};
+
+type CompareDifference = {
+  category: string;
+  details?: string[];
+};
+
+type CompareResult = {
+  summary?: string;
+  differences?: CompareDifference[];
+  recommendations?: string[];
+};
+
+type ActionType = 'extract' | 'summary' | 'compare';
+type ActionBody = {
+  action: ActionType;
+  leaseId?: string;
+  leaseIds?: string[];
+};
+
+type ActionResponse = {
+  result?: unknown;
+};
+
 export function DocumentIntelligence({ leases }: DocumentIntelligenceProps) {
   const [selectedLease, setSelectedLease] = useState<string>('');
   const [compareLease, setCompareLease] = useState<string>('');
   const [question, setQuestion] = useState('');
   const [qaResponse, setQaResponse] = useState('');
-  const [extractResult, setExtractResult] = useState<any>(null);
-  const [summaryResult, setSummaryResult] = useState<any>(null);
-  const [compareResult, setCompareResult] = useState<any>(null);
+  const [extractResult, setExtractResult] = useState<ExtractResult | null>(null);
+  const [summaryResult, setSummaryResult] = useState<SummaryResult | null>(null);
+  const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
 
   const getAuthHeaders = async () => {
@@ -80,7 +139,7 @@ export function DocumentIntelligence({ leases }: DocumentIntelligenceProps) {
     finally { setLoading(null); }
   };
 
-  const handleAction = async (action: string) => {
+  const handleAction = async (action: ActionType) => {
     const leaseId = action === 'compare' ? undefined : selectedLease;
     if (action !== 'compare' && !selectedLease) { toast.error('Select a lease first.'); return; }
     if (action === 'compare' && (!selectedLease || !compareLease)) { toast.error('Select two leases to compare.'); return; }
@@ -88,7 +147,7 @@ export function DocumentIntelligence({ leases }: DocumentIntelligenceProps) {
     try {
       const headers = await getAuthHeaders();
       if (!headers) return;
-      const body: any = { action };
+      const body: ActionBody = { action };
       if (action === 'compare') body.leaseIds = [selectedLease, compareLease];
       else body.leaseId = leaseId;
       const response = await fetch(
@@ -96,10 +155,10 @@ export function DocumentIntelligence({ leases }: DocumentIntelligenceProps) {
         { method: 'POST', headers, body: JSON.stringify(body) }
       );
       if (!response.ok) throw new Error('Request failed');
-      const data = await response.json();
-      if (action === 'extract') setExtractResult(data.result);
-      else if (action === 'summary') setSummaryResult(data.result);
-      else if (action === 'compare') setCompareResult(data.result);
+      const data = (await response.json()) as ActionResponse;
+      if (action === 'extract') setExtractResult((data.result || null) as ExtractResult | null);
+      else if (action === 'summary') setSummaryResult((data.result || null) as SummaryResult | null);
+      else if (action === 'compare') setCompareResult((data.result || null) as CompareResult | null);
     } catch { toast.error(`Failed to ${action}.`); }
     finally { setLoading(null); }
   };
@@ -172,7 +231,7 @@ export function DocumentIntelligence({ leases }: DocumentIntelligenceProps) {
                     <div>
                       <h4 className="text-sm font-medium flex items-center gap-1.5 mb-2"><Calendar className="h-4 w-4 text-primary" />Key Dates</h4>
                       <div className="space-y-1">
-                        {extractResult.key_dates.map((d: any, i: number) => (
+                        {extractResult.key_dates.map((d, i) => (
                           <div key={i} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30">
                             <span>{d.label}</span>
                             <div className="flex items-center gap-2">
@@ -188,7 +247,7 @@ export function DocumentIntelligence({ leases }: DocumentIntelligenceProps) {
                     <div>
                       <h4 className="text-sm font-medium flex items-center gap-1.5 mb-2"><DollarSign className="h-4 w-4 text-primary" />Financial Terms</h4>
                       <div className="space-y-1">
-                        {extractResult.financial_terms.map((f: any, i: number) => (
+                        {extractResult.financial_terms.map((f, i) => (
                           <div key={i} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30">
                             <span>{f.label}</span>
                             <span className="font-medium">{f.amount} ({f.frequency})</span>
@@ -201,7 +260,7 @@ export function DocumentIntelligence({ leases }: DocumentIntelligenceProps) {
                     <div>
                       <h4 className="text-sm font-medium flex items-center gap-1.5 mb-2"><AlertTriangle className="h-4 w-4 text-warning" />Special Clauses</h4>
                       <div className="space-y-1">
-                        {extractResult.special_clauses.map((c: any, i: number) => (
+                        {extractResult.special_clauses.map((c, i) => (
                           <div key={i} className="p-2 rounded bg-muted/30 text-sm">
                             <div className="flex items-center justify-between">
                               <span className="font-medium">{c.title}</span>
@@ -272,7 +331,7 @@ export function DocumentIntelligence({ leases }: DocumentIntelligenceProps) {
               {compareResult && (
                 <div className="space-y-3">
                   <p className="text-sm">{compareResult.summary}</p>
-                  {compareResult.differences?.map((d: any, i: number) => (
+                  {compareResult.differences?.map((d, i) => (
                     <div key={i} className="p-3 rounded-lg bg-muted/30 border border-border">
                       <h5 className="text-sm font-medium mb-1">{d.category}</h5>
                       <ul className="text-sm text-muted-foreground space-y-0.5">

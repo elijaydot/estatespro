@@ -8,9 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useBroadcastAnnouncements, useSendBroadcast } from '@/hooks/useBroadcasts';
-import { useProperties } from '@/hooks/useProperties';
+import { useProperties, type Property } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { formatDistanceToNow } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useStepUpGuard } from '@/hooks/useStepUpGuard';
@@ -23,6 +23,18 @@ const audienceLabel: Record<string, string> = {
   tenant: 'Tenants only',
 };
 
+type BroadcastRole = 'all' | 'landlord' | 'property_manager' | 'tenant';
+
+type UnitRow = {
+  id: string;
+  unit_number: string;
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'unknown';
+};
+
 export default function Broadcasts() {
   const { isManager, isLoading: roleLoading } = useUserRole();
   const { companies, activeCompanyId } = useActiveCompany();
@@ -31,7 +43,7 @@ export default function Broadcasts() {
 
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
-  const [targetRole, setTargetRole] = useState<'all' | 'landlord' | 'property_manager' | 'tenant'>('all');
+  const [targetRole, setTargetRole] = useState<BroadcastRole>('all');
   const [propertyId, setPropertyId] = useState<string>('all');
   const [unitId, setUnitId] = useState<string>('all');
 
@@ -39,6 +51,7 @@ export default function Broadcasts() {
   const selectedUnitId = unitId === 'all' ? undefined : unitId;
 
   const { data: units = [] } = useUnits(selectedPropertyId);
+  const unitRows = units as UnitRow[];
   const sendBroadcast = useSendBroadcast();
   const { ensureAal2 } = useStepUpGuard();
 
@@ -65,10 +78,10 @@ export default function Broadcasts() {
           unitId: selectedUnitId || null,
         });
       },
-      onError: async (error: any) => {
+      onError: async (error: unknown) => {
         await logSecurityEvent('broadcast_send_failed', {
           targetRole,
-          reason: error?.message || 'unknown',
+          reason: getErrorMessage(error),
         });
       },
     });
@@ -139,7 +152,7 @@ export default function Broadcasts() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label>Audience</Label>
-              <Select value={targetRole} onValueChange={(value: any) => setTargetRole(value)}>
+              <Select value={targetRole} onValueChange={(value) => setTargetRole(value as BroadcastRole)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -160,7 +173,7 @@ export default function Broadcasts() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All properties</SelectItem>
-                  {properties.map((property: any) => (
+                  {properties.map((property: Property) => (
                     <SelectItem key={property.id} value={property.id}>{property.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -175,7 +188,7 @@ export default function Broadcasts() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All units</SelectItem>
-                  {(units || []).map((unit: any) => (
+                  {unitRows.map((unit) => (
                     <SelectItem key={unit.id} value={unit.id}>{unit.unit_number}</SelectItem>
                   ))}
                 </SelectContent>

@@ -142,7 +142,7 @@ export function useCreateNotification() {
 
       const { data, error } = await supabase
         .from('notifications')
-        .insert(insertData as any)
+        .insert(insertData)
         .select()
         .single();
 

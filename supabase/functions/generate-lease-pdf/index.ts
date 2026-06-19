@@ -474,10 +474,10 @@ const handler = async (req: Request): Promise<Response> => {
         ...corsHeaders 
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in generate-lease-pdf:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Internal server error" }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }

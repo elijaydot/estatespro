@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface GenerateDescriptionButtonProps {
   type: 'property' | 'unit';
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   onGenerated: (description: string) => void;
 }
 

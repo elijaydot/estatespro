@@ -35,11 +35,37 @@ import {
 import { toast } from '@/components/ui/use-toast';
 import { useTenantInvites, useDeleteTenantInvite, useCreateTenantInvite } from '@/hooks/useTenantInvites';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { useProperties } from '@/hooks/useProperties';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 
-const getInviteStatus = (invite: any) => {
+type InviteTenant = {
+  name: string;
+  property_id: string | null;
+};
+
+type TenantInvite = {
+  id: string;
+  token: string;
+  tenant_id: string;
+  email: string;
+  created_at: string;
+  expires_at: string;
+  used_at: string | null;
+  tenants?: InviteTenant | null;
+};
+
+type PropertyOption = {
+  id: string;
+  name: string;
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'Something went wrong';
+};
+
+const getInviteStatus = (invite: TenantInvite) => {
   if (invite.used_at) {
     return { label: 'Used', color: 'bg-success/10 text-success border-success/20', icon: CheckCircle };
   }
@@ -66,7 +92,7 @@ export function InvitesManagement() {
     toast({ title: 'Copied!', description: 'Invite link copied to clipboard' });
   };
 
-  const handleResendInvite = async (invite: any) => {
+  const handleResendInvite = async (invite: TenantInvite) => {
     setResending(invite.id);
     try {
       // First, delete the old invite
@@ -79,7 +105,7 @@ export function InvitesManagement() {
       });
 
       // Try to send email
-      const property = properties.find((p: any) => p.id === invite.tenants?.property_id);
+      const property = (properties as PropertyOption[]).find((p) => p.id === invite.tenants?.property_id);
       const { data, error } = await supabase.functions.invoke('send-tenant-invite', {
         body: {
           tenantId: invite.tenant_id,
@@ -100,8 +126,8 @@ export function InvitesManagement() {
       } else {
         toast({ title: 'Success', description: 'Invite resent successfully' });
       }
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setResending(null);
     }
@@ -114,9 +140,10 @@ export function InvitesManagement() {
     setInviteToDelete(null);
   };
 
-  const pendingCount = invites.filter((i: any) => !i.used_at && !isPast(new Date(i.expires_at))).length;
-  const usedCount = invites.filter((i: any) => i.used_at).length;
-  const expiredCount = invites.filter((i: any) => !i.used_at && isPast(new Date(i.expires_at))).length;
+  const typedInvites = invites as TenantInvite[];
+  const pendingCount = typedInvites.filter((i) => !i.used_at && !isPast(new Date(i.expires_at))).length;
+  const usedCount = typedInvites.filter((i) => i.used_at).length;
+  const expiredCount = typedInvites.filter((i) => !i.used_at && isPast(new Date(i.expires_at))).length;
 
   return (
     <div className="space-y-6">
@@ -200,7 +227,7 @@ export function InvitesManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {invites.map((invite: any) => {
+                {typedInvites.map((invite) => {
                   const status = getInviteStatus(invite);
                   const StatusIcon = status.icon;
                   const isExpiredOrUsed = invite.used_at || isPast(new Date(invite.expires_at));

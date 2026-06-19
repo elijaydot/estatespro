@@ -232,7 +232,13 @@ Deno.serve(async (req) => {
     const ccEmails = initiator?.email ? [{ email: initiator.email, name: initiator.name || 'Property Manager' }] : [];
 
     if (RESEND_API_KEY) {
-      const emailPayload: any = {
+      const emailPayload: {
+        from: string;
+        to: string[];
+        subject: string;
+        html: string;
+        cc?: string[];
+      } = {
         from: "FishGate <noreply@resend.dev>",
         to: toEmails.map(e => e.email),
         subject: `Thank You & Tenancy Summary - ${property?.name || 'Your Property'}`,

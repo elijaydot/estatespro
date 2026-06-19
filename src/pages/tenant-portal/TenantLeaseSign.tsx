@@ -19,9 +19,24 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { SignaturePad, SignaturePadRef } from '@/components/ui/signature-pad';
 import { toast } from '@/components/ui/use-toast';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 import { useLease, useSignLease, useUploadSignature } from '@/hooks/useLeases';
 import { useCreateNotification } from '@/hooks/useNotifications';
+
+type LeaseRelations = {
+  tenants?: {
+    id: string;
+    name: string;
+  } | null;
+  properties?: {
+    id: string;
+    name: string;
+  } | null;
+  units?: {
+    id: string;
+    unit_number: string;
+  } | null;
+};
 
 export default function TenantLeaseSign() {
   const { id } = useParams<{ id: string }>();
@@ -123,9 +138,10 @@ export default function TenantLeaseSign() {
     );
   }
 
-  const tenant = (lease as any).tenants;
-  const property = (lease as any).properties;
-  const unit = (lease as any).units;
+  const leaseRelations = lease as typeof lease & LeaseRelations;
+  const tenant = leaseRelations.tenants;
+  const property = leaseRelations.properties;
+  const unit = leaseRelations.units;
   const daysUntilStart = differenceInDays(new Date(lease.start_date), new Date());
   const alreadySigned = !!lease.tenant_signed_at;
 

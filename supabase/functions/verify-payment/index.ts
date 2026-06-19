@@ -9,15 +9,79 @@ import {
 import {
   createCorrelationId,
   emitAuditEvent,
+  withTimedAudit,
 } from "../_shared/observability.ts";
+import {
+  buildPaymentErrorEnvelope,
+  type ContractError,
+  type Gateway,
+  parseVerifyPayload,
+} from "../_shared/payment-contract.ts";
+import { buildWebhookSignature, computeWebhookBackoffMs, shouldRetryWebhookDelivery } from "../_shared/webhook-delivery.ts";
+import { buildWebhookEventEnvelope } from "../_shared/webhook-events.ts";
 
-type Gateway = "paystack" | "flutterwave";
+type AdminClient = ReturnType<typeof createClient>;
+
+type PaymentSettings = {
+  user_id: string | null;
+  company_id: string | null;
+  property_id: string | null;
+};
+
+type BookingRecord = {
+  id: string;
+  user_id: string;
+  property_id: string;
+  unit_id: string | null;
+  guest_name: string;
+  guest_email: string;
+  total_amount: number;
+  check_in: string;
+  check_out: string;
+};
+
+type InvoiceRecord = {
+  id: string;
+  user_id: string;
+  tenant_id: string | null;
+  property_id: string;
+  amount: number;
+  paid_amount: number;
+  status: string;
+};
+
+type TenantRecord = {
+  id: string;
+  tenant_user_id: string | null;
+};
+
+type PaymentResult = {
+  paymentId: string | null;
+  alreadyProcessed: boolean;
+};
+
+type WebhookEndpoint = {
+  id: string;
+  target_url: string;
+  secret_ref: string;
+  max_attempts: number;
+  timeout_ms: number;
+};
+
+function getErrorMessage(error: unknown, fallback = "Internal server error") {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
   });
+}
+
+function errorResponse(req: Request, error: ContractError, correlationId?: string) {
+  return jsonResponse(req, buildPaymentErrorEnvelope(error, correlationId), error.status);
 }
 
 function normalizeMethod(method?: string | null) {
@@ -41,7 +105,7 @@ async function getUserFromBearer(req: Request, supabaseUrl: string, serviceRoleK
   return data.user;
 }
 
-async function resolvePaymentSettings(supabase: any, propertyId: string, ownerUserId?: string) {
+async function resolvePaymentSettings(supabase: AdminClient, propertyId: string, ownerUserId?: string) {
   const { data: property, error: propertyError } = await supabase
     .from("properties")
     .select("id, user_id, company_id")
@@ -62,7 +126,7 @@ async function resolvePaymentSettings(supabase: any, propertyId: string, ownerUs
     .limit(1)
     .maybeSingle();
 
-  if (propertySettings) return propertySettings;
+  if (propertySettings) return propertySettings as PaymentSettings;
 
   if (property.company_id) {
     const { data: companySettings } = await supabase
@@ -74,7 +138,7 @@ async function resolvePaymentSettings(supabase: any, propertyId: string, ownerUs
       .limit(1)
       .maybeSingle();
 
-    if (companySettings) return companySettings;
+    if (companySettings) return companySettings as PaymentSettings;
   }
 
   const { data: globalSettings } = await supabase
@@ -87,7 +151,7 @@ async function resolvePaymentSettings(supabase: any, propertyId: string, ownerUs
     .limit(1)
     .maybeSingle();
 
-  return globalSettings;
+  return (globalSettings as PaymentSettings | null) || null;
 }
 
 function getGatewaySecret(gateway: Gateway, ownerUserId?: string) {
@@ -102,14 +166,14 @@ function getGatewaySecret(gateway: Gateway, ownerUserId?: string) {
   return Deno.env.get(baseName) || "";
 }
 
-async function ensureBookingInvoice(supabase: any, booking: any) {
+async function ensureBookingInvoice(supabase: AdminClient, booking: BookingRecord) {
   const { data: existingInvoice } = await supabase
     .from("invoices")
     .select("id, amount, paid_amount, status")
     .eq("booking_id", booking.id)
     .maybeSingle();
 
-  if (existingInvoice) return existingInvoice;
+  if (existingInvoice) return existingInvoice as Pick<InvoiceRecord, "id" | "amount" | "paid_amount" | "status">;
 
   const dueDate = booking.check_in || new Date().toISOString().slice(0, 10);
   const { data: createdInvoice, error: invoiceError } = await supabase
@@ -134,7 +198,7 @@ async function ensureBookingInvoice(supabase: any, booking: any) {
     .single();
 
   if (invoiceError) throw new Error(invoiceError.message || "Failed to create booking invoice");
-  return createdInvoice;
+  return createdInvoice as Pick<InvoiceRecord, "id" | "amount" | "paid_amount" | "status">;
 }
 
 async function verifyPaystack(secretKey: string, reference: string) {
@@ -179,7 +243,7 @@ async function verifyFlutterwave(secretKey: string, reference: string) {
   };
 }
 
-async function saveTenantInvoicePayment(supabase: any, invoice: any, amount: number, method: string, reference: string) {
+async function saveTenantInvoicePayment(supabase: AdminClient, invoice: InvoiceRecord, amount: number, method: string, reference: string): Promise<PaymentResult> {
   const { data: existing } = await supabase
     .from("payments")
     .select("id")
@@ -213,7 +277,14 @@ async function saveTenantInvoicePayment(supabase: any, invoice: any, amount: num
   return { paymentId, alreadyProcessed: false };
 }
 
-async function saveGuestBookingPayment(supabase: any, booking: any, invoice: any, amount: number, method: string, reference: string) {
+async function saveGuestBookingPayment(
+  supabase: AdminClient,
+  booking: BookingRecord,
+  invoice: Pick<InvoiceRecord, "id" | "amount" | "paid_amount" | "status">,
+  amount: number,
+  method: string,
+  reference: string,
+): Promise<PaymentResult> {
   const { data: existing } = await supabase
     .from("payments")
     .select("id")
@@ -280,9 +351,198 @@ async function saveGuestBookingPayment(supabase: any, booking: any, invoice: any
   return { paymentId: inserted.id, alreadyProcessed: false };
 }
 
+async function persistWebhookAttempt(
+  supabase: AdminClient,
+  payload: {
+    endpointId: string;
+    eventType: string;
+    eventId: string;
+    correlationId?: string;
+    envelope: Record<string, unknown>;
+    signature?: string;
+    attempt: number;
+    statusCode: number | null;
+    success: boolean;
+    errorMessage?: string;
+    durationMs: number;
+    nextRetryAt?: string;
+  },
+) {
+  await supabase.from("webhook_delivery_attempts").insert({
+    endpoint_id: payload.endpointId,
+    event_type: payload.eventType,
+    event_id: payload.eventId,
+    correlation_id: payload.correlationId || null,
+    payload: payload.envelope,
+    signature: payload.signature || null,
+    attempt: payload.attempt,
+    status_code: payload.statusCode,
+    success: payload.success,
+    error_message: payload.errorMessage || null,
+    duration_ms: payload.durationMs,
+    next_retry_at: payload.nextRetryAt || null,
+    delivered_at: payload.success ? new Date().toISOString() : null,
+  });
+}
+
+async function persistWebhookDeadLetter(
+  supabase: AdminClient,
+  payload: {
+    endpointId: string;
+    eventType: string;
+    eventId: string;
+    correlationId?: string;
+    envelope: Record<string, unknown>;
+    finalStatusCode: number | null;
+    failureReason: string;
+    totalAttempts: number;
+  },
+) {
+  await supabase.from("webhook_dead_letters").upsert({
+    endpoint_id: payload.endpointId,
+    event_type: payload.eventType,
+    event_id: payload.eventId,
+    correlation_id: payload.correlationId || null,
+    payload: payload.envelope,
+    final_status_code: payload.finalStatusCode,
+    failure_reason: payload.failureReason,
+    total_attempts: payload.totalAttempts,
+  }, { onConflict: "endpoint_id,event_id" });
+}
+
+async function dispatchPaymentVerifiedWebhooks(
+  supabase: AdminClient,
+  payload: {
+    source: "guest_booking" | "tenant_invoice";
+    invoiceId: string;
+    paymentId: string | null;
+    reference: string;
+    amount: number;
+    correlationId: string;
+    actorUserId?: string;
+  },
+) {
+  const eventType = "payment.verified";
+  const envelope = buildWebhookEventEnvelope({
+    eventType,
+    correlationId: payload.correlationId,
+    actorUserId: payload.actorUserId,
+    payload: {
+      source: payload.source,
+      invoiceId: payload.invoiceId,
+      paymentId: payload.paymentId,
+      reference: payload.reference,
+      amount: payload.amount,
+    },
+  });
+
+  const { data: endpoints } = await supabase
+    .from("webhook_endpoints")
+    .select("id, target_url, secret_ref, max_attempts, timeout_ms")
+    .eq("is_active", true)
+    .eq("event_type", eventType);
+
+  const endpointList = (endpoints as WebhookEndpoint[] | null) || [];
+  if (endpointList.length === 0) return;
+
+  const body = JSON.stringify(envelope);
+
+  for (const endpoint of endpointList) {
+    const secret = Deno.env.get(endpoint.secret_ref) || "";
+    if (!secret) {
+      await persistWebhookDeadLetter(supabase, {
+        endpointId: endpoint.id,
+        eventType,
+        eventId: envelope.event_id,
+        correlationId: payload.correlationId,
+        envelope: envelope as Record<string, unknown>,
+        finalStatusCode: null,
+        failureReason: "Missing webhook secret",
+        totalAttempts: 0,
+      });
+      continue;
+    }
+
+    const timestamp = `${Math.floor(Date.now() / 1000)}`;
+    const signature = await buildWebhookSignature({
+      secret,
+      payload: body,
+      timestamp,
+    });
+
+    const startedAt = Date.now();
+    let statusCode: number | null = null;
+    let success = false;
+    let errorMessage: string | undefined;
+
+    try {
+      const response = await fetch(endpoint.target_url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-webhook-signature": signature,
+          "x-webhook-timestamp": timestamp,
+          "x-webhook-event": eventType,
+          "x-webhook-version": envelope.version,
+        },
+        body,
+      });
+
+      statusCode = response.status;
+      success = response.ok;
+      if (!success) {
+        const responseText = await response.text().catch(() => "");
+        errorMessage = responseText || `HTTP ${response.status}`;
+      }
+    } catch (error) {
+      success = false;
+      errorMessage = getErrorMessage(error);
+    }
+
+    const shouldRetry = shouldRetryWebhookDelivery(statusCode, 1, endpoint.max_attempts);
+    const nextRetryAt = shouldRetry
+      ? new Date(Date.now() + computeWebhookBackoffMs(1)).toISOString()
+      : undefined;
+
+    await persistWebhookAttempt(supabase, {
+      endpointId: endpoint.id,
+      eventType,
+      eventId: envelope.event_id,
+      correlationId: payload.correlationId,
+      envelope: envelope as Record<string, unknown>,
+      signature,
+      attempt: 1,
+      statusCode,
+      success,
+      errorMessage,
+      durationMs: Date.now() - startedAt,
+      nextRetryAt,
+    });
+
+    if (!success && !shouldRetry) {
+      await persistWebhookDeadLetter(supabase, {
+        endpointId: endpoint.id,
+        eventType,
+        eventId: envelope.event_id,
+        correlationId: payload.correlationId,
+        envelope: envelope as Record<string, unknown>,
+        finalStatusCode: statusCode,
+        failureReason: errorMessage || "Webhook delivery failed",
+        totalAttempts: 1,
+      });
+    }
+  }
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleCorsPreflight(req);
-  if (req.method !== "POST") return jsonResponse(req, { error: "Method not allowed" }, 405);
+  if (req.method !== "POST") {
+    return errorResponse(req, {
+      code: "bad_request",
+      message: "Method not allowed",
+      status: 405,
+    });
+  }
 
   const rateCheck = checkRateLimit(req, {
     keyPrefix: "verify-payment",
@@ -297,24 +557,55 @@ serve(async (req: Request) => {
       severity: "warning",
       details: { method: req.method },
     });
-    return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
+    return errorResponse(req, {
+      code: "rate_limited",
+      message: "Rate limit exceeded",
+      status: 429,
+    });
   }
+
+  const requestStartedAt = Date.now();
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
     if (!supabaseUrl || !serviceRoleKey) {
-      return jsonResponse(req, { error: "Missing server configuration" }, 500);
+      return errorResponse(req, {
+        code: "internal_error",
+        message: "Missing server configuration",
+        status: 500,
+      });
     }
 
     const rawBody = await req.text();
-    const body = rawBody ? JSON.parse(rawBody) : {};
-    const correlationId = (body?.correlationId as string | undefined) || createCorrelationId();
+    let body: unknown = {};
+    try {
+      body = rawBody ? JSON.parse(rawBody) : {};
+    } catch {
+      return errorResponse(req, {
+        code: "bad_request",
+        message: "Request body must be valid JSON",
+        status: 400,
+      });
+    }
+
+    const parsed = parseVerifyPayload(body);
+    const correlationId = parsed.ok ? (parsed.value.correlationId || createCorrelationId()) : createCorrelationId();
+
+    if (!parsed.ok) {
+      return errorResponse(req, parsed.error, correlationId);
+    }
+
+    const payload = parsed.value;
 
     const caller = await getUserFromBearer(req, supabaseUrl, serviceRoleKey);
     if (!caller) {
-      return jsonResponse(req, { error: "Unauthorized" }, 401);
+      return errorResponse(req, {
+        code: "unauthorized",
+        message: "Unauthorized",
+        status: 401,
+      }, correlationId);
     }
 
     await emitAuditEvent({
@@ -324,28 +615,35 @@ serve(async (req: Request) => {
       severity: "info",
       correlation_id: correlationId,
       details: {
-        gateway: body?.gateway,
-        hasBookingToken: Boolean(body?.bookingToken),
-        invoiceId: body?.invoiceId || null,
+        gateway: payload.gateway,
+        hasBookingToken: Boolean(payload.bookingToken),
+        invoiceId: payload.invoiceId || null,
       },
     });
 
     // Used by Settings -> Payment Settings screen to test credentials before save.
-    if (body?.test_mode) {
-      const gateway = body?.gateway as Gateway | undefined;
-      const secretKey = gateway ? getGatewaySecret(gateway) : "";
+    if (payload.test_mode) {
+      const secretKey = getGatewaySecret(payload.gateway);
 
-      if (!gateway || !secretKey) {
-        return jsonResponse(req, { error: "Gateway secret is not configured on the server" }, 400);
+      if (!secretKey) {
+        return errorResponse(req, {
+          code: "validation_failed",
+          message: "Gateway secret is not configured on the server",
+          status: 400,
+        }, correlationId);
       }
 
-      if (gateway === "paystack") {
+      if (payload.gateway === "paystack") {
         const response = await fetch("https://api.paystack.co/bank", {
           headers: { Authorization: `Bearer ${secretKey}` },
         });
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          return jsonResponse(req, { success: false, error: errorData?.message || "Paystack verification failed" }, 400);
+          return errorResponse(req, {
+            code: "gateway_error",
+            message: errorData?.message || "Paystack verification failed",
+            status: 400,
+          }, correlationId);
         }
       } else {
         const response = await fetch("https://api.flutterwave.com/v3/banks/NG", {
@@ -353,21 +651,64 @@ serve(async (req: Request) => {
         });
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          return jsonResponse(req, { success: false, error: errorData?.message || "Flutterwave verification failed" }, 400);
+          return errorResponse(req, {
+            code: "gateway_error",
+            message: errorData?.message || "Flutterwave verification failed",
+            status: 400,
+          }, correlationId);
         }
       }
 
-      return jsonResponse(req, { success: true, message: `${gateway} credentials verified` });
+      await emitAuditEvent({
+        event_type: "payment.verify.completed",
+        source: "verify-payment",
+        actor_user_id: caller.id,
+        severity: "info",
+        correlation_id: correlationId,
+        details: {
+          source: "settings_test",
+          gateway: payload.gateway,
+          duration_ms: Date.now() - requestStartedAt,
+        },
+      });
+
+      try {
+        await dispatchPaymentVerifiedWebhooks(supabase, {
+          source: "guest_booking",
+          invoiceId: invoice.id,
+          paymentId: result.paymentId,
+          reference: verification.reference,
+          amount: verification.amount,
+          correlationId,
+          actorUserId: caller.id,
+        });
+      } catch (webhookError: unknown) {
+        await emitAuditEvent({
+          event_type: "payment.verify.webhook_dispatch_failed",
+          source: "verify-payment",
+          actor_user_id: caller.id,
+          severity: "warning",
+          correlation_id: correlationId,
+          entity_type: "invoice",
+          entity_id: invoice.id,
+          details: {
+            source: "guest_booking",
+            message: getErrorMessage(webhookError),
+          },
+        });
+      }
+
+      return jsonResponse(req, {
+        success: true,
+        message: `${payload.gateway} credentials verified`,
+        correlationId,
+      });
     }
 
-    const gateway = body?.gateway as Gateway | undefined;
-    const reference = (body?.reference || body?.tx_ref) as string | undefined;
-    const bookingToken = body?.bookingToken as string | undefined;
-    const invoiceId = body?.invoiceId as string | undefined;
-
-    if (!gateway || !reference) {
-      return jsonResponse(req, { error: "gateway and reference are required" }, 400);
-    }
+    const gateway = payload.gateway;
+    const reference = payload.reference;
+    const bookingToken = payload.bookingToken;
+    const invoiceId = payload.invoiceId;
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -386,7 +727,11 @@ serve(async (req: Request) => {
           correlation_id: correlationId,
           details: { source: "guest_booking" },
         });
-        return jsonResponse(req, { error: "Invalid request signature" }, 401);
+        return errorResponse(req, {
+          code: "unauthorized",
+          message: "Invalid request signature",
+          status: 401,
+        }, correlationId);
       }
 
       const { data: booking, error: bookingError } = await supabase
@@ -395,20 +740,52 @@ serve(async (req: Request) => {
         .eq("guest_action_token", bookingToken)
         .single();
 
-      if (bookingError || !booking) return jsonResponse(req, { error: "Invalid booking token" }, 404);
+      if (bookingError || !booking) {
+        return errorResponse(req, {
+          code: "not_found",
+          message: "Invalid booking token",
+          status: 404,
+        }, correlationId);
+      }
 
-      const settings = await resolvePaymentSettings(supabase, booking.property_id, booking.user_id);
-      if (!settings) return jsonResponse(req, { error: "Payment settings not configured" }, 400);
+      const bookingRecord = booking as BookingRecord;
 
-      const secretKey = getGatewaySecret(gateway, settings.user_id || booking.user_id);
-      if (!secretKey) return jsonResponse(req, { error: "Gateway secret is not configured on the server" }, 400);
+      const settings = await resolvePaymentSettings(supabase, bookingRecord.property_id, bookingRecord.user_id);
+      if (!settings) {
+        return errorResponse(req, {
+          code: "validation_failed",
+          message: "Payment settings not configured",
+          status: 400,
+        }, correlationId);
+      }
 
-      const verification = gateway === "paystack"
-        ? await verifyPaystack(secretKey, reference)
-        : await verifyFlutterwave(secretKey, reference);
+      const secretKey = getGatewaySecret(gateway, settings.user_id || bookingRecord.user_id);
+      if (!secretKey) {
+        return errorResponse(req, {
+          code: "validation_failed",
+          message: "Gateway secret is not configured on the server",
+          status: 400,
+        }, correlationId);
+      }
 
-      const invoice = await ensureBookingInvoice(supabase, booking);
-      const result = await saveGuestBookingPayment(supabase, booking, invoice, verification.amount, verification.method, verification.reference);
+      const invoice = await ensureBookingInvoice(supabase, bookingRecord);
+
+      const verification = await withTimedAudit({
+        eventBase: "payment.verify.gateway",
+        source: "verify-payment",
+        actorUserId: caller.id,
+        correlationId,
+        details: {
+          gateway,
+          source: "guest_booking",
+          invoiceId: invoice.id,
+        },
+      }, async () => {
+        return gateway === "paystack"
+          ? await verifyPaystack(secretKey, reference)
+          : await verifyFlutterwave(secretKey, reference);
+      });
+      const result = await saveGuestBookingPayment(supabase, bookingRecord, invoice, verification.amount, verification.method, verification.reference);
 
       if (result.alreadyProcessed) {
         await emitAuditEvent({
@@ -423,6 +800,21 @@ serve(async (req: Request) => {
         });
       }
 
+      await emitAuditEvent({
+        event_type: "payment.verify.completed",
+        source: "verify-payment",
+        actor_user_id: caller.id,
+        severity: "info",
+        correlation_id: correlationId,
+        entity_type: "invoice",
+        entity_id: invoice.id,
+        details: {
+          source: "guest_booking",
+          alreadyProcessed: result.alreadyProcessed,
+          duration_ms: Date.now() - requestStartedAt,
+        },
+      });
+
       return jsonResponse(req, {
         success: true,
         verified: true,
@@ -436,7 +828,13 @@ serve(async (req: Request) => {
 
     const user = caller;
 
-    if (!invoiceId) return jsonResponse(req, { error: "invoiceId is required" }, 400);
+    if (!invoiceId) {
+      return errorResponse(req, {
+        code: "validation_failed",
+        message: "invoiceId is required",
+        status: 400,
+      }, correlationId);
+    }
 
     const { data: invoice, error: invoiceError } = await supabase
       .from("invoices")
@@ -444,34 +842,72 @@ serve(async (req: Request) => {
       .eq("id", invoiceId)
       .single();
 
-    if (invoiceError || !invoice) return jsonResponse(req, { error: "Invoice not found" }, 404);
+    if (invoiceError || !invoice) {
+      return errorResponse(req, {
+        code: "not_found",
+        message: "Invoice not found",
+        status: 404,
+      }, correlationId);
+    }
 
-    const { data: tenant } = invoice.tenant_id
-      ? await supabase
-          .from("tenants")
-          .select("id, tenant_user_id")
-          .eq("id", invoice.tenant_id)
-          .maybeSingle()
-      : { data: null as any };
+    const invoiceRecord = invoice as InvoiceRecord;
 
-    const isOwner = invoice.user_id === user.id;
+    let tenant: TenantRecord | null = null;
+    if (invoiceRecord.tenant_id) {
+      const { data: tenantData } = await supabase
+        .from("tenants")
+        .select("id, tenant_user_id")
+        .eq("id", invoiceRecord.tenant_id)
+        .maybeSingle();
+      tenant = (tenantData as TenantRecord | null) || null;
+    }
+
+    const isOwner = invoiceRecord.user_id === user.id;
     const isTenant = !!tenant?.tenant_user_id && tenant.tenant_user_id === user.id;
 
     if (!isOwner && !isTenant) {
-      return jsonResponse(req, { error: "Forbidden" }, 403);
+      return errorResponse(req, {
+        code: "forbidden",
+        message: "Forbidden",
+        status: 403,
+      }, correlationId);
     }
 
-    const settings = await resolvePaymentSettings(supabase, invoice.property_id, invoice.user_id);
-    if (!settings) return jsonResponse(req, { error: "Payment settings not configured" }, 400);
+    const settings = await resolvePaymentSettings(supabase, invoiceRecord.property_id, invoiceRecord.user_id);
+    if (!settings) {
+      return errorResponse(req, {
+        code: "validation_failed",
+        message: "Payment settings not configured",
+        status: 400,
+      }, correlationId);
+    }
 
-    const secretKey = getGatewaySecret(gateway, settings.user_id || invoice.user_id);
-    if (!secretKey) return jsonResponse(req, { error: "Gateway secret is not configured on the server" }, 400);
+    const secretKey = getGatewaySecret(gateway, settings.user_id || invoiceRecord.user_id);
+    if (!secretKey) {
+      return errorResponse(req, {
+        code: "validation_failed",
+        message: "Gateway secret is not configured on the server",
+        status: 400,
+      }, correlationId);
+    }
 
-    const verification = gateway === "paystack"
-      ? await verifyPaystack(secretKey, reference)
-      : await verifyFlutterwave(secretKey, reference);
+    const verification = await withTimedAudit({
+      eventBase: "payment.verify.gateway",
+      source: "verify-payment",
+      actorUserId: caller.id,
+      correlationId,
+      details: {
+        gateway,
+        source: "tenant_invoice",
+        invoiceId: invoiceRecord.id,
+      },
+    }, async () => {
+      return gateway === "paystack"
+        ? await verifyPaystack(secretKey, reference)
+        : await verifyFlutterwave(secretKey, reference);
+    });
 
-    const result = await saveTenantInvoicePayment(supabase, invoice, verification.amount, verification.method, verification.reference);
+    const result = await saveTenantInvoicePayment(supabase, invoiceRecord, verification.amount, verification.method, verification.reference);
 
     if (result.alreadyProcessed) {
       await emitAuditEvent({
@@ -481,8 +917,49 @@ serve(async (req: Request) => {
         severity: "info",
         correlation_id: correlationId,
         entity_type: "invoice",
-        entity_id: invoice.id,
+        entity_id: invoiceRecord.id,
         details: { reference: verification.reference, source: "tenant_invoice" },
+      });
+    }
+
+    await emitAuditEvent({
+      event_type: "payment.verify.completed",
+      source: "verify-payment",
+      actor_user_id: caller.id,
+      severity: "info",
+      correlation_id: correlationId,
+      entity_type: "invoice",
+      entity_id: invoiceRecord.id,
+      details: {
+        source: "tenant_invoice",
+        alreadyProcessed: result.alreadyProcessed,
+        duration_ms: Date.now() - requestStartedAt,
+      },
+    });
+
+    try {
+      await dispatchPaymentVerifiedWebhooks(supabase, {
+        source: "tenant_invoice",
+        invoiceId: invoiceRecord.id,
+        paymentId: result.paymentId,
+        reference: verification.reference,
+        amount: verification.amount,
+        correlationId,
+        actorUserId: caller.id,
+      });
+    } catch (webhookError: unknown) {
+      await emitAuditEvent({
+        event_type: "payment.verify.webhook_dispatch_failed",
+        source: "verify-payment",
+        actor_user_id: caller.id,
+        severity: "warning",
+        correlation_id: correlationId,
+        entity_type: "invoice",
+        entity_id: invoiceRecord.id,
+        details: {
+          source: "tenant_invoice",
+          message: getErrorMessage(webhookError),
+        },
       });
     }
 
@@ -495,14 +972,21 @@ serve(async (req: Request) => {
       amount: verification.amount,
       correlationId,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("verify-payment error:", error);
     await emitAuditEvent({
       event_type: "payment.verify.failed",
       source: "verify-payment",
       severity: "error",
-      details: { message: error?.message || "Internal server error" },
+      details: {
+        message: getErrorMessage(error),
+        duration_ms: Date.now() - requestStartedAt,
+      },
     });
-    return jsonResponse(req, { error: error?.message || "Internal server error" }, 500);
+    return errorResponse(req, {
+      code: "internal_error",
+      message: getErrorMessage(error),
+      status: 500,
+    });
   }
 });

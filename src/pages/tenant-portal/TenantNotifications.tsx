@@ -39,6 +39,7 @@ import {
   useMarkAllAsRead,
   useDeleteNotification,
   useClearAllNotifications,
+  type Notification,
 } from '@/hooks/useNotifications';
 import { useBroadcastAnnouncements } from '@/hooks/useBroadcasts';
 
@@ -60,7 +61,7 @@ export default function TenantNotifications() {
   const deleteNotification = useDeleteNotification();
   const clearAll = useClearAllNotifications();
 
-  const handleOpen = async (notification: any) => {
+  const handleOpen = async (notification: Notification) => {
     if (!notification.is_read) {
       await markAsRead.mutateAsync(notification.id);
     }

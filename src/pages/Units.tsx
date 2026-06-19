@@ -39,10 +39,20 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { toast } from '@/components/ui/use-toast';
-import { useUnits, useCreateUnit, useDeleteUnit } from '@/hooks/useUnits';
-import { useProperties } from '@/hooks/useProperties';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useUnits, useCreateUnit, useDeleteUnit, type Unit } from '@/hooks/useUnits';
+import { useProperties, type Property } from '@/hooks/useProperties';
+import { useSettings } from '@/contexts/useSettings';
 import { UnitPreviewCard } from '@/components/forms/UnitPreviewCard';
+
+type UnitTenant = {
+  id: string;
+  name: string | null;
+};
+
+type UnitRow = Unit & {
+  properties?: Pick<Property, 'id' | 'name'> | null;
+  tenants?: UnitTenant[] | null;
+};
 
 const statusOptions = [
   { value: 'vacant', label: 'Vacant', description: 'Available for rent' },
@@ -97,13 +107,15 @@ export default function Units() {
   const createUnit = useCreateUnit();
   const deleteUnit = useDeleteUnit();
 
-  const propertyOptions = properties.map((property: any) => ({
+  const propertyOptions = properties.map((property) => ({
     value: property.id,
     label: property.name,
     description: `${property.city}, ${property.state}`,
   }));
 
-  const filteredUnits = units.filter((unit: any) => {
+  const unitRows = units as UnitRow[];
+
+  const filteredUnits = unitRows.filter((unit) => {
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (
@@ -118,12 +130,15 @@ export default function Units() {
       return;
     }
 
-    await createUnit.mutateAsync({ 
+    const payload: Omit<Unit, 'id' | 'created_at' | 'updated_at' | 'user_id'> = {
       ...formData, 
       amenities: [],
+      description: formData.description || null,
       image_url: formData.image_urls[0] || formData.image_url || null,
       image_urls: formData.image_urls,
-    } as any);
+    };
+
+    await createUnit.mutateAsync(payload);
     setIsAddDialogOpen(false);
     setFormData({
       property_id: '',
@@ -189,7 +204,7 @@ export default function Units() {
       {/* Units Grid */}
       {!isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredUnits.map((unit: any, index: number) => (
+          {filteredUnits.map((unit, index: number) => (
             <Card
               key={unit.id}
               className="p-5 card-shadow-md hover:card-shadow-lg transition-all duration-200 animate-fade-in"

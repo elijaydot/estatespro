@@ -1,9 +1,17 @@
-﻿import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { useMyMembership } from '@/hooks/useCompanies';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Clock, LogOut, CheckCircle2, XCircle } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
+
+type MembershipWithCompany = {
+  status?: string | null;
+  companies?: {
+    id: string;
+    name: string;
+  } | null;
+};
 
 export default function PendingApproval() {
   const { logout, profile } = useAuth();
@@ -17,8 +25,9 @@ export default function PendingApproval() {
     );
   }
 
-  const status = membership?.status || 'pending';
-  const companyName = (membership as any)?.companies?.name || 'the company';
+  const membershipData = membership as MembershipWithCompany | null;
+  const status = membershipData?.status || 'pending';
+  const companyName = membershipData?.companies?.name || 'the company';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center p-4">

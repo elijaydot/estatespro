@@ -45,12 +45,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { toast } from '@/components/ui/use-toast';
-import { useUnit, useUpdateUnit, useDeleteUnit } from '@/hooks/useUnits';
-import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
-import { useSettings } from '@/contexts/SettingsContext';
-import { useTenants } from '@/hooks/useTenants';
+import { useUnit, useUpdateUnit, useDeleteUnit, type Unit } from '@/hooks/useUnits';
+import { useMaintenanceRequests, type MaintenanceRequest } from '@/hooks/useMaintenanceRequests';
+import { useSettings } from '@/contexts/useSettings';
+import { useTenants, type Tenant } from '@/hooks/useTenants';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { GenerateDescriptionButton } from '@/components/ai/GenerateDescriptionButton';
+
+type UnitWithRelations = Unit & {
+  properties?: {
+    id: string;
+    name: string;
+  } | null;
+  image_urls?: string[] | null;
+};
 
 const statusOptions = [
   { value: 'vacant', label: 'Vacant', description: 'Available for rent' },
@@ -95,6 +103,9 @@ export default function UnitDetail() {
   const { data: tenants = [] } = useTenants();
   const updateUnit = useUpdateUnit();
   const deleteUnit = useDeleteUnit();
+  const unitData = unit as UnitWithRelations | undefined;
+  const maintenanceRows = maintenanceRequests as MaintenanceRequest[];
+  const tenantRows = tenants as Tenant[];
 
   // Form state for editing
   const [formData, setFormData] = useState({
@@ -113,22 +124,22 @@ export default function UnitDetail() {
 
   // Populate form when unit data loads
   useEffect(() => {
-    if (unit) {
+    if (unitData) {
       setFormData({
-        unit_number: unit.unit_number || '',
-        floor: unit.floor || 1,
-        status: unit.status || 'vacant',
-        bedrooms: unit.bedrooms || 1,
-        bathrooms: unit.bathrooms || 1,
-        sqft: unit.sqft || 0,
-        rent_amount: unit.rent_amount || 0,
-        amenities: unit.amenities?.join(', ') || '',
-        description: unit.description || '',
-        image_url: (unit as any).image_url || '',
-        image_urls: (unit as any).image_urls || [],
+        unit_number: unitData.unit_number || '',
+        floor: unitData.floor || 1,
+        status: unitData.status || 'vacant',
+        bedrooms: unitData.bedrooms || 1,
+        bathrooms: unitData.bathrooms || 1,
+        sqft: unitData.sqft || 0,
+        rent_amount: unitData.rent_amount || 0,
+        amenities: unitData.amenities?.join(', ') || '',
+        description: unitData.description || '',
+        image_url: unitData.image_url || '',
+        image_urls: unitData.image_urls || [],
       });
     }
-  }, [unit]);
+  }, [unitData]);
 
   const isEditOpen = searchParams.get('edit') === 'true';
   const closeEdit = () => {
@@ -171,10 +182,10 @@ export default function UnitDetail() {
   };
 
   // Filter maintenance for this unit
-  const unitMaintenance = maintenanceRequests.filter((m: any) => m.unit_id === id);
+  const unitMaintenance = maintenanceRows.filter((m) => m.unit_id === id);
   
   // Find tenant for this unit
-  const unitTenant = tenants.find((t: any) => t.unit_id === id);
+  const unitTenant = tenantRows.find((t) => t.unit_id === id);
 
   if (isLoading) {
     return (
@@ -184,7 +195,7 @@ export default function UnitDetail() {
     );
   }
 
-  if (!unit) {
+  if (!unitData) {
     return (
       <div className="flex flex-col items-center justify-center h-96 gap-4">
         <Home className="h-12 w-12 text-muted-foreground" />
@@ -292,11 +303,11 @@ export default function UnitDetail() {
       </div>
 
       {/* Photo Gallery */}
-      {((unit as any).image_urls?.length > 0 || unit.image_url) && (
+      {((unitData.image_urls?.length ?? 0) > 0 || unitData.image_url) && (
         <PhotoGallery 
-          images={(unit as any).image_urls?.length > 0 
-            ? (unit as any).image_urls 
-            : unit.image_url ? [unit.image_url] : []} 
+          images={(unitData.image_urls?.length ?? 0) > 0 
+            ? unitData.image_urls || []
+            : unitData.image_url ? [unitData.image_url] : []} 
         />
       )}
 
@@ -397,7 +408,7 @@ export default function UnitDetail() {
                 <CardContent>
                   {unitMaintenance.length > 0 ? (
                     <div className="space-y-4">
-                      {unitMaintenance.map((request: any) => (
+                      {unitMaintenance.map((request) => (
                         <div key={request.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
                           <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg bg-background">{getMaintenanceStatusIcon(request.status)}</div>

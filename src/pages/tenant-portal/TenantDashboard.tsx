@@ -18,8 +18,31 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 import { format, differenceInDays } from 'date-fns';
+
+type RecurringBillRow = {
+  id: string;
+  name: string;
+  amount: number;
+  frequency: string;
+};
+
+type PaymentRow = {
+  id: string;
+  amount: number;
+  created_at: string;
+  invoices?: {
+    description?: string | null;
+  } | null;
+};
+
+type MaintenanceRequestRow = {
+  id: string;
+  title: string;
+  status: string;
+  created_at: string;
+};
 
 export default function TenantDashboard() {
   const { data: portalData, isLoading } = useTenantPortalData();
@@ -65,6 +88,10 @@ export default function TenantDashboard() {
   const daysUntilDue = nextPayment
     ? differenceInDays(new Date(nextPayment.due_date), new Date())
     : 0;
+
+  const recurringBillRows = recurringBills as RecurringBillRow[];
+  const paymentRows = portalData.payments as PaymentRow[];
+  const maintenanceRows = portalData.maintenanceRequests as MaintenanceRequestRow[];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -144,7 +171,7 @@ export default function TenantDashboard() {
                   </div>
                   <span className="font-semibold">{formatCurrency(stats.monthlyRent)}</span>
                 </div>
-                {recurringBills.map((bill: any) => (
+                {recurringBillRows.map((bill) => (
                   <div key={bill.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                     <div className="flex items-center gap-2">
                       <Receipt className="h-4 w-4 text-muted-foreground" />
@@ -206,7 +233,7 @@ export default function TenantDashboard() {
                 <p className="text-muted-foreground text-center py-4">No recent activity</p>
               ) : (
                 <div className="space-y-4">
-                  {portalData.payments.slice(0, 3).map((payment: any) => (
+                  {paymentRows.slice(0, 3).map((payment) => (
                     <div key={payment.id} className="flex items-start gap-4">
                       <div className="p-2 rounded-lg bg-secondary">
                         <DollarSign className="h-4 w-4 text-success" />
@@ -222,7 +249,7 @@ export default function TenantDashboard() {
                       </span>
                     </div>
                   ))}
-                  {portalData.maintenanceRequests.slice(0, 2).map((request: any) => (
+                  {maintenanceRows.slice(0, 2).map((request) => (
                     <div key={request.id} className="flex items-start gap-4">
                       <div className="p-2 rounded-lg bg-secondary">
                         <Wrench className={`h-4 w-4 ${request.status === 'completed' ? 'text-success' : 'text-warning'}`} />

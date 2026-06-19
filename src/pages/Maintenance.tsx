@@ -46,7 +46,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useMaintenanceRequests, useCreateMaintenanceRequest, useUpdateMaintenanceRequest } from '@/hooks/useMaintenanceRequests';
 import { useUnits } from '@/hooks/useUnits';
@@ -54,6 +54,41 @@ import { useTenants } from '@/hooks/useTenants';
 import { useProperties } from '@/hooks/useProperties';
 import { useSendMaintenanceNotification } from '@/hooks/useMaintenanceNotifications';
 import { format } from 'date-fns';
+
+type MaintenanceRequestRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  unit_id: string;
+  property_id: string | null;
+  tenant_id: string | null;
+  priority: string;
+  status: string;
+  assigned_to: string | null;
+  created_at: string;
+  units?: { unit_number: string | null } | null;
+  properties?: { name: string | null } | null;
+  tenants?: { name: string | null } | null;
+};
+
+type UnitRow = {
+  id: string;
+  unit_number: string;
+  properties?: { name: string | null } | null;
+};
+
+type TenantRow = {
+  id: string;
+  name: string;
+  email: string | null;
+};
+
+type PropertyRow = {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+};
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -123,7 +158,7 @@ export default function Maintenance() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequestRow | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -141,6 +176,10 @@ export default function Maintenance() {
   const { data: units = [] } = useUnits();
   const { data: tenants = [] } = useTenants();
   const { data: properties = [] } = useProperties();
+  const typedRequests = requests as MaintenanceRequestRow[];
+  const typedUnits = units as UnitRow[];
+  const typedTenants = tenants as TenantRow[];
+  const typedProperties = properties as PropertyRow[];
   const createRequest = useCreateMaintenanceRequest();
   const updateRequest = useUpdateMaintenanceRequest();
   const sendNotification = useSendMaintenanceNotification();
@@ -159,7 +198,7 @@ export default function Maintenance() {
     }
   };
 
-  const filteredRequests = requests.filter((request: any) => {
+  const filteredRequests = typedRequests.filter((request) => {
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (
@@ -169,25 +208,25 @@ export default function Maintenance() {
   });
 
   const stats = {
-    total: requests.length,
-    submitted: requests.filter((r: any) => r.status === 'submitted').length,
-    inProgress: requests.filter((r: any) => r.status === 'in_progress').length,
-    completed: requests.filter((r: any) => r.status === 'completed').length,
+    total: typedRequests.length,
+    submitted: typedRequests.filter((r) => r.status === 'submitted').length,
+    inProgress: typedRequests.filter((r) => r.status === 'in_progress').length,
+    completed: typedRequests.filter((r) => r.status === 'completed').length,
   };
 
-  const unitOptions = units.map((unit: any) => ({
+  const unitOptions = typedUnits.map((unit) => ({
     value: unit.id,
     label: `Unit ${unit.unit_number}`,
     description: unit.properties?.name || '',
   }));
 
-  const tenantOptions = tenants.map((tenant: any) => ({
+  const tenantOptions = typedTenants.map((tenant) => ({
     value: tenant.id,
     label: tenant.name,
     description: tenant.email,
   }));
 
-  const propertyOptions = properties.map((property: any) => ({
+  const propertyOptions = typedProperties.map((property) => ({
     value: property.id,
     label: property.name,
     description: `${property.city}, ${property.state}`,
@@ -249,7 +288,7 @@ export default function Maintenance() {
     });
   };
 
-  const openEdit = (request: any) => {
+  const openEdit = (request: MaintenanceRequestRow) => {
     setSelectedRequest(request);
     setFormData({
       title: request.title,
@@ -365,7 +404,7 @@ export default function Maintenance() {
                     <p className="text-sm mt-1">Try adjusting your search query.</p>
                   </div>
                 ) : (
-                  filteredRequests.map((request: any) => (
+                  filteredRequests.map((request) => (
                     <div key={request.id} className="p-4 space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
@@ -428,7 +467,7 @@ export default function Maintenance() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRequests.map((request: any) => (
+                filteredRequests.map((request) => (
                   <TableRow key={request.id}>
                     <TableCell>
                       <div>

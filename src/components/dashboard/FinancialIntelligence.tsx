@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 
 interface PaymentBehavior {
   summary: string;
@@ -169,6 +169,11 @@ export function FinancialIntelligence() {
 
       {expanded && (
         <CardContent className="space-y-5">
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-primary">Decision Focus</p>
+            <p className="text-sm text-foreground mt-1">Use this panel to triage risk first, then execute collection and retention actions.</p>
+          </div>
+
           {/* Cash Flow Overview */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="rounded-lg border border-border bg-muted/30 p-3">
@@ -206,6 +211,27 @@ export function FinancialIntelligence() {
           </div>
 
           <p className="text-sm text-muted-foreground">{insights.cash_flow.forecast_summary}</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="rounded-md border border-destructive/20 bg-destructive/5 p-2.5">
+              <p className="text-[11px] text-muted-foreground">High risk tenants</p>
+              <p className="text-lg font-bold text-destructive mt-0.5">
+                {insights.payment_behavior.at_risk_tenants.filter((tenant) => tenant.risk_level === 'high').length}
+              </p>
+            </div>
+            <div className="rounded-md border border-warning/20 bg-warning/5 p-2.5">
+              <p className="text-[11px] text-muted-foreground">Medium risk tenants</p>
+              <p className="text-lg font-bold text-warning mt-0.5">
+                {insights.payment_behavior.at_risk_tenants.filter((tenant) => tenant.risk_level === 'medium').length}
+              </p>
+            </div>
+            <div className="rounded-md border border-success/20 bg-success/5 p-2.5">
+              <p className="text-[11px] text-muted-foreground">Total at-risk tenants</p>
+              <p className="text-lg font-bold text-foreground mt-0.5">
+                {insights.payment_behavior.at_risk_tenants.length}
+              </p>
+            </div>
+          </div>
 
           {/* Payment Behavior */}
           <div>
@@ -261,11 +287,11 @@ export function FinancialIntelligence() {
                 <Lightbulb className="h-4 w-4 text-primary" />
                 <h4 className="text-sm font-semibold text-foreground">Recommendations</h4>
               </div>
-              <ul className="space-y-1">
+              <ul className="space-y-1.5">
                 {insights.recommendations.map((rec, i) => (
-                  <li key={i} className="text-xs text-muted-foreground flex gap-2">
-                    <span className="text-primary font-bold shrink-0">→</span>
-                    {rec}
+                  <li key={i} className="text-xs text-muted-foreground flex gap-2 rounded-md border border-border bg-muted/20 p-2">
+                    <span className="text-primary font-bold shrink-0">{i + 1}.</span>
+                    <span>{rec}</span>
                   </li>
                 ))}
               </ul>

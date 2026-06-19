@@ -1,61 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { useState, useEffect, useCallback, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { clearMfaSession } from '@/hooks/useMfa';
-
-interface Profile {
-  id: string;
-  user_id: string;
-  email: string;
-  name: string;
-  role: string;
-  phone: string | null;
-  avatar_url: string | null;
-}
-
-type MfaFactor = {
-  id: string;
-  factor_type?: string;
-  status?: string;
-  friendly_name?: string;
-};
-
-type MfaEnrollmentData = {
-  factorId: string;
-  qrCode: string;
-  secret: string;
-  uri: string | null;
-};
-
-type MfaState = {
-  isSupported: boolean;
-  isLoading: boolean;
-  isEnabled: boolean;
-  needsChallenge: boolean;
-  currentLevel: string | null;
-  nextLevel: string | null;
-  factors: MfaFactor[];
-};
-
-interface AuthContextType {
-  user: User | null;
-  session: Session | null;
-  profile: Profile | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ error: Error | null }>;
-  logout: () => Promise<void>;
-  signup: (email: string, password: string, name: string, role?: string, metadata?: Record<string, string>) => Promise<{ error: Error | null }>;
-  refreshSession: () => Promise<void>;
-  mfa: MfaState;
-  refreshMfaState: () => Promise<void>;
-  enrollMfaTotp: (friendlyName?: string) => Promise<{ data: MfaEnrollmentData | null; error: Error | null }>;
-  verifyMfaEnrollment: (factorId: string, code: string) => Promise<{ error: Error | null }>;
-  verifyMfaChallenge: (code: string) => Promise<{ error: Error | null }>;
-  disableMfa: (password: string, code: string) => Promise<{ error: Error | null }>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { AuthContext, Profile, MfaFactor, MfaEnrollmentData, MfaState } from './auth-context-shared';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -72,7 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     factors: [],
   });
 
-  const getMfaApi = () => (supabase.auth as any).mfa;
+  const getMfaApi = () => supabase.auth.mfa;
 
   const logMfaClient = (step: string, details?: Record<string, unknown>) => {
     console.info('[MFA][Client]', step, details ?? {});
@@ -590,12 +537,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 }

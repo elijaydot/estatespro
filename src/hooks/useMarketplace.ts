@@ -31,6 +31,36 @@ export interface CrmLead {
   contact_phone?: string | null;
 }
 
+export interface CrmLeadActivity {
+  id: string;
+  lead_id: string;
+  activity_type: 'inquiry' | 'call' | 'sms' | 'whatsapp' | 'email' | 'note' | 'viewing' | 'status_change';
+  channel: string | null;
+  actor_user_id: string | null;
+  payload_json: Record<string, unknown>;
+  occurred_at: string;
+  created_at: string;
+}
+
+export interface CrmLeadTask {
+  id: string;
+  lead_id: string;
+  task_type: string;
+  owner_user_id: string;
+  due_at: string;
+  status: 'open' | 'done' | 'canceled';
+  notes: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface CrmAssignableUser {
+  user_id: string;
+  role: string;
+  name: string;
+  email: string;
+}
+
 export interface ManagedMarketplaceListing {
   id: string;
   company_id: string;
@@ -102,6 +132,29 @@ type LeadRow = {
   lost_reason: string | null;
   marketplace_listings: { title: string | null; slug: string | null } | null;
   lead_contacts: Array<{ full_name: string | null; email: string | null; phone_e164: string | null }> | null;
+};
+
+type LeadActivityRow = {
+  id: string;
+  lead_id: string;
+  activity_type: CrmLeadActivity['activity_type'];
+  channel: string | null;
+  actor_user_id: string | null;
+  payload_json: unknown;
+  occurred_at: string;
+  created_at: string;
+};
+
+type LeadTaskRow = {
+  id: string;
+  lead_id: string;
+  task_type: string;
+  owner_user_id: string;
+  due_at: string;
+  status: CrmLeadTask['status'];
+  notes: string | null;
+  completed_at: string | null;
+  created_at: string;
 };
 
 type LeadStageUpdatePayload = {
@@ -241,6 +294,315 @@ export function useUpdateCrmLeadStage(companyId?: string | null) {
   });
 }
 
+export function useCrmLeadActivities(leadId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'crm-lead-activities', leadId],
+    queryFn: async () => {
+      if (!leadId) return [] as CrmLeadActivity[];
+
+      const { data, error } = await supabase
+        .from('lead_activities')
+        .select('id, lead_id, activity_type, channel, actor_user_id, payload_json, occurred_at, created_at')
+        .eq('lead_id', leadId)
+        .order('occurred_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      return ((data || []) as LeadActivityRow[]).map((row) => ({
+        ...row,
+        payload_json: row.payload_json && typeof row.payload_json === 'object'
+          ? (row.payload_json as Record<string, unknown>)
+          : {},
+      })) as CrmLeadActivity[];
+    },
+    enabled: !!leadId,
+  });
+}
+
+export function useCrmLeadTasks(leadId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'crm-lead-tasks', leadId],
+    queryFn: async () => {
+      if (!leadId) return [] as CrmLeadTask[];
+
+      const { data, error } = await supabase
+        .from('lead_tasks')
+        .select('id, lead_id, task_type, owner_user_id, due_at, status, notes, completed_at, created_at')
+        .eq('lead_id', leadId)
+        .order('due_at', { ascending: true })
+        .limit(100);
+
+      if (error) throw error;
+      return (data || []) as LeadTaskRow[] as CrmLeadTask[];
+    },
+    enabled: !!leadId,
+  });
+}
+
+export function useCrmAssignableUsers(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'crm-assignable-users', companyId],
+    queryFn: async () => {
+      if (!companyId) return [] as CrmAssignableUser[];
+
+      const { data: company, error: companyError } = await supabase
+        .from('companies')
+        .select('owner_id')
+        .eq('id', companyId)
+        .maybeSingle();
+
+      if (companyError) throw companyError;
+
+      const { data: members, error: memberError } = await supabase
+        .from('company_members')
+        .select('user_id, role, status')
+        .eq('company_id', companyId)
+        .eq('status', 'approved');
+
+      if (memberError) throw memberError;
+
+      const userRoleMap = new Map<string, string>();
+
+      if (company?.owner_id) userRoleMap.set(company.owner_id, 'landlord');
+
+      (members || []).forEach((member) => {
+        if (member?.user_id) {
+          userRoleMap.set(member.user_id, member.role || userRoleMap.get(member.user_id) || 'property_manager');
+        }
+      });
+
+      const userIds = Array.from(userRoleMap.keys());
+      if (userIds.length === 0) return [] as CrmAssignableUser[];
+
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id, name, email')
+        .in('user_id', userIds);
+
+      if (profileError) throw profileError;
+
+      const profileMap = new Map((profiles || []).map((profile) => [profile.user_id, profile]));
+
+      return userIds.map((userId) => {
+        const profile = profileMap.get(userId);
+        return {
+          user_id: userId,
+          role: userRoleMap.get(userId) || 'property_manager',
+          name: profile?.name || 'Team member',
+          email: profile?.email || 'No email',
+        };
+      });
+    },
+    enabled: !!companyId,
+  });
+}
+
+export function useAssignCrmLead(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      leadId,
+      assigneeUserId,
+      actorUserId,
+    }: {
+      leadId: string;
+      assigneeUserId: string | null;
+      actorUserId?: string | null;
+    }) => {
+      const { data, error } = await supabase
+        .from('leads')
+        .update({
+          assigned_to: assigneeUserId,
+          last_activity_at: new Date().toISOString(),
+        })
+        .eq('id', leadId)
+        .select('id, assigned_to')
+        .single();
+
+      if (error) throw error;
+
+      const payloadJson: Record<string, unknown> = { assigned_to: assigneeUserId };
+
+      const { error: activityError } = await supabase.from('lead_activities').insert({
+        lead_id: leadId,
+        activity_type: 'status_change',
+        channel: 'internal',
+        actor_user_id: actorUserId || null,
+        payload_json: payloadJson,
+        occurred_at: new Date().toISOString(),
+      });
+
+      if (activityError) throw activityError;
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-lead-activities'] });
+      toast({ title: 'Lead Assignment Updated', description: 'Lead owner updated successfully.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Assignment Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useCreateCrmLeadTask(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      leadId,
+      ownerUserId,
+      dueAt,
+      notes,
+      taskType,
+    }: {
+      leadId: string;
+      ownerUserId: string;
+      dueAt: string;
+      notes?: string;
+      taskType?: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('lead_tasks')
+        .insert({
+          lead_id: leadId,
+          task_type: taskType || 'follow_up',
+          owner_user_id: ownerUserId,
+          due_at: dueAt,
+          status: 'open',
+          notes: notes || null,
+        })
+        .select('id, lead_id, task_type, owner_user_id, due_at, status, notes, completed_at, created_at')
+        .single();
+
+      if (error) throw error;
+      return data as CrmLeadTask;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-lead-tasks', variables.leadId] });
+      toast({ title: 'Task Created', description: 'Follow-up task added to lead workflow.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Task Create Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateCrmLeadTaskStatus(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      taskId,
+      leadId,
+      status,
+    }: {
+      taskId: string;
+      leadId: string;
+      status: CrmLeadTask['status'];
+    }) => {
+      const { data, error } = await supabase
+        .from('lead_tasks')
+        .update({
+          status,
+          completed_at: status === 'done' ? new Date().toISOString() : null,
+        })
+        .eq('id', taskId)
+        .select('id, lead_id, task_type, owner_user_id, due_at, status, notes, completed_at, created_at')
+        .single();
+
+      if (error) throw error;
+      return data as CrmLeadTask;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-lead-tasks', variables.leadId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
+      toast({ title: 'Task Updated', description: 'Task status updated.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Task Update Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useCreateCrmLeadNote(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      leadId,
+      actorUserId,
+      note,
+    }: {
+      leadId: string;
+      actorUserId?: string | null;
+      note: string;
+    }) => {
+      const cleanNote = note.trim();
+      if (!cleanNote) throw new Error('Note is required');
+
+      const { data, error } = await supabase
+        .from('lead_activities')
+        .insert({
+          lead_id: leadId,
+          activity_type: 'note',
+          channel: 'internal',
+          actor_user_id: actorUserId || null,
+          payload_json: { note: cleanNote },
+          occurred_at: new Date().toISOString(),
+        })
+        .select('id, lead_id, activity_type, channel, actor_user_id, payload_json, occurred_at, created_at')
+        .single();
+
+      if (error) throw error;
+      return data as CrmLeadActivity;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-lead-activities', variables.leadId] });
+      toast({ title: 'Note Added', description: 'Lead note saved.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Note Save Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useConvertCrmLead(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ leadId }: { leadId: string }) => {
+      const now = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('leads')
+        .update({
+          stage: 'converted',
+          status: 'won',
+          converted_at: now,
+          last_activity_at: now,
+        })
+        .eq('id', leadId)
+        .select('id, stage, status, converted_at')
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-lead-activities'] });
+      toast({ title: 'Lead Converted', description: 'Lead marked as converted and won.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Convert Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
 export function useManagedMarketplaceListings(companyId?: string | null) {
   return useQuery({
     queryKey: ['marketplace', 'managed-listings', companyId],
@@ -314,8 +676,8 @@ export function useModerationCases(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as ModerationCase[];
 
-      const { data, error } = await (supabase as any)
-        .from('moderation_cases')
+      const { data, error } = await supabase
+        .from('moderation_cases' as never)
         .select('id, entity_type, entity_id, reason_code, severity, state, queue, assigned_moderator, resolution_notes, opened_at, closed_at, created_at, updated_at')
         .eq('company_id', companyId)
         .order('opened_at', { ascending: true })

@@ -9,6 +9,11 @@ import { useValidateInviteToken, useMarkInviteUsed } from '@/hooks/useTenantInvi
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'Unable to create account.';
+};
+
 export default function TenantSignup() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -117,9 +122,9 @@ export default function TenantSignup() {
 
       toast({ title: 'Success', description: 'Account created successfully! You are now signed in.' });
       navigate('/tenant');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Signup error:', error);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }

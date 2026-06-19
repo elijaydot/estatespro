@@ -4,8 +4,21 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useSettings } from '@/contexts/SettingsContext';
-import { format, differenceInDays } from 'date-fns';
+import { useSettings } from '@/contexts/useSettings';
+import { differenceInDays } from 'date-fns';
+
+type InvoiceRow = {
+  id: string;
+  invoice_number: string | null;
+  amount: number;
+  paid_amount: number;
+  due_date: string;
+  status: string;
+  description: string | null;
+  tenants: { name: string | null } | null;
+  units: { unit_number: string | null } | null;
+  properties: { name: string | null } | null;
+};
 
 export function RentExpiryWidget() {
   const { formatCurrency } = useSettings();
@@ -35,7 +48,7 @@ export function RentExpiryWidget() {
         .limit(8);
 
       if (error) throw error;
-      return (data || []).map((inv: any) => ({
+      return ((data || []) as InvoiceRow[]).map((inv) => ({
         ...inv,
         daysUntilDue: differenceInDays(new Date(inv.due_date), now),
         balance: inv.amount - inv.paid_amount,

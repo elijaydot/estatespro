@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 
 export interface MfaStatus {
   enabled: boolean;
@@ -37,12 +37,22 @@ export function useMfaStatus() {
   return { status, loading, refresh };
 }
 
-async function invokeMfa<T = any>(fn: string, body?: Record<string, unknown>): Promise<T> {
+type FunctionInvokeErrorLike = {
+  message?: string;
+  context?: {
+    body?: {
+      text?: () => Promise<string>;
+    };
+  };
+};
+
+async function invokeMfa<T = unknown>(fn: string, body?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke(fn, { body: body ?? {} });
   if (error) {
     // Try to surface a meaningful error from the function response
-    const detail = (error as any).context?.body
-      ? await (error as any).context.body.text?.().catch(() => null)
+    const functionError = error as FunctionInvokeErrorLike;
+    const detail = functionError.context?.body
+      ? await functionError.context.body.text?.().catch(() => null)
       : null;
     let msg = error.message || 'Request failed';
     try { if (detail) msg = JSON.parse(detail).error || msg; } catch { /* noop */ }

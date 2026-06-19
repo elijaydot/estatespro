@@ -50,12 +50,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useInvoices, useCreateInvoice, useUpdateInvoice, type Invoice } from '@/hooks/useInvoices';
 import { useTenants, type Tenant } from '@/hooks/useTenants';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { format } from 'date-fns';
 
 type TenantWithRelations = Tenant & {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,23 @@ interface ActionContext {
   } | null;
 }
 
-const statusBadgeVariant = (status: string) => {
+type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
+
+type FunctionPayload = Record<string, unknown>;
+
+type FunctionResponse = {
+  error?: string;
+  message?: string;
+  success?: boolean;
+  checkoutUrl?: string;
+} & Record<string, unknown>;
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'Request failed.';
+};
+
+const statusBadgeVariant = (status: string): BadgeVariant => {
   if (status === 'confirmed' || status === 'paid') return 'default';
   if (status === 'cancelled' || status === 'no_show') return 'destructive';
   if (status === 'partial' || status === 'pending') return 'outline';
@@ -61,7 +77,7 @@ export default function GuestBookingActionPage() {
     return Math.max(0, Number(context.invoice.amount) - Number(context.invoice.paid_amount));
   }, [context]);
 
-  const callFunction = async (body: Record<string, any>) => {
+  const callFunction = async (body: FunctionPayload) => {
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shortlet-booking-email`, {
       method: 'POST',
       headers: {
@@ -73,9 +89,9 @@ export default function GuestBookingActionPage() {
     });
 
     const text = await response.text();
-    let data: any = null;
+    let data: FunctionResponse | null = null;
     try {
-      data = text ? JSON.parse(text) : null;
+      data = text ? (JSON.parse(text) as FunctionResponse) : null;
     } catch {
       data = { error: text || `HTTP ${response.status}` };
     }
@@ -87,7 +103,7 @@ export default function GuestBookingActionPage() {
     return data;
   };
 
-  const callCheckoutFunction = async (path: 'payment-checkout' | 'verify-payment', body: Record<string, any>) => {
+  const callCheckoutFunction = async (path: 'payment-checkout' | 'verify-payment', body: FunctionPayload) => {
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${path}`, {
       method: 'POST',
       headers: {
@@ -99,9 +115,9 @@ export default function GuestBookingActionPage() {
     });
 
     const text = await response.text();
-    let data: any = null;
+    let data: FunctionResponse | null = null;
     try {
-      data = text ? JSON.parse(text) : null;
+      data = text ? (JSON.parse(text) as FunctionResponse) : null;
     } catch {
       data = { error: text || `HTTP ${response.status}` };
     }
@@ -113,7 +129,7 @@ export default function GuestBookingActionPage() {
     return data;
   };
 
-  const loadContext = async () => {
+  const loadContext = useCallback(async () => {
     if (!token) {
       setError('Missing booking action token.');
       setLoading(false);
@@ -122,16 +138,16 @@ export default function GuestBookingActionPage() {
 
     try {
       const data = await callFunction({ operation: 'get_action_context', token });
-      setContext(data);
+      setContext(data as unknown as ActionContext);
       setError('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to load booking details');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || 'Failed to load booking details');
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
-  const submitAction = async (action: 'accept' | 'cancel' | 'pay', amount?: number) => {
+  const submitAction = useCallback(async (action: 'accept' | 'cancel' | 'pay', amount?: number) => {
     if (!token) return;
     setSubmitting(true);
     setError('');
@@ -149,17 +165,17 @@ export default function GuestBookingActionPage() {
 
       setSuccessMessage(data?.message || 'Action completed successfully.');
       await loadContext();
-    } catch (err: any) {
-      setError(err.message || 'Failed to complete request.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || 'Failed to complete request.');
     } finally {
       setSubmitting(false);
       setActionHandled(true);
     }
-  };
+  }, [token, paymentMethod, paymentReference, loadContext]);
 
   useEffect(() => {
     void loadContext();
-  }, [token]);
+  }, [loadContext]);
 
   useEffect(() => {
     if (!context || actionHandled) return;
@@ -169,7 +185,7 @@ export default function GuestBookingActionPage() {
     if (actionFromLink === 'cancel') {
       void submitAction('cancel');
     }
-  }, [context, actionFromLink, actionHandled]);
+  }, [context, actionFromLink, actionHandled, submitAction]);
 
   useEffect(() => {
     const paymentReturn = searchParams.get('payment_return');
@@ -192,13 +208,13 @@ export default function GuestBookingActionPage() {
 
         setSuccessMessage('Payment verified and recorded successfully.');
         await loadContext();
-      } catch (err: any) {
-        setError(err.message || 'Unable to verify payment.');
+      } catch (err: unknown) {
+        setError(getErrorMessage(err) || 'Unable to verify payment.');
       }
     };
 
     void verify();
-  }, [searchParams, token]);
+  }, [searchParams, token, loadContext]);
 
   const startProviderPayment = async () => {
     if (!token || remainingAmount <= 0) return;
@@ -223,9 +239,9 @@ export default function GuestBookingActionPage() {
         throw new Error(data?.error || 'No checkout URL returned');
       }
 
-      window.location.href = data.checkoutUrl;
-    } catch (err: any) {
-      setError(err.message || 'Unable to start checkout.');
+      window.location.href = String(data.checkoutUrl);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || 'Unable to start checkout.');
     } finally {
       setCheckoutLoading(false);
     }
@@ -273,13 +289,13 @@ export default function GuestBookingActionPage() {
             <p><strong>Total:</strong> {Number(context?.booking.total_amount || 0).toLocaleString()}</p>
 
             <div className="flex flex-wrap gap-2 pt-1">
-              <Badge variant={statusBadgeVariant(context?.booking.status || '') as any}>
+              <Badge variant={statusBadgeVariant(context?.booking.status || '')}>
                 Booking: {(context?.booking.status || '').replace('_', ' ')}
               </Badge>
-              <Badge variant={statusBadgeVariant(context?.booking.payment_status || '') as any}>
+              <Badge variant={statusBadgeVariant(context?.booking.payment_status || '')}>
                 Payment: {(context?.booking.payment_status || '').replace('_', ' ')}
               </Badge>
-              <Badge variant={statusBadgeVariant(context?.booking.guest_response_status || '') as any}>
+              <Badge variant={statusBadgeVariant(context?.booking.guest_response_status || '')}>
                 Response: {(context?.booking.guest_response_status || '').replace('_', ' ')}
               </Badge>
             </div>

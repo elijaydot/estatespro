@@ -62,44 +62,51 @@ serve(async (req) => {
     const payments = paymentsRes.data || [];
     const maintenance = maintenanceRes.data || [];
 
+    type PriorityKey = "urgent" | "high" | "medium" | "low";
+
     // Build analytics context
     const totalUnits = units.length;
-    const occupiedUnits = units.filter((u: any) => u.status === "occupied").length;
-    const vacantUnits = units.filter((u: any) => u.status === "vacant").length;
+    const occupiedUnits = units.filter((u) => u.status === "occupied").length;
+    const vacantUnits = units.filter((u) => u.status === "vacant").length;
     const occupancyRate = totalUnits > 0 ? ((occupiedUnits / totalUnits) * 100).toFixed(1) : "0";
 
-    const totalInvoiced = invoices.reduce((s: number, i: any) => s + (i.amount || 0), 0);
-    const totalPaid = invoices.reduce((s: number, i: any) => s + (i.paid_amount || 0), 0);
-    const overdueInvoices = invoices.filter((i: any) => i.status === "overdue" || (i.status !== "paid" && new Date(i.due_date) < new Date()));
+    const totalInvoiced = invoices.reduce((s: number, i) => s + (i.amount || 0), 0);
+    const totalPaid = invoices.reduce((s: number, i) => s + (i.paid_amount || 0), 0);
+    const overdueInvoices = invoices.filter((i) => i.status === "overdue" || (i.status !== "paid" && new Date(i.due_date) < new Date()));
 
-    const activeLeasesExpiring = leases.filter((l: any) => {
+    const activeLeasesExpiring = leases.filter((l) => {
       const end = new Date(l.end_date);
       const now = new Date();
       const threeMonths = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
       return l.status === "active" && end <= threeMonths && end > now;
     });
 
-    const maintenancePending = maintenance.filter((m: any) => m.status !== "completed" && m.status !== "cancelled");
+    const maintenancePending = maintenance.filter((m) => m.status !== "completed" && m.status !== "cancelled");
     const maintenanceByPriority = { urgent: 0, high: 0, medium: 0, low: 0 };
-    maintenance.forEach((m: any) => { if (m.priority in maintenanceByPriority) (maintenanceByPriority as any)[m.priority]++; });
+    maintenance.forEach((m) => {
+      if (m.priority in maintenanceByPriority) {
+        const priority = m.priority as PriorityKey;
+        maintenanceByPriority[priority] += 1;
+      }
+    });
 
     const dataContext = `
 PORTFOLIO SUMMARY:
 - Properties: ${properties.length}
 - Total Units: ${totalUnits} (Occupied: ${occupiedUnits}, Vacant: ${vacantUnits})
 - Occupancy Rate: ${occupancyRate}%
-- Active Tenants: ${tenants.filter((t: any) => t.status === "active").length}
+- Active Tenants: ${tenants.filter((t) => t.status === "active").length}
 
 FINANCIAL DATA:
 - Total Invoiced: ${totalInvoiced}
 - Total Collected: ${totalPaid}
 - Collection Rate: ${totalInvoiced > 0 ? ((totalPaid / totalInvoiced) * 100).toFixed(1) : "0"}%
-- Overdue Invoices: ${overdueInvoices.length} (Total: ${overdueInvoices.reduce((s: number, i: any) => s + (i.amount - i.paid_amount), 0)})
+- Overdue Invoices: ${overdueInvoices.length} (Total: ${overdueInvoices.reduce((s: number, i) => s + (i.amount - i.paid_amount), 0)})
 
 LEASE DATA:
-- Active Leases: ${leases.filter((l: any) => l.status === "active").length}
+- Active Leases: ${leases.filter((l) => l.status === "active").length}
 - Expiring in 90 days: ${activeLeasesExpiring.length}
-- Renewal Status: ${leases.filter((l: any) => l.renewal_status === "renewed").length} renewed, ${leases.filter((l: any) => l.renewal_status === "not_renewed").length} not renewed
+- Renewal Status: ${leases.filter((l) => l.renewal_status === "renewed").length} renewed, ${leases.filter((l) => l.renewal_status === "not_renewed").length} not renewed
 
 MAINTENANCE:
 - Total Requests: ${maintenance.length}
@@ -107,18 +114,18 @@ MAINTENANCE:
 - By Priority: Urgent: ${maintenanceByPriority.urgent}, High: ${maintenanceByPriority.high}, Medium: ${maintenanceByPriority.medium}, Low: ${maintenanceByPriority.low}
 
 PROPERTY DETAILS:
-${properties.map((p: any) => `- ${p.name}: ${p.occupied_units}/${p.total_units} units occupied`).join("\n")}
+${properties.map((p) => `- ${p.name}: ${p.occupied_units}/${p.total_units} units occupied`).join("\n")}
 
 LEASE DETAILS (expiring soon):
-${activeLeasesExpiring.map((l: any) => {
-  const tenant = tenants.find((t: any) => t.id === l.tenant_id);
+${activeLeasesExpiring.map((l) => {
+  const tenant = tenants.find((t) => t.id === l.tenant_id);
   return `- ${l.lease_number}: ${tenant?.name || "Unknown"}, ends ${l.end_date}, rent ${l.monthly_rent}`;
 }).join("\n")}
 
 MONTHLY PAYMENT TRENDS:
 ${(() => {
   const monthlyPayments: Record<string, number> = {};
-  payments.forEach((p: any) => {
+  payments.forEach((p) => {
     const month = p.created_at?.substring(0, 7);
     if (month) monthlyPayments[month] = (monthlyPayments[month] || 0) + (p.amount || 0);
   });

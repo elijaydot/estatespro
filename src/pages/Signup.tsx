@@ -1,6 +1,6 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Eye, EyeOff, Check, Building2, UserCog } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
-const db = supabase as any;
+const db = supabase;
 
 type SignupRole = 'landlord' | 'property_manager';
 
@@ -17,6 +17,19 @@ interface Company {
   id: string;
   name: string;
 }
+
+type PmInviteValidationResponse = {
+  invite?: {
+    email: string;
+    company_id: string;
+    company_name?: string | null;
+  } | null;
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'Unknown signup error';
+};
 
 export default function Signup() {
   const [name, setName] = useState('');
@@ -56,7 +69,7 @@ export default function Signup() {
       setRole('property_manager');
       supabase.functions
         .invoke('invite-token', { body: { operation: 'validate_pm', token: pmInviteToken } })
-        .then(({ data }: any) => {
+        .then(({ data }: { data: PmInviteValidationResponse | null }) => {
           if (data?.invite) {
             setEmail(data.invite.email);
             setSelectedCompanyId(data.invite.company_id);
@@ -102,8 +115,8 @@ export default function Signup() {
       }
 
       navigate('/dashboard');
-    } catch (error: any) {
-      toast({ title: 'Signup failed', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Signup failed', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }

@@ -192,9 +192,9 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     return jsonResponse(req, { success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in send-maintenance-notification:", error);
-    return jsonResponse(req, { error: error.message }, 500);
+    return jsonResponse(req, { error: error instanceof Error ? error.message : "Internal server error" }, 500);
   }
 };
 

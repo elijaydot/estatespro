@@ -45,7 +45,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { SignaturePad, SignaturePadRef } from '@/components/ui/signature-pad';
 import { LeaseAttachments } from '@/components/leases/LeaseAttachments';
 import { toast } from '@/components/ui/use-toast';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 import { useLeases, useCreateLease, useUpdateLease, useDeleteLease, useSignLease, useUploadSignature, generateLeaseNumber } from '@/hooks/useLeases';
 import { useProperties } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
@@ -53,7 +53,7 @@ import { useTenants } from '@/hooks/useTenants';
 import { useCreateNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { DocumentIntelligence } from '@/components/ai/DocumentIntelligence';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -90,6 +90,42 @@ interface LeaseFormData {
   terms: string;
   special_conditions: string;
 }
+
+type LeaseTenant = {
+  name: string | null;
+  email: string | null;
+};
+
+type LeaseProperty = {
+  name: string | null;
+};
+
+type LeaseUnit = {
+  unit_number: string | null;
+};
+
+type LeaseRow = {
+  id: string;
+  tenant_id: string;
+  property_id: string;
+  unit_id: string;
+  lease_number: string;
+  start_date: string;
+  end_date: string;
+  monthly_rent: number;
+  security_deposit: number;
+  terms: string | null;
+  special_conditions: string | null;
+  status: string;
+  renewal_status?: string | null;
+  landlord_signature_url: string | null;
+  landlord_signed_at: string | null;
+  tenant_signature_url: string | null;
+  tenant_signed_at: string | null;
+  tenants?: LeaseTenant | null;
+  properties?: LeaseProperty | null;
+  units?: LeaseUnit | null;
+};
 
 const defaultFormData: LeaseFormData = {
   tenant_id: '',
@@ -130,8 +166,8 @@ export default function Leases() {
   const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [editingLease, setEditingLease] = useState<string | null>(null);
-  const [viewingLease, setViewingLease] = useState<any>(null);
-  const [signingLease, setSigningLease] = useState<any>(null);
+  const [viewingLease, setViewingLease] = useState<LeaseRow | null>(null);
+  const [signingLease, setSigningLease] = useState<LeaseRow | null>(null);
   const [formData, setFormData] = useState<LeaseFormData>(defaultFormData);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [leaseToDelete, setLeaseToDelete] = useState<string | null>(null);
@@ -150,6 +186,7 @@ export default function Leases() {
   }, [searchParams, setSearchParams]);
 
   const { data: leases = [], isLoading } = useLeases();
+  const typedLeases = leases as LeaseRow[];
   const { data: properties = [] } = useProperties();
   const { data: units = [] } = useUnits();
   const { data: tenants = [] } = useTenants();
@@ -182,17 +219,17 @@ export default function Leases() {
     description: t.email,
   }));
 
-  const filteredLeases = leases.filter(lease => {
+  const filteredLeases = typedLeases.filter(lease => {
     const q = searchQuery.toLowerCase();
     const matchesSearch = !q ||
       (lease.lease_number || '').toLowerCase().includes(q) ||
-      ((lease as any).tenants?.name || '').toLowerCase().includes(q);
+      (lease.tenants?.name || '').toLowerCase().includes(q);
     
     if (activeTab === 'all') return matchesSearch;
     return matchesSearch && lease.status === activeTab;
   });
 
-  const handleOpenDialog = (lease?: any) => {
+  const handleOpenDialog = (lease?: LeaseRow) => {
     if (lease) {
       setEditingLease(lease.id);
       setFormData({
@@ -274,12 +311,12 @@ export default function Leases() {
     }
   };
 
-  const handleSendForSignature = async (lease: any) => {
+  const handleSendForSignature = async (lease: LeaseRow) => {
     try {
       await updateLease.mutateAsync({ id: lease.id, status: 'pending_signature' });
       await createNotification.mutateAsync({
         title: 'Lease Sent for Signature',
-        message: `Lease ${lease.lease_number} has been sent to ${(lease as any).tenants?.name} for signature.`,
+        message: `Lease ${lease.lease_number} has been sent to ${lease.tenants?.name || 'tenant'} for signature.`,
         type: 'info',
         link: `/leases`,
       });
@@ -326,9 +363,9 @@ export default function Leases() {
       } else {
         URL.revokeObjectURL(htmlUrl);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error downloading PDF:', error);
-      toast({ title: 'Error', description: error.message || 'Failed to generate lease PDF', variant: 'destructive' });
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to generate lease PDF', variant: 'destructive' });
     }
   };
 
@@ -370,14 +407,14 @@ export default function Leases() {
   };
 
   const getLeaseStats = () => {
-    const active = leases.filter(l => l.status === 'active').length;
-    const pending = leases.filter(l => l.status === 'pending_signature').length;
-    const expiringSoon = leases.filter(l => {
+    const active = typedLeases.filter(l => l.status === 'active').length;
+    const pending = typedLeases.filter(l => l.status === 'pending_signature').length;
+    const expiringSoon = typedLeases.filter(l => {
       if (l.status !== 'active') return false;
       const daysUntilExpiry = differenceInDays(new Date(l.end_date), new Date());
       return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
     }).length;
-    return { active, pending, expiringSoon, total: leases.length };
+    return { active, pending, expiringSoon, total: typedLeases.length };
   };
 
   const stats = getLeaseStats();
@@ -496,9 +533,9 @@ export default function Leases() {
               </TableHeader>
               <TableBody>
                 {filteredLeases.map((lease) => {
-                  const tenant = (lease as any).tenants;
-                  const property = (lease as any).properties;
-                  const unit = (lease as any).units;
+                  const tenant = lease.tenants;
+                  const property = lease.properties;
+                  const unit = lease.units;
                   const daysRemaining = differenceInDays(new Date(lease.end_date), new Date());
 
                   return (
@@ -532,8 +569,8 @@ export default function Leases() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={renewalStatusColors[(lease as any).renewal_status || 'not_renewed'] || 'bg-muted'}>
-                          {getRenewalStatusLabel((lease as any).renewal_status || 'not_renewed')}
+                        <Badge variant="outline" className={renewalStatusColors[lease.renewal_status || 'not_renewed'] || 'bg-muted'}>
+                          {getRenewalStatusLabel(lease.renewal_status || 'not_renewed')}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -666,11 +703,11 @@ export default function Leases() {
               <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
                 <div>
                   <p className="text-sm text-muted-foreground">Tenant</p>
-                  <p className="font-medium">{(viewingLease as any).tenants?.name}</p>
+                  <p className="font-medium">{viewingLease.tenants?.name}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Property/Unit</p>
-                  <p className="font-medium">{(viewingLease as any).properties?.name} - {(viewingLease as any).units?.unit_number}</p>
+                  <p className="font-medium">{viewingLease.properties?.name} - {viewingLease.units?.unit_number}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Duration</p>
@@ -795,11 +832,11 @@ export default function Leases() {
       </AlertDialog>
 
       {/* Document Intelligence */}
-      <DocumentIntelligence leases={(leases || []).map(l => ({
+      <DocumentIntelligence leases={(typedLeases || []).map(l => ({
         id: l.id,
         lease_number: l.lease_number,
-        tenants: l.tenants ? { name: (l.tenants as any).name } : null,
-        properties: l.properties ? { name: (l.properties as any).name } : null,
+        tenants: l.tenants ? { name: l.tenants.name } : null,
+        properties: l.properties ? { name: l.properties.name } : null,
       }))} />
     </div>
   );

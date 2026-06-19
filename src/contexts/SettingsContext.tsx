@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './AuthContext';
+import { useAuth } from './useAuth';
+import { SettingsContext, SettingsContextType } from './settings-context-shared';
 
 export interface AppSettings {
   id?: string;
@@ -16,13 +17,6 @@ export interface AppSettings {
   leaseHeaderColor: string;
 }
 
-interface SettingsContextType {
-  settings: AppSettings;
-  isLoading: boolean;
-  updateSettings: (newSettings: Partial<AppSettings>) => Promise<void>;
-  formatCurrency: (amount: number) => string;
-}
-
 const defaultSettings: AppSettings = {
   currencyCode: 'RWF',
   currencySymbol: 'RWF',
@@ -36,7 +30,19 @@ const defaultSettings: AppSettings = {
   leaseHeaderColor: '#f0f7ff',
 };
 
-const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
+type AppSettingsRow = {
+  id: string;
+  currency_code: string;
+  currency_symbol: string;
+  default_country: string;
+  timezone: string;
+  date_format: string;
+  accent_color: string | null;
+  lease_font?: string | null;
+  lease_primary_color?: string | null;
+  lease_secondary_color?: string | null;
+  lease_header_color?: string | null;
+};
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
@@ -71,18 +77,19 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       }
 
       if (data) {
+        const settingsRow = data as unknown as AppSettingsRow;
         setSettings({
-          id: data.id,
-          currencyCode: data.currency_code,
-          currencySymbol: data.currency_symbol,
-          defaultCountry: data.default_country,
-          timezone: data.timezone,
-          dateFormat: data.date_format,
-          accentColor: data.accent_color || '#f59e0b',
-          leaseFont: (data as any).lease_font || 'Georgia',
-          leasePrimaryColor: (data as any).lease_primary_color || '#1e3a5f',
-          leaseSecondaryColor: (data as any).lease_secondary_color || '#2563eb',
-          leaseHeaderColor: (data as any).lease_header_color || '#f0f7ff',
+          id: settingsRow.id,
+          currencyCode: settingsRow.currency_code,
+          currencySymbol: settingsRow.currency_symbol,
+          defaultCountry: settingsRow.default_country,
+          timezone: settingsRow.timezone,
+          dateFormat: settingsRow.date_format,
+          accentColor: settingsRow.accent_color || '#f59e0b',
+          leaseFont: settingsRow.lease_font || 'Georgia',
+          leasePrimaryColor: settingsRow.lease_primary_color || '#1e3a5f',
+          leaseSecondaryColor: settingsRow.lease_secondary_color || '#2563eb',
+          leaseHeaderColor: settingsRow.lease_header_color || '#f0f7ff',
         });
       }
     } catch (error) {
@@ -135,12 +142,4 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       {children}
     </SettingsContext.Provider>
   );
-}
-
-export function useSettings() {
-  const context = useContext(SettingsContext);
-  if (context === undefined) {
-    throw new Error('useSettings must be used within a SettingsProvider');
-  }
-  return context;
 }

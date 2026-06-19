@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { useProperties } from '@/hooks/useProperties';
+import { useProperties, type Property } from '@/hooks/useProperties';
 import { toast } from '@/components/ui/use-toast';
 
 export default function GuestBookingPortal() {
@@ -19,11 +19,11 @@ export default function GuestBookingPortal() {
   const [copied, setCopied] = useState(false);
 
   const shortLetProperties = useMemo(
-    () => properties.filter((property: any) => property.type === 'short_let'),
+    () => properties.filter((property: Property) => property.type === 'short_let'),
     [properties]
   );
 
-  const selectedProperty = shortLetProperties.find((property: any) => property.id === selectedPropertyId);
+  const selectedProperty = shortLetProperties.find((property: Property) => property.id === selectedPropertyId);
 
   const bookingLink = selectedPropertyId
     ? `${window.location.origin}/book/${selectedPropertyId}`
@@ -77,7 +77,7 @@ export default function GuestBookingPortal() {
                 <SelectValue placeholder={isLoading ? 'Loading properties...' : 'Select a short-let property'} />
               </SelectTrigger>
               <SelectContent>
-                {shortLetProperties.map((property: any) => (
+                {shortLetProperties.map((property: Property) => (
                   <SelectItem key={property.id} value={property.id}>
                     {property.name}
                   </SelectItem>

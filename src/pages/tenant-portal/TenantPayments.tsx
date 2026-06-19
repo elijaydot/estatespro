@@ -35,10 +35,50 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, differenceInDays } from 'date-fns';
+
+type TenantInvoicePayment = {
+  id: string;
+  amount: number;
+  paid_amount: number;
+  due_date: string;
+  description: string | null;
+  status: string;
+};
+
+type TenantPayment = {
+  id: string;
+  created_at: string;
+  method: string;
+  amount: number;
+  status: string | null;
+  invoices: {
+    description: string | null;
+    due_date: string | null;
+  } | null;
+};
+
+type TenantRecurringBill = {
+  id: string;
+  name: string;
+  bill_type: string;
+  frequency: string;
+  amount: number;
+};
+
+type TenantPaymentSettings = {
+  paystack_enabled?: boolean;
+  flutterwave_enabled?: boolean;
+  payment_instructions?: string | null;
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -74,31 +114,20 @@ export default function TenantPayments() {
   const [gateway, setGateway] = useState<'paystack' | 'flutterwave'>('paystack');
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!portalData || !portalData.tenant) {
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <div className="text-center py-12">
-          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-xl font-semibold">Account Not Linked</h2>
-          <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-            Your account hasn't been linked to a tenant profile yet. 
-            Please contact your property manager for assistance.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const { stats, nextPayment, invoices, payments, paymentSettings } = portalData;
+  const stats = portalData?.stats ?? {
+    monthlyRent: 0,
+    balance: 0,
+    totalAmount: 0,
+    totalPaid: 0,
+    totalMonthlyDue: 0,
+    pending: 0,
+    paid: 0,
+  };
+  const nextPayment = (portalData?.nextPayment || null) as TenantInvoicePayment | null;
+  const invoices = (portalData?.invoices || []) as TenantInvoicePayment[];
+  const payments = (portalData?.payments || []) as TenantPayment[];
+  const paymentSettings = (portalData?.paymentSettings || null) as TenantPaymentSettings | null;
+  const recurringBills = (portalData?.recurringBills || []) as TenantRecurringBill[];
 
   const availableGateways = useMemo(() => {
     const gateways: Array<{ value: 'paystack' | 'flutterwave'; label: string }> = [];
@@ -140,8 +169,8 @@ export default function TenantPayments() {
 
         toast({ title: 'Payment confirmed', description: 'Your payment was verified and recorded successfully.' });
         await queryClient.invalidateQueries({ queryKey: ['tenant_portal_data'] });
-      } catch (err: any) {
-        toast({ title: 'Verification failed', description: err.message || 'Could not verify payment.', variant: 'destructive' });
+      } catch (err: unknown) {
+        toast({ title: 'Verification failed', description: getErrorMessage(err, 'Could not verify payment.'), variant: 'destructive' });
       } finally {
         setSearchParams((prev) => {
           const next = new URLSearchParams(prev);
@@ -166,20 +195,20 @@ export default function TenantPayments() {
     : 0;
 
   const handleExportHistory = () => {
-    const exportData = payments.map((p: any) => ({
-      payment_id: p.id,
-      date: format(new Date(p.created_at), 'yyyy-MM-dd'),
-      description: p.invoices?.description || 'Payment',
-      method: p.method,
-      amount: p.amount,
-      status: p.status || 'completed',
+    const exportData = payments.map((payment) => ({
+      payment_id: payment.id,
+      date: format(new Date(payment.created_at), 'yyyy-MM-dd'),
+      description: payment.invoices?.description || 'Payment',
+      method: payment.method,
+      amount: payment.amount,
+      status: payment.status || 'completed',
     }));
 
     downloadCsv('payment-history.csv', exportData);
     toast({ title: 'Export complete', description: 'Downloaded payment history as CSV.' });
   };
 
-  const handleDownloadReceipt = (payment: any) => {
+  const handleDownloadReceipt = (payment: TenantPayment) => {
     downloadCsv(`receipt-${payment.id.slice(0, 8)}.csv`, [
       {
         payment_id: payment.id,
@@ -224,12 +253,35 @@ export default function TenantPayments() {
       if (!data?.checkoutUrl) throw new Error(data?.error || 'No checkout URL returned');
 
       window.location.href = data.checkoutUrl;
-    } catch (err: any) {
-      toast({ title: 'Checkout failed', description: err.message || 'Unable to start checkout.', variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Checkout failed', description: getErrorMessage(err, 'Unable to start checkout.'), variant: 'destructive' });
     } finally {
       setCheckoutLoading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!portalData || !portalData.tenant) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="text-center py-12">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold">Account Not Linked</h2>
+          <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+            Your account hasn't been linked to a tenant profile yet.
+            Please contact your property manager for assistance.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -308,14 +360,14 @@ export default function TenantPayments() {
       </div>
 
       {/* Recurring Bills Breakdown */}
-      {portalData.recurringBills && portalData.recurringBills.length > 0 && (
+      {recurringBills.length > 0 && (
         <Card className="card-shadow-md">
           <CardHeader>
             <CardTitle className="text-lg">Recurring Bills</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {portalData.recurringBills.map((bill: any) => (
+              {recurringBills.map((bill) => (
                 <div key={bill.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                   <div>
                     <p className="font-medium text-sm">{bill.name}</p>
@@ -394,7 +446,7 @@ export default function TenantPayments() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((payment: any) => (
+                {payments.map((payment) => (
                   <TableRow key={payment.id}>
                     <TableCell>{format(new Date(payment.created_at), 'MMM d, yyyy')}</TableCell>
                     <TableCell>{payment.invoices?.description || 'Payment'}</TableCell>

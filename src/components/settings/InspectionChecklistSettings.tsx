@@ -1,17 +1,15 @@
 import { useState } from 'react';
-import { Plus, Trash2, ClipboardCheck, Building2, Globe, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Building2, Globe, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { useProperties } from '@/hooks/useProperties';
-import { useDefaultChecklist } from '@/hooks/useTenantExits';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -26,7 +24,24 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-const db = supabase as any;
+const db = supabase;
+
+type ChecklistItem = {
+  id: string;
+  item_name: string;
+  item_category: string;
+  property_id?: string | null;
+};
+
+type PropertyOption = {
+  id: string;
+  name: string;
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'Unknown error';
+};
 
 const CATEGORIES = [
   { value: 'structure', label: '🏗️ Structure' },
@@ -80,7 +95,13 @@ export function InspectionChecklistSettings() {
     mutationFn: async () => {
       if (!newItemName.trim()) throw new Error('Item name is required');
       if (!user?.id) throw new Error('Not authenticated');
-      const row: any = {
+      const row: {
+        item_name: string;
+        item_category: string;
+        user_id: string;
+        is_global: boolean;
+        property_id?: string;
+      } = {
         item_name: newItemName.trim(),
         item_category: newItemCategory,
         user_id: user.id,
@@ -99,7 +120,7 @@ export function InspectionChecklistSettings() {
       setNewItemName('');
       toast({ title: 'Item Added', description: 'Checklist item has been added.' });
     },
-    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+    onError: (error: unknown) => toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' }),
   });
 
   const deleteItem = useMutation({
@@ -113,15 +134,15 @@ export function InspectionChecklistSettings() {
       queryClient.invalidateQueries({ queryKey: ['default-checklist'] });
       toast({ title: 'Item Removed' });
     },
-    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+    onError: (error: unknown) => toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' }),
   });
 
-  const items = isGlobalMode ? globalItems : propertyItems;
+  const items = (isGlobalMode ? globalItems : propertyItems) as ChecklistItem[];
   const isLoading = isGlobalMode ? loadingGlobal : loadingProperty;
 
   // Group by category
-  const grouped: Record<string, any[]> = {};
-  (items || []).forEach((item: any) => {
+  const grouped: Record<string, ChecklistItem[]> = {};
+  (items || []).forEach((item) => {
     if (!grouped[item.item_category]) grouped[item.item_category] = [];
     grouped[item.item_category].push(item);
   });
@@ -155,7 +176,7 @@ export function InspectionChecklistSettings() {
                   <SelectValue placeholder="Choose a property..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {properties.map((p: any) => (
+                  {(properties as PropertyOption[]).map((p) => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -222,7 +243,7 @@ export function InspectionChecklistSettings() {
                   {CATEGORIES.find(c => c.value === category)?.label || category}
                 </h4>
                 <div className="space-y-1">
-                  {categoryItems.map((item: any) => (
+                  {categoryItems.map((item) => (
                     <div key={item.id} className="flex items-center justify-between rounded-md border px-3 py-2 hover:bg-muted/50">
                       <span className="text-sm">{item.item_name}</span>
                       <AlertDialog>

@@ -139,8 +139,8 @@ serve(async (req: Request) => {
     }
 
     return jsonResponse(req, { error: "Unsupported operation" }, 400);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("invite-token error:", error);
-    return jsonResponse(req, { error: error?.message || "Internal server error" }, 500);
+    return jsonResponse(req, { error: error instanceof Error ? error.message : "Internal server error" }, 500);
   }
 });

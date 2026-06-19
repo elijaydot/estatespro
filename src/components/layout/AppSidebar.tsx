@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import {
   LayoutDashboard,
@@ -36,7 +36,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 
 interface AppSidebarProps {
   mobile?: boolean;
@@ -207,12 +207,15 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
               )}
             </div>
           ) : (
-            <Link to="/dashboard" className="flex items-center gap-3" onClick={onNavigate}>
+            <Link to="/dashboard" className="group flex items-center gap-3" onClick={onNavigate}>
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground font-bold text-lg">
                 FG
               </div>
               {!collapsedView && (
-                <span className="font-semibold text-lg text-sidebar-foreground">FishGate</span>
+                <div className="min-w-0">
+                  <p className="font-display font-semibold text-lg leading-tight text-sidebar-foreground">FishGate</p>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-sidebar-foreground/55">Portfolio OS</p>
+                </div>
               )}
             </Link>
           )}
@@ -230,6 +233,14 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 sidebar-scroll">
+          {!mobile && !collapsedView && (
+            <div className="mb-4 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/50 backdrop-blur-sm p-3">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-sidebar-foreground/55">Today Focus</p>
+              <p className="mt-1 text-sm font-medium text-sidebar-foreground truncate">{profile?.name || 'Team member'}</p>
+              <p className="text-xs text-sidebar-foreground/65 truncate">Prioritize payment exceptions, maintenance blockers, and renewals.</p>
+            </div>
+          )}
+
           {mobile && (
             <div className="mb-4 p-3 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/60">
               <p className="text-[11px] uppercase tracking-[0.12em] text-sidebar-foreground/60 mb-2">Quick actions</p>
@@ -256,11 +267,11 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             {navSections.map((section) => (
               <div key={section.title}>
                 {!collapsedView && (
-                  <p className="px-3 mb-1.5 text-[11px] uppercase tracking-[0.14em] text-sidebar-foreground/45">
+                  <p className="px-3 mb-1.5 text-[11px] font-display uppercase tracking-[0.14em] text-sidebar-foreground/45">
                     {section.title}
                   </p>
                 )}
@@ -273,15 +284,16 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
                         <Link
                           to={item.href}
                           onClick={onNavigate}
+                          title={collapsedView ? item.label : undefined}
                           className={cn(
-                            'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                            'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
                             isActive
-                              ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                              ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
+                              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground hover:translate-x-0.5'
                           )}
                         >
                           {isActive && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-sidebar-primary-foreground/85" aria-hidden />}
-                          <item.icon className="h-5 w-5 flex-shrink-0" />
+                          <item.icon className={cn('h-5 w-5 flex-shrink-0 transition-transform duration-200', !isActive && 'group-hover:scale-105')} />
                           {!collapsedView && <span>{item.label}</span>}
                         </Link>
                       </li>
@@ -303,11 +315,12 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
                   <Link
                     to={item.href}
                     onClick={onNavigate}
+                    title={collapsedView ? item.label : undefined}
                     className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
                       isActive
-                        ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                        ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
+                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground hover:translate-x-0.5'
                     )}
                   >
                     <item.icon className="h-5 w-5 flex-shrink-0" />
@@ -343,7 +356,7 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
                 variant="ghost"
                 size="icon"
                 onClick={() => void handleLogout()}
-                className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                className="text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-colors"
               >
                 <LogOut className="h-4 w-4" />
               </Button>

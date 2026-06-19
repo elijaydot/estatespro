@@ -14,8 +14,17 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 import { supabase } from '@/integrations/supabase/client';
+
+type RecurringBillRow = {
+  id: string;
+  name: string;
+  bill_type: string;
+  amount: number;
+  frequency: string;
+  description: string | null;
+};
 
 const getBillIcon = (type: string) => {
   switch (type) {
@@ -94,15 +103,17 @@ export default function TenantRecurringBills() {
     );
   }
 
+  const billRows = recurringBills as RecurringBillRow[];
+
   // Group bills by frequency
-  const monthlyBills = recurringBills.filter((b: any) => b.frequency === 'monthly');
-  const quarterlyBills = recurringBills.filter((b: any) => b.frequency === 'quarterly');
-  const yearlyBills = recurringBills.filter((b: any) => b.frequency === 'yearly');
+  const monthlyBills = billRows.filter((b) => b.frequency === 'monthly');
+  const quarterlyBills = billRows.filter((b) => b.frequency === 'quarterly');
+  const yearlyBills = billRows.filter((b) => b.frequency === 'yearly');
 
   // Calculate totals
-  const monthlyTotal = monthlyBills.reduce((sum: number, b: any) => sum + b.amount, 0);
-  const quarterlyMonthly = quarterlyBills.reduce((sum: number, b: any) => sum + b.amount / 3, 0);
-  const yearlyMonthly = yearlyBills.reduce((sum: number, b: any) => sum + b.amount / 12, 0);
+  const monthlyTotal = monthlyBills.reduce((sum, b) => sum + b.amount, 0);
+  const quarterlyMonthly = quarterlyBills.reduce((sum, b) => sum + b.amount / 3, 0);
+  const yearlyMonthly = yearlyBills.reduce((sum, b) => sum + b.amount / 12, 0);
   const effectiveMonthlyTotal = monthlyTotal + quarterlyMonthly + yearlyMonthly;
 
   return (
@@ -170,7 +181,7 @@ export default function TenantRecurringBills() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {recurringBills.map((bill: any) => {
+          {billRows.map((bill) => {
             const IconComponent = getBillIcon(bill.bill_type);
             return (
               <Card key={bill.id} className="card-shadow-md">
@@ -217,7 +228,7 @@ export default function TenantRecurringBills() {
                 <div>
                   <h4 className="font-medium text-sm text-muted-foreground mb-2">Monthly Bills</h4>
                   <div className="space-y-2">
-                    {monthlyBills.map((bill: any) => (
+                    {monthlyBills.map((bill) => (
                       <div key={bill.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                         <span>{bill.name}</span>
                         <span className="font-semibold">{formatCurrency(bill.amount)}</span>
@@ -230,7 +241,7 @@ export default function TenantRecurringBills() {
                 <div>
                   <h4 className="font-medium text-sm text-muted-foreground mb-2">Quarterly Bills</h4>
                   <div className="space-y-2">
-                    {quarterlyBills.map((bill: any) => (
+                    {quarterlyBills.map((bill) => (
                       <div key={bill.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                         <span>{bill.name}</span>
                         <span className="font-semibold">{formatCurrency(bill.amount)} / quarter</span>
@@ -243,7 +254,7 @@ export default function TenantRecurringBills() {
                 <div>
                   <h4 className="font-medium text-sm text-muted-foreground mb-2">Yearly Bills</h4>
                   <div className="space-y-2">
-                    {yearlyBills.map((bill: any) => (
+                    {yearlyBills.map((bill) => (
                       <div key={bill.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                         <span>{bill.name}</span>
                         <span className="font-semibold">{formatCurrency(bill.amount)} / year</span>

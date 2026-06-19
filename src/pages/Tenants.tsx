@@ -53,21 +53,41 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { toast } from '@/components/ui/use-toast';
-import { useTenants, useCreateTenant, useDeleteTenant } from '@/hooks/useTenants';
-import { useProperties } from '@/hooks/useProperties';
-import { useUnits } from '@/hooks/useUnits';
-import { useTenantInvites } from '@/hooks/useTenantInvites';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useTenants, useCreateTenant, useDeleteTenant, type Tenant } from '@/hooks/useTenants';
+import { useProperties, type Property } from '@/hooks/useProperties';
+import { useUnits, type Unit } from '@/hooks/useUnits';
+import { useTenantInvites, type TenantInvite } from '@/hooks/useTenantInvites';
+import { useSettings } from '@/contexts/useSettings';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { PortalStatusBadge } from '@/components/tenants/PortalStatusBadge';
 import { InvitesManagement } from '@/components/invites/InvitesManagement';
 import { TenantPreviewCard } from '@/components/forms/TenantPreviewCard';
 import { ImageUpload } from '@/components/ui/image-upload';
-import { useTenantExits } from '@/hooks/useTenantExits';
+import { useTenantExits, type TenantExit } from '@/hooks/useTenantExits';
 import { Card, CardContent } from '@/components/ui/card';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
+
+type TenantRow = Tenant & {
+  units?: {
+    unit_number: string;
+  } | null;
+  properties?: {
+    name: string;
+  } | null;
+};
+
+type UnitRow = Unit & {
+  properties?: {
+    name: string;
+  } | null;
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'Unknown error';
+};
 
 const getLeaseStatusBadge = (leaseEndDate: string | null) => {
   if (!leaseEndDate) return <Badge className="bg-muted text-muted-foreground">No Lease</Badge>;
@@ -100,7 +120,7 @@ export default function Tenants() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
-  const [invitingTenant, setInvitingTenant] = useState<any>(null);
+  const [invitingTenant, setInvitingTenant] = useState<TenantRow | null>(null);
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [isCopyingLink, setIsCopyingLink] = useState(false);
   const [formData, setFormData] = useState({
@@ -137,31 +157,36 @@ export default function Tenants() {
   const deleteTenant = useDeleteTenant();
   const { data: tenantExits = [], isLoading: loadingExits } = useTenantExits();
   const [activeTab, setActiveTab] = useState('tenants');
+  const tenantRows = tenants as TenantRow[];
+  const inviteRows = invites as TenantInvite[];
+  const propertyRows = properties as Property[];
+  const unitRows = units as UnitRow[];
+  const tenantExitRows = tenantExits as TenantExit[];
 
   // Check if a tenant has a pending invite
   const hasPendingInvite = (tenantId: string) => {
-    return invites.some((invite: any) => 
+    return inviteRows.some((invite) => 
       invite.tenant_id === tenantId && 
       !invite.used_at && 
       !isPast(new Date(invite.expires_at))
     );
   };
 
-  const propertyOptions = properties.map((property: any) => ({
+  const propertyOptions = propertyRows.map((property) => ({
     value: property.id,
     label: property.name,
     description: `${property.city}, ${property.state}`,
   }));
 
-  const unitOptions = units
-    .filter((unit: any) => !formData.property_id || unit.property_id === formData.property_id)
-    .map((unit: any) => ({
+  const unitOptions = unitRows
+    .filter((unit) => !formData.property_id || unit.property_id === formData.property_id)
+    .map((unit) => ({
       value: unit.id,
       label: `Unit ${unit.unit_number}`,
       description: unit.properties?.name || '',
     }));
 
-  const filteredTenants = tenants.filter((tenant: any) => {
+  const filteredTenants = tenantRows.filter((tenant) => {
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (
@@ -220,7 +245,7 @@ export default function Tenants() {
     try {
       if (!user) throw new Error('Not authenticated');
 
-      const property = properties.find((p: any) => p.id === invitingTenant.property_id);
+      const property = propertyRows.find((p) => p.id === invitingTenant.property_id);
 
       const { data, error } = await supabase.functions.invoke('send-tenant-invite', {
         body: {
@@ -250,14 +275,14 @@ export default function Tenants() {
       
       setIsInviteDialogOpen(false);
       setInvitingTenant(null);
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setIsSendingInvite(false);
     }
   };
 
-  const handleCopyInviteLink = async (tenant: any) => {
+  const handleCopyInviteLink = async (tenant: TenantRow) => {
     setIsCopyingLink(true);
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -293,8 +318,8 @@ export default function Tenants() {
         title: 'Link Copied!', 
         description: 'Invite link copied to clipboard. Share it with your tenant via WhatsApp, SMS, or any messaging app.' 
       });
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setIsCopyingLink(false);
     }
@@ -373,7 +398,7 @@ export default function Tenants() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTenants.map((tenant: any) => (
+              {filteredTenants.map((tenant) => (
                 <TableRow key={tenant.id} className="hover:bg-muted/50">
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -527,8 +552,8 @@ export default function Tenants() {
             </div>
           ) : (
             <div className="space-y-3">
-              {tenantExits.map((exit: any) => {
-                const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
+              {tenantExitRows.map((exit) => {
+                const statusConfig: Record<string, { label: string; color: string; icon: typeof ClipboardCheck }> = {
                   inspection_pending: { label: 'Inspection Pending', color: 'bg-warning/10 text-warning border-warning/20', icon: ClipboardCheck },
                   inspection_complete: { label: 'Inspection Done', color: 'bg-info/10 text-info border-info/20', icon: ClipboardCheck },
                   deposit_decided: { label: 'Awaiting Approval', color: 'bg-primary/10 text-primary border-primary/20', icon: DollarSign },

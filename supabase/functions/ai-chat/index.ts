@@ -13,7 +13,7 @@ function jsonResponse(req: Request, body: unknown, status = 200) {
   });
 }
 
-async function getPortfolioContext(supabase: any, userId: string) {
+async function getPortfolioContext(supabase: ReturnType<typeof createClient>, userId: string) {
   const [propertiesRes, unitsRes, tenantsRes, maintenanceRes, paymentsRes] = await Promise.all([
     supabase.from('properties').select('id, name, total_units, occupied_units').eq('user_id', userId),
     supabase.from('units').select('id, status').eq('user_id', userId),
@@ -29,15 +29,15 @@ async function getPortfolioContext(supabase: any, userId: string) {
   const payments = paymentsRes.data || [];
 
   const occupancyRate = units.length > 0 
-    ? Math.round((units.filter((u: any) => u.status === 'occupied').length / units.length) * 100)
+    ? Math.round((units.filter((u) => u.status === 'occupied').length / units.length) * 100)
     : 0;
 
   const revenue30d = payments
-    .filter((p: any) => p.status === 'completed')
-    .reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+    .filter((p) => p.status === 'completed')
+    .reduce((sum: number, p) => sum + Number(p.amount), 0);
 
-  const activeTenants = tenants.filter((t: any) => t.status === 'active').length;
-  const pendingMaintenance = maintenance.filter((m: any) => m.status === 'submitted' || m.status === 'in_progress').length;
+  const activeTenants = tenants.filter((t) => t.status === 'active').length;
+  const pendingMaintenance = maintenance.filter((m) => m.status === 'submitted' || m.status === 'in_progress').length;
 
   return `
 Portfolio Summary:

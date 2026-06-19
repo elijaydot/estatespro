@@ -163,3 +163,30 @@ Expected: zero rows.
 3. Duplicate verify returns `alreadyProcessed = true`.
 4. Audit events are written and queryable.
 5. Duplicate `(invoice_id, reference)` query returns zero rows.
+
+## Webhook Replay Check (New)
+If webhook dead-letters exist, queue one replay request:
+
+```sql
+SELECT public.replay_webhook_dead_letter(
+  '<dead-letter-id>'::uuid,
+  'staging-operator',
+  'Runbook replay validation'
+);
+```
+
+Then verify an attempt row was queued:
+
+```sql
+SELECT
+  endpoint_id,
+  event_id,
+  attempt,
+  error_message,
+  next_retry_at,
+  created_at
+FROM public.webhook_delivery_attempts
+WHERE error_message = 'manual_replay_requested'
+ORDER BY created_at DESC
+LIMIT 10;
+```

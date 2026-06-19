@@ -39,7 +39,7 @@ export function useCompanySettings(companyId?: string | null) {
         } as CompanySettings;
       }
 
-      const { data: companyRow, error: companyError } = await (supabase as any)
+      const { data: companyRow, error: companyError } = await supabase
         .from('companies')
         .select('id, name, email, phone, address, logo_url, created_at, updated_at')
         .eq('id', companyId)
@@ -77,7 +77,7 @@ export function useUpdateCompanySettings(companyId?: string | null) {
       if (!user) throw new Error('Not authenticated');
       if (!companyId) throw new Error('No active company selected');
 
-      const { data: companyData, error: companyError } = await (supabase as any)
+      const { data: companyData, error: companyError } = await supabase
         .from('companies')
         .update({
           name: settings.company_name ?? null,

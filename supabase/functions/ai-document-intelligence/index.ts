@@ -55,7 +55,7 @@ serve(async (req) => {
         .in("id", leaseIds);
 
       if (leases?.length) {
-        leaseContext = leases.map((l: any, i: number) => `
+        leaseContext = leases.map((l, i: number) => `
 Lease ${i + 1}: ${l.lease_number}
 Property: ${l.properties?.name} (${l.properties?.address})
 Unit: ${l.units?.unit_number}
@@ -96,8 +96,8 @@ Tenant Signed: ${lease.tenant_signed_at ? "Yes" : "No"}
 
     let systemPrompt = "";
     let userPrompt = "";
-    let tools: any[] = [];
-    let toolChoice: any = undefined;
+  let tools: unknown[] = [];
+  let toolChoice: unknown = undefined;
 
     switch (action) {
       case "qa":
@@ -213,7 +213,7 @@ ${leaseContext}`;
         throw new Error("Invalid action. Use: qa, extract, summary, compare");
     }
 
-    const body: any = {
+    const body: Record<string, unknown> = {
       model: "google/gemini-3-flash-preview",
       messages: [
         { role: "system", content: systemPrompt },

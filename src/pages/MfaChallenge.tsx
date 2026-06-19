@@ -6,11 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
 import { consumeRecoveryCode, logSecurityEvent } from "@/lib/security";
 import { trustThisDevice } from "@/lib/trustedDevice";
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return "Unable to verify recovery code.";
+};
 
 export default function MfaChallenge() {
   const navigate = useNavigate();
@@ -103,10 +108,10 @@ export default function MfaChallenge() {
       await logSecurityEvent("mfa_challenge_passed", { method: "recovery_code", remembered_device: rememberDevice });
       toast({ title: "Recovery code accepted", description: "You are now signed in." });
       navigate(nextRoute, { replace: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Recovery check failed",
-        description: error?.message || "Unable to verify recovery code.",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {

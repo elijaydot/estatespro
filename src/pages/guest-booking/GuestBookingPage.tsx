@@ -20,6 +20,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+
+type GuestBookingErrorPayload = {
+  error?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+  code?: string;
+};
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
@@ -226,9 +234,9 @@ export default function GuestBookingPage() {
       );
 
       const rawText = await res.text();
-      let data: any = null;
+      let data: GuestBookingErrorPayload | null = null;
       try {
-        data = rawText ? JSON.parse(rawText) : null;
+        data = rawText ? (JSON.parse(rawText) as GuestBookingErrorPayload) : null;
       } catch {
         data = null;
       }

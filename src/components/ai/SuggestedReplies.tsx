@@ -5,7 +5,11 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 interface SuggestedRepliesProps {
-  messages: any[];
+  messages: Array<{
+    role?: string;
+    content?: string;
+    [key: string]: unknown;
+  }>;
   tenantName: string;
   onSelect: (reply: string) => void;
 }

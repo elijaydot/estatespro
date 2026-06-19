@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 
 export interface Booking {
   id: string;
@@ -29,6 +29,15 @@ export interface Booking {
   property_name?: string;
   unit_number?: string;
 }
+
+type BookingRow = Booking & {
+  properties?: {
+    name?: string;
+  } | null;
+  units?: {
+    unit_number?: string;
+  } | null;
+};
 
 export function useBookings(propertyId?: string) {
   const { activeCompanyId } = useActiveCompany();
@@ -64,7 +73,7 @@ export function useBookings(propertyId?: string) {
       const { data, error } = await query;
       if (error) throw error;
 
-      return (data || []).map((b: any) => ({
+      return ((data || []) as BookingRow[]).map((b) => ({
         ...b,
         property_name: b.properties?.name,
         unit_number: b.units?.unit_number,
@@ -125,7 +134,7 @@ export function useUpdateBooking() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; [key: string]: any }) => {
+    mutationFn: async ({ id, ...updates }: { id: string } & Record<string, unknown>) => {
       const { data, error } = await supabase
         .from('bookings')
         .update(updates)

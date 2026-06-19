@@ -1,9 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { toast } from '@/components/ui/use-toast';
 
-const db = supabase as any;
+const db = supabase;
+
+type DefaultChecklistItem = {
+  item_name: string;
+  item_category: string;
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'Unknown error';
+};
 
 export interface TenantExit {
   id: string;
@@ -132,8 +142,8 @@ export function useCreateTenantExit() {
       queryClient.invalidateQueries({ queryKey: ['tenant-exits'] });
       toast({ title: 'Exit Process Initiated', description: 'Tenant exit workflow has been started.' });
     },
-    onError: (error: any) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     },
   });
 }
@@ -142,7 +152,7 @@ export function useCreateTenantExit() {
 export function useUpdateTenantExit() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ exitId, data: updateData }: { exitId: string; data: Record<string, any> }) => {
+    mutationFn: async ({ exitId, data: updateData }: { exitId: string; data: Record<string, unknown> }) => {
       const { data, error } = await db
         .from('tenant_exits')
         .update({ ...updateData, updated_at: new Date().toISOString() })
@@ -156,8 +166,8 @@ export function useUpdateTenantExit() {
       queryClient.invalidateQueries({ queryKey: ['tenant-exit', variables.exitId] });
       queryClient.invalidateQueries({ queryKey: ['tenant-exits'] });
     },
-    onError: (error: any) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     },
   });
 }
@@ -199,8 +209,8 @@ export function useCreateInspectionItems() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['exit-inspection-items', variables.exitId] });
     },
-    onError: (error: any) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     },
   });
 }
@@ -210,7 +220,7 @@ export function useUpdateInspectionItem() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async ({ itemId, exitId, data: updateData }: { itemId: string; exitId: string; data: Record<string, any> }) => {
+    mutationFn: async ({ itemId, exitId, data: updateData }: { itemId: string; exitId: string; data: Record<string, unknown> }) => {
       const { data, error } = await db
         .from('exit_inspection_items')
         .update({
@@ -227,8 +237,8 @@ export function useUpdateInspectionItem() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['exit-inspection-items', variables.exitId] });
     },
-    onError: (error: any) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     },
   });
 }
@@ -246,7 +256,7 @@ export function useDefaultChecklist(propertyId: string | undefined) {
         .order('item_category');
       if (globalError) throw globalError;
 
-      let propertyItems: any[] = [];
+      let propertyItems: DefaultChecklistItem[] = [];
       if (propertyId) {
         const { data, error } = await db
           .from('default_inspection_checklist')
@@ -258,9 +268,9 @@ export function useDefaultChecklist(propertyId: string | undefined) {
       }
 
       // Merge: property-specific items override globals with same name
-      const propertyItemNames = new Set(propertyItems.map((i: any) => i.item_name));
+      const propertyItemNames = new Set(propertyItems.map((i) => i.item_name));
       const merged = [
-        ...globalItems.filter((g: any) => !propertyItemNames.has(g.item_name)),
+        ...(globalItems || []).filter((g: DefaultChecklistItem) => !propertyItemNames.has(g.item_name)),
         ...propertyItems,
       ];
       return merged;

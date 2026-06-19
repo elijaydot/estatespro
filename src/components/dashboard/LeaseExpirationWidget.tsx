@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useLeases, useUpdateLease } from '@/hooks/useLeases';
 import { useRenewLease, calculateRenewalDates } from '@/hooks/useLeaseRenewals';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 import { format, differenceInDays } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -49,7 +49,7 @@ export function LeaseExpirationWidget() {
   });
 
   // Get expiring leases (within 60 days)
-  const expiringLeases = (leases as any[])
+  const expiringLeases = (leases as LeaseWithDetails[])
     .filter((lease) => {
       if (lease.status !== 'active') return false;
       const daysUntilExpiry = differenceInDays(new Date(lease.end_date), new Date());

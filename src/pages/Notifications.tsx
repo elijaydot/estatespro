@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { useNotifications, useMarkAsRead, useMarkAllAsRead, useDeleteNotification, useClearAllNotifications, useUnreadNotificationsCount } from '@/hooks/useNotifications';
+import { useNotifications, useMarkAsRead, useMarkAllAsRead, useDeleteNotification, useClearAllNotifications, useUnreadNotificationsCount, type Notification } from '@/hooks/useNotifications';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useBroadcastAnnouncements } from '@/hooks/useBroadcasts';
 
@@ -59,7 +59,7 @@ export default function Notifications() {
     await deleteNotification.mutateAsync(id);
   };
 
-  const handleOpenNotification = async (notification: any) => {
+  const handleOpenNotification = async (notification: Notification) => {
     if (!notification.is_read) {
       await markAsRead.mutateAsync(notification.id);
     }

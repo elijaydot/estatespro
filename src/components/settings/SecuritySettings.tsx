@@ -27,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
 import { generateRecoveryCodes, saveRecoveryCodes, logSecurityEvent } from "@/lib/security";
@@ -190,8 +190,8 @@ export function SecuritySettings() {
   const loadActivity = async () => {
     if (!user?.id) return;
     setEventsLoading(true);
-    const { data, error } = await (supabase as any)
-      .from("security_audit_events")
+    const { data, error } = await supabase
+      .from("security_audit_events" as never)
       .select("id, event_type, metadata, created_at, ip_address, user_agent")
       .eq("user_id", user.id)
       .in("event_type", ACTIVITY_EVENT_TYPES)
@@ -325,10 +325,10 @@ export function SecuritySettings() {
         title: isRegenerate ? "Recovery codes regenerated" : "Recovery codes generated",
         description: "Save these one-time codes now — previous codes are no longer valid.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Failed to generate recovery codes",
-        description: error?.message || "Please try again.",
+        description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
     } finally {

@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback } from 'react';
 import { 
   Bold, Italic, Underline, List, ListOrdered, 
-  Link2, Quote, Code, Smile, Paperclip 
+  Link2, Quote, Code, Smile,
+  type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -74,7 +75,7 @@ export function RichTextEditor({
     }
   };
 
-  const ToolButton = ({ icon: Icon, onClick, title }: { icon: any; onClick: () => void; title: string }) => (
+  const ToolButton = ({ icon: Icon, onClick, title }: { icon: LucideIcon; onClick: () => void; title: string }) => (
     <Button
       type="button"
       variant="ghost"

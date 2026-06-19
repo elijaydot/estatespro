@@ -38,8 +38,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { toast } from '@/components/ui/use-toast';
-import { useProperties, useCreateProperty, useDeleteProperty } from '@/hooks/useProperties';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useProperties, useCreateProperty, useDeleteProperty, type Property } from '@/hooks/useProperties';
+import { useSettings } from '@/contexts/useSettings';
 import { PropertyPreviewCard } from '@/components/forms/PropertyPreviewCard';
 
 const propertyTypeOptions = [
@@ -103,7 +103,7 @@ export default function Properties() {
   const createProperty = useCreateProperty();
   const deleteProperty = useDeleteProperty();
 
-  const filteredProperties = properties.filter((property: any) => {
+  const filteredProperties = properties.filter((property) => {
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (
@@ -119,12 +119,15 @@ export default function Properties() {
       return;
     }
 
-    await createProperty.mutateAsync({ 
+    const payload: Omit<Property, 'id' | 'created_at' | 'updated_at' | 'user_id'> = {
       ...formData, 
       occupied_units: 0,
+      description: formData.description || null,
       image_url: formData.image_urls[0] || formData.image_url || null,
       image_urls: formData.image_urls,
-    } as any);
+    };
+
+    await createProperty.mutateAsync(payload);
     setIsAddDialogOpen(false);
     setFormData({
       name: '',
@@ -190,7 +193,7 @@ export default function Properties() {
       {/* Properties Grid */}
       {!isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProperties.map((property: any, index: number) => (
+          {filteredProperties.map((property, index: number) => (
             <Card
               key={property.id}
               className="overflow-hidden card-shadow-md hover:card-shadow-lg transition-all duration-200 animate-fade-in"

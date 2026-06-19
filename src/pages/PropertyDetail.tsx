@@ -42,11 +42,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { toast } from '@/components/ui/use-toast';
-import { useProperty, useUpdateProperty, useDeleteProperty } from '@/hooks/useProperties';
-import { useUnits } from '@/hooks/useUnits';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useProperty, useUpdateProperty, useDeleteProperty, type Property } from '@/hooks/useProperties';
+import { useUnits, type Unit } from '@/hooks/useUnits';
+import { useSettings } from '@/contexts/useSettings';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { GenerateDescriptionButton } from '@/components/ai/GenerateDescriptionButton';
+
+type PropertyWithImages = Property & {
+  image_urls?: string[] | null;
+};
+
+type UnitRow = Unit;
 
 const propertyTypeOptions = [
   { value: 'apartment', label: 'Apartment', description: 'Multi-unit residential building' },
@@ -90,6 +96,8 @@ export default function PropertyDetail() {
   const { data: allUnits = [] } = useUnits(id);
   const updateProperty = useUpdateProperty();
   const deleteProperty = useDeleteProperty();
+  const propertyWithImages = property as PropertyWithImages | undefined;
+  const unitRows = allUnits as UnitRow[];
 
   // Form state
   const [formData, setFormData] = useState({
@@ -121,11 +129,11 @@ export default function PropertyDetail() {
         total_units: property.total_units || 1,
         occupied_units: property.occupied_units || 0,
         description: property.description || '',
-        image_url: (property as any).image_url || '',
-        image_urls: (property as any).image_urls || [],
+        image_url: property.image_url || '',
+        image_urls: propertyWithImages?.image_urls || [],
       });
     }
-  }, [property]);
+  }, [property, propertyWithImages]);
 
   const isEditOpen = searchParams.get('edit') === 'true';
   const closeEdit = () => {
@@ -192,9 +200,9 @@ export default function PropertyDetail() {
     ? Math.round((property.occupied_units / property.total_units) * 100) 
     : 0;
   const vacantUnits = property.total_units - property.occupied_units;
-  const monthlyRevenue = allUnits
-    .filter((u: any) => u.status === 'occupied')
-    .reduce((sum: number, u: any) => sum + (u.rent_amount || 0), 0);
+  const monthlyRevenue = unitRows
+    .filter((u) => u.status === 'occupied')
+    .reduce((sum, u) => sum + (u.rent_amount || 0), 0);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -310,10 +318,10 @@ export default function PropertyDetail() {
       </div>
 
       {/* Photo Gallery */}
-      {((property as any).image_urls?.length > 0 || property.image_url) && (
+      {((propertyWithImages?.image_urls?.length ?? 0) > 0 || property.image_url) && (
         <PhotoGallery 
-          images={(property as any).image_urls?.length > 0 
-            ? (property as any).image_urls 
+          images={(propertyWithImages?.image_urls?.length ?? 0) > 0 
+            ? propertyWithImages?.image_urls || []
             : property.image_url ? [property.image_url] : []} 
         />
       )}
@@ -347,7 +355,7 @@ export default function PropertyDetail() {
           </div>
           {allUnits.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {allUnits.map((unit: any) => (
+              {unitRows.map((unit) => (
                 <Link to={`/units/${unit.id}`} key={unit.id}>
                   <Card className="card-shadow-md hover:card-shadow-lg transition-all cursor-pointer">
                     <CardContent className="pt-6">

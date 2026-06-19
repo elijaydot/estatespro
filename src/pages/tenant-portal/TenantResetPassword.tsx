@@ -8,6 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'Please try again.';
+};
+
 export default function TenantResetPassword() {
   const [isChecking, setIsChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
@@ -53,10 +58,10 @@ export default function TenantResetPassword() {
         description: 'You can now log in with your new password.',
       });
       navigate('/tenant/login');
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Unable to reset password',
-        description: err?.message ?? 'Please try again.',
+        description: getErrorMessage(err),
         variant: 'destructive',
       });
     } finally {

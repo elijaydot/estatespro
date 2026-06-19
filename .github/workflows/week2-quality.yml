@@ -31,6 +31,9 @@ jobs:
       - name: Run Week 2 tests
         run: npm run test:week2
 
+      - name: Contract inventory guard
+        run: node scripts/check-contract-inventory.js
+
       - name: Verify Week 2 checklist exists
         run: test -f WEEK2_TEST_CHECKLIST.md
 

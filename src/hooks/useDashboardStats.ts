@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 
 export interface DashboardStats {
   totalProperties: number;
@@ -21,6 +21,50 @@ export interface DashboardStats {
   shortletAvgTimeToPayHours: number;
   shortletTotalBookings: number;
 }
+
+type BookingMetricRow = {
+  id: string;
+  guest_response_status: string | null;
+  payment_status: string | null;
+  created_at: string;
+};
+
+type PaymentMetricRow = {
+  amount: number;
+  status: string | null;
+  created_at: string;
+  booking_id: string | null;
+};
+
+type RecentPaymentRow = {
+  id: string;
+  amount: number;
+  created_at: string;
+  tenants?: { name?: string } | null;
+};
+
+type RecentMaintenanceRow = {
+  id: string;
+  title: string;
+  status: string;
+  created_at: string;
+  updated_at: string | null;
+};
+
+type RecentInvoiceRow = {
+  id: string;
+  invoice_number: string;
+  created_at: string;
+  tenants?: { name?: string } | null;
+};
+
+type UpcomingRenewalRow = {
+  id: string;
+  name: string;
+  lease_end_date: string | null;
+  units?: { unit_number?: string } | null;
+  properties?: { name?: string } | null;
+};
 
 export function useDashboardStats() {
   const { activeCompanyId } = useActiveCompany();
@@ -145,8 +189,10 @@ export function useDashboardStats() {
 
       // Shortlet metrics
       const shortletTotalBookings = bookings.length;
-      const shortletAcceptedCount = bookings.filter((b: any) => b.guest_response_status === 'accepted').length;
-      const shortletPaidCount = bookings.filter((b: any) => b.payment_status === 'paid').length;
+      const bookingRows = bookings as BookingMetricRow[];
+      const paymentRows = payments as PaymentMetricRow[];
+      const shortletAcceptedCount = bookingRows.filter((b) => b.guest_response_status === 'accepted').length;
+      const shortletPaidCount = bookingRows.filter((b) => b.payment_status === 'paid').length;
 
       const shortletAcceptanceRate = shortletTotalBookings > 0
         ? Math.round((shortletAcceptedCount / shortletTotalBookings) * 100)
@@ -157,9 +203,9 @@ export function useDashboardStats() {
         : 0;
 
       const paymentByBookingId = new Map<string, Date>();
-      payments
-        .filter((p: any) => p.status === 'completed' && p.booking_id)
-        .forEach((p: any) => {
+      paymentRows
+        .filter((p) => p.status === 'completed' && p.booking_id)
+        .forEach((p) => {
           const bookingId = p.booking_id as string;
           const paymentDate = new Date(p.created_at);
           const existing = paymentByBookingId.get(bookingId);
@@ -169,7 +215,7 @@ export function useDashboardStats() {
         });
 
       const timeToPayHours: number[] = [];
-      bookings.forEach((b: any) => {
+      bookingRows.forEach((b) => {
         const firstPaymentDate = paymentByBookingId.get(b.id);
         if (!firstPaymentDate) return;
         const bookingCreated = new Date(b.created_at);
@@ -238,31 +284,37 @@ export function useRecentActivity() {
         .in('property_id', propertyIds);
       const invoiceIds = (scopedInvoices || []).map((invoice) => invoice.id);
 
-      // Fetch recent payments, maintenance requests, and invoices
-      const [paymentsRes, maintenanceRes, invoicesRes] = await Promise.all([
-        invoiceIds.length > 0
-          ? supabase
-              .from('payments')
-              .select('id, amount, created_at, tenants:tenant_id(name)')
-              .in('invoice_id', invoiceIds)
-              .order('created_at', { ascending: false })
-              .limit(5)
-          : Promise.resolve({ data: [], error: null } as any),
-        supabase
-          .from('maintenance_requests')
-          .select('id, title, status, created_at, updated_at')
+      let paymentsData: RecentPaymentRow[] = [];
+      if (invoiceIds.length > 0) {
+        const { data, error } = await supabase
+          .from('payments')
+          .select('id, amount, created_at, tenants:tenant_id(name)')
+          .in('invoice_id', invoiceIds)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (error) throw error;
+        paymentsData = (data || []) as RecentPaymentRow[];
+      }
+
+      const { data: maintenanceData, error: maintenanceError } = await supabase
+        .from('maintenance_requests')
+        .select('id, title, status, created_at, updated_at')
+        .in('property_id', propertyIds)
+        .order('updated_at', { ascending: false })
+        .limit(5);
+      if (maintenanceError) throw maintenanceError;
+
+      let invoicesData: RecentInvoiceRow[] = [];
+      if (tenantIds.length > 0) {
+        const { data, error } = await supabase
+          .from('invoices')
+          .select('id, invoice_number, status, created_at, tenants:tenant_id(name)')
           .in('property_id', propertyIds)
-          .order('updated_at', { ascending: false })
-          .limit(5),
-        tenantIds.length > 0
-          ? supabase
-              .from('invoices')
-              .select('id, invoice_number, status, created_at, tenants:tenant_id(name)')
-              .in('property_id', propertyIds)
-              .order('created_at', { ascending: false })
-              .limit(5)
-          : Promise.resolve({ data: [], error: null } as any),
-      ]);
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (error) throw error;
+        invoicesData = (data || []) as RecentInvoiceRow[];
+      }
 
       const activities: Array<{
         id: string;
@@ -273,45 +325,37 @@ export function useRecentActivity() {
       }> = [];
 
       // Add payments
-      if (paymentsRes.data) {
-        paymentsRes.data.forEach(p => {
-          const tenant = (p as any).tenants;
-          activities.push({
-            id: `payment-${p.id}`,
-            type: 'payment',
-            title: 'Payment Received',
-            description: `${tenant?.name || 'Unknown tenant'} made a payment`,
-            timestamp: p.created_at,
-          });
+      paymentsData.forEach((payment) => {
+        activities.push({
+          id: `payment-${payment.id}`,
+          type: 'payment',
+          title: 'Payment Received',
+          description: `${payment.tenants?.name || 'Unknown tenant'} made a payment`,
+          timestamp: payment.created_at,
         });
-      }
+      });
 
       // Add maintenance updates
-      if (maintenanceRes.data) {
-        maintenanceRes.data.forEach(m => {
-          activities.push({
-            id: `maintenance-${m.id}`,
-            type: 'maintenance',
-            title: m.status === 'completed' ? 'Maintenance Completed' : 'Maintenance Update',
-            description: m.title,
-            timestamp: m.updated_at || m.created_at,
-          });
+      ((maintenanceData || []) as RecentMaintenanceRow[]).forEach((maintenanceItem) => {
+        activities.push({
+          id: `maintenance-${maintenanceItem.id}`,
+          type: 'maintenance',
+          title: maintenanceItem.status === 'completed' ? 'Maintenance Completed' : 'Maintenance Update',
+          description: maintenanceItem.title,
+          timestamp: maintenanceItem.updated_at || maintenanceItem.created_at,
         });
-      }
+      });
 
       // Add invoices
-      if (invoicesRes.data) {
-        invoicesRes.data.forEach(i => {
-          const tenant = (i as any).tenants;
-          activities.push({
-            id: `invoice-${i.id}`,
-            type: 'invoice',
-            title: 'Invoice Created',
-            description: `Invoice #${i.invoice_number} for ${tenant?.name || 'Unknown tenant'}`,
-            timestamp: i.created_at,
-          });
+      invoicesData.forEach((invoice) => {
+        activities.push({
+          id: `invoice-${invoice.id}`,
+          type: 'invoice',
+          title: 'Invoice Created',
+          description: `Invoice #${invoice.invoice_number} for ${invoice.tenants?.name || 'Unknown tenant'}`,
+          timestamp: invoice.created_at,
         });
-      }
+      });
 
       // Sort by timestamp and return top 10
       return activities
@@ -351,9 +395,9 @@ export function useUpcomingRenewals() {
 
       if (error) throw error;
 
-      return data?.map(t => {
-        const unit = (t as any).units;
-        const property = (t as any).properties;
+      return (data as UpcomingRenewalRow[] | null)?.map((t) => {
+        const unit = t.units;
+        const property = t.properties;
         const daysRemaining = Math.ceil(
           (new Date(t.lease_end_date!).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
         );

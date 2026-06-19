@@ -26,12 +26,29 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { useTenantMaintenanceRequests, useCreateTenantMaintenanceRequest } from '@/hooks/useTenantMaintenanceRequests';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 import { MaintenanceTriageBadge } from '@/components/ai/MaintenanceTriageBadge';
+
+type TenantInfo = {
+  id: string;
+  unit_id: string | null;
+  property_id: string | null;
+};
+
+type MaintenanceRequestRow = {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  image_url: string | null;
+  created_at: string;
+  completed_at: string | null;
+};
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -87,7 +104,7 @@ export default function TenantMaintenance() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get tenant info from profile
-  const [tenantInfo, setTenantInfo] = useState<any>(null);
+  const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null);
   
   // Fetch tenant info on mount
   useEffect(() => {
@@ -107,9 +124,10 @@ export default function TenantMaintenance() {
 
   const { data: maintenanceRequests = [], isLoading } = useTenantMaintenanceRequests(tenantInfo?.id);
   const createRequest = useCreateTenantMaintenanceRequest();
+  const requestRows = maintenanceRequests as MaintenanceRequestRow[];
 
-  const openRequests = maintenanceRequests.filter((r: any) => r.status !== 'completed');
-  const completedRequests = maintenanceRequests.filter((r: any) => r.status === 'completed');
+  const openRequests = requestRows.filter((r) => r.status !== 'completed');
+  const completedRequests = requestRows.filter((r) => r.status === 'completed');
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -250,7 +268,7 @@ export default function TenantMaintenance() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {maintenanceRequests.map((request: any) => (
+              {requestRows.map((request) => (
                 <Card key={request.id} className="card-shadow-md">
                   <CardContent className="pt-6">
                     <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
@@ -313,7 +331,7 @@ export default function TenantMaintenance() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {openRequests.map((request: any) => (
+              {openRequests.map((request) => (
                 <Card key={request.id} className="card-shadow-md">
                   <CardContent className="pt-6">
                     <div className="flex items-start justify-between gap-4">
@@ -345,7 +363,7 @@ export default function TenantMaintenance() {
 
         <TabsContent value="completed" className="space-y-4">
           <div className="space-y-4">
-            {completedRequests.map((request: any) => (
+            {completedRequests.map((request) => (
               <Card key={request.id} className="card-shadow-md">
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-4">

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { 
   Users, UserPlus, Building2, Shield, Clock, CheckCircle2, 
   XCircle, Copy, Ban, MapPin, Loader2, Plus, Trash2, Pencil 
@@ -27,11 +27,24 @@ import {
   useUpdateCompany,
   useDeleteCompany,
   useRemoveCompanyMember,
+  type Company,
+  type PropertyAssignment,
 } from '@/hooks/useCompanies';
-import { useProperties } from '@/hooks/useProperties';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useProperties, type Property } from '@/hooks/useProperties';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useStepUpGuard } from '@/hooks/useStepUpGuard';
 import { logSecurityEvent } from '@/lib/security';
+
+type PropertyRow = Property & { company_id?: string | null };
+
+type PmInvite = {
+  id: string;
+  token?: string;
+  email: string;
+  expires_at: string;
+  used_at: string | null;
+  created_at: string;
+};
 
 export default function TeamManagement() {
   const { isLandlord } = useUserRole();
@@ -67,7 +80,8 @@ export default function TeamManagement() {
   const deactivatedMembers = members?.filter(m => m.status === 'deactivated') || [];
 
   // Company properties (those with company_id set)
-  const companyProperties = properties?.filter((p: any) => p.company_id === resolvedCompanyId) || [];
+  const propertyRows = (properties || []) as PropertyRow[];
+  const companyProperties = propertyRows.filter((p) => p.company_id === resolvedCompanyId);
 
   const handleInvite = async () => {
     const canProceed = await ensureAal2('team.invite_manager');
@@ -114,7 +128,7 @@ export default function TeamManagement() {
     setCompanyDialogOpen(false);
   };
 
-  const handleEditCompany = (company: any) => {
+  const handleEditCompany = (company: Company) => {
     setEditingCompany({
       id: company.id,
       name: company.name || '',
@@ -147,7 +161,7 @@ export default function TeamManagement() {
     setEditingCompany(null);
   };
 
-  const handleDeleteCompany = async (company: any) => {
+  const handleDeleteCompany = async (company: Company) => {
     const canProceed = await ensureAal2('team.delete_company');
     if (!canProceed) return;
 
@@ -184,7 +198,7 @@ export default function TeamManagement() {
     await logSecurityEvent('team_assignment_removed', { assignmentId });
   };
 
-  const handleCopyInviteLink = async (invite: any) => {
+  const handleCopyInviteLink = async (invite: PmInvite) => {
     const canProceed = await ensureAal2('team.copy_invite_link');
     if (!canProceed) return;
 
@@ -411,7 +425,7 @@ export default function TeamManagement() {
                                 <div className="flex flex-wrap gap-1 mt-1">
                                   {memberAssignments.map(a => (
                                     <Badge key={a.id} variant="secondary" className="text-xs">
-                                      {(a.properties as any)?.name || 'Property'}
+                                      {a.properties?.name || 'Property'}
                                     </Badge>
                                   ))}
                                 </div>
@@ -510,12 +524,12 @@ export default function TeamManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       {companyProperties.length > 0 ? (
-                        companyProperties.map((p: any) => (
+                        companyProperties.map((p) => (
                           <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                         ))
                       ) : (
                         // Show all properties if none have company_id yet
-                        properties?.map((p: any) => (
+                        propertyRows.map((p) => (
                           <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                         ))
                       )}
@@ -560,7 +574,7 @@ export default function TeamManagement() {
                             <p className="font-medium">{member?.profiles?.name || 'Unknown Manager'}</p>
                             <p className="text-sm text-muted-foreground">
                               <MapPin className="h-3 w-3 inline mr-1" />
-                              {(assignment.properties as any)?.name || 'Unknown Property'}
+                              {assignment.properties?.name || 'Unknown Property'}
                             </p>
                           </div>
                         </div>
@@ -593,7 +607,7 @@ export default function TeamManagement() {
                 <p className="text-muted-foreground text-center py-8">No invites sent yet.</p>
               ) : (
                 <div className="space-y-3">
-                  {invites.map((invite: any) => (
+                  {(invites as PmInvite[]).map((invite) => (
                     <div key={invite.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border">
                       <div>
                         <p className="font-medium">{invite.email}</p>

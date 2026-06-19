@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { toast } from '@/components/ui/use-toast';
 
 export interface Broadcast {
@@ -41,6 +41,10 @@ export function useBroadcastAnnouncements() {
 export function useSendBroadcast() {
   const queryClient = useQueryClient();
   const { activeCompanyId } = useActiveCompany();
+  const getErrorMessage = (error: unknown) => {
+    if (error instanceof Error) return error.message;
+    return 'Please try again.';
+  };
 
   return useMutation({
     mutationFn: async (payload: {
@@ -79,8 +83,8 @@ export function useSendBroadcast() {
       queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
       toast({ title: 'Broadcast sent', description: 'Announcement delivered to selected audience.' });
     },
-    onError: (error: any) => {
-      toast({ title: 'Failed to send broadcast', description: error?.message || 'Please try again.', variant: 'destructive' });
+    onError: (error: unknown) => {
+      toast({ title: 'Failed to send broadcast', description: getErrorMessage(error), variant: 'destructive' });
     },
   });
 }

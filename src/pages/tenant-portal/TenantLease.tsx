@@ -19,10 +19,27 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+
+type LeaseView = {
+  id: string;
+  lease_number: string;
+  start_date: string;
+  end_date: string;
+  monthly_rent: number;
+  security_deposit: number;
+  landlord_signature_url?: string | null;
+  landlord_signed_at?: string | null;
+  status: string;
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'Failed to generate lease PDF';
+};
 
 export default function TenantLease() {
   const { formatCurrency } = useSettings();
@@ -53,9 +70,9 @@ export default function TenantLease() {
       } else {
         URL.revokeObjectURL(htmlUrl);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error downloading PDF:', error);
-      toast({ title: 'Error', description: error.message || 'Failed to generate lease PDF', variant: 'destructive' });
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setDownloading(false);
     }
@@ -89,7 +106,7 @@ export default function TenantLease() {
 
   // Show pending lease requiring signature
   if (pendingLease && !activeLease) {
-    const lease = pendingLease as any;
+    const lease = pendingLease as LeaseView;
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -234,7 +251,7 @@ export default function TenantLease() {
   }
 
   // Show active lease details
-  const lease = currentLease as any;
+  const lease = currentLease as LeaseView;
   const totalDays = differenceInDays(new Date(lease.end_date), new Date(lease.start_date));
   const daysRemaining = Math.max(0, differenceInDays(new Date(lease.end_date), new Date()));
   const leaseProgress = ((totalDays - daysRemaining) / totalDays) * 100;

@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 type SecurityMetadata = Record<string, unknown>;
 
-const db = supabase as any;
+const db = supabase;
 
 export function generateRecoveryCodes(count = 10): string[] {
   const codes: string[] = [];

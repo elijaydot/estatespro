@@ -57,26 +57,26 @@ serve(async (req) => {
 
     const dataContext = `
 Properties (${propertiesRes.data?.length || 0}):
-${(propertiesRes.data || []).map((p: any) => `- ${p.name}: ${p.address}, ${p.city} | Type: ${p.type} | Units: ${p.occupied_units}/${p.total_units}`).join("\n")}
+  ${(propertiesRes.data || []).map((p) => `- ${p.name}: ${p.address}, ${p.city} | Type: ${p.type} | Units: ${p.occupied_units}/${p.total_units}`).join("\n")}
 
 Tenants (${tenantsRes.data?.length || 0}):
-${(tenantsRes.data || []).map((t: any) => `- ${t.name}: ${t.email} | Status: ${t.status} | Rent: ${t.monthly_rent} | Balance: ${t.balance}`).join("\n")}
+  ${(tenantsRes.data || []).map((t) => `- ${t.name}: ${t.email} | Status: ${t.status} | Rent: ${t.monthly_rent} | Balance: ${t.balance}`).join("\n")}
 
 Invoices (${invoicesRes.data?.length || 0}):
-${(invoicesRes.data || []).map((i: any) => `- ${i.invoice_number}: ${i.amount} due ${i.due_date} | Status: ${i.status} | Paid: ${i.paid_amount} | Source: ${i.source}${i.guest_name ? ` | Guest: ${i.guest_name}` : ''}`).join("\n")}
+  ${(invoicesRes.data || []).map((i) => `- ${i.invoice_number}: ${i.amount} due ${i.due_date} | Status: ${i.status} | Paid: ${i.paid_amount} | Source: ${i.source}${i.guest_name ? ` | Guest: ${i.guest_name}` : ''}`).join("\n")}
 
 Maintenance (${maintenanceRes.data?.length || 0}):
-${(maintenanceRes.data || []).map((m: any) => `- ${m.title}: ${m.priority} priority | ${m.status} | Created: ${m.created_at}`).join("\n")}
+  ${(maintenanceRes.data || []).map((m) => `- ${m.title}: ${m.priority} priority | ${m.status} | Created: ${m.created_at}`).join("\n")}
 
 Leases (${leasesRes.data?.length || 0}):
-${(leasesRes.data || []).map((l: any) => `- ${l.lease_number}: ${l.start_date} to ${l.end_date} | Rent: ${l.monthly_rent} | Status: ${l.status}`).join("\n")}
+  ${(leasesRes.data || []).map((l) => `- ${l.lease_number}: ${l.start_date} to ${l.end_date} | Rent: ${l.monthly_rent} | Status: ${l.status}`).join("\n")}
 
 Recent Payments (${paymentsRes.data?.length || 0}):
-${(paymentsRes.data || []).slice(0, 50).map((p: any) => `- ${p.amount} via ${p.method} | ${p.status} | ${p.created_at} | Source: ${p.source}${p.payer_name ? ` | Payer: ${p.payer_name}` : ''}`).join("\n")}
+  ${(paymentsRes.data || []).slice(0, 50).map((p) => `- ${p.amount} via ${p.method} | ${p.status} | ${p.created_at} | Source: ${p.source}${p.payer_name ? ` | Payer: ${p.payer_name}` : ''}`).join("\n")}
 `;
 
     let systemPrompt = "";
-    let userPrompt = query;
+    const userPrompt = query;
 
     if (action === "search") {
       systemPrompt = `You are a smart property management search assistant. Answer natural language queries about the portfolio data. Be specific with numbers and names. Format responses clearly with markdown.

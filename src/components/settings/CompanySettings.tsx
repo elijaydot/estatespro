@@ -8,9 +8,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from '@/components/ui/use-toast';
 import { useCompanySettings, useUpdateCompanySettings, uploadCompanyLogo } from '@/hooks/useCompanySettings';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMyMembership } from '@/hooks/useCompanies';
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return 'Unknown error';
+};
 
 export function CompanySettings() {
   const { activeCompanyId, companies, isLoading: activeCompanyLoading } = useActiveCompany();
@@ -73,8 +78,8 @@ export function CompanySettings() {
       const logoUrl = await uploadCompanyLogo(file, activeCompanyId);
       setFormData(prev => ({ ...prev, logo_url: logoUrl }));
       toast({ title: 'Success', description: 'Logo uploaded successfully' });
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setIsUploading(false);
     }

@@ -1,4 +1,12 @@
-type AnyClient = any;
+type AnyClient = {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        maybeSingle: () => Promise<{ data: Record<string, string | null> | null }>;
+      };
+    };
+  };
+};
 
 export type BrandingSource = 'companies' | 'default';
 

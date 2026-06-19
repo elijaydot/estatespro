@@ -111,7 +111,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     return jsonResponse(req, { success: true });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in accept-tenant-invite:", error);
     return jsonResponse(req, { error: "An unexpected error occurred" }, 500);
   }

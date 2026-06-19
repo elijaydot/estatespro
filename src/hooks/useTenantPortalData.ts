@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
+
+type RecurringBillRow = {
+  tenant_id: string | null;
+  property_id: string | null;
+  amount: number;
+};
 
 export function useTenantPortalData() {
   const { profile } = useAuth();
@@ -83,16 +89,16 @@ export function useTenantPortalData() {
       }
 
       // Client-side filter: bills assigned to this tenant, or to their property (global), or global (no property)
-      const filteredBills = (recurringBills || []).filter((bill: any) => 
+      const filteredBills = ((recurringBills || []) as RecurringBillRow[]).filter((bill) => 
         bill.tenant_id === tenant.id || 
         (bill.tenant_id === null && bill.property_id === tenant.property_id) ||
         (bill.tenant_id === null && bill.property_id === null)
       );
 
       const activeBills = filteredBills;
-      const totalRecurringAmount = activeBills.reduce((sum: number, b: any) => sum + Number(b.amount), 0);
+      const totalRecurringAmount = activeBills.reduce((sum, b) => sum + Number(b.amount), 0);
 
-      let paymentSettings: any = null;
+      let paymentSettings: unknown = null;
       if (tenant.property_id) {
         const { data: paymentSettingsRows, error: paymentSettingsError } = await supabase
           .rpc('get_payment_settings_for_property', { p_property_id: tenant.property_id });

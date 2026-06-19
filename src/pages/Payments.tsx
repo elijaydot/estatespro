@@ -50,7 +50,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { usePayments, useCreatePayment } from '@/hooks/usePayments';
 import { useInvoices } from '@/hooks/useInvoices';
@@ -59,7 +59,54 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useStepUpGuard } from '@/hooks/useStepUpGuard';
 import { logSecurityEvent } from '@/lib/security';
-import { useActiveCompany } from '@/contexts/ActiveCompanyContext';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
+
+type TenantRow = {
+  id: string;
+  name: string;
+  email: string | null;
+};
+
+type InvoiceRow = {
+  id: string;
+  tenant_id: string | null;
+  status: string;
+  amount: number;
+  paid_amount: number;
+  invoice_number: string;
+};
+
+type PaymentRow = {
+  id: string;
+  created_at: string;
+  tenant_id: string | null;
+  receipt_number: string | null;
+  payer_name: string | null;
+  payer_email: string | null;
+  amount: number;
+  method: string;
+  status: string;
+  momo_phone: string | null;
+  momo_transaction_id: string | null;
+  reference: string | null;
+  notes: string | null;
+  tenants?: { name: string | null } | null;
+  invoices?: { invoice_number: string | null } | null;
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+function getPaymentIdFromMutationResult(payment: unknown): string | null {
+  if (typeof payment === 'string') return payment;
+  if (payment && typeof payment === 'object' && 'id' in payment) {
+    const candidate = (payment as { id?: unknown }).id;
+    return typeof candidate === 'string' ? candidate : null;
+  }
+  return null;
+}
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -135,6 +182,7 @@ export default function Payments() {
   const { formatCurrency } = useSettings();
   const { activeCompanyId } = useActiveCompany();
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'failed' | 'completed' | 'mtn_momo'>('all');
   const [isRecordOpen, setIsRecordOpen] = useState(false);
   const [checkoutGateway, setCheckoutGateway] = useState<'paystack' | 'flutterwave'>('paystack');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -152,47 +200,60 @@ export default function Payments() {
   const { data: payments = [], isLoading } = usePayments();
   const { data: invoices = [] } = useInvoices();
   const { data: tenants = [] } = useTenants();
+
+  const typedPayments = payments as PaymentRow[];
+  const typedInvoices = invoices as InvoiceRow[];
+  const typedTenants = tenants as TenantRow[];
   const createPayment = useCreatePayment();
   const { ensureAal2 } = useStepUpGuard();
 
-  const tenantOptions = tenants.map((tenant: any) => ({
+  const tenantOptions = typedTenants.map((tenant) => ({
     value: tenant.id,
     label: tenant.name,
     description: tenant.email,
   }));
 
-  const invoiceOptions = invoices
-    .filter((inv: any) => !formData.tenant_id || inv.tenant_id === formData.tenant_id)
-    .filter((inv: any) => inv.status !== 'paid' && inv.status !== 'cancelled')
-    .map((inv: any) => ({
+  const invoiceOptions = typedInvoices
+    .filter((inv) => !formData.tenant_id || inv.tenant_id === formData.tenant_id)
+    .filter((inv) => inv.status !== 'paid' && inv.status !== 'cancelled')
+    .map((inv) => ({
       value: inv.id,
       label: inv.invoice_number,
       description: `${formatCurrency(inv.amount - inv.paid_amount)} due`,
     }));
 
   const stats = {
-    totalReceived: payments.filter((p: any) => p.status === 'completed').reduce((sum: number, p: any) => sum + p.amount, 0),
-    pendingAmount: payments.filter((p: any) => p.status === 'pending').reduce((sum: number, p: any) => sum + p.amount, 0),
-    failedCount: payments.filter((p: any) => p.status === 'failed').length,
-    momoPayments: payments.filter((p: any) => p.method === 'mtn_momo').length,
+    totalReceived: typedPayments.filter((p) => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0),
+    pendingAmount: typedPayments.filter((p) => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0),
+    failedCount: typedPayments.filter((p) => p.status === 'failed').length,
+    momoPayments: typedPayments.filter((p) => p.method === 'mtn_momo').length,
   };
+  const pendingCount = typedPayments.filter((p) => p.status === 'pending').length;
+  const completedCount = typedPayments.filter((p) => p.status === 'completed').length;
 
-  const filteredPayments = payments.filter((payment: any) => {
+  const filteredPayments = typedPayments.filter((payment) => {
     const q = searchQuery.toLowerCase();
-    if (!q) return true;
-    return (
+    const matchesSearch = !q || (
       (payment.tenants?.name || '').toLowerCase().includes(q) ||
       (payment.payer_name || '').toLowerCase().includes(q) ||
       (payment.payer_email || '').toLowerCase().includes(q) ||
       (payment.receipt_number || '').toLowerCase().includes(q) ||
       (payment.invoices?.invoice_number || '').toLowerCase().includes(q)
     );
+
+    const matchesFilter = activeFilter === 'all'
+      ? true
+      : activeFilter === 'mtn_momo'
+      ? payment.method === 'mtn_momo'
+      : payment.status === activeFilter;
+
+    return matchesSearch && matchesFilter;
   });
 
   const handleExport = () => {
     downloadCsv(
       'payments-export.csv',
-      payments.map((p: any) => ({
+      typedPayments.map((p) => ({
         receipt_number: p.receipt_number || '',
         tenant: p.tenants?.name || p.payer_name || '',
         payer_email: p.payer_email || '',
@@ -209,7 +270,7 @@ export default function Payments() {
     toast({ title: 'Export complete', description: 'Payments exported as CSV.' });
   };
 
-  const handleDownloadReceipt = (payment: any) => {
+  const handleDownloadReceipt = (payment: PaymentRow) => {
     downloadCsv(`receipt-${(payment.receipt_number || payment.id.slice(0, 8))}.csv`, [
       {
         receipt_number: payment.receipt_number || '',
@@ -229,7 +290,7 @@ export default function Payments() {
     toast({ title: 'Receipt downloaded', description: 'Payment receipt saved as CSV.' });
   };
 
-  const handleSendReceipt = async (payment: any) => {
+  const handleSendReceipt = async (payment: PaymentRow) => {
     const canProceed = await ensureAal2('payments.send_receipt');
     if (!canProceed) return;
 
@@ -239,9 +300,9 @@ export default function Payments() {
       });
       await logSecurityEvent('payment_receipt_sent', { paymentId: payment.id });
       toast({ title: 'Receipt Sent', description: `Receipt sent to ${payment.tenants?.name || 'tenant'}.` });
-    } catch (error: any) {
-      await logSecurityEvent('payment_receipt_failed', { paymentId: payment.id, reason: error?.message || 'unknown' });
-      toast({ title: 'Error', description: error.message || 'Failed to send receipt', variant: 'destructive' });
+    } catch (error: unknown) {
+      await logSecurityEvent('payment_receipt_failed', { paymentId: payment.id, reason: getErrorMessage(error, 'unknown') });
+      toast({ title: 'Error', description: getErrorMessage(error, 'Failed to send receipt'), variant: 'destructive' });
     }
   };
 
@@ -266,7 +327,7 @@ export default function Payments() {
     });
 
     await logSecurityEvent('payment_recorded', {
-      paymentId: (payment as any)?.id ?? (typeof payment === 'string' ? payment : null),
+      paymentId: getPaymentIdFromMutationResult(payment),
       invoiceId: formData.invoice_id,
       amount: formData.amount,
       method: formData.method,
@@ -294,7 +355,7 @@ export default function Payments() {
       return;
     }
 
-    const selectedInvoice = invoices.find((inv: any) => inv.id === formData.invoice_id);
+    const selectedInvoice = typedInvoices.find((inv) => inv.id === formData.invoice_id);
     const remaining = selectedInvoice ? Number(selectedInvoice.amount) - Number(selectedInvoice.paid_amount || 0) : 0;
     const amount = formData.amount > 0 ? formData.amount : remaining;
 
@@ -336,13 +397,13 @@ export default function Payments() {
         title: 'Checkout link generated',
         description: 'Payment link was opened in a new tab and copied to your clipboard.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       await logSecurityEvent('payment_checkout_link_failed', {
         invoiceId: formData.invoice_id || null,
         gateway: checkoutGateway,
-        reason: error?.message || 'unknown',
+        reason: getErrorMessage(error, 'unknown'),
       });
-      toast({ title: 'Error', description: error.message || 'Failed to generate payment link', variant: 'destructive' });
+      toast({ title: 'Error', description: getErrorMessage(error, 'Failed to generate payment link'), variant: 'destructive' });
     } finally {
       setCheckoutLoading(false);
     }
@@ -357,7 +418,7 @@ export default function Payments() {
             <Sparkles className="h-3.5 w-3.5" />
             Cashflow control
           </p>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Payments</h1>
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">Payments</h1>
           <p className="text-muted-foreground mt-1">Track collections, failures, and gateway checkout flow</p>
         </div>
         <Button className="gap-2 w-full sm:w-auto rounded-full px-5" onClick={() => setIsRecordOpen(true)}>
@@ -385,6 +446,25 @@ export default function Payments() {
             <Badge variant="outline" className="rounded-full px-3 py-1 border-destructive/30 text-destructive">
               Failed {stats.failedCount}
             </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border border-border/70 bg-card/85 backdrop-blur-sm card-shadow-md overflow-hidden">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Exception Strip</p>
+              <p className="text-sm text-foreground font-medium mt-1">Keep failures and pending settlements visible until resolved.</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <Badge variant="outline" className="rounded-full px-3 py-1 border-warning/30 text-warning">
+                Pending count {pendingCount}
+              </Badge>
+              <Badge variant="outline" className="rounded-full px-3 py-1 border-destructive/30 text-destructive">
+                Failed count {stats.failedCount}
+              </Badge>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -457,15 +537,58 @@ export default function Payments() {
           />
         </div>
         <div className="grid grid-cols-2 sm:flex gap-2">
-          <Button variant="outline" className="gap-2 w-full sm:w-auto rounded-full px-4">
+          <Button variant="outline" className="gap-2 w-full sm:w-auto rounded-full px-4" onClick={() => setSearchQuery('')}>
             <Filter className="h-4 w-4" />
-            Filter
+            Reset
           </Button>
           <Button variant="outline" className="gap-2 w-full sm:w-auto rounded-full px-4" onClick={handleExport}>
             <Download className="h-4 w-4" />
             Export
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant={activeFilter === 'all' ? 'default' : 'outline'}
+          className="rounded-full h-8"
+          onClick={() => setActiveFilter('all')}
+        >
+          All ({typedPayments.length})
+        </Button>
+        <Button
+          size="sm"
+          variant={activeFilter === 'pending' ? 'default' : 'outline'}
+          className="rounded-full h-8"
+          onClick={() => setActiveFilter('pending')}
+        >
+          Pending ({pendingCount})
+        </Button>
+        <Button
+          size="sm"
+          variant={activeFilter === 'failed' ? 'default' : 'outline'}
+          className="rounded-full h-8"
+          onClick={() => setActiveFilter('failed')}
+        >
+          Failed ({stats.failedCount})
+        </Button>
+        <Button
+          size="sm"
+          variant={activeFilter === 'completed' ? 'default' : 'outline'}
+          className="rounded-full h-8"
+          onClick={() => setActiveFilter('completed')}
+        >
+          Completed ({completedCount})
+        </Button>
+        <Button
+          size="sm"
+          variant={activeFilter === 'mtn_momo' ? 'default' : 'outline'}
+          className="rounded-full h-8"
+          onClick={() => setActiveFilter('mtn_momo')}
+        >
+          MTN MoMo ({stats.momoPayments})
+        </Button>
       </div>
 
       {/* Loading State */}
@@ -495,7 +618,7 @@ export default function Payments() {
                   </Button>
                 </div>
               ) : (
-                filteredPayments.map((payment: any, index: number) => (
+                filteredPayments.map((payment, index: number) => (
                   <div key={payment.id} className={`p-4 space-y-3 animate-enter ${index < 5 ? `stagger-${(index % 5) + 1}` : ''}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -560,7 +683,7 @@ export default function Payments() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredPayments.map((payment: any) => (
+                  filteredPayments.map((payment) => (
                     <TableRow key={payment.id}>
                       <TableCell className="font-medium">{payment.receipt_number || '-'}</TableCell>
                       <TableCell>{format(new Date(payment.created_at), 'MMM dd, yyyy')}</TableCell>

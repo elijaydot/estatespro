@@ -1,7 +1,7 @@
 import { Home, Bed, Bath, Square, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 
 interface UnitPreviewCardProps {
   unitNumber: string;

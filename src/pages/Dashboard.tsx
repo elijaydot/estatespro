@@ -21,7 +21,7 @@ import { UpcomingRenewals } from '@/components/dashboard/UpcomingRenewals';
 import { LeaseExpirationWidget } from '@/components/dashboard/LeaseExpirationWidget';
 import { RentExpiryWidget } from '@/components/dashboard/RentExpiryWidget';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings } from '@/contexts/useSettings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AIAssistant } from '@/components/dashboard/AIAssistant';
 import { FinancialIntelligence } from '@/components/dashboard/FinancialIntelligence';
@@ -76,11 +76,37 @@ export default function Dashboard() {
   const { formatCurrency } = useSettings();
   const navigate = useNavigate();
 
+  const attentionItems = stats
+    ? [
+        {
+          label: 'Overdue invoices',
+          value: stats.overduePaymentsCount,
+          tone: stats.overduePaymentsCount > 0 ? 'destructive' : 'muted',
+          actionLabel: 'Open Invoices',
+          action: () => navigate('/invoices'),
+        },
+        {
+          label: 'Maintenance in progress',
+          value: stats.maintenanceInProgress,
+          tone: stats.maintenanceInProgress > 0 ? 'warning' : 'muted',
+          actionLabel: 'Open Maintenance',
+          action: () => navigate('/maintenance'),
+        },
+        {
+          label: 'Renewals in 30 days',
+          value: stats.upcomingRenewals,
+          tone: stats.upcomingRenewals > 0 ? 'info' : 'muted',
+          actionLabel: 'Open Leases',
+          action: () => navigate('/leases'),
+        },
+      ]
+    : [];
+
   return (
-    <div className="space-y-6 max-w-[1600px]">
+    <div className="space-y-6 max-w-[1600px] pb-2">
       <div className="md:hidden space-y-4 animate-fade-in">
         <div className="rounded-2xl border border-border/60 bg-card/95 p-4 card-shadow-md">
-          <p className="text-sm font-semibold text-foreground">Welcome back {stats ? '' : ''}</p>
+          <p className="text-sm font-display font-semibold text-foreground">Welcome back {stats ? '' : ''}</p>
           <p className="text-xs text-muted-foreground mt-1">Here is your organization overview</p>
         </div>
 
@@ -135,16 +161,21 @@ export default function Dashboard() {
                 <Sparkles className="h-3.5 w-3.5" />
                 FishGate Command Center
               </p>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight mt-1">Dashboard</h1>
+              <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground tracking-tight mt-1">Dashboard</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Welcome back. Your portfolio pulse is updated live.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="outline" className="rounded-full" onClick={() => navigate('/reports')}>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+              <div className="rounded-full border border-border/70 bg-background/80 px-3 h-8 inline-flex items-center shadow-sm">
+                <p className="text-xs text-muted-foreground">
+                  Collection Focus: {isLoading || !stats ? '--' : formatCurrency(stats.pendingPayments + stats.overduePayments)}
+                </p>
+              </div>
+              <Button size="sm" variant="outline" className="rounded-full h-8" onClick={() => navigate('/reports')}>
                 Open Reports
               </Button>
-              <Button size="sm" className="rounded-full gap-1.5" onClick={() => navigate('/messages')}>
+              <Button size="sm" className="rounded-full gap-1.5 h-8" onClick={() => navigate('/messages')}>
                 <WandSparkles className="h-3.5 w-3.5" />
                 Team Pulse
               </Button>
@@ -170,8 +201,50 @@ export default function Dashboard() {
         </Card>
       )}
 
+      {!isLoading && stats && (
+        <Card className="border border-border/70 bg-card/85 backdrop-blur-sm card-shadow-md overflow-hidden animate-enter stagger-1">
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Needs Attention</p>
+                <p className="text-sm font-medium text-foreground mt-1">Exception-first operations board for today.</p>
+              </div>
+              <Button size="sm" variant="outline" className="rounded-full" onClick={() => navigate('/reports')}>
+                Open Performance Reports
+              </Button>
+            </div>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {attentionItems.map((item) => (
+                <div key={item.label} className="rounded-xl border border-border/70 bg-background/70 p-3">
+                  <p className="text-xs text-muted-foreground">{item.label}</p>
+                  <p
+                    className={cn(
+                      'text-xl font-bold mt-1',
+                      item.tone === 'destructive' && 'text-destructive',
+                      item.tone === 'warning' && 'text-warning',
+                      item.tone === 'info' && 'text-info',
+                      item.tone === 'muted' && 'text-foreground'
+                    )}
+                  >
+                    {item.value}
+                  </p>
+                  <Button size="sm" variant="ghost" className="mt-1.5 h-7 px-2.5 rounded-full" onClick={item.action}>
+                    {item.actionLabel}
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+              <p className="text-xs text-primary">
+                Receivables exposure today: {formatCurrency(stats.pendingPayments + stats.overduePayments)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* KPI Cards — 4 columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-[104px] rounded-xl" />
@@ -221,7 +294,7 @@ export default function Dashboard() {
       </div>
 
       {/* Shortlet KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         {isLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-[104px] rounded-xl" />
@@ -260,7 +333,7 @@ export default function Dashboard() {
       </div>
 
       {/* Financial alerts — 4 columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-[104px] rounded-xl" />

@@ -41,11 +41,21 @@ import {
 } from "@/components/ui/alert-dialog";
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { toast } from '@/components/ui/use-toast';
-import { useSettings } from '@/contexts/SettingsContext';
-import { useRecurringBills, useCreateRecurringBill, useUpdateRecurringBill, useDeleteRecurringBill } from '@/hooks/useRecurringBills';
+import { useSettings } from '@/contexts/useSettings';
+import { useRecurringBills, useCreateRecurringBill, useUpdateRecurringBill, useDeleteRecurringBill, type RecurringBill } from '@/hooks/useRecurringBills';
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
 
+type RecurringBillRow = RecurringBill & {
+  properties?: {
+    id: string;
+    name: string;
+  } | null;
+  tenants?: {
+    id: string;
+    name: string;
+  } | null;
+};
 const billTypeOptions = [
   { value: 'water', label: 'Water Bill', description: 'Monthly water utility charges' },
   { value: 'security', label: 'Security/Guard', description: 'Security guard services' },
@@ -312,10 +322,10 @@ export default function RecurringBills() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBills.map((bill) => {
+                {(filteredBills as RecurringBillRow[]).map((bill) => {
                   const IconComponent = getBillIcon(bill.bill_type);
-                  const property = (bill as any).properties;
-                  const tenant = (bill as any).tenants;
+                  const property = bill.properties;
+                  const tenant = bill.tenants;
                   
                   return (
                     <TableRow key={bill.id}>
