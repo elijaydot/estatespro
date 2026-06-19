@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.marketplace-inquiry]
 verify_jwt = false
+
+[functions.process-scheduled-messages]
+verify_jwt = false
