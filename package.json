@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "types:supabase": "node scripts/generate-supabase-types.js",
     "check:contracts": "node scripts/check-contract-inventory.js",
     "preview": "vite preview",
     "test": "vitest run",
