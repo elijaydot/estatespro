@@ -34,6 +34,9 @@ export default function MarketplaceReviewerQueue() {
 
   const [scopeAllCompanies, setScopeAllCompanies] = useState(true);
   const [search, setSearch] = useState('');
+  const [publisherSlaFilter, setPublisherSlaFilter] = useState<'all' | 'healthy' | 'warning' | 'critical'>('all');
+  const [documentSlaFilter, setDocumentSlaFilter] = useState<'all' | 'healthy' | 'warning' | 'critical'>('all');
+  const [auditDecisionFilter, setAuditDecisionFilter] = useState<'all' | 'verified' | 'needs_review' | 'rejected' | 'approved'>('all');
   const [verificationReasons, setVerificationReasons] = useState<Record<string, string>>({});
   const [documentReasons, setDocumentReasons] = useState<Record<string, string>>({});
 
@@ -91,6 +94,11 @@ export default function MarketplaceReviewerQueue() {
     return rows.filter((row) => (`${row.company_name} ${row.state}`).toLowerCase().includes(query));
   }, [publisherQueue.data, search]);
 
+  const filteredPublisherRows = useMemo(() => {
+    if (publisherSlaFilter === 'all') return publisherRows;
+    return publisherRows.filter((row) => getSlaLevel(ageInDays(row.last_submitted_at)) === publisherSlaFilter);
+  }, [publisherRows, publisherSlaFilter]);
+
   const documentRows = useMemo(() => {
     const rows = documentQueue.data || [];
     const query = search.toLowerCase().trim();
@@ -98,12 +106,17 @@ export default function MarketplaceReviewerQueue() {
     return rows.filter((row) => (`${row.company_name} ${row.document_type} ${row.storage_path}`).toLowerCase().includes(query));
   }, [documentQueue.data, search]);
 
-  const avgPublisherAge = publisherRows.length
-    ? Math.round(publisherRows.reduce((sum, row) => sum + ageInDays(row.last_submitted_at), 0) / publisherRows.length)
+  const filteredDocumentRows = useMemo(() => {
+    if (documentSlaFilter === 'all') return documentRows;
+    return documentRows.filter((row) => getSlaLevel(ageInDays(row.created_at)) === documentSlaFilter);
+  }, [documentRows, documentSlaFilter]);
+
+  const avgPublisherAge = filteredPublisherRows.length
+    ? Math.round(filteredPublisherRows.reduce((sum, row) => sum + ageInDays(row.last_submitted_at), 0) / filteredPublisherRows.length)
     : 0;
 
-  const avgDocumentAge = documentRows.length
-    ? Math.round(documentRows.reduce((sum, row) => sum + ageInDays(row.created_at), 0) / documentRows.length)
+  const avgDocumentAge = filteredDocumentRows.length
+    ? Math.round(filteredDocumentRows.reduce((sum, row) => sum + ageInDays(row.created_at), 0) / filteredDocumentRows.length)
     : 0;
 
   const publisherSla = useMemo(() => {
@@ -156,9 +169,10 @@ export default function MarketplaceReviewerQueue() {
     });
 
     return [...publisherEvents, ...documentEvents]
+      .filter((event) => auditDecisionFilter === 'all' ? true : event.decision === auditDecisionFilter)
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
       .slice(0, 20);
-  }, [publisherHistory.data, documentHistory.data, reviewerMap]);
+  }, [publisherHistory.data, documentHistory.data, reviewerMap, auditDecisionFilter]);
 
   if (!isSuperAdmin) {
     return <Navigate to="/dashboard" replace />;
@@ -177,7 +191,7 @@ export default function MarketplaceReviewerQueue() {
           <CardTitle>Queue Controls</CardTitle>
           <CardDescription>Filter by company scope and search queue records.</CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-5">
           <div className="rounded-md border border-border px-3 py-2 text-sm">
             <div className="flex items-center justify-between gap-3">
               <span className="text-muted-foreground">All companies</span>
@@ -185,18 +199,38 @@ export default function MarketplaceReviewerQueue() {
             </div>
           </div>
           <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search company, state, document type" />
+          <select
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            value={publisherSlaFilter}
+            onChange={(event) => setPublisherSlaFilter(event.target.value as 'all' | 'healthy' | 'warning' | 'critical')}
+          >
+            <option value="all">Publisher SLA: All</option>
+            <option value="healthy">Publisher SLA: Healthy</option>
+            <option value="warning">Publisher SLA: Warning</option>
+            <option value="critical">Publisher SLA: Critical</option>
+          </select>
+          <select
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            value={documentSlaFilter}
+            onChange={(event) => setDocumentSlaFilter(event.target.value as 'all' | 'healthy' | 'warning' | 'critical')}
+          >
+            <option value="all">Document SLA: All</option>
+            <option value="healthy">Document SLA: Healthy</option>
+            <option value="warning">Document SLA: Warning</option>
+            <option value="critical">Document SLA: Critical</option>
+          </select>
           <div className="rounded-md border border-border px-3 py-2 text-sm text-muted-foreground">
-            {publisherRows.length} verification items · {documentRows.length} document items
+            {filteredPublisherRows.length}/{publisherRows.length} verification items · {filteredDocumentRows.length}/{documentRows.length} document items
           </div>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2"><CardDescription>Publisher Queue</CardDescription><CardTitle>{publisherRows.length}</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardDescription>Publisher Queue</CardDescription><CardTitle>{filteredPublisherRows.length}</CardTitle></CardHeader>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardDescription>Document Queue</CardDescription><CardTitle>{documentRows.length}</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardDescription>Document Queue</CardDescription><CardTitle>{filteredDocumentRows.length}</CardTitle></CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardDescription>Avg Publisher Age</CardDescription><CardTitle>{avgPublisherAge}d</CardTitle></CardHeader>
@@ -237,7 +271,7 @@ export default function MarketplaceReviewerQueue() {
           <CardDescription>Review pending and needs-review company verifications.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {publisherRows.map((row) => (
+          {filteredPublisherRows.map((row) => (
             <div key={row.id} className="rounded-lg border border-border/70 p-3">
               {(() => {
                 const level = getSlaLevel(ageInDays(row.last_submitted_at));
@@ -300,7 +334,7 @@ export default function MarketplaceReviewerQueue() {
             </div>
           ))}
 
-          {!publisherQueue.isLoading && publisherRows.length === 0 && (
+          {!publisherQueue.isLoading && filteredPublisherRows.length === 0 && (
             <div className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
               No publisher verification records in the reviewer queue.
             </div>
@@ -314,7 +348,7 @@ export default function MarketplaceReviewerQueue() {
           <CardDescription>Review pending verification documents and capture decision reasons.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {documentRows.map((row) => (
+          {filteredDocumentRows.map((row) => (
             <div key={row.id} className="rounded-lg border border-border/70 p-3">
               {(() => {
                 const level = getSlaLevel(ageInDays(row.created_at));
@@ -372,7 +406,7 @@ export default function MarketplaceReviewerQueue() {
             </div>
           ))}
 
-          {!documentQueue.isLoading && documentRows.length === 0 && (
+          {!documentQueue.isLoading && filteredDocumentRows.length === 0 && (
             <div className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
               No verification document records in the reviewer queue.
             </div>
@@ -386,6 +420,19 @@ export default function MarketplaceReviewerQueue() {
           <CardDescription>Latest reviewer decisions across publisher and document workflows.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
+          <div className="pb-1">
+            <select
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              value={auditDecisionFilter}
+              onChange={(event) => setAuditDecisionFilter(event.target.value as 'all' | 'verified' | 'needs_review' | 'rejected' | 'approved')}
+            >
+              <option value="all">All decisions</option>
+              <option value="verified">Verified</option>
+              <option value="needs_review">Needs Review</option>
+              <option value="rejected">Rejected</option>
+              <option value="approved">Approved</option>
+            </select>
+          </div>
           {auditTrail.map((event) => (
             <div key={event.id} className="rounded-md border border-border/70 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
