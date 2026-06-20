@@ -16,6 +16,12 @@ import {
   Download,
   X,
   AtSign,
+  Star,
+  Reply,
+  Forward,
+  CalendarClock,
+  Radio,
+  Smile,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +42,7 @@ import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import { toast } from '@/components/ui/use-toast';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 
@@ -48,6 +54,7 @@ interface TenantMessage {
   subject: string;
   created_at: string;
   is_read: boolean;
+  parent_message_id?: string | null;
   client_message_id?: string | null;
 }
 
@@ -56,6 +63,19 @@ interface MessageAttachment {
   name: string;
   size: number;
   type: string;
+}
+
+interface MessageView extends TenantMessage {
+  displayContent: string;
+  attachments: MessageAttachment[];
+}
+
+interface MessageThread {
+  id: string;
+  title: string;
+  messages: MessageView[];
+  unreadCount: number;
+  lastMessage: MessageView;
 }
 
 type TenantProfile = {
@@ -72,6 +92,16 @@ type TenantProfile = {
 const ATTACHMENTS_META_PREFIX = '<!--ATTACHMENTS:';
 const ATTACHMENTS_META_SUFFIX = '-->';
 const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
+const QUICK_REACTIONS = ['👍', '❤️', '🎉', '🙏', '🔥', '✅'];
+
+const dynamicFrom = (table: string) => supabase.from(table as never);
+
+function normalizeSubject(subject: string | null | undefined) {
+  return (subject || 'message')
+    .replace(/^(re|fwd):\s*/gi, '')
+    .trim()
+    .toLowerCase();
+}
 
 function sanitizeFilename(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -132,6 +162,7 @@ export default function TenantMessages() {
   const [replyMessage, setReplyMessage] = useState('');
   const [composeMessage, setComposeMessage] = useState('');
   const [composeSubject, setComposeSubject] = useState('');
+  const [composeScheduledFor, setComposeScheduledFor] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [isNewMessageOpen, setIsNewMessageOpen] = useState(false);
@@ -142,10 +173,209 @@ export default function TenantMessages() {
   const [composeAttachments, setComposeAttachments] = useState<MessageAttachment[]>([]);
   const [replyAttachments, setReplyAttachments] = useState<MessageAttachment[]>([]);
   const [attachmentUrls, setAttachmentUrls] = useState<Record<string, string>>({});
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [presenceLabel, setPresenceLabel] = useState('Live conversation');
+  const [reactionsByMessage, setReactionsByMessage] = useState<Record<string, string[]>>({});
+  const [starredByMessage, setStarredByMessage] = useState<Record<string, boolean>>({});
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const composeFileInputRef = useRef<HTMLInputElement>(null);
   const replyFileInputRef = useRef<HTMLInputElement>(null);
+
+  const renderedMessages = useMemo<MessageView[]>(() => {
+    return messages.map((message) => {
+      const extracted = extractAttachmentsMetadata(message.content || '');
+      return {
+        ...message,
+        displayContent: extracted.cleanContent,
+        attachments: extracted.attachments,
+      };
+    });
+  }, [messages]);
+
+  const threads = useMemo<MessageThread[]>(() => {
+    if (!tenantProfile) return [];
+    const byId = new Map(renderedMessages.map((item) => [item.id, item]));
+    const resolveRoot = (message: MessageView) => {
+      let current = message;
+      let steps = 0;
+      while (current.parent_message_id && byId.has(current.parent_message_id) && steps < 20) {
+        current = byId.get(current.parent_message_id)!;
+        steps += 1;
+      }
+      return current.id;
+    };
+
+    const map = new Map<string, MessageThread>();
+    for (const message of renderedMessages) {
+      const rootId = message.parent_message_id ? resolveRoot(message) : `subject:${normalizeSubject(message.subject)}`;
+      if (!map.has(rootId)) {
+        map.set(rootId, {
+          id: rootId,
+          title: message.subject || 'Message',
+          messages: [],
+          unreadCount: 0,
+          lastMessage: message,
+        });
+      }
+
+      const thread = map.get(rootId)!;
+      thread.messages.push(message);
+      if (new Date(message.created_at) > new Date(thread.lastMessage.created_at)) {
+        thread.lastMessage = message;
+      }
+      if (!message.is_read && message.recipient_id === tenantProfile.id) {
+        thread.unreadCount += 1;
+      }
+    }
+
+    const rows = Array.from(map.values()).map((thread) => {
+      thread.messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      const subject = thread.messages.find((m) => m.subject)?.subject || thread.lastMessage.subject || 'Message';
+      return { ...thread, title: subject };
+    });
+
+    rows.sort((a, b) => new Date(b.lastMessage.created_at).getTime() - new Date(a.lastMessage.created_at).getTime());
+    return rows;
+  }, [renderedMessages, tenantProfile]);
+
+  const filteredThreads = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return threads.filter((thread) => {
+      if (showUnreadOnly && thread.unreadCount === 0) return false;
+      if (!query) return true;
+      return (
+        thread.title.toLowerCase().includes(query) ||
+        thread.messages.some((m) => m.displayContent.toLowerCase().includes(query))
+      );
+    });
+  }, [threads, searchQuery, showUnreadOnly]);
+
+  const selectedThread = useMemo(
+    () => filteredThreads.find((thread) => thread.id === selectedThreadId) || filteredThreads[0] || null,
+    [filteredThreads, selectedThreadId]
+  );
+
+  const unreadThreadCount = useMemo(
+    () => threads.reduce((acc, thread) => acc + thread.unreadCount, 0),
+    [threads]
+  );
+
+  useEffect(() => {
+    if (selectedThread && selectedThreadId !== selectedThread.id) {
+      setSelectedThreadId(selectedThread.id);
+    }
+  }, [selectedThread, selectedThreadId]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [selectedThread?.messages.length]);
+
+  useEffect(() => {
+    const savedReactions = localStorage.getItem('tenant-message-reactions-v1');
+    const savedStarred = localStorage.getItem('tenant-message-starred-v1');
+    if (savedReactions) {
+      try {
+        setReactionsByMessage(JSON.parse(savedReactions));
+      } catch {
+        setReactionsByMessage({});
+      }
+    }
+    if (savedStarred) {
+      try {
+        setStarredByMessage(JSON.parse(savedStarred));
+      } catch {
+        setStarredByMessage({});
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('tenant-message-reactions-v1', JSON.stringify(reactionsByMessage));
+  }, [reactionsByMessage]);
+
+  useEffect(() => {
+    localStorage.setItem('tenant-message-starred-v1', JSON.stringify(starredByMessage));
+  }, [starredByMessage]);
+
+  useEffect(() => {
+    const local = localStorage.getItem('tenant-compose-draft-v1');
+    if (!local) return;
+    try {
+      const parsed = JSON.parse(local) as { subject?: string; content?: string; scheduledFor?: string };
+      setComposeSubject(parsed.subject || '');
+      setComposeMessage(parsed.content || '');
+      setComposeScheduledFor(parsed.scheduledFor || '');
+    } catch {
+      // Ignore malformed draft
+    }
+  }, []);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(async () => {
+      if (!user?.id) return;
+
+      const payload = {
+        subject: composeSubject,
+        content: composeMessage,
+        scheduledFor: composeScheduledFor,
+      };
+
+      localStorage.setItem('tenant-compose-draft-v1', JSON.stringify(payload));
+      setDraftSavedAt(new Date().toISOString());
+
+      if (!composeSubject && !composeMessage) return;
+
+      await dynamicFrom('message_drafts').upsert({
+        user_id: user.id,
+        recipient_id: tenantProfile?.user_id || null,
+        subject: composeSubject,
+        content: composeMessage,
+        metadata: {
+          scheduledFor: composeScheduledFor,
+          portal: 'tenant',
+        },
+      });
+    }, 700);
+
+    return () => window.clearTimeout(timeout);
+  }, [composeSubject, composeMessage, composeScheduledFor, user?.id, tenantProfile?.user_id]);
+
+  useEffect(() => {
+    const attachmentPaths = Array.from(
+      new Set(renderedMessages.flatMap((message) => message.attachments.map((attachment) => attachment.path)))
+    );
+
+    if (!attachmentPaths.length) {
+      setAttachmentUrls({});
+      return;
+    }
+
+    let cancelled = false;
+    const hydrateSignedUrls = async () => {
+      const entries = await Promise.all(
+        attachmentPaths.map(async (path) => {
+          const { data, error } = await supabase.storage
+            .from('message-attachments')
+            .createSignedUrl(path, 60 * 60 * 6);
+          if (error || !data?.signedUrl) return [path, ''] as const;
+          return [path, data.signedUrl] as const;
+        })
+      );
+
+      if (!cancelled) {
+        setAttachmentUrls(Object.fromEntries(entries));
+      }
+    };
+
+    void hydrateSignedUrls();
+    return () => {
+      cancelled = true;
+    };
+  }, [renderedMessages]);
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | undefined;
@@ -255,75 +485,65 @@ export default function TenantMessages() {
   }, [user]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
-
-  const renderedMessages = useMemo(() => {
-    return messages.map((message) => {
-      const extracted = extractAttachmentsMetadata(message.content || '');
-      return {
-        ...message,
-        displayContent: extracted.cleanContent,
-        attachments: extracted.attachments,
-      };
-    });
-  }, [messages]);
-
-  const filteredMessages = useMemo(() => {
-    const query = searchQuery.toLowerCase().trim();
-    return renderedMessages.filter((message) => {
-      if (showUnreadOnly && (message.is_read || message.recipient_id !== tenantProfile?.id)) {
-        return false;
-      }
-
-      if (!query) return true;
-      return (
-        (message.subject || '').toLowerCase().includes(query) ||
-        (message.displayContent || '').toLowerCase().includes(query) ||
-        message.attachments.some((attachment) => attachment.name.toLowerCase().includes(query))
-      );
-    });
-  }, [renderedMessages, searchQuery, showUnreadOnly, tenantProfile?.id]);
-
-  const unreadThreadCount = useMemo(
-    () => messages.filter((message) => !message.is_read && message.recipient_id === tenantProfile?.id).length,
-    [messages, tenantProfile?.id]
-  );
-
-  useEffect(() => {
-    const attachmentPaths = Array.from(
-      new Set(renderedMessages.flatMap((message) => message.attachments.map((attachment) => attachment.path)))
-    );
-
-    if (!attachmentPaths.length) {
-      setAttachmentUrls({});
+    if (!selectedThread?.id || !tenantProfile || !user?.id) {
+      setPresenceLabel('Live conversation');
       return;
     }
 
-    let cancelled = false;
-    const hydrateSignedUrls = async () => {
-      const entries = await Promise.all(
-        attachmentPaths.map(async (path) => {
-          const { data, error } = await supabase.storage
-            .from('message-attachments')
-            .createSignedUrl(path, 60 * 60 * 6);
-          if (error || !data?.signedUrl) return [path, ''] as const;
-          return [path, data.signedUrl] as const;
-        })
-      );
+    const threadKey = [tenantProfile.id, tenantProfile.user_id].sort().join('::');
 
-      if (!cancelled) {
-        setAttachmentUrls(Object.fromEntries(entries));
+    const pushPresence = async () => {
+      await dynamicFrom('message_presence').upsert({
+        actor_id: user.id,
+        thread_key: threadKey,
+        is_typing: Boolean(replyMessage.trim()),
+        last_seen_at: new Date().toISOString(),
+      });
+    };
+
+    const pullPresence = async () => {
+      const { data } = await dynamicFrom('message_presence')
+        .select('actor_id, is_typing, last_seen_at')
+        .eq('thread_key', threadKey)
+        .neq('actor_id', user.id)
+        .order('last_seen_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!data) {
+        setPresenceLabel('Live conversation');
+        return;
       }
+
+      if (data.is_typing) {
+        setPresenceLabel('Property management is typing...');
+        return;
+      }
+
+      setPresenceLabel(`Last seen ${formatDistanceToNow(new Date(data.last_seen_at), { addSuffix: true })}`);
     };
 
-    void hydrateSignedUrls();
-    return () => {
-      cancelled = true;
-    };
-  }, [renderedMessages]);
+    void pushPresence();
+    void pullPresence();
+
+    const interval = window.setInterval(() => {
+      void pushPresence();
+      void pullPresence();
+    }, 12000);
+
+    return () => window.clearInterval(interval);
+  }, [selectedThread?.id, tenantProfile, user?.id, replyMessage]);
+
+  useEffect(() => {
+    if (!selectedThread || !tenantProfile) return;
+    const unreadIds = selectedThread.messages
+      .filter((message) => !message.is_read && message.recipient_id === tenantProfile.id)
+      .map((message) => message.id);
+
+    if (!unreadIds.length) return;
+
+    void supabase.from('messages').update({ is_read: true }).in('id', unreadIds);
+  }, [selectedThread, tenantProfile]);
 
   const uploadDraftAttachments = async (files: FileList | null, target: 'compose' | 'reply') => {
     if (!files?.length || !user?.id) return;
@@ -339,7 +559,7 @@ export default function TenantMessages() {
           const path = `${user.id}/tenant-messages/${Date.now()}-${sanitizeFilename(file.name)}`;
           const { error } = await supabase.storage
             .from('message-attachments')
-            .upload(path, file, { cacheControl: '3600', upsert: false });
+            .upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type || 'application/octet-stream' });
 
           if (error) throw error;
 
@@ -373,30 +593,44 @@ export default function TenantMessages() {
     setReplyAttachments((current) => current.filter((attachment) => attachment.path !== path));
   };
 
-  const downloadAttachment = (attachment: MessageAttachment) => {
-    const signedUrl = attachmentUrls[attachment.path];
-    if (!signedUrl) {
-      toast({ title: 'File unavailable', description: 'Attachment link expired. Please refresh and try again.' });
-      return;
-    }
-    window.open(signedUrl, '_blank', 'noopener,noreferrer');
+  const toggleStar = (messageId: string) => {
+    setStarredByMessage((current) => ({ ...current, [messageId]: !current[messageId] }));
   };
 
-  const handleSendMessage = async ({
+  const toggleReaction = (messageId: string, emoji: string) => {
+    setReactionsByMessage((current) => {
+      const list = current[messageId] || [];
+      const exists = list.includes(emoji);
+      return {
+        ...current,
+        [messageId]: exists ? list.filter((item) => item !== emoji) : [...list, emoji],
+      };
+    });
+  };
+
+  const resetComposeState = async () => {
+    setComposeMessage('');
+    setComposeSubject('');
+    setComposeAttachments([]);
+    setComposeScheduledFor('');
+    localStorage.removeItem('tenant-compose-draft-v1');
+    if (user?.id) {
+      await dynamicFrom('message_drafts').delete().eq('user_id', user.id);
+    }
+  };
+
+  const sendNow = async ({
     content,
     subject,
     attachments,
-    closeComposer,
+    parentMessageId,
   }: {
     content: string;
     subject: string;
     attachments: MessageAttachment[];
-    closeComposer?: boolean;
+    parentMessageId?: string | null;
   }) => {
-    if ((!content.trim() && !subject.trim()) && attachments.length === 0) return;
     if (!tenantProfile) return;
-
-    setIsSending(true);
     const landlordId = tenantProfile.user_id;
     const clientMessageId = crypto.randomUUID();
     const optimisticId = `temp-${Date.now()}`;
@@ -410,8 +644,9 @@ export default function TenantMessages() {
       sender_id: tenantProfile.id,
       recipient_id: landlordId,
       content: body,
+      subject,
+      parent_message_id: parentMessageId || null,
       created_at: new Date().toISOString(),
-      subject: subject || (attachments.length > 0 ? 'Attachment' : 'Message'),
       is_read: false,
     };
 
@@ -419,33 +654,121 @@ export default function TenantMessages() {
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     ));
 
-    try {
-      const messageData = {
+    const { error } = await supabase.from('messages').insert([
+      {
         client_message_id: clientMessageId,
         sender_id: tenantProfile.id,
         recipient_id: landlordId,
         user_id: landlordId,
         property_id: tenantProfile.property_id,
         content: body,
-        subject: subject || (attachments.length > 0 ? 'Attachment' : 'Message'),
+        subject,
+        parent_message_id: parentMessageId || null,
         is_read: false,
-      };
+      },
+    ]);
 
-      const { error } = await supabase.from('messages').insert([messageData]);
-      if (error) throw error;
-      setReplyMessage('');
-      setComposeMessage('');
-      setComposeSubject('');
-      setReplyAttachments([]);
-      setComposeAttachments([]);
-      if (closeComposer) setIsNewMessageOpen(false);
-    } catch {
+    if (error) {
       pendingClientIdsRef.current.delete(clientMessageId);
       setMessages((prev) => prev.filter((message) => message.id !== optimisticId));
-      toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
+      throw error;
+    }
+  };
+
+  const scheduleMessage = async ({
+    content,
+    subject,
+    attachments,
+  }: {
+    content: string;
+    subject: string;
+    attachments: MessageAttachment[];
+  }) => {
+    if (!tenantProfile || !user?.id) return;
+
+    const scheduledAt = new Date(composeScheduledFor);
+    if (Number.isNaN(scheduledAt.getTime()) || scheduledAt.getTime() <= Date.now()) {
+      throw new Error('Select a future date and time for scheduled send.');
+    }
+
+    await dynamicFrom('scheduled_messages').insert({
+      user_id: user.id,
+      recipient_id: tenantProfile.user_id,
+      subject,
+      content: appendAttachmentsMetadata(content, attachments),
+      scheduled_for: scheduledAt.toISOString(),
+      metadata: {
+        attachments,
+        sender_id: tenantProfile.id,
+        property_id: tenantProfile.property_id,
+        source: 'tenant-portal',
+      },
+    });
+
+    toast({
+      title: 'Message scheduled',
+      description: `Queued for ${format(scheduledAt, 'MMM d, h:mm a')}.`,
+    });
+  };
+
+  const handleComposeSend = async () => {
+    if ((!composeMessage.trim() && !composeSubject.trim()) && composeAttachments.length === 0) return;
+    if (!tenantProfile) return;
+
+    setIsSending(true);
+    try {
+      const subject = composeSubject || (composeAttachments.length ? 'Attachment' : 'Message');
+
+      if (composeScheduledFor) {
+        await scheduleMessage({ content: composeMessage, subject, attachments: composeAttachments });
+      } else {
+        await sendNow({ content: composeMessage, subject, attachments: composeAttachments });
+        toast({ title: 'Message sent', description: 'Property management will receive it instantly.' });
+      }
+
+      await resetComposeState();
+      setIsNewMessageOpen(false);
+    } catch (error) {
+      toast({
+        title: 'Send failed',
+        description: error instanceof Error ? error.message : 'Could not send message.',
+        variant: 'destructive',
+      });
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleReplySend = async () => {
+    if ((!replyMessage.trim()) && replyAttachments.length === 0) return;
+    if (!selectedThread) return;
+
+    setIsSending(true);
+    try {
+      const subject = `Re: ${selectedThread.title}`;
+      await sendNow({
+        content: replyMessage,
+        subject,
+        attachments: replyAttachments,
+        parentMessageId: selectedThread.lastMessage.id,
+      });
+
+      setReplyMessage('');
+      setReplyAttachments([]);
+    } catch {
+      toast({ title: 'Error', description: 'Failed to send reply', variant: 'destructive' });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const forwardMessage = (message: MessageView) => {
+    const forwarded = `${message.displayContent}\n\n--- Forwarded from Property Management ---\nSent: ${format(new Date(message.created_at), 'PPPp')}`;
+    setComposeSubject(`Fwd: ${message.subject || selectedThread?.title || 'Message'}`);
+    setComposeMessage(forwarded);
+    setComposeScheduledFor('');
+    setComposeAttachments([]);
+    setIsNewMessageOpen(true);
   };
 
   return (
@@ -457,17 +780,17 @@ export default function TenantMessages() {
           <div>
             <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Tenant Communications</p>
             <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Messages</h1>
-            <p className="text-muted-foreground">Communicate with property management in real time</p>
+            <p className="text-muted-foreground">Gmail-style workspace for organized conversations with property management.</p>
           </div>
           <Badge variant="outline" className="w-fit rounded-full px-3 border-primary/30 bg-primary/5 text-primary font-display">
             <Sparkles className="h-3.5 w-3.5 mr-1" />
-            Fast Response Thread
+            Threaded Inbox
           </Badge>
         </div>
       </section>
 
       <div className="rounded-xl border border-border/70 bg-card/80 p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-foreground">Use this thread for urgent updates, confirmations, and maintenance follow-ups.</p>
+        <p className="text-sm text-foreground">Use filters, thread views, and quick actions to manage messages without leaving this page.</p>
         <div className="flex items-center gap-2">
           <Button variant="outline" className="gap-2" onClick={() => navigate('/tenant/notifications')}>
             <Bell className="h-4 w-4" />
@@ -480,7 +803,7 @@ export default function TenantMessages() {
           </Button>
           <Button className="gap-2" onClick={() => setIsNewMessageOpen(true)}>
             <Plus className="h-4 w-4" />
-            New Message
+            New Thread
           </Button>
         </div>
       </div>
@@ -489,7 +812,7 @@ export default function TenantMessages() {
         <Card className="card-shadow-md lg:col-span-1 flex min-h-0 flex-col overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
-              <CardTitle className="text-lg">Conversations</CardTitle>
+              <CardTitle className="text-lg">Threads</CardTitle>
               {unreadThreadCount > 0 && (
                 <Badge variant="secondary" className="text-xs">{unreadThreadCount} unread</Badge>
               )}
@@ -500,7 +823,7 @@ export default function TenantMessages() {
                 <Input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search messages"
+                  placeholder="Search threads"
                   className="pl-9"
                 />
               </div>
@@ -518,34 +841,42 @@ export default function TenantMessages() {
           </CardHeader>
           <CardContent className="p-0 min-h-0 flex-1">
             <ScrollArea className="h-full">
-              {messages.length === 0 ? (
+              {filteredThreads.length === 0 ? (
                 <div className="p-6 text-center text-sm text-muted-foreground">
-                  Conversations with property management will appear here.
+                  {threads.length === 0 ? 'No conversations yet.' : 'No threads match this filter.'}
                 </div>
               ) : (
-                <button type="button" className="w-full p-4 text-left border-b border-border bg-secondary/50 hover:bg-secondary/70 transition-colors">
-                  <div className="flex items-start gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm">PM</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium">Property Management</span>
-                        {messages[messages.length - 1] && (
+                filteredThreads.map((thread) => (
+                  <button
+                    key={thread.id}
+                    type="button"
+                    className={`w-full p-4 text-left border-b border-border transition-colors ${selectedThread?.id === thread.id ? 'bg-secondary/80' : 'bg-secondary/40 hover:bg-secondary/65'}`}
+                    onClick={() => setSelectedThreadId(thread.id)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback className="bg-primary/10 text-primary text-sm">PM</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium truncate">{thread.title}</span>
                           <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {formatDistanceToNow(new Date(messages[messages.length - 1].created_at), { addSuffix: true })}
+                            {formatDistanceToNow(new Date(thread.lastMessage.created_at), { addSuffix: true })}
                           </span>
-                        )}
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate mt-1">
+                          {thread.lastMessage.displayContent || 'No message body'}
+                        </p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Badge variant="outline" className="text-[10px]">{thread.messages.length} msgs</Badge>
+                          {thread.unreadCount > 0 && (
+                            <Badge variant="secondary" className="text-[10px]">{thread.unreadCount} unread</Badge>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground truncate mt-1">
-                        {extractAttachmentsMetadata(messages[messages.length - 1]?.content || '').cleanContent || 'No messages yet'}
-                      </p>
-                      {unreadThreadCount > 0 && (
-                        <Badge variant="secondary" className="mt-2 text-xs">{unreadThreadCount} unread</Badge>
-                      )}
                     </div>
-                  </div>
-                </button>
+                  </button>
+                ))
               )}
             </ScrollArea>
           </CardContent>
@@ -553,14 +884,22 @@ export default function TenantMessages() {
 
         <Card className="card-shadow-md lg:col-span-2 flex min-h-0 flex-col overflow-hidden">
           <CardHeader className="border-b border-border">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-primary/10 text-primary">PM</AvatarFallback>
-              </Avatar>
-              <div>
-                <CardTitle className="text-lg">Property Management</CardTitle>
-                <p className="text-sm text-muted-foreground">Usually responds within 24 hours</p>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback className="bg-primary/10 text-primary">PM</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <CardTitle className="text-lg truncate">{selectedThread?.title || 'Select a thread'}</CardTitle>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Radio className="h-3.5 w-3.5 text-success" />
+                    {presenceLabel}
+                  </p>
+                </div>
               </div>
+              {selectedThread && (
+                <Badge variant="outline" className="text-xs">{selectedThread.messages.length} messages</Badge>
+              )}
             </div>
           </CardHeader>
           <CardContent className="flex-1 p-0 flex min-h-0 flex-col">
@@ -569,52 +908,127 @@ export default function TenantMessages() {
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-              ) : filteredMessages.length === 0 ? (
+              ) : !selectedThread ? (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                   <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
-                  <p>{searchQuery || showUnreadOnly ? 'No messages match this filter.' : 'No messages yet. Start a conversation!'}</p>
+                  <p>Select a thread to open the conversation.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredMessages.map((message) => {
+                  {selectedThread.messages.map((message) => {
                     const isMe = message.sender_id === tenantProfile?.id;
+                    const messageReactions = reactionsByMessage[message.id] || [];
                     return (
                       <div key={message.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] p-3 rounded-lg ${isMe ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
-                          {message.subject && (
-                            <div className={`mb-1 flex items-center gap-1 text-xs font-medium ${isMe ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                        <div className={`max-w-[85%] p-3 rounded-lg ${isMe ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+                          <div className="mb-1 flex items-center justify-between gap-2">
+                            <div className={`inline-flex items-center gap-1 text-xs font-medium ${isMe ? 'text-primary-foreground/85' : 'text-muted-foreground'}`}>
                               <AtSign className="h-3 w-3" />
-                              {message.subject}
+                              {message.subject || 'Message'}
                             </div>
-                          )}
+                            <div className="inline-flex items-center gap-1">
+                              <Button
+                                size="icon"
+                                type="button"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => setReplyMessage((current) => `${current}${current ? '\n' : ''}@PM `)}
+                              >
+                                <Reply className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                type="button"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => forwardMessage(message)}
+                              >
+                                <Forward className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                type="button"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => toggleStar(message.id)}
+                              >
+                                <Star className={`h-3.5 w-3.5 ${starredByMessage[message.id] ? 'fill-current text-warning' : ''}`} />
+                              </Button>
+                            </div>
+                          </div>
+
                           <RenderContent content={message.displayContent} />
+
                           {message.attachments.length > 0 && (
-                            <div className="mt-3 space-y-1.5">
-                              {message.attachments.map((attachment) => (
-                                <button
-                                  key={attachment.path}
-                                  type="button"
-                                  onClick={() => downloadAttachment(attachment)}
-                                  className={`flex w-full items-center justify-between rounded-md border px-2.5 py-1.5 text-xs ${isMe ? 'border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground' : 'border-border bg-background text-foreground'}`}
-                                >
-                                  <span className="truncate pr-2">{attachment.name}</span>
-                                  <span className="inline-flex items-center gap-1 shrink-0">
-                                    <Download className="h-3.5 w-3.5" />
-                                    {formatBytes(attachment.size)}
-                                  </span>
-                                </button>
-                              ))}
+                            <div className="mt-3 grid gap-2">
+                              {message.attachments.map((attachment) => {
+                                const signedUrl = attachmentUrls[attachment.path];
+                                const isImage = attachment.type.startsWith('image/');
+                                return (
+                                  <div key={attachment.path} className={`rounded-md border p-2 ${isMe ? 'border-primary-foreground/30 bg-primary-foreground/10' : 'border-border bg-background'}`}>
+                                    <div className="flex items-center justify-between gap-2 text-xs">
+                                      <div className="min-w-0">
+                                        <p className="truncate font-medium">{attachment.name}</p>
+                                        <p className={isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}>{formatBytes(attachment.size)}</p>
+                                      </div>
+                                      {signedUrl ? (
+                                        <a href={signedUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                                          <Button variant="outline" size="sm" className="h-7 gap-1">
+                                            <Download className="h-3.5 w-3.5" />
+                                            Open
+                                          </Button>
+                                        </a>
+                                      ) : (
+                                        <span className="text-muted-foreground text-xs">Preparing...</span>
+                                      )}
+                                    </div>
+                                    {isImage && signedUrl && (
+                                      <a href={signedUrl} target="_blank" rel="noopener noreferrer" className="block mt-2">
+                                        <img src={signedUrl} alt={attachment.name} className="max-h-52 rounded-md border border-border/60" />
+                                      </a>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
-                          <div className="mt-1 flex items-center justify-between gap-2">
+
+                          <div className="mt-2 flex items-center justify-between gap-2">
                             <p className={`text-xs ${isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                               {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
                             </p>
-                            {isMe && (
-                              <span className={isMe ? 'text-primary-foreground/80' : 'text-muted-foreground'}>
-                                {message.is_read ? <CheckCheck className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-                              </span>
-                            )}
+                            <div className="inline-flex items-center gap-1">
+                              {messageReactions.map((emoji) => (
+                                <button
+                                  key={`${message.id}-${emoji}`}
+                                  type="button"
+                                  className="rounded-full border border-border/50 px-1.5 py-0.5 text-xs"
+                                  onClick={() => toggleReaction(message.id, emoji)}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                              {!messageReactions.length && <span className="text-xs text-muted-foreground">no reactions</span>}
+                              {isMe && (
+                                <span className="ml-1">
+                                  {message.is_read ? <CheckCheck className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="mt-2 inline-flex items-center gap-1.5">
+                            <Smile className={`h-3.5 w-3.5 ${isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`} />
+                            {QUICK_REACTIONS.map((emoji) => (
+                              <button
+                                key={`${message.id}-quick-${emoji}`}
+                                type="button"
+                                className="text-sm hover:scale-110 transition-transform"
+                                onClick={() => toggleReaction(message.id, emoji)}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
                           </div>
                         </div>
                       </div>
@@ -624,19 +1038,16 @@ export default function TenantMessages() {
                 </div>
               )}
             </ScrollArea>
+
             <div className="p-4 border-t border-border space-y-3">
               <RichTextEditor
                 value={replyMessage}
                 onChange={setReplyMessage}
-                placeholder="Type your message... (Shift+Enter for new line)"
+                placeholder="Type your reply... (Shift+Enter for new line)"
                 onSubmit={() => {
-                  void handleSendMessage({
-                    content: replyMessage,
-                    subject: 'Reply',
-                    attachments: replyAttachments,
-                  });
+                  void handleReplySend();
                 }}
-                minHeight="60px"
+                minHeight="68px"
               />
               <input
                 ref={replyFileInputRef}
@@ -677,11 +1088,7 @@ export default function TenantMessages() {
                 <Button
                   className="gap-2"
                   onClick={() => {
-                    void handleSendMessage({
-                      content: replyMessage,
-                      subject: 'Reply',
-                      attachments: replyAttachments,
-                    });
+                    void handleReplySend();
                   }}
                   disabled={isSending || ((!replyMessage.trim()) && replyAttachments.length === 0)}
                 >
@@ -695,10 +1102,10 @@ export default function TenantMessages() {
       </div>
 
       <Dialog open={isNewMessageOpen} onOpenChange={setIsNewMessageOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>New Message</DialogTitle>
-            <DialogDescription>Send a message to property management.</DialogDescription>
+            <DialogTitle>New Message Thread</DialogTitle>
+            <DialogDescription>Start a new conversation with property management.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid gap-2">
@@ -722,6 +1129,22 @@ export default function TenantMessages() {
                 placeholder="Type your message here..."
                 minHeight="120px"
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="schedule">Schedule Send (optional)</Label>
+              <div className="relative">
+                <CalendarClock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="schedule"
+                  type="datetime-local"
+                  value={composeScheduledFor}
+                  onChange={(event) => setComposeScheduledFor(event.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {draftSavedAt ? `Draft saved ${formatDistanceToNow(new Date(draftSavedAt), { addSuffix: true })}` : 'Draft autosaves while you type.'}
+              </p>
             </div>
             <input
               ref={composeFileInputRef}
@@ -768,18 +1191,13 @@ export default function TenantMessages() {
             </Button>
             <Button
               onClick={() => {
-                void handleSendMessage({
-                  content: composeMessage,
-                  subject: composeSubject,
-                  attachments: composeAttachments,
-                  closeComposer: true,
-                });
+                void handleComposeSend();
               }}
               className="gap-2"
               disabled={isSending || ((!composeMessage.trim() && !composeSubject.trim()) && composeAttachments.length === 0)}
             >
               {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Send Message
+              {composeScheduledFor ? 'Schedule Message' : 'Send Message'}
             </Button>
           </DialogFooter>
         </DialogContent>

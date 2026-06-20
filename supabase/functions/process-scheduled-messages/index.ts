@@ -18,6 +18,12 @@ type AttachmentMeta = {
   type: string;
 };
 
+type ScheduledMetadata = {
+  attachments?: AttachmentMeta[];
+  sender_id?: string;
+  property_id?: string | null;
+};
+
 function parseAttachments(metadata: unknown): AttachmentMeta[] {
   if (!metadata || typeof metadata !== 'object') return [];
   const maybeAttachments = (metadata as { attachments?: unknown }).attachments;
@@ -33,6 +39,11 @@ function parseAttachments(metadata: unknown): AttachmentMeta[] {
       typeof candidate.type === 'string'
     );
   });
+}
+
+function parseMetadata(metadata: unknown): ScheduledMetadata {
+  if (!metadata || typeof metadata !== 'object') return {};
+  return metadata as ScheduledMetadata;
 }
 
 Deno.serve(async (req) => {
@@ -88,15 +99,20 @@ Deno.serve(async (req) => {
 
     for (const scheduled of rows) {
       try {
+        const metadata = parseMetadata(scheduled.metadata);
+        const senderId = metadata.sender_id ?? scheduled.user_id;
+        const propertyId = metadata.property_id ?? null;
+
         const { data: insertedMessage, error: insertError } = await adminClient
           .from('messages')
           .insert({
             client_message_id: crypto.randomUUID(),
             user_id: scheduled.user_id,
-            sender_id: scheduled.user_id,
+            sender_id: senderId,
             recipient_id: scheduled.recipient_id,
             subject: scheduled.subject,
             content: scheduled.content,
+            property_id: propertyId,
             parent_message_id: null,
           })
           .select('id')
