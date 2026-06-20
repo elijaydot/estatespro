@@ -7,7 +7,16 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useUserRole } from '@/hooks/useUserRole';
-import { ageInDays, getSlaLevel, matchesDecisionFilter, matchesSlaFilter } from '@/lib/reviewerQueue';
+import {
+  ageInDays,
+  getSlaLevel,
+  matchesDecisionFilter,
+  matchesSlaFilter,
+  nextVisibleCount,
+  REVIEWER_AUDIT_PAGE_SIZE,
+  REVIEWER_QUEUE_PAGE_SIZE,
+  sliceRows,
+} from '@/lib/reviewerQueue';
 import {
   useReviewerDecisionOnPublisherVerification,
   useReviewerDecisionOnVerificationDocument,
@@ -29,6 +38,9 @@ export default function MarketplaceReviewerQueue() {
   const [auditDecisionFilter, setAuditDecisionFilter] = useState<'all' | 'verified' | 'needs_review' | 'rejected' | 'approved'>('all');
   const [verificationReasons, setVerificationReasons] = useState<Record<string, string>>({});
   const [documentReasons, setDocumentReasons] = useState<Record<string, string>>({});
+  const [publisherVisibleCount, setPublisherVisibleCount] = useState(REVIEWER_QUEUE_PAGE_SIZE);
+  const [documentVisibleCount, setDocumentVisibleCount] = useState(REVIEWER_QUEUE_PAGE_SIZE);
+  const [auditVisibleCount, setAuditVisibleCount] = useState(REVIEWER_AUDIT_PAGE_SIZE);
 
   const scopedCompanyId = scopeAllCompanies ? null : activeCompanyId;
 
@@ -88,6 +100,11 @@ export default function MarketplaceReviewerQueue() {
     return publisherRows.filter((row) => matchesSlaFilter(ageInDays(row.last_submitted_at), publisherSlaFilter));
   }, [publisherRows, publisherSlaFilter]);
 
+  const visiblePublisherRows = useMemo(
+    () => sliceRows(filteredPublisherRows, publisherVisibleCount),
+    [filteredPublisherRows, publisherVisibleCount],
+  );
+
   const documentRows = useMemo(() => {
     const rows = documentQueue.data || [];
     const query = search.toLowerCase().trim();
@@ -98,6 +115,11 @@ export default function MarketplaceReviewerQueue() {
   const filteredDocumentRows = useMemo(() => {
     return documentRows.filter((row) => matchesSlaFilter(ageInDays(row.created_at), documentSlaFilter));
   }, [documentRows, documentSlaFilter]);
+
+  const visibleDocumentRows = useMemo(
+    () => sliceRows(filteredDocumentRows, documentVisibleCount),
+    [filteredDocumentRows, documentVisibleCount],
+  );
 
   const avgPublisherAge = filteredPublisherRows.length
     ? Math.round(filteredPublisherRows.reduce((sum, row) => sum + ageInDays(row.last_submitted_at), 0) / filteredPublisherRows.length)
@@ -159,8 +181,13 @@ export default function MarketplaceReviewerQueue() {
     return [...publisherEvents, ...documentEvents]
       .filter((event) => matchesDecisionFilter(event.decision, auditDecisionFilter))
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-      .slice(0, 20);
+      .slice(0, 200);
   }, [publisherHistory.data, documentHistory.data, reviewerMap, auditDecisionFilter]);
+
+  const visibleAuditTrail = useMemo(
+    () => sliceRows(auditTrail, auditVisibleCount),
+    [auditTrail, auditVisibleCount],
+  );
 
   if (!isSuperAdmin) {
     return <Navigate to="/dashboard" replace />;
@@ -259,7 +286,7 @@ export default function MarketplaceReviewerQueue() {
           <CardDescription>Review pending and needs-review company verifications.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {filteredPublisherRows.map((row) => (
+          {visiblePublisherRows.map((row) => (
             <div key={row.id} className="rounded-lg border border-border/70 p-3">
               {(() => {
                 const level = getSlaLevel(ageInDays(row.last_submitted_at));
@@ -327,6 +354,20 @@ export default function MarketplaceReviewerQueue() {
               No publisher verification records in the reviewer queue.
             </div>
           )}
+          {filteredPublisherRows.length > visiblePublisherRows.length ? (
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setPublisherVisibleCount((current) =>
+                    nextVisibleCount(current, filteredPublisherRows.length, REVIEWER_QUEUE_PAGE_SIZE),
+                  )
+                }
+              >
+                Load More Publisher Items ({visiblePublisherRows.length}/{filteredPublisherRows.length})
+              </Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -336,7 +377,7 @@ export default function MarketplaceReviewerQueue() {
           <CardDescription>Review pending verification documents and capture decision reasons.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {filteredDocumentRows.map((row) => (
+          {visibleDocumentRows.map((row) => (
             <div key={row.id} className="rounded-lg border border-border/70 p-3">
               {(() => {
                 const level = getSlaLevel(ageInDays(row.created_at));
@@ -399,6 +440,20 @@ export default function MarketplaceReviewerQueue() {
               No verification document records in the reviewer queue.
             </div>
           )}
+          {filteredDocumentRows.length > visibleDocumentRows.length ? (
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setDocumentVisibleCount((current) =>
+                    nextVisibleCount(current, filteredDocumentRows.length, REVIEWER_QUEUE_PAGE_SIZE),
+                  )
+                }
+              >
+                Load More Document Items ({visibleDocumentRows.length}/{filteredDocumentRows.length})
+              </Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -421,7 +476,7 @@ export default function MarketplaceReviewerQueue() {
               <option value="approved">Approved</option>
             </select>
           </div>
-          {auditTrail.map((event) => (
+          {visibleAuditTrail.map((event) => (
             <div key={event.id} className="rounded-md border border-border/70 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium">{event.type} · {event.company}</p>
@@ -438,6 +493,20 @@ export default function MarketplaceReviewerQueue() {
               No reviewer decision history yet.
             </div>
           )}
+          {auditTrail.length > visibleAuditTrail.length ? (
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setAuditVisibleCount((current) =>
+                    nextVisibleCount(current, auditTrail.length, REVIEWER_AUDIT_PAGE_SIZE),
+                  )
+                }
+              >
+                Load More Audit Events ({visibleAuditTrail.length}/{auditTrail.length})
+              </Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>

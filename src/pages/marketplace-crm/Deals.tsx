@@ -2,18 +2,32 @@ import { useMemo, useState } from 'react';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
-import { useCreateCrmDeal, useCrmDeals } from '@/hooks/useMarketplaceCrm';
+import {
+  useCreateCrmDeal,
+  useCrmAccounts,
+  useCrmContacts,
+  useCrmDeals,
+  useUpdateCrmDeal,
+} from '@/hooks/useMarketplaceCrm';
 
 const DEAL_STAGES = ['qualification', 'needs_analysis', 'value_proposition', 'identify_decision_makers', 'proposal', 'negotiation', 'closed_won', 'closed_lost'];
 
 export default function MarketplaceCrmDealsPage() {
   const { activeCompanyId } = useActiveCompany();
   const dealsQuery = useCrmDeals(activeCompanyId);
+  const accountsQuery = useCrmAccounts(activeCompanyId);
+  const contactsQuery = useCrmContacts(activeCompanyId);
   const createDeal = useCreateCrmDeal(activeCompanyId);
+  const updateDeal = useUpdateCrmDeal(activeCompanyId);
 
   const [search, setSearch] = useState('');
   const [dealName, setDealName] = useState('');
   const [amount, setAmount] = useState('');
+  const [createAccountId, setCreateAccountId] = useState('');
+  const [createContactId, setCreateContactId] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editStage, setEditStage] = useState('qualification');
+  const [editProbability, setEditProbability] = useState('10');
 
   const rows = useMemo(() => {
     const records = dealsQuery.data || [];
@@ -37,12 +51,43 @@ export default function MarketplaceCrmDealsPage() {
     createDeal.mutate({
       deal_name: dealName.trim(),
       amount: amount ? Number(amount) : null,
+      account_id: createAccountId || null,
+      contact_id: createContactId || null,
       currency: 'NGN',
       stage: 'qualification',
       probability: 10,
     });
     setDealName('');
     setAmount('');
+    setCreateAccountId('');
+    setCreateContactId('');
+  };
+
+  const startEdit = (id: string, stage: string, probability: number) => {
+    setEditingId(id);
+    setEditStage(stage);
+    setEditProbability(String(probability));
+  };
+
+  const saveEdit = () => {
+    if (!editingId) return;
+    const parsed = Number(editProbability);
+    if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) return;
+
+    updateDeal.mutate(
+      {
+        id: editingId,
+        payload: {
+          stage: editStage,
+          probability: parsed,
+        },
+      },
+      {
+        onSuccess: () => {
+          setEditingId(null);
+        },
+      },
+    );
   };
 
   return (
@@ -52,6 +97,20 @@ export default function MarketplaceCrmDealsPage() {
           <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Deal name" value={dealName} onChange={(event) => setDealName(event.target.value)} />
           <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Amount" value={amount} onChange={(event) => setAmount(event.target.value)} />
           <button className="h-9 rounded-md bg-primary text-primary-foreground text-sm" onClick={onCreate} disabled={createDeal.isPending}>Create Deal</button>
+        </div>
+        <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={createAccountId} onChange={(event) => setCreateAccountId(event.target.value)}>
+            <option value="">Link Account (optional)</option>
+            {(accountsQuery.data || []).map((account) => (
+              <option key={account.id} value={account.id}>{account.name}</option>
+            ))}
+          </select>
+          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={createContactId} onChange={(event) => setCreateContactId(event.target.value)}>
+            <option value="">Link Contact (optional)</option>
+            {(contactsQuery.data || []).map((contact) => (
+              <option key={contact.id} value={contact.id}>{contact.full_name}</option>
+            ))}
+          </select>
         </div>
       </CrmDataCard>
 
@@ -67,6 +126,33 @@ export default function MarketplaceCrmDealsPage() {
                     <div key={deal.id} className="rounded-md border border-border/70 bg-background/80 p-2 text-sm">
                       <p className="font-medium">{deal.deal_name}</p>
                       <p className="text-xs text-muted-foreground">{deal.amount ? `NGN ${Number(deal.amount).toLocaleString()}` : 'No amount'}</p>
+                      <p className="text-xs text-muted-foreground">Probability: {deal.probability}%</p>
+                      {editingId === deal.id ? (
+                        <div className="mt-2 space-y-2">
+                          <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={editStage} onChange={(event) => setEditStage(event.target.value)}>
+                            {DEAL_STAGES.map((s) => (
+                              <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                            ))}
+                          </select>
+                          <input
+                            className="h-8 w-full rounded-md border border-input px-2 text-xs"
+                            value={editProbability}
+                            onChange={(event) => setEditProbability(event.target.value)}
+                            placeholder="Probability (0-100)"
+                          />
+                          <div className="flex gap-2">
+                            <button className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground" onClick={saveEdit} disabled={updateDeal.isPending}>Save</button>
+                            <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => setEditingId(null)}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          className="mt-2 h-8 rounded-md border border-input px-2 text-xs"
+                          onClick={() => startEdit(deal.id, deal.stage, deal.probability)}
+                        >
+                          Edit Stage
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -2,16 +2,20 @@ import { useMemo, useState } from 'react';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
-import { useCreateCrmAccount, useCrmAccounts } from '@/hooks/useMarketplaceCrm';
+import { useCreateCrmAccount, useCrmAccounts, useUpdateCrmAccount } from '@/hooks/useMarketplaceCrm';
 
 export default function MarketplaceCrmAccountsPage() {
   const { activeCompanyId } = useActiveCompany();
   const accountsQuery = useCrmAccounts(activeCompanyId);
   const createAccount = useCreateCrmAccount(activeCompanyId);
+  const updateAccount = useUpdateCrmAccount(activeCompanyId);
 
   const [search, setSearch] = useState('');
   const [name, setName] = useState('');
   const [website, setWebsite] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editWebsite, setEditWebsite] = useState('');
 
   const rows = useMemo(() => {
     const records = accountsQuery.data || [];
@@ -25,6 +29,33 @@ export default function MarketplaceCrmAccountsPage() {
     createAccount.mutate({ name: name.trim(), website: website.trim() || null });
     setName('');
     setWebsite('');
+  };
+
+  const startEdit = (id: string, currentName: string, currentWebsite: string | null) => {
+    setEditingId(id);
+    setEditName(currentName);
+    setEditWebsite(currentWebsite || '');
+  };
+
+  const onSaveEdit = () => {
+    if (!editingId || !editName.trim()) return;
+
+    updateAccount.mutate(
+      {
+        id: editingId,
+        payload: {
+          name: editName.trim(),
+          website: editWebsite.trim() || null,
+        },
+      },
+      {
+        onSuccess: () => {
+          setEditingId(null);
+          setEditName('');
+          setEditWebsite('');
+        },
+      },
+    );
   };
 
   return (
@@ -47,15 +78,62 @@ export default function MarketplaceCrmAccountsPage() {
                 <th className="px-3 py-2">Phone</th>
                 <th className="px-3 py-2">Website</th>
                 <th className="px-3 py-2">Type</th>
+                <th className="px-3 py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-border/60">
-                  <td className="px-3 py-2 font-medium">{row.name}</td>
+                  <td className="px-3 py-2 font-medium">
+                    {editingId === row.id ? (
+                      <input
+                        className="h-8 w-full rounded-md border border-input px-2 text-sm"
+                        value={editName}
+                        onChange={(event) => setEditName(event.target.value)}
+                      />
+                    ) : (
+                      row.name
+                    )}
+                  </td>
                   <td className="px-3 py-2">{row.phone || '-'}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{row.website || '-'}</td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {editingId === row.id ? (
+                      <input
+                        className="h-8 w-full rounded-md border border-input px-2 text-sm"
+                        value={editWebsite}
+                        onChange={(event) => setEditWebsite(event.target.value)}
+                      />
+                    ) : (
+                      row.website || '-'
+                    )}
+                  </td>
                   <td className="px-3 py-2">{row.account_type || '-'}</td>
+                  <td className="px-3 py-2">
+                    {editingId === row.id ? (
+                      <div className="flex gap-2">
+                        <button className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground" onClick={onSaveEdit} disabled={updateAccount.isPending}>
+                          Save
+                        </button>
+                        <button
+                          className="h-8 rounded-md border border-input px-2 text-xs"
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditName('');
+                            setEditWebsite('');
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="h-8 rounded-md border border-input px-2 text-xs"
+                        onClick={() => startEdit(row.id, row.name, row.website)}
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

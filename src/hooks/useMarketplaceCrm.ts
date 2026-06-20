@@ -315,6 +315,34 @@ function buildCreateMutation<TInput extends Record<string, unknown>>(table: stri
   };
 }
 
+function buildUpdateMutation<TInput extends Record<string, unknown>>(table: string, key: string) {
+  return function useUpdateEntity(companyId?: string | null) {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: async ({ id, payload }: { id: string; payload: TInput }) => {
+        if (!companyId) throw new Error('Active company is required');
+        const { data, error } = await supabase
+          .from(table as never)
+          .update(payload as never)
+          .eq('id', id)
+          .eq('company_id', companyId)
+          .select('*')
+          .single();
+
+        if (error) throw error;
+        return data;
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['marketplace-crm', key, companyId] });
+        toast({ title: 'Saved', description: 'Record updated successfully.' });
+      },
+      onError: (error: Error) => {
+        toast({ title: 'Update Failed', description: error.message, variant: 'destructive' });
+      },
+    });
+  };
+}
+
 export const useCreateCrmAccount = buildCreateMutation<Record<string, unknown>>('crm_accounts', 'accounts');
 export const useCreateCrmDeal = buildCreateMutation<Record<string, unknown>>('crm_deals', 'deals');
 export const useCreateCrmMeeting = buildCreateMutation<Record<string, unknown>>('crm_meetings', 'meetings');
@@ -323,3 +351,5 @@ export const useCreateCrmCampaign = buildCreateMutation<Record<string, unknown>>
 export const useCreateCrmDocument = buildCreateMutation<Record<string, unknown>>('crm_documents', 'documents');
 export const useCreateCrmVisit = buildCreateMutation<Record<string, unknown>>('crm_visits', 'visits');
 export const useCreateCrmProject = buildCreateMutation<Record<string, unknown>>('crm_projects', 'projects');
+export const useUpdateCrmAccount = buildUpdateMutation<Record<string, unknown>>('crm_accounts', 'accounts');
+export const useUpdateCrmDeal = buildUpdateMutation<Record<string, unknown>>('crm_deals', 'deals');

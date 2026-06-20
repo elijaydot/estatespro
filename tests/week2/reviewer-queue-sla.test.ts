@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { ageInDays, getSlaLevel, matchesDecisionFilter, matchesSlaFilter } from '../../src/lib/reviewerQueue';
+import {
+  ageInDays,
+  getSlaLevel,
+  matchesDecisionFilter,
+  matchesSlaFilter,
+  nextVisibleCount,
+  sliceRows,
+} from '../../src/lib/reviewerQueue';
 
 describe('reviewerQueue SLA helpers', () => {
   it('calculates age in days from a fixed timestamp', () => {
@@ -29,5 +36,18 @@ describe('reviewerQueue SLA helpers', () => {
     expect(matchesDecisionFilter('verified', 'verified')).toBe(true);
     expect(matchesDecisionFilter('approved', 'verified')).toBe(false);
     expect(matchesDecisionFilter('rejected', 'rejected')).toBe(true);
+  });
+
+  it('slices rows for incremental rendering', () => {
+    const rows = ['a', 'b', 'c', 'd'];
+    expect(sliceRows(rows, 2)).toEqual(['a', 'b']);
+    expect(sliceRows(rows, 99)).toEqual(rows);
+    expect(sliceRows(rows, -4)).toEqual([]);
+  });
+
+  it('increments visible count without exceeding total', () => {
+    expect(nextVisibleCount(25, 100, 25)).toBe(50);
+    expect(nextVisibleCount(90, 100, 25)).toBe(100);
+    expect(nextVisibleCount(100, 100, 25)).toBe(100);
   });
 });
