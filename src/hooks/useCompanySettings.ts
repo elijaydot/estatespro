@@ -113,7 +113,7 @@ export async function uploadCompanyLogo(file: File, companyId?: string | null): 
   if (!companyId) throw new Error('No active company selected');
 
   const fileExt = file.name.split('.').pop();
-  const fileName = `${companyId}/logo-${Date.now()}.${fileExt}`;
+  const fileName = `${user.id}/${companyId}/logo-${Date.now()}.${fileExt}`;
 
   const { error: uploadError } = await supabase.storage
     .from('company-logos')
