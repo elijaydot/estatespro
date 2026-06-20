@@ -10,6 +10,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import {
   useReviewerDecisionOnPublisherVerification,
   useReviewerDecisionOnVerificationDocument,
+  useReviewerProfiles,
   useReviewerPublisherDecisionHistory,
   useReviewerPublisherVerificationQueue,
   useReviewerVerificationDocumentHistory,
@@ -44,6 +45,44 @@ export default function MarketplaceReviewerQueue() {
   const documentHistory = useReviewerVerificationDocumentHistory(scopedCompanyId);
   const reviewPublisher = useReviewerDecisionOnPublisherVerification(scopedCompanyId);
   const reviewDocument = useReviewerDecisionOnVerificationDocument();
+
+  const reviewerIds = useMemo(() => {
+    const ids: string[] = [];
+
+    (publisherQueue.data || []).forEach((row) => {
+      if (row.verified_by) ids.push(row.verified_by);
+    });
+
+    (documentQueue.data || []).forEach((row) => {
+      if (row.reviewed_by) ids.push(row.reviewed_by);
+    });
+
+    (publisherHistory.data || []).forEach((row) => {
+      if (row.reviewed_by) ids.push(row.reviewed_by);
+    });
+
+    (documentHistory.data || []).forEach((row) => {
+      if (row.reviewed_by) ids.push(row.reviewed_by);
+    });
+
+    return Array.from(new Set(ids));
+  }, [publisherQueue.data, documentQueue.data, publisherHistory.data, documentHistory.data]);
+
+  const reviewerProfiles = useReviewerProfiles(reviewerIds);
+  const reviewerMap = useMemo(() => {
+    const map = new Map<string, { name: string; email: string }>();
+    (reviewerProfiles.data || []).forEach((profile) => {
+      map.set(profile.user_id, { name: profile.name, email: profile.email });
+    });
+    return map;
+  }, [reviewerProfiles.data]);
+
+  const resolveReviewerLabel = (reviewerId?: string | null) => {
+    if (!reviewerId) return 'Unknown reviewer';
+    const profile = reviewerMap.get(reviewerId);
+    if (!profile) return reviewerId;
+    return `${profile.name} (${profile.email})`;
+  };
 
   const publisherRows = useMemo(() => {
     const rows = publisherQueue.data || [];
@@ -90,30 +129,36 @@ export default function MarketplaceReviewerQueue() {
   }, [documentRows]);
 
   const auditTrail = useMemo(() => {
-    const publisherEvents = (publisherHistory.data || []).map((row) => ({
+    const publisherEvents = (publisherHistory.data || []).map((row) => {
+      const reviewer = row.reviewed_by ? reviewerMap.get(row.reviewed_by) : null;
+      return {
       id: `publisher-${row.id}`,
       type: 'Publisher Verification',
       company: row.company_name,
       decision: row.state,
-      actor: row.reviewed_by || 'Unknown reviewer',
+      actor: reviewer ? `${reviewer.name} (${reviewer.email})` : row.reviewed_by || 'Unknown reviewer',
       at: row.reviewed_at,
       reason: row.rejection_reason,
-    }));
+      };
+    });
 
-    const documentEvents = (documentHistory.data || []).map((row) => ({
+    const documentEvents = (documentHistory.data || []).map((row) => {
+      const reviewer = row.reviewed_by ? reviewerMap.get(row.reviewed_by) : null;
+      return {
       id: `document-${row.id}`,
       type: `Document (${row.document_type})`,
       company: row.company_name,
       decision: row.state,
-      actor: row.reviewed_by || 'Unknown reviewer',
+      actor: reviewer ? `${reviewer.name} (${reviewer.email})` : row.reviewed_by || 'Unknown reviewer',
       at: row.reviewed_at,
       reason: row.rejection_reason,
-    }));
+      };
+    });
 
     return [...publisherEvents, ...documentEvents]
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
       .slice(0, 20);
-  }, [publisherHistory.data, documentHistory.data]);
+  }, [publisherHistory.data, documentHistory.data, reviewerMap]);
 
   if (!isSuperAdmin) {
     return <Navigate to="/dashboard" replace />;
@@ -206,6 +251,9 @@ export default function MarketplaceReviewerQueue() {
                 <div>
                   <p className="font-medium">{row.company_name}</p>
                   <p className="text-xs text-muted-foreground">Submitted {new Date(row.last_submitted_at).toLocaleString()} · {ageInDays(row.last_submitted_at)}d ago</p>
+                  {row.verified_by && row.verified_at ? (
+                    <p className="text-xs text-muted-foreground">Last reviewed by {resolveReviewerLabel(row.verified_by)} on {new Date(row.verified_at).toLocaleString()}</p>
+                  ) : null}
                 </div>
                 <Badge variant={row.state === 'needs_review' ? 'secondary' : 'outline'}>{row.state}</Badge>
               </div>
@@ -280,6 +328,9 @@ export default function MarketplaceReviewerQueue() {
                 <div>
                   <p className="font-medium">{row.company_name}</p>
                   <p className="text-xs text-muted-foreground">{row.document_type} · Uploaded {new Date(row.created_at).toLocaleString()} · {ageInDays(row.created_at)}d ago</p>
+                  {row.reviewed_by && row.reviewed_at ? (
+                    <p className="text-xs text-muted-foreground">Last reviewed by {resolveReviewerLabel(row.reviewed_by)} on {new Date(row.reviewed_at).toLocaleString()}</p>
+                  ) : null}
                 </div>
                 <Badge variant="secondary">pending</Badge>
               </div>

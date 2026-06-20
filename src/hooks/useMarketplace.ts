@@ -164,6 +164,12 @@ export interface ReviewerVerificationDocumentHistoryItem {
   rejection_reason: string | null;
 }
 
+export interface ReviewerProfile {
+  user_id: string;
+  name: string;
+  email: string;
+}
+
 type LeadRow = {
   id: string;
   company_id: string;
@@ -1051,6 +1057,27 @@ export function useReviewerVerificationDocumentHistory(companyId?: string | null
         };
       }) as ReviewerVerificationDocumentHistoryItem[];
     },
+  });
+}
+
+export function useReviewerProfiles(userIds: string[]) {
+  const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
+  const key = uniqueIds.slice().sort().join(',');
+
+  return useQuery({
+    queryKey: ['marketplace', 'reviewer-profiles', key],
+    queryFn: async () => {
+      if (uniqueIds.length === 0) return [] as ReviewerProfile[];
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, name, email')
+        .in('user_id', uniqueIds);
+
+      if (error) throw error;
+      return (data || []) as ReviewerProfile[];
+    },
+    enabled: uniqueIds.length > 0,
   });
 }
 
