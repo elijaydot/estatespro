@@ -10,13 +10,21 @@ import { useUserRole } from '@/hooks/useUserRole';
 import {
   useReviewerDecisionOnPublisherVerification,
   useReviewerDecisionOnVerificationDocument,
+  useReviewerPublisherDecisionHistory,
   useReviewerPublisherVerificationQueue,
+  useReviewerVerificationDocumentHistory,
   useReviewerVerificationDocumentQueue,
 } from '@/hooks/useMarketplace';
 
 function ageInDays(value: string) {
   const ageMs = Date.now() - new Date(value).getTime();
   return Math.max(0, Math.floor(ageMs / (1000 * 60 * 60 * 24)));
+}
+
+function getSlaLevel(ageDays: number): 'healthy' | 'warning' | 'critical' {
+  if (ageDays >= 7) return 'critical';
+  if (ageDays >= 3) return 'warning';
+  return 'healthy';
 }
 
 export default function MarketplaceReviewerQueue() {
@@ -32,6 +40,8 @@ export default function MarketplaceReviewerQueue() {
 
   const publisherQueue = useReviewerPublisherVerificationQueue(scopedCompanyId);
   const documentQueue = useReviewerVerificationDocumentQueue(scopedCompanyId);
+  const publisherHistory = useReviewerPublisherDecisionHistory(scopedCompanyId);
+  const documentHistory = useReviewerVerificationDocumentHistory(scopedCompanyId);
   const reviewPublisher = useReviewerDecisionOnPublisherVerification(scopedCompanyId);
   const reviewDocument = useReviewerDecisionOnVerificationDocument();
 
@@ -56,6 +66,54 @@ export default function MarketplaceReviewerQueue() {
   const avgDocumentAge = documentRows.length
     ? Math.round(documentRows.reduce((sum, row) => sum + ageInDays(row.created_at), 0) / documentRows.length)
     : 0;
+
+  const publisherSla = useMemo(() => {
+    return publisherRows.reduce(
+      (acc, row) => {
+        const level = getSlaLevel(ageInDays(row.last_submitted_at));
+        acc[level] += 1;
+        return acc;
+      },
+      { healthy: 0, warning: 0, critical: 0 },
+    );
+  }, [publisherRows]);
+
+  const documentSla = useMemo(() => {
+    return documentRows.reduce(
+      (acc, row) => {
+        const level = getSlaLevel(ageInDays(row.created_at));
+        acc[level] += 1;
+        return acc;
+      },
+      { healthy: 0, warning: 0, critical: 0 },
+    );
+  }, [documentRows]);
+
+  const auditTrail = useMemo(() => {
+    const publisherEvents = (publisherHistory.data || []).map((row) => ({
+      id: `publisher-${row.id}`,
+      type: 'Publisher Verification',
+      company: row.company_name,
+      decision: row.state,
+      actor: row.reviewed_by || 'Unknown reviewer',
+      at: row.reviewed_at,
+      reason: row.rejection_reason,
+    }));
+
+    const documentEvents = (documentHistory.data || []).map((row) => ({
+      id: `document-${row.id}`,
+      type: `Document (${row.document_type})`,
+      company: row.company_name,
+      decision: row.state,
+      actor: row.reviewed_by || 'Unknown reviewer',
+      at: row.reviewed_at,
+      reason: row.rejection_reason,
+    }));
+
+    return [...publisherEvents, ...documentEvents]
+      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+      .slice(0, 20);
+  }, [publisherHistory.data, documentHistory.data]);
 
   if (!isSuperAdmin) {
     return <Navigate to="/dashboard" replace />;
@@ -105,12 +163,45 @@ export default function MarketplaceReviewerQueue() {
 
       <Card>
         <CardHeader>
+          <CardTitle>SLA Escalation</CardTitle>
+          <CardDescription>Escalation thresholds: warning at 3+ days, critical at 7+ days.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="rounded-md border border-border p-3">
+            <p className="text-sm font-medium">Publisher Queue SLA</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Badge variant="outline">Healthy: {publisherSla.healthy}</Badge>
+              <Badge variant="secondary">Warning: {publisherSla.warning}</Badge>
+              <Badge variant="destructive">Critical: {publisherSla.critical}</Badge>
+            </div>
+          </div>
+          <div className="rounded-md border border-border p-3">
+            <p className="text-sm font-medium">Document Queue SLA</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Badge variant="outline">Healthy: {documentSla.healthy}</Badge>
+              <Badge variant="secondary">Warning: {documentSla.warning}</Badge>
+              <Badge variant="destructive">Critical: {documentSla.critical}</Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Publisher Verification Queue</CardTitle>
           <CardDescription>Review pending and needs-review company verifications.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {publisherRows.map((row) => (
             <div key={row.id} className="rounded-lg border border-border/70 p-3">
+              {(() => {
+                const level = getSlaLevel(ageInDays(row.last_submitted_at));
+                return (
+                  <div className="mb-2">
+                    {level === 'critical' ? <Badge variant="destructive">Critical SLA</Badge> : level === 'warning' ? <Badge variant="secondary">Warning SLA</Badge> : <Badge variant="outline">Healthy SLA</Badge>}
+                  </div>
+                );
+              })()}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="font-medium">{row.company_name}</p>
@@ -129,7 +220,7 @@ export default function MarketplaceReviewerQueue() {
               <div className="mt-2 flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  onClick={() => reviewPublisher.mutate({ verificationId: row.id, state: 'verified' })}
+                  onClick={() => reviewPublisher.mutate({ verificationId: row.id, companyId: row.company_id, state: 'verified' })}
                   disabled={reviewPublisher.isPending}
                 >
                   Verify
@@ -137,7 +228,7 @@ export default function MarketplaceReviewerQueue() {
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => reviewPublisher.mutate({ verificationId: row.id, state: 'needs_review' })}
+                  onClick={() => reviewPublisher.mutate({ verificationId: row.id, companyId: row.company_id, state: 'needs_review' })}
                   disabled={reviewPublisher.isPending}
                 >
                   Needs Review
@@ -148,6 +239,7 @@ export default function MarketplaceReviewerQueue() {
                   onClick={() =>
                     reviewPublisher.mutate({
                       verificationId: row.id,
+                      companyId: row.company_id,
                       state: 'rejected',
                       rejectionReason: verificationReasons[row.id] || '',
                     })
@@ -176,6 +268,14 @@ export default function MarketplaceReviewerQueue() {
         <CardContent className="space-y-3">
           {documentRows.map((row) => (
             <div key={row.id} className="rounded-lg border border-border/70 p-3">
+              {(() => {
+                const level = getSlaLevel(ageInDays(row.created_at));
+                return (
+                  <div className="mb-2">
+                    {level === 'critical' ? <Badge variant="destructive">Critical SLA</Badge> : level === 'warning' ? <Badge variant="secondary">Warning SLA</Badge> : <Badge variant="outline">Healthy SLA</Badge>}
+                  </div>
+                );
+              })()}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="font-medium">{row.company_name}</p>
@@ -197,7 +297,7 @@ export default function MarketplaceReviewerQueue() {
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => reviewDocument.mutate({ documentId: row.id, state: 'approved' })}
+                  onClick={() => reviewDocument.mutate({ documentId: row.id, verificationId: row.verification_id, state: 'approved' })}
                   disabled={reviewDocument.isPending}
                 >
                   Approve
@@ -208,6 +308,7 @@ export default function MarketplaceReviewerQueue() {
                   onClick={() =>
                     reviewDocument.mutate({
                       documentId: row.id,
+                      verificationId: row.verification_id,
                       state: 'rejected',
                       rejectionReason: documentReasons[row.id] || '',
                     })
@@ -223,6 +324,32 @@ export default function MarketplaceReviewerQueue() {
           {!documentQueue.isLoading && documentRows.length === 0 && (
             <div className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
               No verification document records in the reviewer queue.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Audit Trail</CardTitle>
+          <CardDescription>Latest reviewer decisions across publisher and document workflows.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {auditTrail.map((event) => (
+            <div key={event.id} className="rounded-md border border-border/70 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium">{event.type} · {event.company}</p>
+                <Badge variant="outline">{event.decision}</Badge>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Reviewed by: {event.actor}</p>
+              <p className="text-xs text-muted-foreground">At: {new Date(event.at).toLocaleString()}</p>
+              {event.reason ? <p className="text-xs text-muted-foreground">Reason: {event.reason}</p> : null}
+            </div>
+          ))}
+
+          {!publisherHistory.isLoading && !documentHistory.isLoading && auditTrail.length === 0 && (
+            <div className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
+              No reviewer decision history yet.
             </div>
           )}
         </CardContent>

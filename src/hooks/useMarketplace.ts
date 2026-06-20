@@ -142,6 +142,28 @@ export interface ReviewerVerificationDocumentQueueItem {
   reviewed_at: string | null;
 }
 
+export interface ReviewerPublisherDecisionHistoryItem {
+  id: string;
+  company_id: string;
+  company_name: string;
+  state: Exclude<PublisherVerification['state'], 'pending'>;
+  reviewed_by: string | null;
+  reviewed_at: string;
+  rejection_reason: string | null;
+}
+
+export interface ReviewerVerificationDocumentHistoryItem {
+  id: string;
+  verification_id: string;
+  company_id: string;
+  company_name: string;
+  document_type: VerificationDocument['document_type'];
+  state: Exclude<VerificationDocument['state'], 'pending'>;
+  reviewed_by: string | null;
+  reviewed_at: string;
+  rejection_reason: string | null;
+}
+
 type LeadRow = {
   id: string;
   company_id: string;
@@ -960,6 +982,78 @@ export function useReviewerVerificationDocumentQueue(companyId?: string | null) 
   });
 }
 
+export function useReviewerPublisherDecisionHistory(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'reviewer-publisher-history', companyId || 'all'],
+    queryFn: async () => {
+      let query = supabase
+        .from('publisher_verifications')
+        .select('id, company_id, state, verified_by, verified_at, rejection_reason, companies:company_id(name)')
+        .in('state', ['verified', 'rejected', 'needs_review'])
+        .not('verified_at', 'is', null)
+        .order('verified_at', { ascending: false })
+        .limit(150);
+
+      if (companyId) {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return ((data || []) as Array<Record<string, unknown>>).map((row) => {
+        const company = row.companies as { name?: string } | null;
+        return {
+          id: String(row.id),
+          company_id: String(row.company_id),
+          company_name: company?.name || 'Unknown company',
+          state: row.state as Exclude<PublisherVerification['state'], 'pending'>,
+          reviewed_by: (row.verified_by as string | null) || null,
+          reviewed_at: String(row.verified_at),
+          rejection_reason: (row.rejection_reason as string | null) || null,
+        };
+      }) as ReviewerPublisherDecisionHistoryItem[];
+    },
+  });
+}
+
+export function useReviewerVerificationDocumentHistory(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'reviewer-document-history', companyId || 'all'],
+    queryFn: async () => {
+      let query = supabase
+        .from('verification_documents')
+        .select('id, verification_id, document_type, state, reviewed_by, reviewed_at, rejection_reason, publisher_verifications!inner(company_id, companies:company_id(name))')
+        .in('state', ['approved', 'rejected'])
+        .not('reviewed_at', 'is', null)
+        .order('reviewed_at', { ascending: false })
+        .limit(200);
+
+      if (companyId) {
+        query = query.eq('publisher_verifications.company_id', companyId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return ((data || []) as Array<Record<string, unknown>>).map((row) => {
+        const pv = row.publisher_verifications as { company_id?: string; companies?: { name?: string } | null } | null;
+        return {
+          id: String(row.id),
+          verification_id: String(row.verification_id),
+          company_id: String(pv?.company_id || ''),
+          company_name: pv?.companies?.name || 'Unknown company',
+          document_type: row.document_type as VerificationDocument['document_type'],
+          state: row.state as Exclude<VerificationDocument['state'], 'pending'>,
+          reviewed_by: (row.reviewed_by as string | null) || null,
+          reviewed_at: String(row.reviewed_at),
+          rejection_reason: (row.rejection_reason as string | null) || null,
+        };
+      }) as ReviewerVerificationDocumentHistoryItem[];
+    },
+  });
+}
+
 export function useReviewerDecisionOnPublisherVerification(companyId?: string | null) {
   const queryClient = useQueryClient();
 
@@ -968,23 +1062,30 @@ export function useReviewerDecisionOnPublisherVerification(companyId?: string | 
       verificationId,
       state,
       rejectionReason,
+      companyId: actionCompanyId,
     }: {
       verificationId: string;
       state: PublisherVerification['state'];
       rejectionReason?: string | null;
+      companyId?: string | null;
     }) => {
-      if (!companyId) throw new Error('Active company is required');
+      const resolvedCompanyId = actionCompanyId || companyId;
 
       const payload = {
         state,
         rejection_reason: state === 'rejected' ? (rejectionReason?.trim() || null) : null,
       };
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('publisher_verifications')
         .update(payload)
-        .eq('id', verificationId)
-        .eq('company_id', companyId)
+        .eq('id', verificationId);
+
+      if (resolvedCompanyId) {
+        query = query.eq('company_id', resolvedCompanyId);
+      }
+
+      const { data, error } = await query
         .select('id, company_id, state, verified_by, verified_at, rejection_reason, last_submitted_at, created_at, updated_at')
         .single();
 
@@ -994,6 +1095,8 @@ export function useReviewerDecisionOnPublisherVerification(companyId?: string | 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'publisher-verification', companyId] });
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'reviewer-publisher-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'reviewer-publisher-history'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'reviewer-document-history'] });
       toast({ title: 'Verification Reviewed', description: 'Publisher verification decision saved.' });
     },
     onError: (error: Error) => {
@@ -1010,23 +1113,30 @@ export function useReviewerDecisionOnVerificationDocument(verificationId?: strin
       documentId,
       state,
       rejectionReason,
+      verificationId: actionVerificationId,
     }: {
       documentId: string;
       state: VerificationDocument['state'];
       rejectionReason?: string | null;
+      verificationId?: string | null;
     }) => {
-      if (!verificationId) throw new Error('Verification context is required');
+      const resolvedVerificationId = actionVerificationId || verificationId;
 
       const payload = {
         state,
         rejection_reason: state === 'rejected' ? (rejectionReason?.trim() || null) : null,
       };
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('verification_documents')
         .update(payload)
-        .eq('id', documentId)
-        .eq('verification_id', verificationId)
+        .eq('id', documentId);
+
+      if (resolvedVerificationId) {
+        query = query.eq('verification_id', resolvedVerificationId);
+      }
+
+      const { data, error } = await query
         .select('id, verification_id, document_type, storage_path, state, reviewed_by, reviewed_at, rejection_reason, created_at')
         .single();
 
@@ -1036,6 +1146,8 @@ export function useReviewerDecisionOnVerificationDocument(verificationId?: strin
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'verification-documents', verificationId] });
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'reviewer-document-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'reviewer-document-history'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'reviewer-publisher-history'] });
       toast({ title: 'Document Reviewed', description: 'Document review decision saved.' });
     },
     onError: (error: Error) => {
