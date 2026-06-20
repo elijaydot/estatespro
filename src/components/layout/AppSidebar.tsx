@@ -65,6 +65,7 @@ const sharedSections: NavSection[] = [
       { icon: FileText, label: 'Leases', href: '/leases' },
       { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
       { icon: CalendarCheck, label: 'Bookings', href: '/bookings' },
+      { icon: Store, label: 'Marketplace CRM', href: '/marketplace/crm' },
       { icon: Store, label: 'Marketplace', href: '/marketplace/manage' },
       { icon: ShieldAlert, label: 'Moderation', href: '/marketplace/moderation' },
       { icon: ShieldCheck, label: 'Verification', href: '/marketplace/verification' },

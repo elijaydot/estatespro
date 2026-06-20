@@ -66,6 +66,20 @@ const MarketplacePublic = lazy(() => import("./pages/MarketplacePublic"));
 const MarketplaceManage = lazy(() => import("./pages/MarketplaceManage"));
 const MarketplaceModeration = lazy(() => import("./pages/MarketplaceModeration"));
 const MarketplaceVerification = lazy(() => import("./pages/MarketplaceVerification"));
+const MarketplaceCrmOverview = lazy(() => import("./pages/marketplace-crm/Overview"));
+const MarketplaceCrmReports = lazy(() => import("./pages/marketplace-crm/Reports"));
+const MarketplaceCrmModules = lazy(() => import("./pages/marketplace-crm/Modules"));
+const MarketplaceCrmLeads = lazy(() => import("./pages/marketplace-crm/Leads"));
+const MarketplaceCrmContacts = lazy(() => import("./pages/marketplace-crm/Contacts"));
+const MarketplaceCrmAccounts = lazy(() => import("./pages/marketplace-crm/Accounts"));
+const MarketplaceCrmDeals = lazy(() => import("./pages/marketplace-crm/Deals"));
+const MarketplaceCrmTasks = lazy(() => import("./pages/marketplace-crm/Tasks"));
+const MarketplaceCrmMeetings = lazy(() => import("./pages/marketplace-crm/Meetings"));
+const MarketplaceCrmCalls = lazy(() => import("./pages/marketplace-crm/Calls"));
+const MarketplaceCrmCampaigns = lazy(() => import("./pages/marketplace-crm/Campaigns"));
+const MarketplaceCrmDocuments = lazy(() => import("./pages/marketplace-crm/Documents"));
+const MarketplaceCrmVisits = lazy(() => import("./pages/marketplace-crm/Visits"));
+const MarketplaceCrmProjects = lazy(() => import("./pages/marketplace-crm/Projects"));
 
 const queryClient = new QueryClient();
 
@@ -217,6 +231,20 @@ function AppRoutes() {
       <Route path="/marketplace/manage" element={<PrivateRoute>{withSuspense(<MarketplaceManage />)}</PrivateRoute>} />
       <Route path="/marketplace/moderation" element={<PrivateRoute>{withSuspense(<MarketplaceModeration />)}</PrivateRoute>} />
       <Route path="/marketplace/verification" element={<PrivateRoute>{withSuspense(<MarketplaceVerification />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm" element={<PrivateRoute>{withSuspense(<MarketplaceCrmOverview />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/reports" element={<PrivateRoute>{withSuspense(<MarketplaceCrmReports />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/modules" element={<PrivateRoute>{withSuspense(<MarketplaceCrmModules />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/leads" element={<PrivateRoute>{withSuspense(<MarketplaceCrmLeads />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/contacts" element={<PrivateRoute>{withSuspense(<MarketplaceCrmContacts />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/accounts" element={<PrivateRoute>{withSuspense(<MarketplaceCrmAccounts />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/deals" element={<PrivateRoute>{withSuspense(<MarketplaceCrmDeals />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/tasks" element={<PrivateRoute>{withSuspense(<MarketplaceCrmTasks />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/meetings" element={<PrivateRoute>{withSuspense(<MarketplaceCrmMeetings />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/calls" element={<PrivateRoute>{withSuspense(<MarketplaceCrmCalls />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/campaigns" element={<PrivateRoute>{withSuspense(<MarketplaceCrmCampaigns />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/documents" element={<PrivateRoute>{withSuspense(<MarketplaceCrmDocuments />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/visits" element={<PrivateRoute>{withSuspense(<MarketplaceCrmVisits />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/projects" element={<PrivateRoute>{withSuspense(<MarketplaceCrmProjects />)}</PrivateRoute>} />
       <Route path="/guest-booking-portal" element={<PrivateRoute>{withSuspense(<GuestBookingPortal />)}</PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute>{withSuspense(<Notifications />)}</PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute>{withSuspense(<Reports />)}</PrivateRoute>} />
