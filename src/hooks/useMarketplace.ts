@@ -10,6 +10,10 @@ import {
   type MarketplaceInquiryResponse,
   type MarketplaceListParams,
 } from '@/lib/marketplaceApi';
+import {
+  applyPublisherVerificationDecision,
+  applyVerificationDocumentDecision,
+} from '@/lib/reviewerDecisions';
 
 export interface CrmLead {
   id: string;
@@ -1096,28 +1100,12 @@ export function useReviewerDecisionOnPublisherVerification(companyId?: string | 
       rejectionReason?: string | null;
       companyId?: string | null;
     }) => {
-      const resolvedCompanyId = actionCompanyId || companyId;
-
-      const payload = {
+      return applyPublisherVerificationDecision<PublisherVerification>(supabase, {
+        verificationId,
         state,
-        rejection_reason: state === 'rejected' ? (rejectionReason?.trim() || null) : null,
-      };
-
-      let query = supabase
-        .from('publisher_verifications')
-        .update(payload)
-        .eq('id', verificationId);
-
-      if (resolvedCompanyId) {
-        query = query.eq('company_id', resolvedCompanyId);
-      }
-
-      const { data, error } = await query
-        .select('id, company_id, state, verified_by, verified_at, rejection_reason, last_submitted_at, created_at, updated_at')
-        .single();
-
-      if (error) throw error;
-      return data as PublisherVerification;
+        rejectionReason,
+        companyId: actionCompanyId || companyId,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'publisher-verification', companyId] });
@@ -1147,28 +1135,12 @@ export function useReviewerDecisionOnVerificationDocument(verificationId?: strin
       rejectionReason?: string | null;
       verificationId?: string | null;
     }) => {
-      const resolvedVerificationId = actionVerificationId || verificationId;
-
-      const payload = {
+      return applyVerificationDocumentDecision<VerificationDocument>(supabase, {
+        documentId,
         state,
-        rejection_reason: state === 'rejected' ? (rejectionReason?.trim() || null) : null,
-      };
-
-      let query = supabase
-        .from('verification_documents')
-        .update(payload)
-        .eq('id', documentId);
-
-      if (resolvedVerificationId) {
-        query = query.eq('verification_id', resolvedVerificationId);
-      }
-
-      const { data, error } = await query
-        .select('id, verification_id, document_type, storage_path, state, reviewed_by, reviewed_at, rejection_reason, created_at')
-        .single();
-
-      if (error) throw error;
-      return data as VerificationDocument;
+        rejectionReason,
+        verificationId: actionVerificationId || verificationId,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'verification-documents', verificationId] });
