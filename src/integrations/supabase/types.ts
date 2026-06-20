@@ -3422,6 +3422,498 @@ export type Database = {
           },
         ]
       }
+      crm_accounts: {
+        Row: {
+          account_type: string | null
+          annual_revenue: number | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          owner_user_id: string | null
+          phone: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          account_type?: string | null
+          annual_revenue?: number | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          owner_user_id?: string | null
+          phone?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          account_type?: string | null
+          annual_revenue?: number | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          owner_user_id?: string | null
+          phone?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_accounts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_calls: {
+        Row: {
+          call_type: string
+          company_id: string
+          contact_name: string | null
+          created_at: string
+          created_by: string | null
+          duration_minutes: number
+          id: string
+          owner_user_id: string | null
+          related_id: string | null
+          related_type: string
+          result: string | null
+          started_at: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          call_type: string
+          company_id: string
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          duration_minutes?: number
+          id?: string
+          owner_user_id?: string | null
+          related_id?: string | null
+          related_type?: string
+          result?: string | null
+          started_at: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          call_type?: string
+          company_id?: string
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          duration_minutes?: number
+          id?: string
+          owner_user_id?: string | null
+          related_id?: string | null
+          related_type?: string
+          result?: string | null
+          started_at?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_calls_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_campaigns: {
+        Row: {
+          bounce_rate: number | null
+          budget_amount: number | null
+          channel: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          ends_on: string | null
+          id: string
+          name: string
+          open_rate: number | null
+          spend_amount: number | null
+          starts_on: string | null
+          status: string
+          updated_at: string
+          click_rate: number | null
+        }
+        Insert: {
+          bounce_rate?: number | null
+          budget_amount?: number | null
+          channel?: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          ends_on?: string | null
+          id?: string
+          name: string
+          open_rate?: number | null
+          spend_amount?: number | null
+          starts_on?: string | null
+          status?: string
+          updated_at?: string
+          click_rate?: number | null
+        }
+        Update: {
+          bounce_rate?: number | null
+          budget_amount?: number | null
+          channel?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          ends_on?: string | null
+          id?: string
+          name?: string
+          open_rate?: number | null
+          spend_amount?: number | null
+          starts_on?: string | null
+          status?: string
+          updated_at?: string
+          click_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_campaigns_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_deals: {
+        Row: {
+          account_id: string | null
+          amount: number | null
+          company_id: string
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          deal_name: string
+          expected_close_date: string | null
+          id: string
+          lead_id: string | null
+          listing_id: string | null
+          owner_user_id: string | null
+          probability: number
+          stage: string
+          unit_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount?: number | null
+          company_id: string
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          deal_name: string
+          expected_close_date?: string | null
+          id?: string
+          lead_id?: string | null
+          listing_id?: string | null
+          owner_user_id?: string | null
+          probability?: number
+          stage?: string
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number | null
+          company_id?: string
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          deal_name?: string
+          expected_close_date?: string | null
+          id?: string
+          lead_id?: string | null
+          listing_id?: string | null
+          owner_user_id?: string | null
+          probability?: number
+          stage?: string
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_deals_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_deals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_deals_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "lead_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_deals_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_deals_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_documents: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          mime_type: string | null
+          related_id: string | null
+          related_type: string
+          storage_path: string
+          title: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          mime_type?: string | null
+          related_id?: string | null
+          related_type: string
+          storage_path: string
+          title: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          mime_type?: string | null
+          related_id?: string | null
+          related_type?: string
+          storage_path?: string
+          title?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_meetings: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          ends_at: string
+          host_user_id: string | null
+          id: string
+          notes: string | null
+          related_id: string | null
+          related_type: string
+          starts_at: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          ends_at: string
+          host_user_id?: string | null
+          id?: string
+          notes?: string | null
+          related_id?: string | null
+          related_type?: string
+          starts_at: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string
+          host_user_id?: string | null
+          id?: string
+          notes?: string | null
+          related_id?: string | null
+          related_type?: string
+          starts_at?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_meetings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_projects: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          name: string
+          owner_user_id: string | null
+          progress_percent: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          name: string
+          owner_user_id?: string | null
+          progress_percent?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          name?: string
+          owner_user_id?: string | null
+          progress_percent?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_projects_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_visits: {
+        Row: {
+          address_text: string | null
+          check_in_at: string | null
+          check_in_lat: number | null
+          check_in_lng: number | null
+          check_out_at: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          locality: string | null
+          notes: string | null
+          outcome: string | null
+          proof_path: string | null
+          related_id: string | null
+          related_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address_text?: string | null
+          check_in_at?: string | null
+          check_in_lat?: number | null
+          check_in_lng?: number | null
+          check_out_at?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          locality?: string | null
+          notes?: string | null
+          outcome?: string | null
+          proof_path?: string | null
+          related_id?: string | null
+          related_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address_text?: string | null
+          check_in_at?: string | null
+          check_in_lat?: number | null
+          check_in_lng?: number | null
+          check_out_at?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          locality?: string | null
+          notes?: string | null
+          outcome?: string | null
+          proof_path?: string | null
+          related_id?: string | null
+          related_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_visits_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
