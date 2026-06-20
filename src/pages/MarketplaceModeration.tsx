@@ -11,7 +11,7 @@ import { useModerationCases, useUpdateModerationCaseState } from '@/hooks/useMar
 
 export default function MarketplaceModeration() {
   const { activeCompanyId } = useActiveCompany();
-  const { isPropertyManager, isLandlord } = useUserRole();
+  const { isPropertyManager, isLandlord, isSuperAdmin } = useUserRole();
   const moderationCasesQuery = useModerationCases(activeCompanyId);
   const updateModerationState = useUpdateModerationCaseState(activeCompanyId);
 
@@ -29,7 +29,7 @@ export default function MarketplaceModeration() {
     });
   }, [cases, search, stateFilter]);
 
-  if (!isPropertyManager && !isLandlord) {
+  if (!isPropertyManager && !isLandlord && !isSuperAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 

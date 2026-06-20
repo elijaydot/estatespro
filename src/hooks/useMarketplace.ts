@@ -861,3 +861,85 @@ export function useAddVerificationDocument(companyId?: string | null) {
     },
   });
 }
+
+export function useReviewerDecisionOnPublisherVerification(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      verificationId,
+      state,
+      rejectionReason,
+    }: {
+      verificationId: string;
+      state: PublisherVerification['state'];
+      rejectionReason?: string | null;
+    }) => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const payload = {
+        state,
+        rejection_reason: state === 'rejected' ? (rejectionReason?.trim() || null) : null,
+      };
+
+      const { data, error } = await supabase
+        .from('publisher_verifications')
+        .update(payload)
+        .eq('id', verificationId)
+        .eq('company_id', companyId)
+        .select('id, company_id, state, verified_by, verified_at, rejection_reason, last_submitted_at, created_at, updated_at')
+        .single();
+
+      if (error) throw error;
+      return data as PublisherVerification;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'publisher-verification', companyId] });
+      toast({ title: 'Verification Reviewed', description: 'Publisher verification decision saved.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Decision Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useReviewerDecisionOnVerificationDocument(verificationId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      documentId,
+      state,
+      rejectionReason,
+    }: {
+      documentId: string;
+      state: VerificationDocument['state'];
+      rejectionReason?: string | null;
+    }) => {
+      if (!verificationId) throw new Error('Verification context is required');
+
+      const payload = {
+        state,
+        rejection_reason: state === 'rejected' ? (rejectionReason?.trim() || null) : null,
+      };
+
+      const { data, error } = await supabase
+        .from('verification_documents')
+        .update(payload)
+        .eq('id', documentId)
+        .eq('verification_id', verificationId)
+        .select('id, verification_id, document_type, storage_path, state, reviewed_by, reviewed_at, rejection_reason, created_at')
+        .single();
+
+      if (error) throw error;
+      return data as VerificationDocument;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'verification-documents', verificationId] });
+      toast({ title: 'Document Reviewed', description: 'Document review decision saved.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Document Decision Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}

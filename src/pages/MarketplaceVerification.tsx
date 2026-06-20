@@ -11,6 +11,8 @@ import { useUserRole } from '@/hooks/useUserRole';
 import {
   useAddVerificationDocument,
   usePublisherVerification,
+  useReviewerDecisionOnPublisherVerification,
+  useReviewerDecisionOnVerificationDocument,
   useSubmitPublisherVerification,
   useVerificationDocuments,
   type VerificationDocument,
@@ -59,28 +61,33 @@ function VerificationStateBadge({ state }: { state?: string | null }) {
 
 export default function MarketplaceVerification() {
   const { activeCompanyId, companies } = useActiveCompany();
-  const { isLandlord, isPropertyManager } = useUserRole();
+  const { isLandlord, isPropertyManager, isSuperAdmin } = useUserRole();
 
   const verificationQuery = usePublisherVerification(activeCompanyId);
   const submitVerification = useSubmitPublisherVerification(activeCompanyId);
   const addDocument = useAddVerificationDocument(activeCompanyId);
+  const reviewPublisherVerification = useReviewerDecisionOnPublisherVerification(activeCompanyId);
 
   const verificationId = verificationQuery.data?.id ?? null;
   const documentsQuery = useVerificationDocuments(verificationId);
+  const reviewVerificationDocument = useReviewerDecisionOnVerificationDocument(verificationId);
 
   const [documentType, setDocumentType] = useState<VerificationDocument['document_type']>('id_card');
   const [documentPath, setDocumentPath] = useState('');
+  const [verificationRejectionReason, setVerificationRejectionReason] = useState('');
+  const [documentRejectionReasons, setDocumentRejectionReasons] = useState<Record<string, string>>({});
 
   const companyName = useMemo(
     () => companies.find((company) => company.id === activeCompanyId)?.name ?? 'Active company',
     [activeCompanyId, companies],
   );
 
-  if (!isLandlord && !isPropertyManager) {
+  if (!isLandlord && !isPropertyManager && !isSuperAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const canManage = isLandlord;
+  const canSubmit = isLandlord;
+  const canReview = isSuperAdmin;
 
   return (
     <div className="space-y-6">
@@ -113,15 +120,65 @@ export default function MarketplaceVerification() {
           <div className="flex flex-wrap gap-2">
             <Button
               onClick={() => submitVerification.mutate()}
-              disabled={!canManage || submitVerification.isPending}
+              disabled={!canSubmit || submitVerification.isPending}
             >
               {submitVerification.isPending ? 'Submitting...' : verificationQuery.data ? 'Resubmit Verification' : 'Start Verification'}
             </Button>
 
-            {!canManage && (
+            {!canSubmit && (
               <Badge variant="outline">Landlord only action</Badge>
             )}
           </div>
+
+          {canReview && verificationId && (
+            <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Internal Reviewer Actions</p>
+              <Input
+                placeholder="Reason (required for rejection)"
+                value={verificationRejectionReason}
+                onChange={(event) => setVerificationRejectionReason(event.target.value)}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="default"
+                  disabled={reviewPublisherVerification.isPending}
+                  onClick={() =>
+                    reviewPublisherVerification.mutate({
+                      verificationId,
+                      state: 'verified',
+                    })
+                  }
+                >
+                  Mark Verified
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={reviewPublisherVerification.isPending}
+                  onClick={() =>
+                    reviewPublisherVerification.mutate({
+                      verificationId,
+                      state: 'needs_review',
+                    })
+                  }
+                >
+                  Mark Needs Review
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={reviewPublisherVerification.isPending || !verificationRejectionReason.trim()}
+                  onClick={() =>
+                    reviewPublisherVerification.mutate({
+                      verificationId,
+                      state: 'rejected',
+                      rejectionReason: verificationRejectionReason,
+                    })
+                  }
+                >
+                  Reject
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -156,7 +213,7 @@ export default function MarketplaceVerification() {
           </div>
 
           <Button
-            disabled={!canManage || !verificationId || !documentPath.trim() || addDocument.isPending}
+            disabled={!canSubmit || !verificationId || !documentPath.trim() || addDocument.isPending}
             onClick={() => {
               if (!verificationId) return;
               addDocument.mutate({
@@ -186,6 +243,50 @@ export default function MarketplaceVerification() {
                 <p className="text-xs text-muted-foreground break-all">{doc.storage_path}</p>
                 {doc.rejection_reason && (
                   <p className="text-xs text-muted-foreground">Reason: {doc.rejection_reason}</p>
+                )}
+
+                {canReview && (
+                  <div className="mt-2 space-y-2">
+                    <Input
+                      placeholder="Reason (required for document rejection)"
+                      value={documentRejectionReasons[doc.id] ?? ''}
+                      onChange={(event) =>
+                        setDocumentRejectionReasons((prev) => ({
+                          ...prev,
+                          [doc.id]: event.target.value,
+                        }))
+                      }
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={reviewVerificationDocument.isPending}
+                        onClick={() =>
+                          reviewVerificationDocument.mutate({
+                            documentId: doc.id,
+                            state: 'approved',
+                          })
+                        }
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={reviewVerificationDocument.isPending || !(documentRejectionReasons[doc.id] ?? '').trim()}
+                        onClick={() =>
+                          reviewVerificationDocument.mutate({
+                            documentId: doc.id,
+                            state: 'rejected',
+                            rejectionReason: documentRejectionReasons[doc.id] ?? '',
+                          })
+                        }
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
             ))}

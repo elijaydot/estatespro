@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 
-export type AppRole = 'landlord' | 'property_manager' | 'tenant';
+export type AppRole = 'super_admin' | 'landlord' | 'property_manager' | 'tenant';
 
 export function useUserRole() {
   const { user } = useAuth();
@@ -19,11 +19,27 @@ export function useUserRole() {
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching user role:', error);
+        console.error('Error fetching user role from user_roles:', error);
+      }
+
+      const role = (data?.role as AppRole | null) ?? null;
+
+      if (role) {
+        return role;
+      }
+
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Error fetching user role from profiles:', profileError);
         return null;
       }
 
-      return (data?.role as AppRole) || null;
+      return (profileData?.role as AppRole) || null;
     },
     enabled: !!user?.id,
   });
@@ -31,6 +47,7 @@ export function useUserRole() {
   return {
     role,
     isLoading,
+    isSuperAdmin: role === 'super_admin',
     isLandlord: role === 'landlord',
     isPropertyManager: role === 'property_manager',
     isTenant: role === 'tenant',

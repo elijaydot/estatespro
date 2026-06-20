@@ -82,6 +82,17 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
         return Array.from(unique.values());
       }
 
+      if (role === 'super_admin') {
+        const { data, error } = await supabase
+          .from('companies')
+          .select('id, name')
+          .order('created_at', { ascending: false })
+          .limit(200);
+
+        if (error) throw error;
+        return (data || []) as CompanyOption[];
+      }
+
       return [];
     },
     enabled: !!user?.id && !!role,
