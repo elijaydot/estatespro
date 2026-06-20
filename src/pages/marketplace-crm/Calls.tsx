@@ -42,7 +42,7 @@ export default function MarketplaceCrmCallsPage() {
         </div>
       </CrmDataCard>
 
-      <CrmDataCard title="Calls" description="Zoho-order calls module table.">
+      <CrmDataCard title="Calls" description="Calls module table in FishGate CRM sequence.">
         <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">

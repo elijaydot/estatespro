@@ -1,4 +1,4 @@
-# Zoho-Parity Scorecard (Baseline)
+# CRM Parity Scorecard (Baseline)
 
 ## Scoring Model
 - 0 = not started

@@ -37,7 +37,7 @@ export default function MarketplaceCrmAccountsPage() {
         </div>
       </CrmDataCard>
 
-      <CrmDataCard title="All Accounts" description="Zoho-style account directory for CRM workflows.">
+      <CrmDataCard title="All Accounts" description="FishGate account directory for CRM workflows.">
         <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">

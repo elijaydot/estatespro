@@ -51,7 +51,7 @@ export default function MarketplaceCrmOverviewPage() {
       <CrmDataCard title="Quick Summary" description="Operational pulse from leads and listings.">
         <ul className="space-y-1 text-sm text-muted-foreground">
           <li>Lead pipeline is connected and updating from marketplace records.</li>
-          <li>Zoho-order modules are now available under Marketplace CRM section.</li>
+          <li>FishGate CRM modules are now available under Marketplace CRM section.</li>
           <li>Reviewer-only trust gating will be enforced in subsequent migration pass.</li>
         </ul>
       </CrmDataCard>

@@ -15,7 +15,7 @@ export default function MarketplaceCrmReportsPage() {
   }, [reportsQuery.data, search]);
 
   return (
-    <CrmWorkspace title="Reports" subtitle="Report library modeled in Zoho order with FishGate-specific analytics folders.">
+    <CrmWorkspace title="Reports" subtitle="Report library modeled in FishGate CRM sequence with domain-specific analytics folders.">
       <CrmDataCard title="Report Library" description="Search and open report definitions.">
         <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">

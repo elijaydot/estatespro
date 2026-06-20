@@ -1,7 +1,7 @@
 # Wave Execution Board
 
 ## Program Goal
-Deliver Zoho-parity by shipping production-safe capability waves with measurable operational outcomes.
+Deliver CRM parity by shipping production-safe capability waves with measurable operational outcomes.
 
 ## Wave 1: Reliability + Foundation (In Progress)
 Status: 88%

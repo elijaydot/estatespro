@@ -55,7 +55,7 @@ export default function MarketplaceCrmDealsPage() {
         </div>
       </CrmDataCard>
 
-      <CrmDataCard title="Pipeline Board" description="Stage-view inspired by Zoho Deals board.">
+      <CrmDataCard title="Pipeline Board" description="Stage-view inspired by FishGate opportunity board.">
         <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto">
           <div className="flex gap-3 pb-2 min-w-max">

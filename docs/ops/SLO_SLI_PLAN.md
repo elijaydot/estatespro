@@ -36,4 +36,4 @@
 2. Capture 24h verify success-rate sample from staging.
 3. Capture checkout/verify p95 latency traces.
 4. Trigger alert dry-run and verify routing + runbook links.
-5. Attach evidence links into docs/parity/ZOHO_PARITY_SCORECARD.md.
+5. Attach evidence links into docs/parity/CRM_PARITY_SCORECARD.md.

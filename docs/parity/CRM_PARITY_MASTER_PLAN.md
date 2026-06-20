@@ -1,7 +1,7 @@
-# Zoho-Parity Master Plan (FishGate)
+# CRM Parity Master Plan (FishGate)
 
 ## Objective
-Build FishGate from strong PM/CRM foundation to enterprise-grade CRM parity benchmarked against Zoho-level capabilities.
+Build FishGate from strong PM/CRM foundation to enterprise-grade CRM parity benchmarked against leading-market capabilities.
 
 ## Program Principles
 1. Parity by capability outcomes, not UI mimicry.

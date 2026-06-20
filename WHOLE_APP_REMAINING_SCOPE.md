@@ -57,8 +57,8 @@
 1. Week 3: reliability + test expansion + dependency security upgrades.
 2. Week 4: polish + mobile nav refinement + full release hardening and go-live gate.
 
-## Zoho-Parity Program Docs
-1. Master plan: docs/parity/ZOHO_PARITY_MASTER_PLAN.md
-2. Scorecard baseline: docs/parity/ZOHO_PARITY_SCORECARD.md
+## CRM Parity Program Docs
+1. Master plan: docs/parity/CRM_PARITY_MASTER_PLAN.md
+2. Scorecard baseline: docs/parity/CRM_PARITY_SCORECARD.md
 3. Wave 1 execution: docs/parity/WAVE_1_IMPLEMENTATION.md
 4. SLO/SLI operations plan: docs/ops/SLO_SLI_PLAN.md

@@ -780,7 +780,7 @@ export default function TenantMessages() {
           <div>
             <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Tenant Communications</p>
             <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Messages</h1>
-            <p className="text-muted-foreground">Gmail-style workspace for organized conversations with property management.</p>
+            <p className="text-muted-foreground">FishGate conversation workspace for organized communication with property management.</p>
           </div>
           <Badge variant="outline" className="w-fit rounded-full px-3 border-primary/30 bg-primary/5 text-primary font-display">
             <Sparkles className="h-3.5 w-3.5 mr-1" />

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 export default function MarketplaceCrmModulesPage() {
   return (
-    <CrmWorkspace title="Modules" subtitle="All CRM modules in Zoho order for unified execution.">
+    <CrmWorkspace title="Modules" subtitle="All CRM modules in FishGate sequence for unified execution.">
       <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {CRM_NAV_ITEMS.filter((item) => item.label !== 'Overview' && item.label !== 'Modules').map((module) => (
           <Card key={module.href} className="border-border/70">

@@ -1,4 +1,4 @@
--- Marketplace CRM Zoho-order module foundation
+-- Marketplace CRM module foundation
 -- Adds Accounts, Deals, Meetings, Calls, Campaigns, Documents, Visits, and Projects tables.
 
 CREATE TABLE IF NOT EXISTS public.crm_accounts (
