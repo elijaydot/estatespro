@@ -8,6 +8,7 @@ import {
   Camera,
   X,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 import { SignedImage } from '@/components/ui/signed-image';
 import { Button } from '@/components/ui/button';
@@ -185,12 +186,24 @@ export default function TenantMaintenance() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Maintenance</h1>
-          <p className="text-muted-foreground">Submit and track maintenance requests</p>
+      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-warning/15 via-background to-primary/10 p-5 md:p-6 card-shadow-md">
+        <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-warning/20 blur-3xl" />
+        <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
+        <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Service Desk</p>
+            <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Maintenance</h1>
+            <p className="text-muted-foreground">Submit and track maintenance requests</p>
+          </div>
+          <Badge variant="outline" className="w-fit rounded-full px-3 border-warning/30 bg-warning/5 text-warning font-display">
+            <Sparkles className="h-3.5 w-3.5 mr-1" />
+            Priority Routing
+          </Badge>
         </div>
+      </section>
+
+      <div className="rounded-xl border border-border/70 bg-card/85 p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-foreground">Attach clear photos and details to speed up triage and dispatch.</p>
         <Button className="gap-2" onClick={() => setIsNewRequestOpen(true)}>
           <Plus className="h-4 w-4" />
           New Request

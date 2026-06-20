@@ -12,6 +12,9 @@ import {
   CreditCard,
   Loader2,
   Receipt,
+  Sparkles,
+  MessageSquare,
+  Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -95,22 +98,41 @@ export default function TenantDashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Welcome Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Welcome back, {tenant.name.split(' ')[0]}!</h1>
-        <p className="text-muted-foreground flex items-center gap-1 mt-1">
-          <Home className="h-4 w-4" />
-          {unit ? `Unit ${unit.unit_number}` : 'No unit assigned'} • {property?.name || 'No property'}
-        </p>
-      </div>
+      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-primary/10 via-background to-success/10 p-5 md:p-7 card-shadow-md">
+        <div className="absolute -right-12 -top-10 h-40 w-40 rounded-full bg-primary/15 blur-3xl" />
+        <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-success/15 blur-3xl" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Tenant Overview</p>
+            <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Welcome back, {tenant.name.split(' ')[0]}</h1>
+            <p className="text-muted-foreground flex items-center gap-1 mt-1.5">
+              <Home className="h-4 w-4" />
+              {unit ? `Unit ${unit.unit_number}` : 'No unit assigned'} • {property?.name || 'No property'}
+            </p>
+          </div>
+          <div className="grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-border/70 bg-card/80 p-3">
+              <p className="text-xs text-muted-foreground">Monthly due</p>
+              <p className="mt-1 text-lg font-bold text-foreground">{formatCurrency(stats.totalMonthlyDue)}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-card/80 p-3">
+              <p className="text-xs text-muted-foreground">Open requests</p>
+              <p className="mt-1 text-lg font-bold text-foreground">{stats.openMaintenance}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-card/80 p-3">
+              <p className="text-xs text-muted-foreground">Balance</p>
+              <p className={`mt-1 text-lg font-bold ${stats.balance > 0 ? 'text-destructive' : 'text-success'}`}>{formatCurrency(stats.balance)}</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      {/* Quick Actions */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Link to="/tenant/payments">
           <Card className="card-shadow-md hover:card-shadow-lg transition-all cursor-pointer h-full">
             <CardContent className="pt-6 text-center">
               <div className="p-3 rounded-xl bg-success/10 w-fit mx-auto mb-3">
-                <CreditCard className="h-6 w-6 text-success" />
+                <Wallet className="h-6 w-6 text-success" />
               </div>
               <p className="font-medium">Pay Rent</p>
             </CardContent>
@@ -140,12 +162,23 @@ export default function TenantDashboard() {
           <Card className="card-shadow-md hover:card-shadow-lg transition-all cursor-pointer h-full">
             <CardContent className="pt-6 text-center">
               <div className="p-3 rounded-xl bg-primary/10 w-fit mx-auto mb-3">
-                <Calendar className="h-6 w-6 text-primary" />
+                <MessageSquare className="h-6 w-6 text-primary" />
               </div>
               <p className="font-medium">Contact</p>
             </CardContent>
           </Card>
         </Link>
+      </div>
+
+      <div className="rounded-xl border border-border/70 bg-card/80 p-3.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Action Rail</p>
+          <p className="text-sm font-medium text-foreground">Stay ahead: pay due invoices, track maintenance, and keep lease docs current.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="rounded-full px-3 border-primary/30 bg-primary/5 text-primary font-display"><Sparkles className="h-3.5 w-3.5 mr-1" />Priorities</Badge>
+          <Link to="/tenant/notifications"><Button variant="outline" size="sm" className="rounded-full">Updates</Button></Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

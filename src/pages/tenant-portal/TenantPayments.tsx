@@ -10,6 +10,7 @@ import {
   Calendar,
   ArrowUpRight,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -285,10 +286,28 @@ export default function TenantPayments() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Payments</h1>
-        <p className="text-muted-foreground">Manage your rent payments and view history</p>
+      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-success/15 via-background to-primary/10 p-5 md:p-6 card-shadow-md">
+        <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-success/20 blur-3xl" />
+        <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
+        <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Tenant Billing Center</p>
+            <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Payments</h1>
+            <p className="text-muted-foreground">Manage your rent payments and view history</p>
+          </div>
+          <Badge variant="outline" className="w-fit rounded-full px-3 border-success/30 bg-success/5 text-success font-display">
+            <Sparkles className="h-3.5 w-3.5 mr-1" />
+            Always-On Billing
+          </Badge>
+        </div>
+      </section>
+
+      <div className="rounded-xl border border-border/70 bg-card/85 p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-foreground">Review your monthly due first, then settle outstanding invoices to keep your account healthy.</p>
+        <Button variant="outline" size="sm" className="rounded-full" onClick={handleExportHistory} disabled={payments.length === 0}>
+          <Download className="h-4 w-4 mr-2" />
+          Export History
+        </Button>
       </div>
 
       {/* Summary Cards */}

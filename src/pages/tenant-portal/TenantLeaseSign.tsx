@@ -102,7 +102,7 @@ export default function TenantLeaseSign() {
         description: 'Thank you for signing your lease agreement.' 
       });
       
-      navigate('/portal/lease');
+      navigate('/tenant/lease');
     } catch (error) {
       console.error('Error signing lease:', error);
       toast({ 
@@ -131,7 +131,7 @@ export default function TenantLeaseSign() {
         <p className="text-muted-foreground mt-2">
           The lease you're looking for doesn't exist or has been removed.
         </p>
-        <Button onClick={() => navigate('/portal/lease')} className="mt-4">
+        <Button onClick={() => navigate('/tenant/lease')} className="mt-4">
           Back to Lease
         </Button>
       </div>
@@ -148,7 +148,7 @@ export default function TenantLeaseSign() {
   if (alreadySigned) {
     return (
       <div className="space-y-6 animate-fade-in">
-        <Button variant="ghost" onClick={() => navigate('/portal/lease')} className="gap-2">
+        <Button variant="ghost" onClick={() => navigate('/tenant/lease')} className="gap-2">
           <ArrowLeft className="h-4 w-4" />
           Back to Lease
         </Button>
@@ -176,14 +176,32 @@ export default function TenantLeaseSign() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
+      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-info/15 via-background to-primary/10 p-5 md:p-6 card-shadow-md">
+        <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-info/20 blur-3xl" />
+        <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
+        <div className="relative flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/tenant/lease')}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Lease Signature Flow</p>
+            <h1 className="font-display text-2xl font-bold text-foreground">Sign Lease Agreement</h1>
+            <p className="text-muted-foreground">Review and sign your lease for {unit?.unit_number}</p>
+          </div>
+        </div>
+      </section>
+
+      <div className="rounded-xl border border-border/70 bg-card/85 p-3">
+        <p className="text-sm text-foreground">Confirm terms and sign only when details match your agreed rental contract.</p>
+      </div>
+
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/portal/lease')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate('/tenant/lease')}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Sign Lease Agreement</h1>
-          <p className="text-muted-foreground">Review and sign your lease for {unit?.unit_number}</p>
+          <h2 className="font-display text-xl font-bold text-foreground">Review Summary</h2>
+          <p className="text-muted-foreground">Lease #{lease.lease_number}</p>
         </div>
       </div>
 

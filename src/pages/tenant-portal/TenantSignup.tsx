@@ -180,13 +180,13 @@ export default function TenantSignup() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-success/10 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 p-3 rounded-xl bg-primary/10 w-fit">
             <Building2 className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Create Your Account</CardTitle>
+          <CardTitle className="text-2xl font-display">Create Your Account</CardTitle>
           <CardDescription>
             Set up your tenant portal account to access your lease, payments, and maintenance requests.
           </CardDescription>

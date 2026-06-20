@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Eye, EyeOff, Home } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Home, Sparkles } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 
 export default function TenantLogin() {
@@ -40,14 +40,18 @@ export default function TenantLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-accent/10 via-background to-primary/5 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-success/10 flex items-center justify-center p-4">
       <div className="w-full max-w-md animate-scale-in">
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-accent-foreground shadow-lg">
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg">
             <Home className="h-6 w-6" />
           </div>
-          <span className="font-bold text-2xl text-foreground">Tenant Portal</span>
+          <span className="font-display font-bold text-2xl text-foreground">Tenant Portal</span>
+        </div>
+        <div className="mb-6 flex justify-center">
+          <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-display text-primary">
+            <Sparkles className="mr-1 h-3.5 w-3.5" /> Secure Tenant Access
+          </span>
         </div>
 
         <Card className="card-shadow-lg border-0">
@@ -102,7 +106,7 @@ export default function TenantLogin() {
                   </Button>
                 </div>
               </div>
-              <Button type="submit" className="w-full h-11 bg-accent hover:bg-accent/90" disabled={isSubmitting}>
+              <Button type="submit" className="w-full h-11" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

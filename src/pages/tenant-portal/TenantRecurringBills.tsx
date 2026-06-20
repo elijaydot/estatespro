@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Calendar,
   Building,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -118,10 +119,24 @@ export default function TenantRecurringBills() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Recurring Bills</h1>
-        <p className="text-muted-foreground">View your recurring amenity bills and charges</p>
+      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-info/15 via-background to-success/10 p-5 md:p-6 card-shadow-md">
+        <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-info/20 blur-3xl" />
+        <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-success/20 blur-3xl" />
+        <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Amenity Billing</p>
+            <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Recurring Bills</h1>
+            <p className="text-muted-foreground">View your recurring amenity bills and charges</p>
+          </div>
+          <Badge variant="outline" className="w-fit rounded-full px-3 border-info/30 bg-info/5 text-info font-display">
+            <Sparkles className="h-3.5 w-3.5 mr-1" />
+            Predictable Monthly View
+          </Badge>
+        </div>
+      </section>
+
+      <div className="rounded-xl border border-border/70 bg-card/85 p-3">
+        <p className="text-sm text-foreground">Use effective monthly totals to budget quarterly and annual charges ahead of time.</p>
       </div>
 
       {/* Summary */}

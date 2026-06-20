@@ -9,6 +9,7 @@ import {
   Bell,
   Check,
   CheckCheck,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -240,11 +241,24 @@ export default function TenantMessages() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Messages</h1>
-          <p className="text-muted-foreground">Communicate with property management in real time</p>
+      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-primary/10 via-background to-info/10 p-5 md:p-6 card-shadow-md">
+        <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-info/20 blur-3xl" />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Tenant Communications</p>
+            <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Messages</h1>
+            <p className="text-muted-foreground">Communicate with property management in real time</p>
+          </div>
+          <Badge variant="outline" className="w-fit rounded-full px-3 border-primary/30 bg-primary/5 text-primary font-display">
+            <Sparkles className="h-3.5 w-3.5 mr-1" />
+            Fast Response Thread
+          </Badge>
         </div>
+      </section>
+
+      <div className="rounded-xl border border-border/70 bg-card/80 p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-foreground">Use this thread for urgent updates, confirmations, and maintenance follow-ups.</p>
         <div className="flex items-center gap-2">
           <Button variant="outline" className="gap-2" onClick={() => navigate('/tenant/notifications')}>
             <Bell className="h-4 w-4" />

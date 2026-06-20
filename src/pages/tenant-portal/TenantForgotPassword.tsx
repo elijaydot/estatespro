@@ -46,13 +46,13 @@ export default function TenantForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-accent/10 via-background to-primary/5 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-success/10 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-accent-foreground shadow-lg">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg">
             <Home className="h-6 w-6" />
           </div>
-          <span className="font-bold text-2xl text-foreground">Tenant Portal</span>
+          <span className="font-display font-bold text-2xl text-foreground">Tenant Portal</span>
         </div>
 
         <Card className="card-shadow-lg border-0">
@@ -60,7 +60,7 @@ export default function TenantForgotPassword() {
             <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
               <Mail className="h-5 w-5 text-primary" />
             </div>
-            <CardTitle className="text-2xl font-bold">Reset your password</CardTitle>
+            <CardTitle className="text-2xl font-display font-bold">Reset your password</CardTitle>
             <CardDescription>
               Enter your email and we’ll send you a reset link.
             </CardDescription>
@@ -80,7 +80,7 @@ export default function TenantForgotPassword() {
                 />
               </div>
 
-              <Button type="submit" className="w-full h-11 bg-accent hover:bg-accent/90" disabled={isSubmitting}>
+              <Button type="submit" className="w-full h-11" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

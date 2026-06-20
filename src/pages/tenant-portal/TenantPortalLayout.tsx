@@ -15,6 +15,7 @@ import {
   RefreshCw,
   CircleHelp,
   Shield,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -125,12 +126,16 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
               <Home className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <span className="font-bold text-foreground">Tenant Portal</span>
+              <span className="font-display font-bold text-foreground">Tenant Portal</span>
               <p className="text-xs text-muted-foreground truncate max-w-[140px]">{propertyName}</p>
             </div>
           </div>
 
           <div className="flex-1 px-4 py-6">
+            <div className="mb-4 rounded-xl border border-border/70 bg-secondary/35 p-3">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Today Focus</p>
+              <p className="mt-1 text-xs text-foreground">Stay current on payments, messages, and maintenance updates.</p>
+            </div>
             <NavLinks />
           </div>
 
@@ -241,6 +246,10 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          <Badge variant="outline" className="h-9 rounded-full px-3 hidden xl:flex border-primary/30 bg-primary/5 text-primary font-display">
+            <Sparkles className="h-3.5 w-3.5 mr-1" />
+            Tenant Flow
+          </Badge>
           <Button
             variant="ghost"
             size="icon"
@@ -269,6 +278,18 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
 
       <main className="lg:pl-64">
         <div className="p-6 lg:p-8">
+          <div className="mb-4 rounded-xl border border-border/70 bg-card/85 backdrop-blur-sm px-3 py-2.5 card-shadow">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Tenant Command Strip</p>
+                <p className="text-sm font-medium text-foreground">Review due balances, open requests, and conversation updates in one flow.</p>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <Button variant="outline" size="sm" className="rounded-full h-8" onClick={() => navigate('/tenant/payments')}>Pay Dues</Button>
+                <Button variant="outline" size="sm" className="rounded-full h-8" onClick={() => navigate('/tenant/messages')}>Open Messages</Button>
+              </div>
+            </div>
+          </div>
           <MfaReminderBanner />
           {children}
         </div>
