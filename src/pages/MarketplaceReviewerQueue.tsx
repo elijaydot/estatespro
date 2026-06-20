@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useUserRole } from '@/hooks/useUserRole';
+import { ageInDays, getSlaLevel, matchesDecisionFilter, matchesSlaFilter } from '@/lib/reviewerQueue';
 import {
   useReviewerDecisionOnPublisherVerification,
   useReviewerDecisionOnVerificationDocument,
@@ -16,17 +17,6 @@ import {
   useReviewerVerificationDocumentHistory,
   useReviewerVerificationDocumentQueue,
 } from '@/hooks/useMarketplace';
-
-function ageInDays(value: string) {
-  const ageMs = Date.now() - new Date(value).getTime();
-  return Math.max(0, Math.floor(ageMs / (1000 * 60 * 60 * 24)));
-}
-
-function getSlaLevel(ageDays: number): 'healthy' | 'warning' | 'critical' {
-  if (ageDays >= 7) return 'critical';
-  if (ageDays >= 3) return 'warning';
-  return 'healthy';
-}
 
 export default function MarketplaceReviewerQueue() {
   const { isSuperAdmin } = useUserRole();
@@ -95,8 +85,7 @@ export default function MarketplaceReviewerQueue() {
   }, [publisherQueue.data, search]);
 
   const filteredPublisherRows = useMemo(() => {
-    if (publisherSlaFilter === 'all') return publisherRows;
-    return publisherRows.filter((row) => getSlaLevel(ageInDays(row.last_submitted_at)) === publisherSlaFilter);
+    return publisherRows.filter((row) => matchesSlaFilter(ageInDays(row.last_submitted_at), publisherSlaFilter));
   }, [publisherRows, publisherSlaFilter]);
 
   const documentRows = useMemo(() => {
@@ -107,8 +96,7 @@ export default function MarketplaceReviewerQueue() {
   }, [documentQueue.data, search]);
 
   const filteredDocumentRows = useMemo(() => {
-    if (documentSlaFilter === 'all') return documentRows;
-    return documentRows.filter((row) => getSlaLevel(ageInDays(row.created_at)) === documentSlaFilter);
+    return documentRows.filter((row) => matchesSlaFilter(ageInDays(row.created_at), documentSlaFilter));
   }, [documentRows, documentSlaFilter]);
 
   const avgPublisherAge = filteredPublisherRows.length
@@ -169,7 +157,7 @@ export default function MarketplaceReviewerQueue() {
     });
 
     return [...publisherEvents, ...documentEvents]
-      .filter((event) => auditDecisionFilter === 'all' ? true : event.decision === auditDecisionFilter)
+      .filter((event) => matchesDecisionFilter(event.decision, auditDecisionFilter))
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
       .slice(0, 20);
   }, [publisherHistory.data, documentHistory.data, reviewerMap, auditDecisionFilter]);
