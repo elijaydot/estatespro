@@ -215,7 +215,16 @@ export function SecuritySettings() {
     console.info('[MFA][UI] start-enrollment-click');
     setIsPreparingEnrollment(true);
     try {
-      const { data, error } = await enrollMfaTotp();
+      let result = await enrollMfaTotp();
+      let data = result.data;
+      let error = result.error;
+
+      if (error && /abort|aborted|AbortError|signal is aborted/i.test(error.message || '')) {
+        await refreshSession();
+        result = await enrollMfaTotp();
+        data = result.data;
+        error = result.error;
+      }
 
       if (error || !data) {
         const message = error?.message || "Please try again.";
@@ -427,13 +436,13 @@ export function SecuritySettings() {
               ) : (
                 <span className="text-xs px-2 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400">Disabled</span>
               )}
-              <Switch checked={isSwitchChecked} onCheckedChange={handleToggleChange} disabled={isBusy} />
+              <Switch checked={isSwitchChecked} onCheckedChange={handleToggleChange} disabled={isBusy || isPreparingEnrollment} />
             </div>
           </div>
 
           {!mfa.isEnabled && !enrollmentData && (
             <div>
-              <Button onClick={() => void startEnrollment()} disabled={!canStartEnrollment}>
+              <Button type="button" onClick={() => void startEnrollment()} disabled={!canStartEnrollment}>
                 {isPreparingEnrollment ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />

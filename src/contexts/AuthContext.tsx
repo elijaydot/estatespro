@@ -21,6 +21,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const getMfaApi = () => supabase.auth.mfa;
 
+  const isAbortLikeError = (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error || '');
+    return /abort|aborted|AbortError|signal is aborted/i.test(message);
+  };
+
   const logMfaClient = (step: string, details?: Record<string, unknown>) => {
     console.info('[MFA][Client]', step, details ?? {});
   };
@@ -298,10 +303,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn('MFA cleanup before enroll failed:', cleanupErr);
       }
 
-      let { data, error } = await mfaApi.enroll({
-        factorType: 'totp',
-        friendlyName,
-      });
+      let data: Awaited<ReturnType<typeof mfaApi.enroll>>['data'] | null = null;
+      let error: Awaited<ReturnType<typeof mfaApi.enroll>>['error'] | null = null;
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        ({ data, error } = await mfaApi.enroll({
+          factorType: 'totp',
+          friendlyName,
+        }));
+
+        if (!error) break;
+
+        if (attempt === 0 && isAbortLikeError(error)) {
+          logMfaClient('enroll-retry-after-abort', { message: error.message });
+          await refreshSession();
+          continue;
+        }
+
+        break;
+      }
 
       // Fallback: if Supabase still reports the name as taken, retry with a unique suffix.
       if (error && /already exists/i.test(error.message || '')) {
@@ -313,6 +333,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (error) {
+        if (isAbortLikeError(error)) {
+          return {
+            data: null,
+            error: new Error('MFA setup request was interrupted. Please try once more.'),
+          };
+        }
         if ((error.message || '').toLowerCase().includes('aal2 required')) {
           return {
             data: null,
@@ -341,7 +367,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       return { data: null, error: error as Error };
     }
-  }, [listMfaFactors, mfaState.currentLevel, refreshMfaState]);
+  }, [listMfaFactors, mfaState.currentLevel, refreshMfaState, refreshSession]);
 
   const verifyMfaEnrollment = useCallback(async (factorId: string, code: string) => {
     try {
