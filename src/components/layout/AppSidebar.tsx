@@ -69,6 +69,7 @@ const sharedSections: NavSection[] = [
       { icon: Store, label: 'Marketplace', href: '/marketplace/manage' },
       { icon: ShieldAlert, label: 'Moderation', href: '/marketplace/moderation' },
       { icon: ShieldCheck, label: 'Verification', href: '/marketplace/verification' },
+      { icon: ShieldCheck, label: 'Reviewer Queue', href: '/marketplace/reviewer' },
       { icon: Link2, label: 'Guest Booking Portal', href: '/guest-booking-portal' },
     ],
   },

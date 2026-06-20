@@ -66,6 +66,7 @@ const MarketplacePublic = lazy(() => import("./pages/MarketplacePublic"));
 const MarketplaceManage = lazy(() => import("./pages/MarketplaceManage"));
 const MarketplaceModeration = lazy(() => import("./pages/MarketplaceModeration"));
 const MarketplaceVerification = lazy(() => import("./pages/MarketplaceVerification"));
+const MarketplaceReviewerQueue = lazy(() => import("./pages/MarketplaceReviewerQueue"));
 const MarketplaceCrmOverview = lazy(() => import("./pages/marketplace-crm/Overview"));
 const MarketplaceCrmReports = lazy(() => import("./pages/marketplace-crm/Reports"));
 const MarketplaceCrmModules = lazy(() => import("./pages/marketplace-crm/Modules"));
@@ -113,7 +114,7 @@ function PrivateRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/tenant" replace />;
   }
 
-  if (role !== "landlord" && role !== "property_manager") {
+  if (role !== "landlord" && role !== "property_manager" && role !== "super_admin") {
     return <Navigate to="/login" replace />;
   }
 
@@ -231,6 +232,7 @@ function AppRoutes() {
       <Route path="/marketplace/manage" element={<PrivateRoute>{withSuspense(<MarketplaceManage />)}</PrivateRoute>} />
       <Route path="/marketplace/moderation" element={<PrivateRoute>{withSuspense(<MarketplaceModeration />)}</PrivateRoute>} />
       <Route path="/marketplace/verification" element={<PrivateRoute>{withSuspense(<MarketplaceVerification />)}</PrivateRoute>} />
+      <Route path="/marketplace/reviewer" element={<PrivateRoute>{withSuspense(<MarketplaceReviewerQueue />)}</PrivateRoute>} />
       <Route path="/marketplace/crm" element={<PrivateRoute>{withSuspense(<MarketplaceCrmOverview />)}</PrivateRoute>} />
       <Route path="/marketplace/crm/reports" element={<PrivateRoute>{withSuspense(<MarketplaceCrmReports />)}</PrivateRoute>} />
       <Route path="/marketplace/crm/modules" element={<PrivateRoute>{withSuspense(<MarketplaceCrmModules />)}</PrivateRoute>} />

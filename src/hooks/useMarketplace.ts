@@ -117,6 +117,31 @@ export interface VerificationDocument {
   created_at: string;
 }
 
+export interface ReviewerPublisherVerificationQueueItem {
+  id: string;
+  company_id: string;
+  company_name: string;
+  state: PublisherVerification['state'];
+  last_submitted_at: string;
+  rejection_reason: string | null;
+  verified_by: string | null;
+  verified_at: string | null;
+}
+
+export interface ReviewerVerificationDocumentQueueItem {
+  id: string;
+  verification_id: string;
+  company_id: string;
+  company_name: string;
+  document_type: VerificationDocument['document_type'];
+  storage_path: string;
+  state: VerificationDocument['state'];
+  rejection_reason: string | null;
+  created_at: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+}
+
 type LeadRow = {
   id: string;
   company_id: string;
@@ -862,6 +887,79 @@ export function useAddVerificationDocument(companyId?: string | null) {
   });
 }
 
+export function useReviewerPublisherVerificationQueue(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'reviewer-publisher-queue', companyId || 'all'],
+    queryFn: async () => {
+      let query = supabase
+        .from('publisher_verifications')
+        .select('id, company_id, state, last_submitted_at, rejection_reason, verified_by, verified_at, companies:company_id(name)')
+        .in('state', ['pending', 'needs_review'])
+        .order('last_submitted_at', { ascending: true })
+        .limit(300);
+
+      if (companyId) {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return ((data || []) as Array<Record<string, unknown>>).map((row) => {
+        const company = row.companies as { name?: string } | null;
+        return {
+          id: String(row.id),
+          company_id: String(row.company_id),
+          company_name: company?.name || 'Unknown company',
+          state: row.state as PublisherVerification['state'],
+          last_submitted_at: String(row.last_submitted_at),
+          rejection_reason: (row.rejection_reason as string | null) || null,
+          verified_by: (row.verified_by as string | null) || null,
+          verified_at: (row.verified_at as string | null) || null,
+        };
+      }) as ReviewerPublisherVerificationQueueItem[];
+    },
+  });
+}
+
+export function useReviewerVerificationDocumentQueue(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'reviewer-document-queue', companyId || 'all'],
+    queryFn: async () => {
+      let query = supabase
+        .from('verification_documents')
+        .select('id, verification_id, document_type, storage_path, state, rejection_reason, created_at, reviewed_by, reviewed_at, publisher_verifications!inner(company_id, companies:company_id(name))')
+        .eq('state', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(500);
+
+      if (companyId) {
+        query = query.eq('publisher_verifications.company_id', companyId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return ((data || []) as Array<Record<string, unknown>>).map((row) => {
+        const pv = row.publisher_verifications as { company_id?: string; companies?: { name?: string } | null } | null;
+        return {
+          id: String(row.id),
+          verification_id: String(row.verification_id),
+          company_id: String(pv?.company_id || ''),
+          company_name: pv?.companies?.name || 'Unknown company',
+          document_type: row.document_type as VerificationDocument['document_type'],
+          storage_path: String(row.storage_path),
+          state: row.state as VerificationDocument['state'],
+          rejection_reason: (row.rejection_reason as string | null) || null,
+          created_at: String(row.created_at),
+          reviewed_by: (row.reviewed_by as string | null) || null,
+          reviewed_at: (row.reviewed_at as string | null) || null,
+        };
+      }) as ReviewerVerificationDocumentQueueItem[];
+    },
+  });
+}
+
 export function useReviewerDecisionOnPublisherVerification(companyId?: string | null) {
   const queryClient = useQueryClient();
 
@@ -895,6 +993,7 @@ export function useReviewerDecisionOnPublisherVerification(companyId?: string | 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'publisher-verification', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'reviewer-publisher-queue'] });
       toast({ title: 'Verification Reviewed', description: 'Publisher verification decision saved.' });
     },
     onError: (error: Error) => {
@@ -936,6 +1035,7 @@ export function useReviewerDecisionOnVerificationDocument(verificationId?: strin
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'verification-documents', verificationId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'reviewer-document-queue'] });
       toast({ title: 'Document Reviewed', description: 'Document review decision saved.' });
     },
     onError: (error: Error) => {
