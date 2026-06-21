@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
-import { useCreateCrmMeeting, useCrmMeetings } from '@/hooks/useMarketplaceCrm';
+import { useCreateCrmMeeting, useCrmMeetings, useUpdateCrmMeetingStatus } from '@/hooks/useMarketplaceCrm';
 
 export default function MarketplaceCrmMeetingsPage() {
   const { activeCompanyId } = useActiveCompany();
   const meetingsQuery = useCrmMeetings(activeCompanyId);
   const createMeeting = useCreateCrmMeeting(activeCompanyId);
+  const updateMeeting = useUpdateCrmMeetingStatus(activeCompanyId);
   const [search, setSearch] = useState('');
   const [title, setTitle] = useState('');
 
@@ -48,7 +49,7 @@ export default function MarketplaceCrmMeetingsPage() {
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr><th className="px-3 py-2">Title</th><th className="px-3 py-2">From</th><th className="px-3 py-2">To</th><th className="px-3 py-2">Status</th></tr>
+              <tr><th className="px-3 py-2">Title</th><th className="px-3 py-2">From</th><th className="px-3 py-2">To</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Action</th></tr>
             </thead>
             <tbody>
               {rows.map((row) => (
@@ -57,6 +58,25 @@ export default function MarketplaceCrmMeetingsPage() {
                   <td className="px-3 py-2">{new Date(row.starts_at).toLocaleString()}</td>
                   <td className="px-3 py-2">{new Date(row.ends_at).toLocaleString()}</td>
                   <td className="px-3 py-2">{row.status}</td>
+                  <td className="px-3 py-2">
+                    {row.status !== 'done' ? (
+                      <button
+                        className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground"
+                        onClick={() => updateMeeting.mutate({ meetingId: row.id, status: 'done', notes: row.notes || 'Completed via CRM Meetings page' })}
+                        disabled={updateMeeting.isPending}
+                      >
+                        Mark Done
+                      </button>
+                    ) : (
+                      <button
+                        className="h-8 rounded-md border border-input px-2 text-xs"
+                        onClick={() => updateMeeting.mutate({ meetingId: row.id, status: 'planned' })}
+                        disabled={updateMeeting.isPending}
+                      >
+                        Reopen
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

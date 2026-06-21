@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
-import { useCrmTasks } from '@/hooks/useMarketplaceCrm';
+import { useCrmTasks, useUpdateCrmTaskStatus } from '@/hooks/useMarketplaceCrm';
 
 export default function MarketplaceCrmTasksPage() {
   const { activeCompanyId } = useActiveCompany();
   const tasksQuery = useCrmTasks(activeCompanyId);
+  const updateTask = useUpdateCrmTaskStatus(activeCompanyId);
   const [search, setSearch] = useState('');
 
   const rows = useMemo(() => {
@@ -28,6 +29,7 @@ export default function MarketplaceCrmTasksPage() {
                 <th className="px-3 py-2">Due Date</th>
                 <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2">Priority</th>
+                <th className="px-3 py-2">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -37,6 +39,25 @@ export default function MarketplaceCrmTasksPage() {
                   <td className="px-3 py-2">{new Date(row.due_at).toLocaleString()}</td>
                   <td className="px-3 py-2">{row.status}</td>
                   <td className="px-3 py-2">{row.status === 'open' ? 'Normal' : 'Done'}</td>
+                  <td className="px-3 py-2">
+                    {row.status === 'open' ? (
+                      <button
+                        className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground"
+                        onClick={() => updateTask.mutate({ taskId: row.id, status: 'done' })}
+                        disabled={updateTask.isPending}
+                      >
+                        Mark Done
+                      </button>
+                    ) : (
+                      <button
+                        className="h-8 rounded-md border border-input px-2 text-xs"
+                        onClick={() => updateTask.mutate({ taskId: row.id, status: 'open' })}
+                        disabled={updateTask.isPending}
+                      >
+                        Reopen
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

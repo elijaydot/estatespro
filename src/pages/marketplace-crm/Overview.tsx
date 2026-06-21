@@ -3,13 +3,16 @@ import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, MetricCard } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useCrmLeads, useCrmLeadTasks, useManagedMarketplaceListings } from '@/hooks/useMarketplace';
-import { useCrmMeetings } from '@/hooks/useMarketplaceCrm';
+import { useCrmDealHandoffs, useCrmMarketplaceFunnelMetrics, useCrmMeetings, useCrmTrustFlags } from '@/hooks/useMarketplaceCrm';
 
 export default function MarketplaceCrmOverviewPage() {
   const { activeCompanyId } = useActiveCompany();
   const leadsQuery = useCrmLeads(activeCompanyId);
   const listingsQuery = useManagedMarketplaceListings(activeCompanyId);
   const meetingsQuery = useCrmMeetings(activeCompanyId);
+  const trustFlagsQuery = useCrmTrustFlags(activeCompanyId);
+  const handoffsQuery = useCrmDealHandoffs(activeCompanyId);
+  const funnelQuery = useCrmMarketplaceFunnelMetrics(activeCompanyId);
 
   const firstLeadId = leadsQuery.data?.[0]?.id;
   const leadTasksQuery = useCrmLeadTasks(firstLeadId);
@@ -19,6 +22,9 @@ export default function MarketplaceCrmOverviewPage() {
     const listings = listingsQuery.data || [];
     const meetings = meetingsQuery.data || [];
     const tasks = leadTasksQuery.data || [];
+    const trustFlags = trustFlagsQuery.data || [];
+    const handoffs = handoffsQuery.data || [];
+    const funnel = funnelQuery.data;
 
     return {
       openTasks: tasks.filter((task) => task.status === 'open').length,
@@ -31,8 +37,20 @@ export default function MarketplaceCrmOverviewPage() {
       dealsClosingThisMonth: 0,
       activeListings: listings.filter((listing) => listing.status === 'live').length,
       totalLeads: leads.length,
+      activeTrustFlags: trustFlags.filter((flag) => flag.state === 'active').length,
+      handoffsReady: handoffs.filter((handoff) => handoff.status === 'ready').length,
+      handoffsRequiresInput: handoffs.filter((handoff) => handoff.status === 'requires_input').length,
+      inquiryToWonRate: funnel?.inquiry_to_won_rate_pct || 0,
     };
-  }, [leadsQuery.data, listingsQuery.data, meetingsQuery.data, leadTasksQuery.data]);
+  }, [
+    leadsQuery.data,
+    listingsQuery.data,
+    meetingsQuery.data,
+    leadTasksQuery.data,
+    trustFlagsQuery.data,
+    handoffsQuery.data,
+    funnelQuery.data,
+  ]);
 
   return (
     <CrmWorkspace
@@ -46,13 +64,25 @@ export default function MarketplaceCrmOverviewPage() {
         <MetricCard label="Deals Closing This Month" value={metrics.dealsClosingThisMonth} helper="Will activate after deals stage mapping rollout." />
         <MetricCard label="Active Listings" value={metrics.activeListings} helper="Live listings currently discoverable." />
         <MetricCard label="Total Leads" value={metrics.totalLeads} helper="All leads under current company scope." />
+        <MetricCard label="Active Trust Flags" value={metrics.activeTrustFlags} helper="Verification/moderation concerns requiring attention." />
+        <MetricCard label="Handoffs Ready" value={metrics.handoffsReady} helper="Closed-won deals ready for property operations handoff." />
+        <MetricCard label="Inquiry to Won %" value={`${metrics.inquiryToWonRate}%`} helper="30-day public marketplace inquiry conversion." />
       </section>
 
       <CrmDataCard title="Quick Summary" description="Operational pulse from leads and listings.">
         <ul className="space-y-1 text-sm text-muted-foreground">
           <li>Lead pipeline is connected and updating from marketplace records.</li>
           <li>FishGate CRM modules are now available under Marketplace CRM section.</li>
-          <li>Reviewer-only trust gating will be enforced in subsequent migration pass.</li>
+          <li>Trust flags now couple verification/moderation outcomes into CRM operations.</li>
+          <li>Closed-won deals generate handoff readiness records for tenant and lease workflows.</li>
+        </ul>
+      </CrmDataCard>
+
+      <CrmDataCard title="Handoff Watch" description="Deals that require property operations action before completion.">
+        <ul className="space-y-1 text-sm text-muted-foreground">
+          <li>Ready handoffs: {metrics.handoffsReady}</li>
+          <li>Requires input: {metrics.handoffsRequiresInput}</li>
+          <li>Active trust flags: {metrics.activeTrustFlags}</li>
         </ul>
       </CrmDataCard>
     </CrmWorkspace>

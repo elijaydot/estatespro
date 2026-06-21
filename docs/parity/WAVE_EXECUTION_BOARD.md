@@ -18,6 +18,9 @@ Left:
 ## Wave 2: Feature Breadth (Ready to Start)
 Status: 15%
 
+Backlog:
+- docs/parity/WAVE_2_IMPLEMENTATION_BACKLOG_README.md
+
 Next Build Set:
 - Workflow automation v1: event trigger -> condition check -> action dispatch.
 - Approval path v1 for listing moderation and invoice exception approvals.

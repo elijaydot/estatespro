@@ -148,6 +148,58 @@ export interface CrmTask {
   created_at: string;
 }
 
+export interface CrmDealStageHistory {
+  id: string;
+  deal_id: string;
+  company_id: string;
+  from_stage: string | null;
+  to_stage: string;
+  changed_by: string | null;
+  reason: string | null;
+  metadata: Record<string, unknown>;
+  changed_at: string;
+}
+
+export interface CrmTrustFlag {
+  id: string;
+  company_id: string;
+  entity_type: 'company' | 'listing' | 'lead' | 'deal';
+  entity_id: string | null;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  state: 'active' | 'cleared';
+  source: 'verification' | 'moderation';
+  source_id: string | null;
+  reason: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrmDealHandoff {
+  id: string;
+  deal_id: string;
+  company_id: string;
+  status: 'pending' | 'requires_input' | 'ready' | 'in_progress' | 'completed' | 'failed';
+  checklist_json: Record<string, unknown>;
+  readiness_notes: string | null;
+  tenant_id: string | null;
+  lease_id: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrmMarketplaceFunnelMetric {
+  company_id: string;
+  company_name: string;
+  inquiries_30d: number;
+  leads_open: number;
+  deals_open: number;
+  deals_won_30d: number;
+  inquiry_to_won_rate_pct: number;
+}
+
 interface LeadContactRow {
   id: string;
   lead_id: string;
@@ -183,6 +235,9 @@ const REPORT_LIBRARY: CrmReportDefinition[] = [
   { id: 'contact-mailing-list', folder: 'Account and Contact Reports', name: 'Contact Mailing List', description: 'Current contact mailing roster.' },
   { id: 'deals-closing-month', folder: 'Deal and Revenue Reports', name: 'Deals Closing This Month', description: 'Deals with close dates in the current month.' },
   { id: 'verification-aging', folder: 'Trust and Risk Reports', name: 'Verification Queue Aging', description: 'How long publisher verification items stay pending.' },
+  { id: 'inquiry-to-won-30d', folder: 'Deal and Revenue Reports', name: 'Inquiry to Won (30 days)', description: '30-day inquiry-to-won conversion by company.' },
+  { id: 'trust-flag-load', folder: 'Trust and Risk Reports', name: 'Active Trust Flags', description: 'Count and severity of active trust flags from verification/moderation.' },
+  { id: 'closed-won-handoff', folder: 'Operations Reports', name: 'Closed-Won Handoff Readiness', description: 'Deals marked closed won and handoff completion status.' },
 ];
 
 function useCompanyTableQuery<T>(key: string, table: string, companyId?: string | null, select = '*') {
@@ -262,6 +317,103 @@ export function useCrmReportLibrary() {
   return useQuery({
     queryKey: ['marketplace-crm', 'report-library'],
     queryFn: async () => REPORT_LIBRARY,
+  });
+}
+
+export function useCrmDealStageHistory(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace-crm', 'deal-stage-history', companyId],
+    queryFn: async () => {
+      if (!companyId) return [] as CrmDealStageHistory[];
+
+      const { data, error } = await supabase
+        .from('crm_deal_stage_history')
+        .select('id, deal_id, company_id, from_stage, to_stage, changed_by, reason, metadata, changed_at')
+        .eq('company_id', companyId)
+        .order('changed_at', { ascending: false })
+        .limit(150);
+
+      if (error) throw error;
+
+      return (data || []).map((row) => ({
+        ...(row as Omit<CrmDealStageHistory, 'metadata'>),
+        metadata: row.metadata && typeof row.metadata === 'object'
+          ? (row.metadata as Record<string, unknown>)
+          : {},
+      })) as CrmDealStageHistory[];
+    },
+    enabled: !!companyId,
+  });
+}
+
+export function useCrmTrustFlags(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace-crm', 'trust-flags', companyId],
+    queryFn: async () => {
+      if (!companyId) return [] as CrmTrustFlag[];
+
+      const { data, error } = await supabase
+        .from('crm_trust_flags')
+        .select('id, company_id, entity_type, entity_id, severity, state, source, source_id, reason, metadata, created_at, updated_at')
+        .eq('company_id', companyId)
+        .order('updated_at', { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+
+      return (data || []).map((row) => ({
+        ...(row as Omit<CrmTrustFlag, 'metadata'>),
+        metadata: row.metadata && typeof row.metadata === 'object'
+          ? (row.metadata as Record<string, unknown>)
+          : {},
+      })) as CrmTrustFlag[];
+    },
+    enabled: !!companyId,
+  });
+}
+
+export function useCrmDealHandoffs(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace-crm', 'deal-handoffs', companyId],
+    queryFn: async () => {
+      if (!companyId) return [] as CrmDealHandoff[];
+
+      const { data, error } = await supabase
+        .from('crm_deal_handoffs')
+        .select('id, deal_id, company_id, status, checklist_json, readiness_notes, tenant_id, lease_id, started_at, completed_at, created_at, updated_at')
+        .eq('company_id', companyId)
+        .order('updated_at', { ascending: false })
+        .limit(150);
+
+      if (error) throw error;
+
+      return (data || []).map((row) => ({
+        ...(row as Omit<CrmDealHandoff, 'checklist_json'>),
+        checklist_json: row.checklist_json && typeof row.checklist_json === 'object'
+          ? (row.checklist_json as Record<string, unknown>)
+          : {},
+      })) as CrmDealHandoff[];
+    },
+    enabled: !!companyId,
+  });
+}
+
+export function useCrmMarketplaceFunnelMetrics(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace-crm', 'funnel-metrics', companyId],
+    queryFn: async () => {
+      if (!companyId) return null as CrmMarketplaceFunnelMetric | null;
+
+      const { data, error } = await supabase
+        .from('crm_marketplace_funnel_metrics')
+        .select('company_id, company_name, inquiries_30d, leads_open, deals_open, deals_won_30d, inquiry_to_won_rate_pct')
+        .eq('company_id', companyId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return (data as CrmMarketplaceFunnelMetric | null) || null;
+    },
+    enabled: !!companyId,
   });
 }
 
@@ -353,3 +505,129 @@ export const useCreateCrmVisit = buildCreateMutation<Record<string, unknown>>('c
 export const useCreateCrmProject = buildCreateMutation<Record<string, unknown>>('crm_projects', 'projects');
 export const useUpdateCrmAccount = buildUpdateMutation<Record<string, unknown>>('crm_accounts', 'accounts');
 export const useUpdateCrmDeal = buildUpdateMutation<Record<string, unknown>>('crm_deals', 'deals');
+
+export function useTransitionCrmDealStage(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      dealId,
+      stage,
+      probability,
+      amount,
+      accountId,
+      contactId,
+      leadId,
+      listingId,
+      unitId,
+    }: {
+      dealId: string;
+      stage: string;
+      probability: number;
+      amount?: number | null;
+      accountId?: string | null;
+      contactId?: string | null;
+      leadId?: string | null;
+      listingId?: string | null;
+      unitId?: string | null;
+    }) => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const payload: Record<string, unknown> = {
+        stage,
+        probability,
+      };
+
+      if (amount !== undefined) payload.amount = amount;
+      if (accountId !== undefined) payload.account_id = accountId;
+      if (contactId !== undefined) payload.contact_id = contactId;
+      if (leadId !== undefined) payload.lead_id = leadId;
+      if (listingId !== undefined) payload.listing_id = listingId;
+      if (unitId !== undefined) payload.unit_id = unitId;
+
+      const { data, error } = await supabase
+        .from('crm_deals')
+        .update(payload)
+        .eq('id', dealId)
+        .eq('company_id', companyId)
+        .select('id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, stage, probability, expected_close_date, owner_user_id, created_at')
+        .single();
+
+      if (error) throw error;
+      return data as CrmDeal;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'deals', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'deal-stage-history', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'deal-handoffs', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'tasks', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'funnel-metrics', companyId] });
+      toast({ title: 'Deal Updated', description: 'Stage transition applied successfully.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Stage Transition Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateCrmTaskStatus(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ taskId, status }: { taskId: string; status: CrmTask['status'] }) => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const { data, error } = await supabase
+        .from('lead_tasks')
+        .update({
+          status,
+          completed_at: status === 'done' ? new Date().toISOString() : null,
+        })
+        .eq('id', taskId)
+        .select('id, lead_id, task_type, owner_user_id, due_at, status, notes, created_at')
+        .single();
+
+      if (error) throw error;
+      return data as CrmTask;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'tasks', companyId] });
+      toast({ title: 'Task Updated', description: 'Task status updated successfully.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Task Update Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateCrmMeetingStatus(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ meetingId, status, notes }: { meetingId: string; status: CrmMeeting['status']; notes?: string | null }) => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const payload: Record<string, unknown> = { status };
+      if (notes !== undefined) payload.notes = notes;
+
+      const { data, error } = await supabase
+        .from('crm_meetings')
+        .update(payload)
+        .eq('id', meetingId)
+        .eq('company_id', companyId)
+        .select('id, company_id, title, related_type, related_id, host_user_id, starts_at, ends_at, status, notes, created_at')
+        .single();
+
+      if (error) throw error;
+      return data as CrmMeeting;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'meetings', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'tasks', companyId] });
+      toast({ title: 'Meeting Updated', description: 'Meeting disposition saved.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Meeting Update Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}

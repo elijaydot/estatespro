@@ -7,7 +7,7 @@ import {
   useCrmAccounts,
   useCrmContacts,
   useCrmDeals,
-  useUpdateCrmDeal,
+  useTransitionCrmDealStage,
 } from '@/hooks/useMarketplaceCrm';
 
 const DEAL_STAGES = ['qualification', 'needs_analysis', 'value_proposition', 'identify_decision_makers', 'proposal', 'negotiation', 'closed_won', 'closed_lost'];
@@ -18,7 +18,7 @@ export default function MarketplaceCrmDealsPage() {
   const accountsQuery = useCrmAccounts(activeCompanyId);
   const contactsQuery = useCrmContacts(activeCompanyId);
   const createDeal = useCreateCrmDeal(activeCompanyId);
-  const updateDeal = useUpdateCrmDeal(activeCompanyId);
+  const transitionDeal = useTransitionCrmDealStage(activeCompanyId);
 
   const [search, setSearch] = useState('');
   const [dealName, setDealName] = useState('');
@@ -28,6 +28,7 @@ export default function MarketplaceCrmDealsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editStage, setEditStage] = useState('qualification');
   const [editProbability, setEditProbability] = useState('10');
+  const [editAmount, setEditAmount] = useState('');
 
   const rows = useMemo(() => {
     const records = dealsQuery.data || [];
@@ -63,10 +64,11 @@ export default function MarketplaceCrmDealsPage() {
     setCreateContactId('');
   };
 
-  const startEdit = (id: string, stage: string, probability: number) => {
+  const startEdit = (id: string, stage: string, probability: number, currentAmount: number | null) => {
     setEditingId(id);
     setEditStage(stage);
     setEditProbability(String(probability));
+    setEditAmount(currentAmount == null ? '' : String(currentAmount));
   };
 
   const saveEdit = () => {
@@ -74,17 +76,17 @@ export default function MarketplaceCrmDealsPage() {
     const parsed = Number(editProbability);
     if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) return;
 
-    updateDeal.mutate(
+    transitionDeal.mutate(
       {
-        id: editingId,
-        payload: {
-          stage: editStage,
-          probability: parsed,
-        },
+        dealId: editingId,
+        stage: editStage,
+        probability: parsed,
+        amount: editAmount ? Number(editAmount) : null,
       },
       {
         onSuccess: () => {
           setEditingId(null);
+          setEditAmount('');
         },
       },
     );
@@ -140,15 +142,21 @@ export default function MarketplaceCrmDealsPage() {
                             onChange={(event) => setEditProbability(event.target.value)}
                             placeholder="Probability (0-100)"
                           />
+                          <input
+                            className="h-8 w-full rounded-md border border-input px-2 text-xs"
+                            value={editAmount}
+                            onChange={(event) => setEditAmount(event.target.value)}
+                            placeholder="Amount (required for closed won)"
+                          />
                           <div className="flex gap-2">
-                            <button className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground" onClick={saveEdit} disabled={updateDeal.isPending}>Save</button>
+                            <button className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground" onClick={saveEdit} disabled={transitionDeal.isPending}>Save</button>
                             <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => setEditingId(null)}>Cancel</button>
                           </div>
                         </div>
                       ) : (
                         <button
                           className="mt-2 h-8 rounded-md border border-input px-2 text-xs"
-                          onClick={() => startEdit(deal.id, deal.stage, deal.probability)}
+                          onClick={() => startEdit(deal.id, deal.stage, deal.probability, deal.amount)}
                         >
                           Edit Stage
                         </button>
