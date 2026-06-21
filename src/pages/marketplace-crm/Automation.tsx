@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { toast } from '@/components/ui/use-toast';
 import {
   useCreateCrmAutomationRule,
   useCrmAutomationRules,
@@ -11,6 +12,25 @@ import {
 } from '@/hooks/useMarketplaceCrm';
 
 const EVENT_OPTIONS = ['deal.stage_changed', 'call.logged', 'meeting.completed', 'visit.completed'];
+
+const EVENT_DEFAULTS: Record<string, { conditions: string; actions: string }> = {
+  'deal.stage_changed': {
+    conditions: '{"equals":{"to_stage":"closed_won"}}',
+    actions: '[{"type":"create_task","task_type":"handoff_prep","due_in_hours":24}]',
+  },
+  'call.logged': {
+    conditions: '{"required_fields":["lead_id"]}',
+    actions: '[{"type":"create_task","task_type":"call_follow_up","due_in_hours":24}]',
+  },
+  'meeting.completed': {
+    conditions: '{"required_fields":["lead_id"]}',
+    actions: '[{"type":"create_task","task_type":"meeting_follow_up","due_in_hours":48}]',
+  },
+  'visit.completed': {
+    conditions: '{}',
+    actions: '[{"type":"audit_event","event_type":"crm.visit.completed.review","severity":"info"}]',
+  },
+};
 
 export default function MarketplaceCrmAutomationPage() {
   const { activeCompanyId } = useActiveCompany();
@@ -22,8 +42,8 @@ export default function MarketplaceCrmAutomationPage() {
 
   const [name, setName] = useState('');
   const [eventType, setEventType] = useState(EVENT_OPTIONS[0]);
-  const [conditionsJson, setConditionsJson] = useState('{"stage": "closed_won"}');
-  const [actionsJson, setActionsJson] = useState('[{"type": "create_task", "payload": {"task_type": "handoff_prep"}}]');
+  const [conditionsJson, setConditionsJson] = useState(EVENT_DEFAULTS['deal.stage_changed'].conditions);
+  const [actionsJson, setActionsJson] = useState(EVENT_DEFAULTS['deal.stage_changed'].actions);
   const [retryLimit, setRetryLimit] = useState('3');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -34,7 +54,10 @@ export default function MarketplaceCrmAutomationPage() {
   }, [runsQuery.data, statusFilter]);
 
   const onCreateRule = () => {
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      toast({ title: 'Rule Name Required', description: 'Provide a rule name before creating automation.' });
+      return;
+    }
 
     let conditions: Record<string, unknown> = {};
     let actions: Array<Record<string, unknown>> = [];
@@ -45,6 +68,7 @@ export default function MarketplaceCrmAutomationPage() {
       conditions = parsedConditions && typeof parsedConditions === 'object' ? parsedConditions : {};
       actions = Array.isArray(parsedActions) ? parsedActions : [];
     } catch {
+      toast({ title: 'Invalid JSON', description: 'Conditions or actions JSON is invalid.', variant: 'destructive' });
       return;
     }
 
@@ -62,6 +86,14 @@ export default function MarketplaceCrmAutomationPage() {
     setName('');
   };
 
+  const onChangeEventType = (nextEventType: string) => {
+    setEventType(nextEventType);
+    const defaults = EVENT_DEFAULTS[nextEventType];
+    if (!defaults) return;
+    setConditionsJson(defaults.conditions);
+    setActionsJson(defaults.actions);
+  };
+
   return (
     <CrmWorkspace title="Automation" subtitle="Rule engine controls and execution telemetry for CRM events.">
       <CrmDataCard title="Create Automation Rule" description="Configure an event trigger, conditions, and actions.">
@@ -72,7 +104,7 @@ export default function MarketplaceCrmAutomationPage() {
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
-          <select className="h-9 rounded-md border border-input px-3 text-sm" value={eventType} onChange={(event) => setEventType(event.target.value)}>
+          <select className="h-9 rounded-md border border-input px-3 text-sm" value={eventType} onChange={(event) => onChangeEventType(event.target.value)}>
             {EVENT_OPTIONS.map((option) => (
               <option key={option} value={option}>{option}</option>
             ))}
