@@ -631,3 +631,31 @@ export function useUpdateCrmMeetingStatus(companyId?: string | null) {
     },
   });
 }
+
+export function useUpdateCrmVisit(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ visitId, payload }: { visitId: string; payload: Partial<CrmVisit> }) => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const { data, error } = await supabase
+        .from('crm_visits')
+        .update(payload)
+        .eq('id', visitId)
+        .eq('company_id', companyId)
+        .select('id, company_id, related_type, related_id, locality, address_text, status, check_in_at, check_in_lat, check_in_lng, check_out_at, proof_path, outcome, notes, created_by, created_at')
+        .single();
+
+      if (error) throw error;
+      return data as CrmVisit;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'visits', companyId] });
+      toast({ title: 'Visit Updated', description: 'Visit workflow status saved.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Visit Update Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}

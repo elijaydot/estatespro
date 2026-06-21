@@ -16,10 +16,26 @@ Left:
 - Final acceptance signoff against Wave 1 done-definition checklist.
 
 ## Wave 2: Feature Breadth (Ready to Start)
-Status: 15%
+Status: 38%
 
 Backlog:
 - docs/parity/WAVE_2_IMPLEMENTATION_BACKLOG_README.md
+
+Done in current increment:
+- Milestone 1-3 core migration applied (stage governance, trust flags, handoff prep, funnel view).
+- Deals workflow uses governed stage transition path with closed-won gate checks.
+- Tasks and meetings now include status actions for operational execution.
+- Calls workflow captures lead linkage and result disposition for follow-up automation triggers.
+- Visits workflow now supports check-in and completion lifecycle with proof/outcome capture.
+- Reports now expose live pipeline, execution, trust, and handoff analytics (not just static report list).
+- CRM reporting helper tests added and passing.
+
+Left to close Wave 2:
+- Expand campaigns, contacts, documents, projects, and visits into fully governed workflows (dedupe, ownership, SLA escalation, state machines).
+- Deliver full automation engine v1 (generic trigger-condition-action orchestration with retries and correlation trace model).
+- Complete property-management handoff flow from ready handoff to tenant/lease draft creation and completion lifecycle.
+- Add role-matrix policy tests and cross-surface audit trace validation suites.
+- Finalize report pack with owner/company/date filtering and staging evidence signoff.
 
 Next Build Set:
 - Workflow automation v1: event trigger -> condition check -> action dispatch.
