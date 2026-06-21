@@ -84,9 +84,17 @@ export interface CrmDocument {
   related_id: string | null;
   title: string;
   storage_path: string;
+  status: 'draft' | 'under_review' | 'approved' | 'rejected' | 'archived';
+  compliance_state: 'pending' | 'verified' | 'expired' | 'rejected';
+  version_no: number;
+  expires_at: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_notes: string | null;
   mime_type: string | null;
   uploaded_by: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface CrmVisit {
@@ -340,7 +348,7 @@ export function useCrmCampaigns(companyId?: string | null) {
 }
 
 export function useCrmDocuments(companyId?: string | null) {
-  return useCompanyTableQuery<CrmDocument>('documents', 'crm_documents', companyId, 'id, company_id, related_type, related_id, title, storage_path, mime_type, uploaded_by, created_at');
+  return useCompanyTableQuery<CrmDocument>('documents', 'crm_documents', companyId, 'id, company_id, related_type, related_id, title, storage_path, status, compliance_state, version_no, expires_at, reviewed_by, reviewed_at, review_notes, mime_type, uploaded_by, created_at, updated_at');
 }
 
 export function useCrmVisits(companyId?: string | null) {
@@ -614,6 +622,7 @@ export const useCreateCrmVisit = buildCreateMutation<Record<string, unknown>>('c
 export const useCreateCrmProject = buildCreateMutation<Record<string, unknown>>('crm_projects', 'projects');
 export const useUpdateCrmAccount = buildUpdateMutation<Record<string, unknown>>('crm_accounts', 'accounts');
 export const useUpdateCrmDeal = buildUpdateMutation<Record<string, unknown>>('crm_deals', 'deals');
+export const useUpdateCrmDocument = buildUpdateMutation<Record<string, unknown>>('crm_documents', 'documents');
 export const useUpdateCrmCampaign = buildUpdateMutation<Record<string, unknown>>('crm_campaigns', 'campaigns');
 export const useUpdateCrmProject = buildUpdateMutation<Record<string, unknown>>('crm_projects', 'projects');
 
@@ -965,6 +974,28 @@ export function useUpdateCrmAutomationRule(companyId?: string | null) {
     },
     onError: (error: Error) => {
       toast({ title: 'Rule Update Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useReplayCrmAutomationRun(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ runId }: { runId: string }) => {
+      const { data, error } = await supabase.rpc('crm_replay_automation_run' as never, {
+        p_run_id: runId,
+      } as never);
+
+      if (error) throw error;
+      return data as string | null;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'automation-runs', companyId] });
+      toast({ title: 'Replay Queued', description: 'Automation run replay has been triggered.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Replay Failed', description: error.message, variant: 'destructive' });
     },
   });
 }

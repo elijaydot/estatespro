@@ -16,7 +16,7 @@ Left:
 - Final acceptance signoff against Wave 1 done-definition checklist.
 
 ## Wave 2: Feature Breadth (In Progress)
-Status: 68%
+Status: 76%
 
 Backlog:
 - docs/parity/WAVE_2_IMPLEMENTATION_BACKLOG_README.md
@@ -39,10 +39,11 @@ Done in current increment:
 - Campaigns workflow upgraded with inline lifecycle/status and KPI metric editing controls.
 - Projects workflow upgraded with SLA pressure metrics, inline lifecycle edits, and quick status transitions.
 - Workflow helper utilities and tests added for duplicate detection and project SLA summary calculations.
+- Documents workflow upgraded with governed lifecycle states (draft/review/approve/reject/archive), compliance state, expiry, and review notes controls.
+- Automation operations upgraded with manual replay action for failed/pending runs and backend replay RPC with audit trace.
+- New governance migration/tests added for document lifecycle constraints and automation replay permissions.
 
 Left to close Wave 2:
-- Complete documents module lifecycle/state-machine depth and governance controls.
-- Add explicit automation retry operations surface for failed/pending runs (operator replay/repair flow).
 - Extend ownership reassignment depth across remaining modules where owner fields exist.
 - Capture staging evidence/signoff artifacts for Wave 2 operational close.
 

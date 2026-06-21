@@ -6,10 +6,11 @@ import {
   useCreateCrmAutomationRule,
   useCrmAutomationRules,
   useCrmAutomationRuns,
+  useReplayCrmAutomationRun,
   useUpdateCrmAutomationRule,
 } from '@/hooks/useMarketplaceCrm';
 
-const EVENT_OPTIONS = ['deal_stage_changed', 'call_logged', 'meeting_updated', 'visit_status_changed'];
+const EVENT_OPTIONS = ['deal.stage_changed', 'call.logged', 'meeting.completed', 'visit.completed'];
 
 export default function MarketplaceCrmAutomationPage() {
   const { activeCompanyId } = useActiveCompany();
@@ -17,6 +18,7 @@ export default function MarketplaceCrmAutomationPage() {
   const runsQuery = useCrmAutomationRuns(activeCompanyId);
   const createRule = useCreateCrmAutomationRule(activeCompanyId);
   const updateRule = useUpdateCrmAutomationRule(activeCompanyId);
+  const replayRun = useReplayCrmAutomationRun(activeCompanyId);
 
   const [name, setName] = useState('');
   const [eventType, setEventType] = useState(EVENT_OPTIONS[0]);
@@ -158,6 +160,7 @@ export default function MarketplaceCrmAutomationPage() {
                 <th className="px-3 py-2">Attempts</th>
                 <th className="px-3 py-2">Correlation</th>
                 <th className="px-3 py-2">Error</th>
+                <th className="px-3 py-2">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -169,6 +172,17 @@ export default function MarketplaceCrmAutomationPage() {
                   <td className="px-3 py-2">{run.attempts}/{run.max_attempts}</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{run.correlation_id || '-'}</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{run.last_error || '-'}</td>
+                  <td className="px-3 py-2">
+                    {(run.status === 'failed' || run.status === 'pending') ? (
+                      <button
+                        className="rounded border border-border px-2 py-1 text-xs"
+                        onClick={() => replayRun.mutate({ runId: run.id })}
+                        disabled={replayRun.isPending}
+                      >
+                        Replay
+                      </button>
+                    ) : '-'}
+                  </td>
                 </tr>
               ))}
             </tbody>
