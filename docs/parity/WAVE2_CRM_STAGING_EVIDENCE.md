@@ -9,9 +9,9 @@ Validate Wave 2 CRM feature-breadth closure in staging for:
 
 ## Metadata
 - Environment: `staging`
-- Build commit: `<fill-commit-hash>`
-- Validation date: `<yyyy-mm-dd>`
-- Operator: `<name>`
+- Build commit: `37daac9`
+- Validation date: `2026-06-21`
+- Operator: `repo-side execution pass`
 - Supabase project ref: `<ref>`
 
 ## Preconditions
@@ -22,12 +22,18 @@ Validate Wave 2 CRM feature-breadth closure in staging for:
 2. Deploy current branch build to staging.
 3. Ensure authenticated test users exist with company manager role.
 
+Precondition status:
+- Migration tranche status: `applied` (operator-confirmed)
+- Staging deploy status: `pending confirmation`
+- Staging users/roles status: `pending confirmation`
+
 ## Local Gate Evidence
-- `npm run lint`: `<pass/fail>`
-- `npm test`: `<pass/fail>`
-- `npm run build`: `<pass/fail>`
+- `npm run lint`: `pass (0 errors, 1 existing warning)`
+- `npm test`: `pass (14 files, 57 tests)`
+- `npm run build`: `pass (vite production build successful)`
 - Notes:
-  - `<paste warning-only exceptions if any>`
+  - Existing non-blocking lint warning in `src/components/marketplace-crm/CrmWorkspace.tsx` (`react-refresh/only-export-components`).
+  - Browserslist update warning appears during build and is non-blocking.
 
 ## Functional Validation Matrix
 
@@ -41,7 +47,7 @@ Evidence:
 - Deal id: `<uuid>`
 - Handoff id: `<uuid>`
 - Screenshot/recording links: `<links>`
-- Result: `<pass/fail>`
+- Result: `pending staging execution evidence`
 
 ### B. Automation Rules + Run Operations
 1. Create an active rule for `deal.stage_changed` with create_task action.
@@ -69,7 +75,7 @@ Evidence:
 - Rule id: `<uuid>`
 - Original run id: `<uuid>`
 - Replay run id: `<uuid>`
-- Result: `<pass/fail>`
+- Result: `pending staging execution evidence`
 
 ### C. Contacts/Campaigns/Projects/Documents Workflow Depth
 1. Contacts duplicate candidate appears and merge succeeds.
@@ -109,7 +115,7 @@ LIMIT 30;
 Evidence:
 - Updated record ids: `<uuid list>`
 - Screenshot/recording links: `<links>`
-- Result: `<pass/fail>`
+- Result: `pending staging execution evidence`
 
 ### D. Reporting and Governance Checks
 1. Overview + Reports render with live CRM metrics.
@@ -118,7 +124,7 @@ Evidence:
 Evidence:
 - Report filter scenarios executed: `<list>`
 - Query snapshots: `<links>`
-- Result: `<pass/fail>`
+- Result: `pending staging execution evidence`
 
 ## Defects / Risks Log
 - Issue: `<description>`
@@ -128,6 +134,6 @@ Evidence:
 - Status: `<open/closed>`
 
 ## Final Verdict
-- Wave 2 CRM staging validation: `<PASS/FAIL>`
-- Blockers: `<none or list>`
-- Notes: `<summary>`
+- Wave 2 CRM staging validation: `IN_PROGRESS`
+- Blockers: `Staging matrix evidence and signoff approvals not yet attached`
+- Notes: `Repo-side gates are green at commit 37daac9; staging functional evidence capture remains.`

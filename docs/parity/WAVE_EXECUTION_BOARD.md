@@ -16,7 +16,7 @@ Left:
 - Final acceptance signoff against Wave 1 done-definition checklist.
 
 ## Wave 2: Feature Breadth (In Progress)
-Status: 88%
+Status: 92%
 
 Backlog:
 - docs/parity/WAVE_2_IMPLEMENTATION_BACKLOG_README.md
@@ -45,6 +45,8 @@ Done in current increment:
 - Automation operations upgraded with manual replay action for failed/pending runs and backend replay RPC with audit trace.
 - New governance migration/tests added for document lifecycle constraints and automation replay permissions.
 - Ownership reassignment controls added across remaining owner-capable modules (Accounts, Deals, Projects) for create/edit lifecycle depth.
+- Latest Wave 2 migration tranche applied in staging (operator confirmed).
+- Repo-side quality gate pass captured for candidate `37daac9` (lint/test/build).
 
 Left to close Wave 2:
 - Execute staging validation and populate evidence outputs in `docs/parity/WAVE2_CRM_STAGING_EVIDENCE.md`.
