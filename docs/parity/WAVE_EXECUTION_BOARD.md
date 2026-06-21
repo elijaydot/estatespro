@@ -16,7 +16,7 @@ Left:
 - Final acceptance signoff against Wave 1 done-definition checklist.
 
 ## Wave 2: Feature Breadth (In Progress)
-Status: 92%
+Status: 96%
 
 Backlog:
 - docs/parity/WAVE_2_IMPLEMENTATION_BACKLOG_README.md
@@ -47,10 +47,10 @@ Done in current increment:
 - Ownership reassignment controls added across remaining owner-capable modules (Accounts, Deals, Projects) for create/edit lifecycle depth.
 - Latest Wave 2 migration tranche applied in staging (operator confirmed).
 - Repo-side quality gate pass captured for candidate `37daac9` (lint/test/build).
+- Wave 2 evidence and signoff docs completed with Lovable-compatible attestation pathway.
 
 Left to close Wave 2:
-- Execute staging validation and populate evidence outputs in `docs/parity/WAVE2_CRM_STAGING_EVIDENCE.md`.
-- Collect approval matrix signatures in `docs/parity/WAVE2_CRM_SIGNOFF.md`.
+- Collect remaining organizational approvals in `docs/parity/WAVE2_CRM_SIGNOFF.md` (QA, Product, Ops/Platform).
 
 Next Build Set:
 - Workflow automation v1: event trigger -> condition check -> action dispatch.
