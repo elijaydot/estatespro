@@ -15,8 +15,8 @@ Left:
 - Staging validation report for payment SLO candidate thresholds.
 - Final acceptance signoff against Wave 1 done-definition checklist.
 
-## Wave 2: Feature Breadth (Ready to Start)
-Status: 56%
+## Wave 2: Feature Breadth (In Progress)
+Status: 68%
 
 Backlog:
 - docs/parity/WAVE_2_IMPLEMENTATION_BACKLOG_README.md
@@ -34,13 +34,17 @@ Done in current increment:
 - End-to-end handoff completion function added (`crm_complete_handoff`) to create tenant + lease draft and finalize handoff.
 - Reports hardened with owner/date controls and filter-aware analytics calculations.
 - Governance release-gate test suite added for role-matrix and audit trace guarantees.
+- Automation admin module added (route/nav/page) with rule creation, activation toggles, and run history filters.
+- Contacts workflow upgraded with duplicate detection buckets, merge actions, and inline channel updates.
+- Campaigns workflow upgraded with inline lifecycle/status and KPI metric editing controls.
+- Projects workflow upgraded with SLA pressure metrics, inline lifecycle edits, and quick status transitions.
+- Workflow helper utilities and tests added for duplicate detection and project SLA summary calculations.
 
 Left to close Wave 2:
-- Expand campaigns, contacts, documents, projects, and visits into fully governed workflows (dedupe, ownership, SLA escalation, state machines).
-- Deliver full automation engine v1 (generic trigger-condition-action orchestration with retries and correlation trace model).
-- Complete property-management handoff flow from ready handoff to tenant/lease draft creation and completion lifecycle.
-- Add role-matrix policy tests and cross-surface audit trace validation suites.
-- Finalize report pack with owner/company/date filtering and staging evidence signoff.
+- Complete documents module lifecycle/state-machine depth and governance controls.
+- Add explicit automation retry operations surface for failed/pending runs (operator replay/repair flow).
+- Extend ownership reassignment depth across remaining modules where owner fields exist.
+- Capture staging evidence/signoff artifacts for Wave 2 operational close.
 
 Next Build Set:
 - Workflow automation v1: event trigger -> condition check -> action dispatch.

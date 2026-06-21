@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutGrid,
   BarChart3,
+  Bot,
   Grid3X3,
   UserRound,
   Users,
@@ -27,6 +28,7 @@ export type CrmNavItem = {
 export const CRM_NAV_ITEMS: CrmNavItem[] = [
   { label: 'Overview', href: '/marketplace/crm', icon: LayoutGrid },
   { label: 'Reports', href: '/marketplace/crm/reports', icon: BarChart3 },
+  { label: 'Automation', href: '/marketplace/crm/automation', icon: Bot },
   { label: 'Modules', href: '/marketplace/crm/modules', icon: Grid3X3 },
   { label: 'Leads', href: '/marketplace/crm/leads', icon: UserRound },
   { label: 'Contacts', href: '/marketplace/crm/contacts', icon: Users },

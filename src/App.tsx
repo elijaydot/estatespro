@@ -69,6 +69,7 @@ const MarketplaceVerification = lazy(() => import("./pages/MarketplaceVerificati
 const MarketplaceReviewerQueue = lazy(() => import("./pages/MarketplaceReviewerQueue"));
 const MarketplaceCrmOverview = lazy(() => import("./pages/marketplace-crm/Overview"));
 const MarketplaceCrmReports = lazy(() => import("./pages/marketplace-crm/Reports"));
+const MarketplaceCrmAutomation = lazy(() => import("./pages/marketplace-crm/Automation"));
 const MarketplaceCrmModules = lazy(() => import("./pages/marketplace-crm/Modules"));
 const MarketplaceCrmLeads = lazy(() => import("./pages/marketplace-crm/Leads"));
 const MarketplaceCrmContacts = lazy(() => import("./pages/marketplace-crm/Contacts"));
@@ -235,6 +236,7 @@ function AppRoutes() {
       <Route path="/marketplace/reviewer" element={<PrivateRoute>{withSuspense(<MarketplaceReviewerQueue />)}</PrivateRoute>} />
       <Route path="/marketplace/crm" element={<PrivateRoute>{withSuspense(<MarketplaceCrmOverview />)}</PrivateRoute>} />
       <Route path="/marketplace/crm/reports" element={<PrivateRoute>{withSuspense(<MarketplaceCrmReports />)}</PrivateRoute>} />
+      <Route path="/marketplace/crm/automation" element={<PrivateRoute>{withSuspense(<MarketplaceCrmAutomation />)}</PrivateRoute>} />
       <Route path="/marketplace/crm/modules" element={<PrivateRoute>{withSuspense(<MarketplaceCrmModules />)}</PrivateRoute>} />
       <Route path="/marketplace/crm/leads" element={<PrivateRoute>{withSuspense(<MarketplaceCrmLeads />)}</PrivateRoute>} />
       <Route path="/marketplace/crm/contacts" element={<PrivateRoute>{withSuspense(<MarketplaceCrmContacts />)}</PrivateRoute>} />

@@ -233,6 +233,11 @@ export interface CrmAutomationRun {
   updated_at: string;
 }
 
+export interface CrmContactDuplicateGroup {
+  key: string;
+  contacts: CrmContact[];
+}
+
 interface LeadContactRow {
   id: string;
   lead_id: string;
@@ -609,6 +614,8 @@ export const useCreateCrmVisit = buildCreateMutation<Record<string, unknown>>('c
 export const useCreateCrmProject = buildCreateMutation<Record<string, unknown>>('crm_projects', 'projects');
 export const useUpdateCrmAccount = buildUpdateMutation<Record<string, unknown>>('crm_accounts', 'accounts');
 export const useUpdateCrmDeal = buildUpdateMutation<Record<string, unknown>>('crm_deals', 'deals');
+export const useUpdateCrmCampaign = buildUpdateMutation<Record<string, unknown>>('crm_campaigns', 'campaigns');
+export const useUpdateCrmProject = buildUpdateMutation<Record<string, unknown>>('crm_projects', 'projects');
 
 export function useTransitionCrmDealStage(companyId?: string | null) {
   const queryClient = useQueryClient();
@@ -760,6 +767,204 @@ export function useUpdateCrmVisit(companyId?: string | null) {
     },
     onError: (error: Error) => {
       toast({ title: 'Visit Update Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateCrmContact(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      contactId,
+      payload,
+    }: {
+      contactId: string;
+      payload: {
+        full_name?: string;
+        email?: string | null;
+        phone_e164?: string;
+        preferred_channel?: string | null;
+      };
+    }) => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const { data: contactRecord, error: contactError } = await supabase
+        .from('lead_contacts')
+        .select('id, lead_id, leads!inner(company_id)')
+        .eq('id', contactId)
+        .eq('leads.company_id', companyId)
+        .maybeSingle();
+
+      if (contactError) throw contactError;
+      if (!contactRecord) throw new Error('Contact not found in active company scope');
+
+      const { data, error } = await supabase
+        .from('lead_contacts')
+        .update(payload)
+        .eq('id', contactId)
+        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at')
+        .single();
+
+      if (error) throw error;
+      return data as CrmContact;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'contacts', companyId] });
+      toast({ title: 'Contact Updated', description: 'Contact record updated successfully.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Contact Update Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useMergeCrmContacts(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      primaryContactId,
+      duplicateContactId,
+    }: {
+      primaryContactId: string;
+      duplicateContactId: string;
+    }) => {
+      if (!companyId) throw new Error('Active company is required');
+      if (primaryContactId === duplicateContactId) throw new Error('Primary and duplicate contacts must differ');
+
+      const { data: scopedContacts, error: scopeError } = await supabase
+        .from('lead_contacts')
+        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, leads!inner(company_id)')
+        .in('id', [primaryContactId, duplicateContactId])
+        .eq('leads.company_id', companyId);
+
+      if (scopeError) throw scopeError;
+
+      const primary = (scopedContacts || []).find((row) => row.id === primaryContactId) as LeadContactRow | undefined;
+      const duplicate = (scopedContacts || []).find((row) => row.id === duplicateContactId) as LeadContactRow | undefined;
+
+      if (!primary || !duplicate) throw new Error('Both contacts must exist in active company scope');
+
+      const mergedPayload = {
+        full_name: primary.full_name || duplicate.full_name,
+        email: primary.email || duplicate.email,
+        phone_e164: primary.phone_e164 || duplicate.phone_e164,
+        preferred_channel: primary.preferred_channel || duplicate.preferred_channel,
+      };
+
+      const { error: updateError } = await supabase
+        .from('lead_contacts')
+        .update(mergedPayload)
+        .eq('id', primaryContactId);
+
+      if (updateError) throw updateError;
+
+      const { error: deleteError } = await supabase
+        .from('lead_contacts')
+        .delete()
+        .eq('id', duplicateContactId);
+
+      if (deleteError) throw deleteError;
+
+      return { primaryContactId, duplicateContactId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'contacts', companyId] });
+      toast({ title: 'Contacts Merged', description: 'Duplicate contact merged into primary record.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Contact Merge Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useCreateCrmAutomationRule(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      name,
+      eventType,
+      conditions,
+      actions,
+      retryLimit,
+      isActive,
+    }: {
+      name: string;
+      eventType: string;
+      conditions: Record<string, unknown>;
+      actions: Array<Record<string, unknown>>;
+      retryLimit: number;
+      isActive?: boolean;
+    }) => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const { data, error } = await supabase
+        .from('crm_automation_rules' as never)
+        .insert({
+          company_id: companyId,
+          name,
+          event_type: eventType,
+          conditions_json: conditions,
+          actions_json: actions,
+          retry_limit: retryLimit,
+          is_active: isActive ?? true,
+          created_by: null,
+        } as never)
+        .select('id, company_id, name, event_type, conditions_json, actions_json, retry_limit, is_active, created_by, created_at, updated_at' as never)
+        .single();
+
+      if (error) throw error;
+      return data as CrmAutomationRule;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'automation-rules', companyId] });
+      toast({ title: 'Rule Created', description: 'Automation rule created successfully.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Rule Create Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateCrmAutomationRule(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      payload,
+    }: {
+      ruleId: string;
+      payload: Partial<{
+        name: string;
+        event_type: string;
+        conditions_json: Record<string, unknown>;
+        actions_json: Array<Record<string, unknown>>;
+        retry_limit: number;
+        is_active: boolean;
+      }>;
+    }) => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const { data, error } = await supabase
+        .from('crm_automation_rules' as never)
+        .update(payload as never)
+        .eq('id', ruleId)
+        .eq('company_id', companyId)
+        .select('id, company_id, name, event_type, conditions_json, actions_json, retry_limit, is_active, created_by, created_at, updated_at' as never)
+        .single();
+
+      if (error) throw error;
+      return data as CrmAutomationRule;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'automation-rules', companyId] });
+      toast({ title: 'Rule Updated', description: 'Automation rule updated successfully.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Rule Update Failed', description: error.message, variant: 'destructive' });
     },
   });
 }
