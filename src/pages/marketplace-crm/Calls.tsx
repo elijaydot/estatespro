@@ -2,20 +2,38 @@ import { useMemo, useState } from 'react';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
-import { useCreateCrmCall, useCrmCalls } from '@/hooks/useMarketplaceCrm';
-import { useCrmLeads } from '@/hooks/useMarketplace';
+import { useCreateCrmCall, useCrmCalls, useUpdateCrmCall } from '@/hooks/useMarketplaceCrm';
+import { useCrmAssignableUsers, useCrmLeads } from '@/hooks/useMarketplace';
+
+const CALL_RESULTS = [
+  'answered_follow_up_required',
+  'answered_no_follow_up',
+  'missed',
+  'voicemail',
+  'wrong_number',
+  'rescheduled',
+];
 
 export default function MarketplaceCrmCallsPage() {
   const { activeCompanyId } = useActiveCompany();
   const callsQuery = useCrmCalls(activeCompanyId);
   const leadsQuery = useCrmLeads(activeCompanyId);
+  const assignableUsersQuery = useCrmAssignableUsers(activeCompanyId);
   const createCall = useCreateCrmCall(activeCompanyId);
+  const updateCall = useUpdateCrmCall(activeCompanyId);
   const [search, setSearch] = useState('');
   const [subject, setSubject] = useState('');
   const [callType, setCallType] = useState<'inbound' | 'outbound'>('outbound');
   const [durationMinutes, setDurationMinutes] = useState('10');
   const [leadId, setLeadId] = useState('');
   const [result, setResult] = useState('answered_follow_up_required');
+  const [startedAt, setStartedAt] = useState('');
+  const [ownerUserId, setOwnerUserId] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [editingCallId, setEditingCallId] = useState<string | null>(null);
+  const [editResult, setEditResult] = useState('answered_follow_up_required');
+  const [editDuration, setEditDuration] = useState('10');
+  const [editSubject, setEditSubject] = useState('');
 
   const rows = useMemo(() => {
     const records = callsQuery.data || [];
@@ -35,8 +53,9 @@ export default function MarketplaceCrmCallsPage() {
       call_type: callType,
       related_type: 'lead',
       related_id: leadId,
-      contact_name: null,
-      started_at: new Date().toISOString(),
+      contact_name: contactName.trim() || null,
+      owner_user_id: ownerUserId || null,
+      started_at: startedAt ? new Date(startedAt).toISOString() : new Date().toISOString(),
       duration_minutes: duration,
       result,
     });
@@ -44,31 +63,73 @@ export default function MarketplaceCrmCallsPage() {
     setLeadId('');
     setResult('answered_follow_up_required');
     setDurationMinutes('10');
+    setStartedAt('');
+    setOwnerUserId('');
+    setContactName('');
+  };
+
+  const startEdit = (callId: string, currentSubject: string, currentResult: string | null, currentDuration: number) => {
+    setEditingCallId(callId);
+    setEditSubject(currentSubject);
+    setEditResult(currentResult || 'answered_follow_up_required');
+    setEditDuration(String(currentDuration));
+  };
+
+  const saveEdit = () => {
+    if (!editingCallId) return;
+    const parsedDuration = Number(editDuration);
+    if (Number.isNaN(parsedDuration) || parsedDuration <= 0) return;
+
+    updateCall.mutate(
+      {
+        callId: editingCallId,
+        payload: {
+          subject: editSubject.trim(),
+          duration_minutes: parsedDuration,
+          result: editResult,
+        },
+      },
+      {
+        onSuccess: () => {
+          setEditingCallId(null);
+          setEditSubject('');
+          setEditDuration('10');
+          setEditResult('answered_follow_up_required');
+        },
+      },
+    );
   };
 
   return (
     <CrmWorkspace title="Calls" subtitle="Inbound and outbound interaction logging with outcomes.">
       <CrmDataCard title="Log Call" description="Quick log for a phone interaction.">
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
-          <input className="h-9 flex-1 rounded-md border border-input px-3 text-sm" placeholder="Call subject" value={subject} onChange={(event) => setSubject(event.target.value)} />
-          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={callType} onChange={(event) => setCallType(event.target.value as 'inbound' | 'outbound')}>
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Call subject" value={subject} onChange={(event) => setSubject(event.target.value)} />
+          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={callType} onChange={(event) => setCallType(event.target.value as 'inbound' | 'outbound')}>
             <option value="outbound">Outbound</option>
             <option value="inbound">Inbound</option>
           </select>
-          <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Duration (min)" value={durationMinutes} onChange={(event) => setDurationMinutes(event.target.value)} />
-          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={leadId} onChange={(event) => setLeadId(event.target.value)}>
+          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" placeholder="Duration (min)" value={durationMinutes} onChange={(event) => setDurationMinutes(event.target.value)} />
+          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={leadId} onChange={(event) => setLeadId(event.target.value)}>
             <option value="">Select lead</option>
             {(leadsQuery.data || []).map((lead) => (
               <option key={lead.id} value={lead.id}>{lead.contact_name || lead.id}</option>
             ))}
           </select>
-          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={result} onChange={(event) => setResult(event.target.value)}>
-            <option value="answered_follow_up_required">Answered - Follow up required</option>
-            <option value="answered_no_follow_up">Answered - No follow up</option>
-            <option value="missed">Missed</option>
-            <option value="voicemail">Voicemail</option>
+          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={result} onChange={(event) => setResult(event.target.value)}>
+            {CALL_RESULTS.map((item) => (
+              <option key={item} value={item}>{item.replace(/_/g, ' ')}</option>
+            ))}
           </select>
-          <button className="h-9 rounded-md bg-primary px-3 text-sm text-primary-foreground" onClick={create} disabled={createCall.isPending}>Create</button>
+          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-3" type="datetime-local" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} />
+          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-3" value={ownerUserId} onChange={(event) => setOwnerUserId(event.target.value)}>
+            <option value="">Owner (optional)</option>
+            {(assignableUsersQuery.data || []).map((user) => (
+              <option key={user.user_id} value={user.user_id}>{user.name}</option>
+            ))}
+          </select>
+          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Contact name (optional)" value={contactName} onChange={(event) => setContactName(event.target.value)} />
+          <button className="h-10 rounded-md bg-primary px-3 text-sm text-primary-foreground lg:col-span-2" onClick={create} disabled={createCall.isPending}>Create</button>
         </div>
       </CrmDataCard>
 
@@ -77,16 +138,42 @@ export default function MarketplaceCrmCallsPage() {
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Result</th><th className="px-3 py-2">Start Time</th><th className="px-3 py-2">Duration</th></tr>
+              <tr><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Result</th><th className="px-3 py-2">Start Time</th><th className="px-3 py-2">Duration</th><th className="px-3 py-2">Action</th></tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-border/60">
-                  <td className="px-3 py-2 font-medium">{row.subject}</td>
+                  <td className="px-3 py-2 font-medium">
+                    {editingCallId === row.id ? (
+                      <input className="h-8 w-full rounded-md border border-input px-2 text-xs" value={editSubject} onChange={(event) => setEditSubject(event.target.value)} />
+                    ) : row.subject}
+                  </td>
                   <td className="px-3 py-2">{row.call_type}</td>
-                  <td className="px-3 py-2">{row.result || '-'}</td>
+                  <td className="px-3 py-2">
+                    {editingCallId === row.id ? (
+                      <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={editResult} onChange={(event) => setEditResult(event.target.value)}>
+                        {CALL_RESULTS.map((item) => (
+                          <option key={item} value={item}>{item.replace(/_/g, ' ')}</option>
+                        ))}
+                      </select>
+                    ) : (row.result || '-')}
+                  </td>
                   <td className="px-3 py-2">{new Date(row.started_at).toLocaleString()}</td>
-                  <td className="px-3 py-2">{row.duration_minutes} min</td>
+                  <td className="px-3 py-2">
+                    {editingCallId === row.id ? (
+                      <input className="h-8 w-24 rounded-md border border-input px-2 text-xs" value={editDuration} onChange={(event) => setEditDuration(event.target.value)} />
+                    ) : `${row.duration_minutes} min`}
+                  </td>
+                  <td className="px-3 py-2">
+                    {editingCallId === row.id ? (
+                      <div className="flex gap-2">
+                        <button className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground" onClick={saveEdit} disabled={updateCall.isPending}>Save</button>
+                        <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => setEditingCallId(null)} disabled={updateCall.isPending}>Cancel</button>
+                      </div>
+                    ) : (
+                      <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => startEdit(row.id, row.subject, row.result, row.duration_minutes)}>Edit</button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

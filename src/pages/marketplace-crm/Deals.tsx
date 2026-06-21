@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
 import {
   useCompleteCrmDealHandoff,
   useCreateCrmDeal,
@@ -20,6 +21,7 @@ export default function MarketplaceCrmDealsPage() {
   const dealsQuery = useCrmDeals(activeCompanyId);
   const accountsQuery = useCrmAccounts(activeCompanyId);
   const contactsQuery = useCrmContacts(activeCompanyId);
+  const assignableUsersQuery = useCrmAssignableUsers(activeCompanyId);
   const handoffsQuery = useCrmDealHandoffs(activeCompanyId);
   const createDeal = useCreateCrmDeal(activeCompanyId);
   const transitionDeal = useTransitionCrmDealStage(activeCompanyId);
@@ -32,11 +34,15 @@ export default function MarketplaceCrmDealsPage() {
   const [createOwnerUserId, setCreateOwnerUserId] = useState('');
   const [createAccountId, setCreateAccountId] = useState('');
   const [createContactId, setCreateContactId] = useState('');
+  const [createStage, setCreateStage] = useState('qualification');
+  const [createProbability, setCreateProbability] = useState('10');
+  const [createExpectedCloseDate, setCreateExpectedCloseDate] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editStage, setEditStage] = useState('qualification');
   const [editProbability, setEditProbability] = useState('10');
   const [editAmount, setEditAmount] = useState('');
   const [editOwnerUserId, setEditOwnerUserId] = useState('');
+  const [editExpectedCloseDate, setEditExpectedCloseDate] = useState('');
   const [completingHandoffId, setCompletingHandoffId] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState('');
   const [tenantEmail, setTenantEmail] = useState('');
@@ -73,6 +79,9 @@ export default function MarketplaceCrmDealsPage() {
 
   const onCreate = () => {
     if (!dealName.trim()) return;
+    const parsedProbability = Number(createProbability);
+    if (Number.isNaN(parsedProbability) || parsedProbability < 0 || parsedProbability > 100) return;
+
     createDeal.mutate({
       deal_name: dealName.trim(),
       amount: amount ? Number(amount) : null,
@@ -80,22 +89,34 @@ export default function MarketplaceCrmDealsPage() {
       account_id: createAccountId || null,
       contact_id: createContactId || null,
       currency: 'NGN',
-      stage: 'qualification',
-      probability: 10,
+      stage: createStage,
+      probability: parsedProbability,
+      expected_close_date: createExpectedCloseDate || null,
     });
     setDealName('');
     setAmount('');
     setCreateOwnerUserId('');
     setCreateAccountId('');
     setCreateContactId('');
+    setCreateStage('qualification');
+    setCreateProbability('10');
+    setCreateExpectedCloseDate('');
   };
 
-  const startEdit = (id: string, stage: string, probability: number, currentAmount: number | null, currentOwnerUserId: string | null) => {
+  const startEdit = (
+    id: string,
+    stage: string,
+    probability: number,
+    currentAmount: number | null,
+    currentOwnerUserId: string | null,
+    currentExpectedCloseDate: string | null,
+  ) => {
     setEditingId(id);
     setEditStage(stage);
     setEditProbability(String(probability));
     setEditAmount(currentAmount == null ? '' : String(currentAmount));
     setEditOwnerUserId(currentOwnerUserId || '');
+    setEditExpectedCloseDate(currentExpectedCloseDate || '');
   };
 
   const saveEdit = () => {
@@ -110,12 +131,14 @@ export default function MarketplaceCrmDealsPage() {
         probability: parsed,
         amount: editAmount ? Number(editAmount) : null,
         ownerUserId: editOwnerUserId.trim() || null,
+        expectedCloseDate: editExpectedCloseDate || null,
       },
       {
         onSuccess: () => {
           setEditingId(null);
           setEditAmount('');
           setEditOwnerUserId('');
+          setEditExpectedCloseDate('');
         },
       },
     );
@@ -154,25 +177,37 @@ export default function MarketplaceCrmDealsPage() {
   return (
     <CrmWorkspace title="Deals" subtitle="Kanban-style opportunity tracking for lease and revenue conversion.">
       <CrmDataCard title="Create Deal" description="Quick-add deal opportunity.">
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-          <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Deal name" value={dealName} onChange={(event) => setDealName(event.target.value)} />
-          <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Amount" value={amount} onChange={(event) => setAmount(event.target.value)} />
-          <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Owner user id (optional)" value={createOwnerUserId} onChange={(event) => setCreateOwnerUserId(event.target.value)} />
-          <button className="h-9 rounded-md bg-primary text-primary-foreground text-sm" onClick={onCreate} disabled={createDeal.isPending}>Create Deal</button>
-        </div>
-        <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
-          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={createAccountId} onChange={(event) => setCreateAccountId(event.target.value)}>
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Deal name" value={dealName} onChange={(event) => setDealName(event.target.value)} />
+          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" placeholder="Amount (NGN)" value={amount} onChange={(event) => setAmount(event.target.value)} />
+          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={createStage} onChange={(event) => setCreateStage(event.target.value)}>
+            {DEAL_STAGES.map((stage) => (
+              <option key={stage} value={stage}>{stage.replace(/_/g, ' ')}</option>
+            ))}
+          </select>
+          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" placeholder="Probability %" value={createProbability} onChange={(event) => setCreateProbability(event.target.value)} />
+          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" type="date" value={createExpectedCloseDate} onChange={(event) => setCreateExpectedCloseDate(event.target.value)} />
+
+          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-4" value={createOwnerUserId} onChange={(event) => setCreateOwnerUserId(event.target.value)}>
+            <option value="">Owner (optional)</option>
+            {(assignableUsersQuery.data || []).map((user) => (
+              <option key={user.user_id} value={user.user_id}>{user.name}</option>
+            ))}
+          </select>
+          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-4" value={createAccountId} onChange={(event) => setCreateAccountId(event.target.value)}>
             <option value="">Link Account (optional)</option>
             {(accountsQuery.data || []).map((account) => (
               <option key={account.id} value={account.id}>{account.name}</option>
             ))}
           </select>
-          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={createContactId} onChange={(event) => setCreateContactId(event.target.value)}>
+          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-4" value={createContactId} onChange={(event) => setCreateContactId(event.target.value)}>
             <option value="">Link Contact (optional)</option>
             {(contactsQuery.data || []).map((contact) => (
               <option key={contact.id} value={contact.id}>{contact.full_name}</option>
             ))}
           </select>
+
+          <button className="h-10 rounded-md bg-primary text-primary-foreground text-sm lg:col-span-3" onClick={onCreate} disabled={createDeal.isPending}>Create Deal</button>
         </div>
       </CrmDataCard>
 
@@ -220,6 +255,12 @@ export default function MarketplaceCrmDealsPage() {
                             onChange={(event) => setEditOwnerUserId(event.target.value)}
                             placeholder="Owner user id"
                           />
+                          <input
+                            className="h-8 w-full rounded-md border border-input px-2 text-xs"
+                            type="date"
+                            value={editExpectedCloseDate}
+                            onChange={(event) => setEditExpectedCloseDate(event.target.value)}
+                          />
                           <div className="flex gap-2">
                             <button className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground" onClick={saveEdit} disabled={transitionDeal.isPending}>Save</button>
                             <button
@@ -237,7 +278,7 @@ export default function MarketplaceCrmDealsPage() {
                         <div className="mt-2 space-y-2">
                           <button
                             className="h-8 rounded-md border border-input px-2 text-xs"
-                            onClick={() => startEdit(deal.id, deal.stage, deal.probability, deal.amount, deal.owner_user_id)}
+                            onClick={() => startEdit(deal.id, deal.stage, deal.probability, deal.amount, deal.owner_user_id, deal.expected_close_date)}
                           >
                             Edit Stage
                           </button>

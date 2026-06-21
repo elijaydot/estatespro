@@ -635,6 +635,7 @@ export function useTransitionCrmDealStage(companyId?: string | null) {
       stage,
       probability,
       amount,
+      expectedCloseDate,
       ownerUserId,
       accountId,
       contactId,
@@ -646,6 +647,7 @@ export function useTransitionCrmDealStage(companyId?: string | null) {
       stage: string;
       probability: number;
       amount?: number | null;
+      expectedCloseDate?: string | null;
       ownerUserId?: string | null;
       accountId?: string | null;
       contactId?: string | null;
@@ -661,6 +663,7 @@ export function useTransitionCrmDealStage(companyId?: string | null) {
       };
 
       if (amount !== undefined) payload.amount = amount;
+      if (expectedCloseDate !== undefined) payload.expected_close_date = expectedCloseDate;
       if (ownerUserId !== undefined) payload.owner_user_id = ownerUserId;
       if (accountId !== undefined) payload.account_id = accountId;
       if (contactId !== undefined) payload.contact_id = contactId;
@@ -689,6 +692,132 @@ export function useTransitionCrmDealStage(companyId?: string | null) {
     },
     onError: (error: Error) => {
       toast({ title: 'Stage Transition Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateCrmTask(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      taskId,
+      payload,
+    }: {
+      taskId: string;
+      payload: Partial<{
+        task_type: string;
+        owner_user_id: string;
+        due_at: string;
+        status: CrmTask['status'];
+        notes: string | null;
+      }>;
+    }) => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const { data, error } = await supabase
+        .from('lead_tasks')
+        .update(payload)
+        .eq('id', taskId)
+        .select('id, lead_id, task_type, owner_user_id, due_at, status, notes, created_at')
+        .single();
+
+      if (error) throw error;
+      return data as CrmTask;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'tasks', companyId] });
+      toast({ title: 'Task Saved', description: 'Task details updated successfully.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Task Save Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateCrmMeeting(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      meetingId,
+      payload,
+    }: {
+      meetingId: string;
+      payload: Partial<{
+        title: string;
+        related_type: string;
+        related_id: string | null;
+        host_user_id: string | null;
+        starts_at: string;
+        ends_at: string;
+        status: CrmMeeting['status'];
+        notes: string | null;
+      }>;
+    }) => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const { data, error } = await supabase
+        .from('crm_meetings')
+        .update(payload)
+        .eq('id', meetingId)
+        .eq('company_id', companyId)
+        .select('id, company_id, title, related_type, related_id, host_user_id, starts_at, ends_at, status, notes, created_at')
+        .single();
+
+      if (error) throw error;
+      return data as CrmMeeting;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'meetings', companyId] });
+      toast({ title: 'Meeting Saved', description: 'Meeting details updated successfully.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Meeting Save Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateCrmCall(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      callId,
+      payload,
+    }: {
+      callId: string;
+      payload: Partial<{
+        subject: string;
+        call_type: CrmCall['call_type'];
+        related_type: string;
+        related_id: string | null;
+        contact_name: string | null;
+        owner_user_id: string | null;
+        started_at: string;
+        duration_minutes: number;
+        result: string | null;
+      }>;
+    }) => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const { data, error } = await supabase
+        .from('crm_calls')
+        .update(payload)
+        .eq('id', callId)
+        .eq('company_id', companyId)
+        .select('id, company_id, subject, call_type, related_type, related_id, contact_name, owner_user_id, started_at, duration_minutes, result, created_at')
+        .single();
+
+      if (error) throw error;
+      return data as CrmCall;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'calls', companyId] });
+      toast({ title: 'Call Saved', description: 'Call log updated successfully.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Call Save Failed', description: error.message, variant: 'destructive' });
     },
   });
 }
