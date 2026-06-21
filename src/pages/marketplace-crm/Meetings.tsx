@@ -7,6 +7,12 @@ import { useCreateCrmMeeting, useCrmMeetings, useUpdateCrmMeeting } from '@/hook
 
 const MEETING_STATUSES = ['planned', 'done', 'canceled'] as const;
 
+function meetingStatusChipClass(status: 'planned' | 'done' | 'canceled') {
+  if (status === 'done') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
+  if (status === 'canceled') return 'bg-rose-500/15 text-rose-700 border-rose-500/30';
+  return 'bg-sky-500/10 text-sky-700 border-sky-500/30';
+}
+
 export default function MarketplaceCrmMeetingsPage() {
   const { activeCompanyId } = useActiveCompany();
   const leadsQuery = useCrmLeads(activeCompanyId);
@@ -82,6 +88,9 @@ export default function MarketplaceCrmMeetingsPage() {
   return (
     <CrmWorkspace title="Meetings" subtitle="Planned versus realized meetings and check-ins.">
       <CrmDataCard title="Create Meeting" description="Create a structured meeting record with ownership, context, and timing.">
+        <div className="mb-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          Capture meeting context before the call so outcomes and follow-up are easier to execute.
+        </div>
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
           <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Meeting title" value={title} onChange={(event) => setTitle(event.target.value)} />
           <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-3" value={relatedLeadId} onChange={(event) => setRelatedLeadId(event.target.value)}>
@@ -113,7 +122,7 @@ export default function MarketplaceCrmMeetingsPage() {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="border-t border-border/60">
+                <tr key={row.id} className="border-t border-border/60 hover:bg-muted/20">
                   <td className="px-3 py-2 font-medium">{row.title}</td>
                   <td className="px-3 py-2">{new Date(row.starts_at).toLocaleString()}</td>
                   <td className="px-3 py-2">{new Date(row.ends_at).toLocaleString()}</td>
@@ -124,7 +133,7 @@ export default function MarketplaceCrmMeetingsPage() {
                           <option key={status} value={status}>{status}</option>
                         ))}
                       </select>
-                    ) : row.status}
+                    ) : <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${meetingStatusChipClass(row.status)}`}>{row.status}</span>}
                   </td>
                   <td className="px-3 py-2">
                     {editingMeetingId === row.id ? (

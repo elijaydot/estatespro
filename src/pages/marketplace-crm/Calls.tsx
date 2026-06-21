@@ -14,6 +14,13 @@ const CALL_RESULTS = [
   'rescheduled',
 ];
 
+function callResultChipClass(result: string | null) {
+  if (result === 'answered_no_follow_up') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
+  if (result === 'answered_follow_up_required' || result === 'rescheduled') return 'bg-amber-500/15 text-amber-700 border-amber-500/30';
+  if (result === 'wrong_number' || result === 'missed') return 'bg-rose-500/15 text-rose-700 border-rose-500/30';
+  return 'bg-zinc-500/10 text-zinc-700 border-zinc-500/30';
+}
+
 export default function MarketplaceCrmCallsPage() {
   const { activeCompanyId } = useActiveCompany();
   const callsQuery = useCrmCalls(activeCompanyId);
@@ -103,6 +110,9 @@ export default function MarketplaceCrmCallsPage() {
   return (
     <CrmWorkspace title="Calls" subtitle="Inbound and outbound interaction logging with outcomes.">
       <CrmDataCard title="Log Call" description="Quick log for a phone interaction.">
+        <div className="mb-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          Track result quality so your follow-up queue reflects real call outcomes.
+        </div>
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
           <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Call subject" value={subject} onChange={(event) => setSubject(event.target.value)} />
           <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={callType} onChange={(event) => setCallType(event.target.value as 'inbound' | 'outbound')}>
@@ -142,7 +152,7 @@ export default function MarketplaceCrmCallsPage() {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="border-t border-border/60">
+                <tr key={row.id} className="border-t border-border/60 hover:bg-muted/20">
                   <td className="px-3 py-2 font-medium">
                     {editingCallId === row.id ? (
                       <input className="h-8 w-full rounded-md border border-input px-2 text-xs" value={editSubject} onChange={(event) => setEditSubject(event.target.value)} />
@@ -156,7 +166,7 @@ export default function MarketplaceCrmCallsPage() {
                           <option key={item} value={item}>{item.replace(/_/g, ' ')}</option>
                         ))}
                       </select>
-                    ) : (row.result || '-')}
+                    ) : <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${callResultChipClass(row.result)}`}>{(row.result || '-').replace(/_/g, ' ')}</span>}
                   </td>
                   <td className="px-3 py-2">{new Date(row.started_at).toLocaleString()}</td>
                   <td className="px-3 py-2">

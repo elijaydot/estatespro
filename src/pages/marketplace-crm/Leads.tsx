@@ -6,6 +6,19 @@ import { useAssignCrmLead, useCrmAssignableUsers, useCrmLeads, useUpdateCrmLeadS
 
 const LEAD_STAGES = ['new', 'contacted', 'qualified', 'viewing', 'negotiation', 'converted', 'lost'];
 
+function leadStageChipClass(stage: string) {
+  if (stage === 'converted') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
+  if (stage === 'lost') return 'bg-rose-500/15 text-rose-700 border-rose-500/30';
+  if (stage === 'negotiation' || stage === 'viewing') return 'bg-amber-500/15 text-amber-700 border-amber-500/30';
+  return 'bg-sky-500/10 text-sky-700 border-sky-500/30';
+}
+
+function leadStatusChipClass(status: string) {
+  if (status === 'won') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
+  if (status === 'lost') return 'bg-rose-500/15 text-rose-700 border-rose-500/30';
+  return 'bg-zinc-500/10 text-zinc-700 border-zinc-500/30';
+}
+
 export default function MarketplaceCrmLeadsPage() {
   const { activeCompanyId } = useActiveCompany();
   const leadsQuery = useCrmLeads(activeCompanyId);
@@ -61,6 +74,9 @@ export default function MarketplaceCrmLeadsPage() {
     <CrmWorkspace title="Leads" subtitle="Primary lead pipeline sourced from marketplace inquiries.">
       <CrmDataCard title="All Leads" description="Filter leads by contact, stage, and source context.">
         <SimpleToolbar search={search} setSearch={setSearch} />
+        <div className="mt-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          Edit stage and owner directly in the table to keep triage velocity high.
+        </div>
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -77,7 +93,7 @@ export default function MarketplaceCrmLeadsPage() {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="border-t border-border/60">
+                <tr key={row.id} className="border-t border-border/60 hover:bg-muted/20">
                   <td className="px-3 py-2 font-medium">{row.contact_name || 'Unnamed lead'}</td>
                   <td className="px-3 py-2">{row.listing_title || '-'}</td>
                   <td className="px-3 py-2 text-muted-foreground">{row.contact_email || '-'}</td>
@@ -89,9 +105,9 @@ export default function MarketplaceCrmLeadsPage() {
                           <option key={stage} value={stage}>{stage}</option>
                         ))}
                       </select>
-                    ) : row.stage}
+                    ) : <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${leadStageChipClass(row.stage)}`}>{row.stage}</span>}
                   </td>
-                  <td className="px-3 py-2">{row.status}</td>
+                  <td className="px-3 py-2"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${leadStatusChipClass(row.status)}`}>{row.status}</span></td>
                   <td className="px-3 py-2">
                     {editingLeadId === row.id ? (
                       <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={draftAssignee} onChange={(event) => setDraftAssignee(event.target.value)}>

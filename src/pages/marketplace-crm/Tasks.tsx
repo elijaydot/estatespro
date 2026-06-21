@@ -7,6 +7,12 @@ import { useCrmTasks, useUpdateCrmTask, useUpdateCrmTaskStatus } from '@/hooks/u
 
 const TASK_TYPES = ['follow_up', 'site_visit', 'document_check', 'intro_call', 'negotiation'];
 
+function taskStatusChipClass(status: 'open' | 'done' | 'canceled') {
+  if (status === 'done') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
+  if (status === 'canceled') return 'bg-rose-500/15 text-rose-700 border-rose-500/30';
+  return 'bg-amber-500/15 text-amber-700 border-amber-500/30';
+}
+
 export default function MarketplaceCrmTasksPage() {
   const { activeCompanyId } = useActiveCompany();
   const leadsQuery = useCrmLeads(activeCompanyId);
@@ -85,6 +91,9 @@ export default function MarketplaceCrmTasksPage() {
   return (
     <CrmWorkspace title="Tasks" subtitle="SLA-driven follow-up execution for lead and deal continuity.">
       <CrmDataCard title="Create Task" description="Create a new execution task and link it to a lead owner workflow.">
+        <div className="mb-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          Use due dates and owner routing to prevent stalled opportunities.
+        </div>
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
           <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-3" value={leadId} onChange={(event) => setLeadId(event.target.value)}>
             <option value="">Select lead</option>
@@ -125,7 +134,7 @@ export default function MarketplaceCrmTasksPage() {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="border-t border-border/60">
+                <tr key={row.id} className="border-t border-border/60 hover:bg-muted/20">
                   <td className="px-3 py-2 font-medium">
                     {editingTaskId === row.id ? (
                       <input className="h-8 w-full rounded-md border border-input px-2 text-xs" value={editNotes} onChange={(event) => setEditNotes(event.target.value)} />
@@ -136,7 +145,7 @@ export default function MarketplaceCrmTasksPage() {
                       <input className="h-8 w-full rounded-md border border-input px-2 text-xs" type="datetime-local" value={editDueAt} onChange={(event) => setEditDueAt(event.target.value)} />
                     ) : new Date(row.due_at).toLocaleString()}
                   </td>
-                  <td className="px-3 py-2">{row.status}</td>
+                  <td className="px-3 py-2"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${taskStatusChipClass(row.status)}`}>{row.status}</span></td>
                   <td className="px-3 py-2">
                     {editingTaskId === row.id ? (
                       <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={editTaskType} onChange={(event) => setEditTaskType(event.target.value)}>

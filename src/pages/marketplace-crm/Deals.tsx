@@ -16,6 +16,13 @@ import {
 
 const DEAL_STAGES = ['qualification', 'needs_analysis', 'value_proposition', 'identify_decision_makers', 'proposal', 'negotiation', 'closed_won', 'closed_lost'];
 
+function dealStageChipClass(stage: string) {
+  if (stage === 'closed_won') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
+  if (stage === 'closed_lost') return 'bg-rose-500/15 text-rose-700 border-rose-500/30';
+  if (stage === 'negotiation' || stage === 'proposal') return 'bg-amber-500/15 text-amber-700 border-amber-500/30';
+  return 'bg-sky-500/10 text-sky-700 border-sky-500/30';
+}
+
 export default function MarketplaceCrmDealsPage() {
   const { activeCompanyId } = useActiveCompany();
   const dealsQuery = useCrmDeals(activeCompanyId);
@@ -68,6 +75,14 @@ export default function MarketplaceCrmDealsPage() {
     });
     return bucket;
   }, [rows]);
+
+  const ownerNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    (assignableUsersQuery.data || []).forEach((user) => {
+      map.set(user.user_id, user.name);
+    });
+    return map;
+  }, [assignableUsersQuery.data]);
 
   const handoffByDealId = useMemo(() => {
     const map = new Map<string, { id: string; status: string; readiness_notes: string | null }>();
@@ -177,6 +192,9 @@ export default function MarketplaceCrmDealsPage() {
   return (
     <CrmWorkspace title="Deals" subtitle="Kanban-style opportunity tracking for lease and revenue conversion.">
       <CrmDataCard title="Create Deal" description="Quick-add deal opportunity.">
+        <div className="mb-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          Add a focused opportunity with ownership, confidence, and close-date context in one step.
+        </div>
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
           <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Deal name" value={dealName} onChange={(event) => setDealName(event.target.value)} />
           <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" placeholder="Amount (NGN)" value={amount} onChange={(event) => setAmount(event.target.value)} />
@@ -214,17 +232,28 @@ export default function MarketplaceCrmDealsPage() {
       <CrmDataCard title="Pipeline Board" description="Stage-view inspired by FishGate opportunity board.">
         <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto">
-          <div className="flex gap-3 pb-2 min-w-max">
+          <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-emerald-700">won</span>
+            <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-700">negotiation</span>
+            <span className="inline-flex items-center rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-rose-700">lost</span>
+          </div>
+          <div className="flex min-w-max gap-3 pb-2">
             {DEAL_STAGES.map((stage) => (
-              <div key={stage} className="w-64 rounded-lg border border-border/70 bg-card/60 p-2">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">{stage.replace(/_/g, ' ')}</p>
+              <div key={stage} className="w-72 rounded-xl border border-border/70 bg-card/80 p-3 shadow-sm">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{stage.replace(/_/g, ' ')}</p>
+                  <span className="rounded-full border border-border/60 bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{(grouped[stage] || []).length}</span>
+                </div>
                 <div className="space-y-2">
                   {(grouped[stage] || []).map((deal) => (
-                    <div key={deal.id} className="rounded-md border border-border/70 bg-background/80 p-2 text-sm">
-                      <p className="font-medium">{deal.deal_name}</p>
+                    <div key={deal.id} className="rounded-lg border border-border/70 bg-background/90 p-2.5 text-sm shadow-sm">
+                      <div className="mb-1 flex items-start justify-between gap-2">
+                        <p className="font-medium leading-tight">{deal.deal_name}</p>
+                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${dealStageChipClass(deal.stage)}`}>{deal.stage.replace(/_/g, ' ')}</span>
+                      </div>
                       <p className="text-xs text-muted-foreground">{deal.amount ? `NGN ${Number(deal.amount).toLocaleString()}` : 'No amount'}</p>
                       <p className="text-xs text-muted-foreground">Probability: {deal.probability}%</p>
-                      <p className="text-xs text-muted-foreground">Owner: {deal.owner_user_id || '-'}</p>
+                      <p className="text-xs text-muted-foreground">Owner: {deal.owner_user_id ? (ownerNameById.get(deal.owner_user_id) || deal.owner_user_id) : '-'}</p>
                       {handoffByDealId.get(deal.id) ? (
                         <p className="text-xs text-muted-foreground">
                           Handoff: {handoffByDealId.get(deal.id)?.status}
