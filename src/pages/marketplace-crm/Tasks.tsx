@@ -124,12 +124,12 @@ export default function MarketplaceCrmTasksPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-3 py-2">Subject</th>
-                <th className="px-3 py-2">Due Date</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Priority</th>
-                <th className="px-3 py-2">Action</th>
-                <th className="px-3 py-2">Edit</th>
+                <th className="px-3 py-2.5">Subject</th>
+                <th className="px-3 py-2.5">Due Date</th>
+                <th className="px-3 py-2.5">Status</th>
+                <th className="px-3 py-2.5">Priority</th>
+                <th className="px-3 py-2.5">Action</th>
+                <th className="px-3 py-2.5">Edit</th>
               </tr>
             </thead>
             <tbody>
@@ -145,7 +145,7 @@ export default function MarketplaceCrmTasksPage() {
                       <input className="h-8 w-full rounded-md border border-input px-2 text-xs" type="datetime-local" value={editDueAt} onChange={(event) => setEditDueAt(event.target.value)} />
                     ) : new Date(row.due_at).toLocaleString()}
                   </td>
-                  <td className="px-3 py-2"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${taskStatusChipClass(row.status)}`}>{row.status}</span></td>
+                  <td className="px-3 py-2"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${taskStatusChipClass(row.status)}`}>{row.status}</span></td>
                   <td className="px-3 py-2">
                     {editingTaskId === row.id ? (
                       <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={editTaskType} onChange={(event) => setEditTaskType(event.target.value)}>

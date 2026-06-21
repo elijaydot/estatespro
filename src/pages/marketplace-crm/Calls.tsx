@@ -148,7 +148,7 @@ export default function MarketplaceCrmCallsPage() {
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Result</th><th className="px-3 py-2">Start Time</th><th className="px-3 py-2">Duration</th><th className="px-3 py-2">Action</th></tr>
+              <tr><th className="px-3 py-2.5">Subject</th><th className="px-3 py-2.5">Type</th><th className="px-3 py-2.5">Result</th><th className="px-3 py-2.5">Start Time</th><th className="px-3 py-2.5">Duration</th><th className="px-3 py-2.5">Action</th></tr>
             </thead>
             <tbody>
               {rows.map((row) => (
@@ -166,7 +166,7 @@ export default function MarketplaceCrmCallsPage() {
                           <option key={item} value={item}>{item.replace(/_/g, ' ')}</option>
                         ))}
                       </select>
-                    ) : <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${callResultChipClass(row.result)}`}>{(row.result || '-').replace(/_/g, ' ')}</span>}
+                    ) : <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${callResultChipClass(row.result)}`}>{(row.result || '-').replace(/_/g, ' ')}</span>}
                   </td>
                   <td className="px-3 py-2">{new Date(row.started_at).toLocaleString()}</td>
                   <td className="px-3 py-2">

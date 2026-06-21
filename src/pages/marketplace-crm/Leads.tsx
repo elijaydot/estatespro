@@ -81,14 +81,14 @@ export default function MarketplaceCrmLeadsPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-3 py-2">Lead Name</th>
-                <th className="px-3 py-2">Company</th>
-                <th className="px-3 py-2">Email</th>
-                <th className="px-3 py-2">Phone</th>
-                <th className="px-3 py-2">Stage</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Owner</th>
-                <th className="px-3 py-2">Actions</th>
+                <th className="px-3 py-2.5">Lead Name</th>
+                <th className="px-3 py-2.5">Company</th>
+                <th className="px-3 py-2.5">Email</th>
+                <th className="px-3 py-2.5">Phone</th>
+                <th className="px-3 py-2.5">Stage</th>
+                <th className="px-3 py-2.5">Status</th>
+                <th className="px-3 py-2.5">Owner</th>
+                <th className="px-3 py-2.5">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -105,9 +105,9 @@ export default function MarketplaceCrmLeadsPage() {
                           <option key={stage} value={stage}>{stage}</option>
                         ))}
                       </select>
-                    ) : <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${leadStageChipClass(row.stage)}`}>{row.stage}</span>}
+                    ) : <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${leadStageChipClass(row.stage)}`}>{row.stage}</span>}
                   </td>
-                  <td className="px-3 py-2"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${leadStatusChipClass(row.status)}`}>{row.status}</span></td>
+                  <td className="px-3 py-2"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${leadStatusChipClass(row.status)}`}>{row.status}</span></td>
                   <td className="px-3 py-2">
                     {editingLeadId === row.id ? (
                       <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={draftAssignee} onChange={(event) => setDraftAssignee(event.target.value)}>
