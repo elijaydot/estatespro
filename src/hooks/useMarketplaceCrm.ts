@@ -200,6 +200,39 @@ export interface CrmMarketplaceFunnelMetric {
   inquiry_to_won_rate_pct: number;
 }
 
+export interface CrmAutomationRule {
+  id: string;
+  company_id: string;
+  name: string;
+  event_type: string;
+  conditions_json: Record<string, unknown>;
+  actions_json: Array<Record<string, unknown>>;
+  retry_limit: number;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrmAutomationRun {
+  id: string;
+  rule_id: string;
+  company_id: string;
+  event_type: string;
+  event_source_type: string;
+  event_source_id: string | null;
+  correlation_id: string | null;
+  status: 'pending' | 'success' | 'failed' | 'skipped';
+  attempts: number;
+  max_attempts: number;
+  payload_json: Record<string, unknown>;
+  result_json: Record<string, unknown>;
+  last_error: string | null;
+  next_retry_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface LeadContactRow {
   id: string;
   lead_id: string;
@@ -446,6 +479,77 @@ export function useCrmTasks(companyId?: string | null) {
   });
 }
 
+export function useCrmAutomationRules(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace-crm', 'automation-rules', companyId],
+    queryFn: async () => {
+      if (!companyId) return [] as CrmAutomationRule[];
+
+      const { data, error } = await supabase
+        .from('crm_automation_rules' as never)
+        .select('id, company_id, name, event_type, conditions_json, actions_json, retry_limit, is_active, created_by, created_at, updated_at' as never)
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map((row) => {
+        const typed = row as Omit<CrmAutomationRule, 'conditions_json' | 'actions_json'> & {
+          conditions_json: unknown;
+          actions_json: unknown;
+        };
+
+        return {
+          ...typed,
+          conditions_json: typed.conditions_json && typeof typed.conditions_json === 'object'
+            ? (typed.conditions_json as Record<string, unknown>)
+            : {},
+          actions_json: Array.isArray(typed.actions_json)
+            ? (typed.actions_json as Array<Record<string, unknown>>)
+            : [],
+        };
+      }) as CrmAutomationRule[];
+    },
+    enabled: !!companyId,
+  });
+}
+
+export function useCrmAutomationRuns(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace-crm', 'automation-runs', companyId],
+    queryFn: async () => {
+      if (!companyId) return [] as CrmAutomationRun[];
+
+      const { data, error } = await supabase
+        .from('crm_automation_runs' as never)
+        .select('id, rule_id, company_id, event_type, event_source_type, event_source_id, correlation_id, status, attempts, max_attempts, payload_json, result_json, last_error, next_retry_at, created_at, updated_at' as never)
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+
+      return (data || []).map((row) => {
+        const typed = row as Omit<CrmAutomationRun, 'payload_json' | 'result_json'> & {
+          payload_json: unknown;
+          result_json: unknown;
+        };
+
+        return {
+          ...typed,
+          payload_json: typed.payload_json && typeof typed.payload_json === 'object'
+            ? (typed.payload_json as Record<string, unknown>)
+            : {},
+          result_json: typed.result_json && typeof typed.result_json === 'object'
+            ? (typed.result_json as Record<string, unknown>)
+            : {},
+        };
+      }) as CrmAutomationRun[];
+    },
+    enabled: !!companyId,
+  });
+}
+
 function buildCreateMutation<TInput extends Record<string, unknown>>(table: string, key: string) {
   return function useCreateEntity(companyId?: string | null) {
     const queryClient = useQueryClient();
@@ -656,6 +760,76 @@ export function useUpdateCrmVisit(companyId?: string | null) {
     },
     onError: (error: Error) => {
       toast({ title: 'Visit Update Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useStartCrmDealHandoff(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ handoffId }: { handoffId: string }) => {
+      const { data, error } = await supabase.rpc('start_crm_deal_handoff' as never, {
+        p_handoff_id: handoffId,
+      } as never);
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'deal-handoffs', companyId] });
+      toast({ title: 'Handoff Started', description: 'Deal handoff moved to in-progress.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Handoff Start Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useCompleteCrmDealHandoff(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      handoffId,
+      tenantName,
+      tenantEmail,
+      tenantPhone,
+      leaseStart,
+      leaseEnd,
+      monthlyRent,
+      securityDeposit,
+    }: {
+      handoffId: string;
+      tenantName: string;
+      tenantEmail: string;
+      tenantPhone: string;
+      leaseStart: string;
+      leaseEnd: string;
+      monthlyRent: number;
+      securityDeposit?: number;
+    }) => {
+      const { data, error } = await supabase.rpc('crm_complete_handoff' as never, {
+        p_handoff_id: handoffId,
+        p_tenant_name: tenantName,
+        p_tenant_email: tenantEmail,
+        p_tenant_phone: tenantPhone,
+        p_lease_start: leaseStart,
+        p_lease_end: leaseEnd,
+        p_monthly_rent: monthlyRent,
+        p_security_deposit: securityDeposit || 0,
+      } as never);
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'deal-handoffs', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'deals', companyId] });
+      toast({ title: 'Handoff Completed', description: 'Tenant and lease draft were created successfully.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Handoff Completion Failed', description: error.message, variant: 'destructive' });
     },
   });
 }

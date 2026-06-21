@@ -7,7 +7,33 @@ export interface DealAgingRow {
   staleCount: number;
 }
 
+export type ReportDateRange = 'all' | '7d' | '30d' | '90d';
+
 const MS_IN_DAY = 1000 * 60 * 60 * 24;
+
+export function rangeToStartTimestamp(range: ReportDateRange, nowMs = Date.now()): number | null {
+  if (range === 'all') return null;
+  if (range === '7d') return nowMs - (7 * MS_IN_DAY);
+  if (range === '30d') return nowMs - (30 * MS_IN_DAY);
+  return nowMs - (90 * MS_IN_DAY);
+}
+
+export function filterByDateRange<T>(rows: T[], range: ReportDateRange, dateSelector: (row: T) => string | null | undefined): T[] {
+  const start = rangeToStartTimestamp(range);
+  if (start == null) return rows;
+
+  return rows.filter((row) => {
+    const rawDate = dateSelector(row);
+    if (!rawDate) return false;
+    const ts = new Date(rawDate).getTime();
+    return !Number.isNaN(ts) && ts >= start;
+  });
+}
+
+export function filterByOwner<T>(rows: T[], ownerUserId: string, ownerSelector: (row: T) => string | null | undefined): T[] {
+  if (ownerUserId === 'all') return rows;
+  return rows.filter((row) => ownerSelector(row) === ownerUserId);
+}
 
 export function computeDealAgingRows(deals: CrmDeal[], nowMs = Date.now()): DealAgingRow[] {
   const stageMap = new Map<string, CrmDeal[]>();

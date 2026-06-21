@@ -3,7 +3,7 @@ import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, MetricCard } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useCrmLeads, useCrmLeadTasks, useManagedMarketplaceListings } from '@/hooks/useMarketplace';
-import { useCrmDealHandoffs, useCrmMarketplaceFunnelMetrics, useCrmMeetings, useCrmTrustFlags } from '@/hooks/useMarketplaceCrm';
+import { useCrmAutomationRuns, useCrmDealHandoffs, useCrmMarketplaceFunnelMetrics, useCrmMeetings, useCrmTrustFlags } from '@/hooks/useMarketplaceCrm';
 
 export default function MarketplaceCrmOverviewPage() {
   const { activeCompanyId } = useActiveCompany();
@@ -13,6 +13,7 @@ export default function MarketplaceCrmOverviewPage() {
   const trustFlagsQuery = useCrmTrustFlags(activeCompanyId);
   const handoffsQuery = useCrmDealHandoffs(activeCompanyId);
   const funnelQuery = useCrmMarketplaceFunnelMetrics(activeCompanyId);
+  const automationRunsQuery = useCrmAutomationRuns(activeCompanyId);
 
   const firstLeadId = leadsQuery.data?.[0]?.id;
   const leadTasksQuery = useCrmLeadTasks(firstLeadId);
@@ -25,6 +26,7 @@ export default function MarketplaceCrmOverviewPage() {
     const trustFlags = trustFlagsQuery.data || [];
     const handoffs = handoffsQuery.data || [];
     const funnel = funnelQuery.data;
+    const automationRuns = automationRunsQuery.data || [];
 
     return {
       openTasks: tasks.filter((task) => task.status === 'open').length,
@@ -41,6 +43,8 @@ export default function MarketplaceCrmOverviewPage() {
       handoffsReady: handoffs.filter((handoff) => handoff.status === 'ready').length,
       handoffsRequiresInput: handoffs.filter((handoff) => handoff.status === 'requires_input').length,
       inquiryToWonRate: funnel?.inquiry_to_won_rate_pct || 0,
+      automationPending: automationRuns.filter((run) => run.status === 'pending').length,
+      automationFailed: automationRuns.filter((run) => run.status === 'failed').length,
     };
   }, [
     leadsQuery.data,
@@ -50,6 +54,7 @@ export default function MarketplaceCrmOverviewPage() {
     trustFlagsQuery.data,
     handoffsQuery.data,
     funnelQuery.data,
+    automationRunsQuery.data,
   ]);
 
   return (
@@ -67,6 +72,8 @@ export default function MarketplaceCrmOverviewPage() {
         <MetricCard label="Active Trust Flags" value={metrics.activeTrustFlags} helper="Verification/moderation concerns requiring attention." />
         <MetricCard label="Handoffs Ready" value={metrics.handoffsReady} helper="Closed-won deals ready for property operations handoff." />
         <MetricCard label="Inquiry to Won %" value={`${metrics.inquiryToWonRate}%`} helper="30-day public marketplace inquiry conversion." />
+        <MetricCard label="Automation Pending" value={metrics.automationPending} helper="Rules waiting for successful processing." />
+        <MetricCard label="Automation Failed" value={metrics.automationFailed} helper="Automation runs that need retry or intervention." />
       </section>
 
       <CrmDataCard title="Quick Summary" description="Operational pulse from leads and listings.">

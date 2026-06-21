@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, MetricCard, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
 import {
   useCrmCalls,
   useCrmCampaigns,
@@ -13,11 +14,19 @@ import {
   useCrmTasks,
   useCrmTrustFlags,
 } from '@/hooks/useMarketplaceCrm';
-import { computeDealAgingRows, computeExecutionSummary, computePipelineSummary } from '@/lib/marketplaceCrmReports';
+import {
+  computeDealAgingRows,
+  computeExecutionSummary,
+  computePipelineSummary,
+  filterByDateRange,
+  filterByOwner,
+  type ReportDateRange,
+} from '@/lib/marketplaceCrmReports';
 
 export default function MarketplaceCrmReportsPage() {
   const { activeCompanyId } = useActiveCompany();
   const reportsQuery = useCrmReportLibrary();
+  const assignableUsersQuery = useCrmAssignableUsers(activeCompanyId);
   const dealsQuery = useCrmDeals(activeCompanyId);
   const tasksQuery = useCrmTasks(activeCompanyId);
   const callsQuery = useCrmCalls(activeCompanyId);
@@ -27,6 +36,8 @@ export default function MarketplaceCrmReportsPage() {
   const handoffsQuery = useCrmDealHandoffs(activeCompanyId);
   const funnelQuery = useCrmMarketplaceFunnelMetrics(activeCompanyId);
   const [search, setSearch] = useState('');
+  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [dateRange, setDateRange] = useState<ReportDateRange>('30d');
 
   const rows = useMemo(() => {
     const reportRows = reportsQuery.data || [];
@@ -35,28 +46,69 @@ export default function MarketplaceCrmReportsPage() {
     return reportRows.filter((row) => (`${row.name} ${row.description} ${row.folder}`).toLowerCase().includes(query));
   }, [reportsQuery.data, search]);
 
-  const pipelineSummary = useMemo(() => computePipelineSummary(dealsQuery.data || []), [dealsQuery.data]);
+  const filteredDeals = useMemo(() => {
+    const byOwner = filterByOwner(dealsQuery.data || [], ownerFilter, (deal) => deal.owner_user_id);
+    return filterByDateRange(byOwner, dateRange, (deal) => deal.created_at);
+  }, [dealsQuery.data, ownerFilter, dateRange]);
+
+  const filteredTasks = useMemo(() => {
+    const byOwner = filterByOwner(tasksQuery.data || [], ownerFilter, (task) => task.owner_user_id);
+    return filterByDateRange(byOwner, dateRange, (task) => task.created_at);
+  }, [tasksQuery.data, ownerFilter, dateRange]);
+
+  const filteredCalls = useMemo(() => {
+    const byOwner = filterByOwner(callsQuery.data || [], ownerFilter, (call) => call.owner_user_id);
+    return filterByDateRange(byOwner, dateRange, (call) => call.created_at);
+  }, [callsQuery.data, ownerFilter, dateRange]);
+
+  const filteredMeetings = useMemo(() => {
+    const byOwner = filterByOwner(meetingsQuery.data || [], ownerFilter, (meeting) => meeting.host_user_id);
+    return filterByDateRange(byOwner, dateRange, (meeting) => meeting.created_at);
+  }, [meetingsQuery.data, ownerFilter, dateRange]);
+
+  const filteredCampaigns = useMemo(() => filterByDateRange(campaignsQuery.data || [], dateRange, (campaign) => campaign.created_at), [campaignsQuery.data, dateRange]);
+  const filteredTrustFlags = useMemo(() => filterByDateRange(trustFlagsQuery.data || [], dateRange, (flag) => flag.created_at), [trustFlagsQuery.data, dateRange]);
+  const filteredHandoffs = useMemo(() => filterByDateRange(handoffsQuery.data || [], dateRange, (handoff) => handoff.created_at), [handoffsQuery.data, dateRange]);
+
+  const pipelineSummary = useMemo(() => computePipelineSummary(filteredDeals), [filteredDeals]);
   const executionSummary = useMemo(() => computeExecutionSummary({
-    tasks: tasksQuery.data || [],
-    calls: callsQuery.data || [],
-    meetings: meetingsQuery.data || [],
-    campaigns: campaignsQuery.data || [],
-    trustFlags: trustFlagsQuery.data || [],
-    handoffs: handoffsQuery.data || [],
+    tasks: filteredTasks,
+    calls: filteredCalls,
+    meetings: filteredMeetings,
+    campaigns: filteredCampaigns,
+    trustFlags: filteredTrustFlags,
+    handoffs: filteredHandoffs,
     funnel: funnelQuery.data || null,
   }), [
-    tasksQuery.data,
-    callsQuery.data,
-    meetingsQuery.data,
-    campaignsQuery.data,
-    trustFlagsQuery.data,
-    handoffsQuery.data,
+    filteredTasks,
+    filteredCalls,
+    filteredMeetings,
+    filteredCampaigns,
+    filteredTrustFlags,
+    filteredHandoffs,
     funnelQuery.data,
   ]);
-  const dealAgingRows = useMemo(() => computeDealAgingRows(dealsQuery.data || []), [dealsQuery.data]);
+  const dealAgingRows = useMemo(() => computeDealAgingRows(filteredDeals), [filteredDeals]);
 
   return (
     <CrmWorkspace title="Reports" subtitle="Report library modeled in FishGate CRM sequence with domain-specific analytics folders.">
+      <CrmDataCard title="Report Filters" description="Hardened owner/date controls for operational reporting scopes.">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
+            <option value="all">All Owners</option>
+            {(assignableUsersQuery.data || []).map((user) => (
+              <option key={user.user_id} value={user.user_id}>{user.name}</option>
+            ))}
+          </select>
+          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={dateRange} onChange={(event) => setDateRange(event.target.value as ReportDateRange)}>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+            <option value="90d">Last 90 days</option>
+            <option value="all">All time</option>
+          </select>
+        </div>
+      </CrmDataCard>
+
       <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Open Deals" value={pipelineSummary.openDeals} helper="Deals not yet in final outcome stage." />
         <MetricCard label="Open Pipeline Value" value={`NGN ${pipelineSummary.openValue.toLocaleString()}`} helper="Gross value of non-closed deals." />

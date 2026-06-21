@@ -3,10 +3,13 @@ import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import {
+  useCompleteCrmDealHandoff,
   useCreateCrmDeal,
   useCrmAccounts,
   useCrmContacts,
+  useCrmDealHandoffs,
   useCrmDeals,
+  useStartCrmDealHandoff,
   useTransitionCrmDealStage,
 } from '@/hooks/useMarketplaceCrm';
 
@@ -17,8 +20,11 @@ export default function MarketplaceCrmDealsPage() {
   const dealsQuery = useCrmDeals(activeCompanyId);
   const accountsQuery = useCrmAccounts(activeCompanyId);
   const contactsQuery = useCrmContacts(activeCompanyId);
+  const handoffsQuery = useCrmDealHandoffs(activeCompanyId);
   const createDeal = useCreateCrmDeal(activeCompanyId);
   const transitionDeal = useTransitionCrmDealStage(activeCompanyId);
+  const startHandoff = useStartCrmDealHandoff(activeCompanyId);
+  const completeHandoff = useCompleteCrmDealHandoff(activeCompanyId);
 
   const [search, setSearch] = useState('');
   const [dealName, setDealName] = useState('');
@@ -29,6 +35,14 @@ export default function MarketplaceCrmDealsPage() {
   const [editStage, setEditStage] = useState('qualification');
   const [editProbability, setEditProbability] = useState('10');
   const [editAmount, setEditAmount] = useState('');
+  const [completingHandoffId, setCompletingHandoffId] = useState<string | null>(null);
+  const [tenantName, setTenantName] = useState('');
+  const [tenantEmail, setTenantEmail] = useState('');
+  const [tenantPhone, setTenantPhone] = useState('');
+  const [leaseStart, setLeaseStart] = useState('');
+  const [leaseEnd, setLeaseEnd] = useState('');
+  const [monthlyRent, setMonthlyRent] = useState('');
+  const [securityDeposit, setSecurityDeposit] = useState('');
 
   const rows = useMemo(() => {
     const records = dealsQuery.data || [];
@@ -46,6 +60,14 @@ export default function MarketplaceCrmDealsPage() {
     });
     return bucket;
   }, [rows]);
+
+  const handoffByDealId = useMemo(() => {
+    const map = new Map<string, { id: string; status: string; readiness_notes: string | null }>();
+    (handoffsQuery.data || []).forEach((handoff) => {
+      map.set(handoff.deal_id, { id: handoff.id, status: handoff.status, readiness_notes: handoff.readiness_notes });
+    });
+    return map;
+  }, [handoffsQuery.data]);
 
   const onCreate = () => {
     if (!dealName.trim()) return;
@@ -92,6 +114,36 @@ export default function MarketplaceCrmDealsPage() {
     );
   };
 
+  const submitHandoffCompletion = (handoffId: string, dealAmount: number | null) => {
+    if (!tenantName.trim() || !tenantEmail.trim() || !tenantPhone.trim() || !leaseStart || !leaseEnd) return;
+    const rent = Number(monthlyRent || dealAmount || 0);
+    const deposit = Number(securityDeposit || 0);
+    if (Number.isNaN(rent) || rent <= 0) return;
+    if (Number.isNaN(deposit) || deposit < 0) return;
+
+    completeHandoff.mutate({
+      handoffId,
+      tenantName: tenantName.trim(),
+      tenantEmail: tenantEmail.trim(),
+      tenantPhone: tenantPhone.trim(),
+      leaseStart,
+      leaseEnd,
+      monthlyRent: rent,
+      securityDeposit: deposit,
+    }, {
+      onSuccess: () => {
+        setCompletingHandoffId(null);
+        setTenantName('');
+        setTenantEmail('');
+        setTenantPhone('');
+        setLeaseStart('');
+        setLeaseEnd('');
+        setMonthlyRent('');
+        setSecurityDeposit('');
+      },
+    });
+  };
+
   return (
     <CrmWorkspace title="Deals" subtitle="Kanban-style opportunity tracking for lease and revenue conversion.">
       <CrmDataCard title="Create Deal" description="Quick-add deal opportunity.">
@@ -129,6 +181,11 @@ export default function MarketplaceCrmDealsPage() {
                       <p className="font-medium">{deal.deal_name}</p>
                       <p className="text-xs text-muted-foreground">{deal.amount ? `NGN ${Number(deal.amount).toLocaleString()}` : 'No amount'}</p>
                       <p className="text-xs text-muted-foreground">Probability: {deal.probability}%</p>
+                      {handoffByDealId.get(deal.id) ? (
+                        <p className="text-xs text-muted-foreground">
+                          Handoff: {handoffByDealId.get(deal.id)?.status}
+                        </p>
+                      ) : null}
                       {editingId === deal.id ? (
                         <div className="mt-2 space-y-2">
                           <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={editStage} onChange={(event) => setEditStage(event.target.value)}>
@@ -154,12 +211,60 @@ export default function MarketplaceCrmDealsPage() {
                           </div>
                         </div>
                       ) : (
-                        <button
-                          className="mt-2 h-8 rounded-md border border-input px-2 text-xs"
-                          onClick={() => startEdit(deal.id, deal.stage, deal.probability, deal.amount)}
-                        >
-                          Edit Stage
-                        </button>
+                        <div className="mt-2 space-y-2">
+                          <button
+                            className="h-8 rounded-md border border-input px-2 text-xs"
+                            onClick={() => startEdit(deal.id, deal.stage, deal.probability, deal.amount)}
+                          >
+                            Edit Stage
+                          </button>
+                          {deal.stage === 'closed_won' && handoffByDealId.get(deal.id) ? (
+                            <div className="space-y-2">
+                              {handoffByDealId.get(deal.id)?.status !== 'in_progress' && handoffByDealId.get(deal.id)?.status !== 'completed' ? (
+                                <button
+                                  className="h-8 rounded-md border border-input px-2 text-xs"
+                                  onClick={() => startHandoff.mutate({ handoffId: handoffByDealId.get(deal.id)!.id })}
+                                  disabled={startHandoff.isPending}
+                                >
+                                  Start Handoff
+                                </button>
+                              ) : null}
+                              {handoffByDealId.get(deal.id)?.status !== 'completed' ? (
+                                completingHandoffId === handoffByDealId.get(deal.id)!.id ? (
+                                  <div className="space-y-2">
+                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Tenant full name" value={tenantName} onChange={(event) => setTenantName(event.target.value)} />
+                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Tenant email" value={tenantEmail} onChange={(event) => setTenantEmail(event.target.value)} />
+                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Tenant phone" value={tenantPhone} onChange={(event) => setTenantPhone(event.target.value)} />
+                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" type="date" value={leaseStart} onChange={(event) => setLeaseStart(event.target.value)} />
+                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" type="date" value={leaseEnd} onChange={(event) => setLeaseEnd(event.target.value)} />
+                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Monthly rent" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} />
+                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Security deposit" value={securityDeposit} onChange={(event) => setSecurityDeposit(event.target.value)} />
+                                    <div className="flex gap-2">
+                                      <button
+                                        className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground"
+                                        onClick={() => submitHandoffCompletion(handoffByDealId.get(deal.id)!.id, deal.amount)}
+                                        disabled={completeHandoff.isPending}
+                                      >
+                                        Complete Handoff
+                                      </button>
+                                      <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => setCompletingHandoffId(null)}>Close</button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    className="h-8 rounded-md border border-input px-2 text-xs"
+                                    onClick={() => {
+                                      setCompletingHandoffId(handoffByDealId.get(deal.id)!.id);
+                                      setMonthlyRent(deal.amount ? String(deal.amount) : '');
+                                    }}
+                                  >
+                                    Complete Handoff
+                                  </button>
+                                )
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
                       )}
                     </div>
                   ))}

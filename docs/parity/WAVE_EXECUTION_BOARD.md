@@ -16,7 +16,7 @@ Left:
 - Final acceptance signoff against Wave 1 done-definition checklist.
 
 ## Wave 2: Feature Breadth (Ready to Start)
-Status: 38%
+Status: 56%
 
 Backlog:
 - docs/parity/WAVE_2_IMPLEMENTATION_BACKLOG_README.md
@@ -29,6 +29,11 @@ Done in current increment:
 - Visits workflow now supports check-in and completion lifecycle with proof/outcome capture.
 - Reports now expose live pipeline, execution, trust, and handoff analytics (not just static report list).
 - CRM reporting helper tests added and passing.
+- Automation engine v1 migration added with generic rules and run logs (`crm_automation_rules`, `crm_automation_runs`).
+- Automation trigger hooks added for deal stage changes, call logs, meeting completion, and visit completion events.
+- End-to-end handoff completion function added (`crm_complete_handoff`) to create tenant + lease draft and finalize handoff.
+- Reports hardened with owner/date controls and filter-aware analytics calculations.
+- Governance release-gate test suite added for role-matrix and audit trace guarantees.
 
 Left to close Wave 2:
 - Expand campaigns, contacts, documents, projects, and visits into fully governed workflows (dedupe, ownership, SLA escalation, state machines).

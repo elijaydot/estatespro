@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { computeDealAgingRows, computeExecutionSummary, computePipelineSummary } from '../../src/lib/marketplaceCrmReports';
+import {
+  computeDealAgingRows,
+  computeExecutionSummary,
+  computePipelineSummary,
+  filterByDateRange,
+  filterByOwner,
+  rangeToStartTimestamp,
+} from '../../src/lib/marketplaceCrmReports';
 
 describe('marketplace CRM reports helpers', () => {
   it('computes pipeline summary with weighted value', () => {
@@ -154,5 +161,25 @@ describe('marketplace CRM reports helpers', () => {
     expect(summary.activeTrustFlags).toBe(1);
     expect(summary.handoffsReady).toBe(1);
     expect(summary.inquiryToWonRate).toBe(10);
+  });
+
+  it('filters records by date range and owner', () => {
+    const rows = [
+      { owner_user_id: 'u1', created_at: '2026-06-20T00:00:00.000Z' },
+      { owner_user_id: 'u2', created_at: '2026-05-15T00:00:00.000Z' },
+      { owner_user_id: 'u1', created_at: '2026-03-01T00:00:00.000Z' },
+    ];
+
+    const byOwner = filterByOwner(rows, 'u1', (row) => row.owner_user_id);
+    expect(byOwner).toHaveLength(2);
+
+    const byDate = filterByDateRange(rows, '30d', (row) => row.created_at);
+    expect(byDate).toHaveLength(1);
+  });
+
+  it('computes date range start timestamp', () => {
+    const base = new Date('2026-06-21T00:00:00.000Z').getTime();
+    expect(rangeToStartTimestamp('all', base)).toBeNull();
+    expect(rangeToStartTimestamp('7d', base)).toBe(base - (7 * 24 * 60 * 60 * 1000));
   });
 });
