@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, MetricCard, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
@@ -26,6 +27,7 @@ import {
 } from '@/lib/marketplaceCrmReports';
 
 export default function MarketplaceCrmReportsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { activeCompanyId } = useActiveCompany();
   const reportsQuery = useCrmReportLibrary();
   const assignableUsersQuery = useCrmAssignableUsers(activeCompanyId);
@@ -42,7 +44,7 @@ export default function MarketplaceCrmReportsPage() {
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [dateRange, setDateRange] = useState<ReportDateRange>('30d');
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(searchParams.get('report'));
 
   const rows = useMemo(() => {
     const reportRows = reportsQuery.data || [];
@@ -95,7 +97,39 @@ export default function MarketplaceCrmReportsPage() {
   ]);
   const dealAgingRows = useMemo(() => computeDealAgingRows(filteredDeals), [filteredDeals]);
 
-  const selectedReport = useMemo(() => rows.find((row) => row.id === selectedReportId) || null, [rows, selectedReportId]);
+  const selectedReport = useMemo(() => (reportsQuery.data || []).find((row) => row.id === selectedReportId) || null, [reportsQuery.data, selectedReportId]);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get('report');
+    setSelectedReportId((current) => (current === fromUrl ? current : fromUrl));
+  }, [searchParams]);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get('report');
+    if (!fromUrl || !(reportsQuery.data || []).length) return;
+
+    const exists = (reportsQuery.data || []).some((report) => report.id === fromUrl);
+    if (exists) return;
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('report');
+    setSearchParams(next, { replace: true });
+    setSelectedReportId(null);
+  }, [reportsQuery.data, searchParams, setSearchParams]);
+
+  const openReport = (reportId: string) => {
+    setSelectedReportId(reportId);
+    const next = new URLSearchParams(searchParams);
+    next.set('report', reportId);
+    setSearchParams(next, { replace: true });
+  };
+
+  const clearSelectedReport = () => {
+    setSelectedReportId(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete('report');
+    setSearchParams(next, { replace: true });
+  };
 
   const ownerLookup = useMemo(() => {
     const map = new Map<string, string>();
@@ -309,7 +343,7 @@ export default function MarketplaceCrmReportsPage() {
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-border/60">
                   <td className="px-3 py-2 font-medium">
-                    <button className="text-left text-primary hover:underline" onClick={() => setSelectedReportId(row.id)}>
+                    <button className="text-left text-primary hover:underline" onClick={() => openReport(row.id)}>
                       {row.name}
                     </button>
                   </td>
@@ -324,7 +358,11 @@ export default function MarketplaceCrmReportsPage() {
       </CrmDataCard>
 
       {selectedReport ? (
-        <CrmDataCard title={`Report View: ${selectedReport.name}`} description="Live view generated from current report filters and data scope.">
+        <CrmDataCard
+          title={`Report View: ${selectedReport.name}`}
+          description="Live view generated from current report filters and data scope."
+          action={<button className="h-8 rounded-md border border-input px-3 text-xs" onClick={clearSelectedReport}>Close Report</button>}
+        >
           <div className="overflow-x-auto rounded-lg border border-border/70">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
