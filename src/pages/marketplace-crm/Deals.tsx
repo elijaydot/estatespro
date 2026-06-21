@@ -29,12 +29,14 @@ export default function MarketplaceCrmDealsPage() {
   const [search, setSearch] = useState('');
   const [dealName, setDealName] = useState('');
   const [amount, setAmount] = useState('');
+  const [createOwnerUserId, setCreateOwnerUserId] = useState('');
   const [createAccountId, setCreateAccountId] = useState('');
   const [createContactId, setCreateContactId] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editStage, setEditStage] = useState('qualification');
   const [editProbability, setEditProbability] = useState('10');
   const [editAmount, setEditAmount] = useState('');
+  const [editOwnerUserId, setEditOwnerUserId] = useState('');
   const [completingHandoffId, setCompletingHandoffId] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState('');
   const [tenantEmail, setTenantEmail] = useState('');
@@ -74,6 +76,7 @@ export default function MarketplaceCrmDealsPage() {
     createDeal.mutate({
       deal_name: dealName.trim(),
       amount: amount ? Number(amount) : null,
+      owner_user_id: createOwnerUserId || null,
       account_id: createAccountId || null,
       contact_id: createContactId || null,
       currency: 'NGN',
@@ -82,15 +85,17 @@ export default function MarketplaceCrmDealsPage() {
     });
     setDealName('');
     setAmount('');
+    setCreateOwnerUserId('');
     setCreateAccountId('');
     setCreateContactId('');
   };
 
-  const startEdit = (id: string, stage: string, probability: number, currentAmount: number | null) => {
+  const startEdit = (id: string, stage: string, probability: number, currentAmount: number | null, currentOwnerUserId: string | null) => {
     setEditingId(id);
     setEditStage(stage);
     setEditProbability(String(probability));
     setEditAmount(currentAmount == null ? '' : String(currentAmount));
+    setEditOwnerUserId(currentOwnerUserId || '');
   };
 
   const saveEdit = () => {
@@ -104,11 +109,13 @@ export default function MarketplaceCrmDealsPage() {
         stage: editStage,
         probability: parsed,
         amount: editAmount ? Number(editAmount) : null,
+        ownerUserId: editOwnerUserId.trim() || null,
       },
       {
         onSuccess: () => {
           setEditingId(null);
           setEditAmount('');
+          setEditOwnerUserId('');
         },
       },
     );
@@ -147,9 +154,10 @@ export default function MarketplaceCrmDealsPage() {
   return (
     <CrmWorkspace title="Deals" subtitle="Kanban-style opportunity tracking for lease and revenue conversion.">
       <CrmDataCard title="Create Deal" description="Quick-add deal opportunity.">
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
           <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Deal name" value={dealName} onChange={(event) => setDealName(event.target.value)} />
           <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Amount" value={amount} onChange={(event) => setAmount(event.target.value)} />
+          <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Owner user id (optional)" value={createOwnerUserId} onChange={(event) => setCreateOwnerUserId(event.target.value)} />
           <button className="h-9 rounded-md bg-primary text-primary-foreground text-sm" onClick={onCreate} disabled={createDeal.isPending}>Create Deal</button>
         </div>
         <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -181,6 +189,7 @@ export default function MarketplaceCrmDealsPage() {
                       <p className="font-medium">{deal.deal_name}</p>
                       <p className="text-xs text-muted-foreground">{deal.amount ? `NGN ${Number(deal.amount).toLocaleString()}` : 'No amount'}</p>
                       <p className="text-xs text-muted-foreground">Probability: {deal.probability}%</p>
+                      <p className="text-xs text-muted-foreground">Owner: {deal.owner_user_id || '-'}</p>
                       {handoffByDealId.get(deal.id) ? (
                         <p className="text-xs text-muted-foreground">
                           Handoff: {handoffByDealId.get(deal.id)?.status}
@@ -205,16 +214,30 @@ export default function MarketplaceCrmDealsPage() {
                             onChange={(event) => setEditAmount(event.target.value)}
                             placeholder="Amount (required for closed won)"
                           />
+                          <input
+                            className="h-8 w-full rounded-md border border-input px-2 text-xs"
+                            value={editOwnerUserId}
+                            onChange={(event) => setEditOwnerUserId(event.target.value)}
+                            placeholder="Owner user id"
+                          />
                           <div className="flex gap-2">
                             <button className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground" onClick={saveEdit} disabled={transitionDeal.isPending}>Save</button>
-                            <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => setEditingId(null)}>Cancel</button>
+                            <button
+                              className="h-8 rounded-md border border-input px-2 text-xs"
+                              onClick={() => {
+                                setEditingId(null);
+                                setEditOwnerUserId('');
+                              }}
+                            >
+                              Cancel
+                            </button>
                           </div>
                         </div>
                       ) : (
                         <div className="mt-2 space-y-2">
                           <button
                             className="h-8 rounded-md border border-input px-2 text-xs"
-                            onClick={() => startEdit(deal.id, deal.stage, deal.probability, deal.amount)}
+                            onClick={() => startEdit(deal.id, deal.stage, deal.probability, deal.amount, deal.owner_user_id)}
                           >
                             Edit Stage
                           </button>

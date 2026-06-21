@@ -16,7 +16,7 @@ Left:
 - Final acceptance signoff against Wave 1 done-definition checklist.
 
 ## Wave 2: Feature Breadth (In Progress)
-Status: 76%
+Status: 82%
 
 Backlog:
 - docs/parity/WAVE_2_IMPLEMENTATION_BACKLOG_README.md
@@ -42,9 +42,9 @@ Done in current increment:
 - Documents workflow upgraded with governed lifecycle states (draft/review/approve/reject/archive), compliance state, expiry, and review notes controls.
 - Automation operations upgraded with manual replay action for failed/pending runs and backend replay RPC with audit trace.
 - New governance migration/tests added for document lifecycle constraints and automation replay permissions.
+- Ownership reassignment controls added across remaining owner-capable modules (Accounts, Deals, Projects) for create/edit lifecycle depth.
 
 Left to close Wave 2:
-- Extend ownership reassignment depth across remaining modules where owner fields exist.
 - Capture staging evidence/signoff artifacts for Wave 2 operational close.
 
 Next Build Set:

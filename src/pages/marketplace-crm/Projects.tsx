@@ -13,10 +13,12 @@ export default function MarketplaceCrmProjectsPage() {
 
   const [search, setSearch] = useState('');
   const [name, setName] = useState('');
+  const [ownerUserId, setOwnerUserId] = useState('');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [draftStatus, setDraftStatus] = useState('planned');
   const [draftProgress, setDraftProgress] = useState('0');
   const [draftDueDate, setDraftDueDate] = useState('');
+  const [draftOwnerUserId, setDraftOwnerUserId] = useState('');
 
   const rows = useMemo(() => {
     const records = projectsQuery.data || [];
@@ -33,18 +35,20 @@ export default function MarketplaceCrmProjectsPage() {
       name: name.trim(),
       description: null,
       status: 'planned',
-      owner_user_id: null,
+      owner_user_id: ownerUserId.trim() || null,
       due_date: null,
       progress_percent: 0,
     });
     setName('');
+    setOwnerUserId('');
   };
 
-  const editRow = (projectId: string, status: string, progressPercent: number, dueDate: string | null) => {
+  const editRow = (projectId: string, status: string, progressPercent: number, dueDate: string | null, ownerId: string | null) => {
     setActiveProjectId(projectId);
     setDraftStatus(status);
     setDraftProgress(String(progressPercent));
     setDraftDueDate(dueDate || '');
+    setDraftOwnerUserId(ownerId || '');
   };
 
   const saveRow = (projectId: string) => {
@@ -55,6 +59,7 @@ export default function MarketplaceCrmProjectsPage() {
         status: draftStatus,
         progress_percent: Number.isNaN(progressPercent) ? 0 : Math.max(0, Math.min(progressPercent, 100)),
         due_date: draftDueDate || null,
+        owner_user_id: draftOwnerUserId.trim() || null,
       },
     });
     setActiveProjectId(null);
@@ -72,8 +77,9 @@ export default function MarketplaceCrmProjectsPage() {
       </section>
 
       <CrmDataCard title="Create Project" description="Track strategic CRM and marketplace initiatives.">
-        <div className="flex gap-2">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
           <input className="h-9 flex-1 rounded-md border border-input px-3 text-sm" placeholder="Project name" value={name} onChange={(event) => setName(event.target.value)} />
+          <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Owner user id (optional)" value={ownerUserId} onChange={(event) => setOwnerUserId(event.target.value)} />
           <button className="h-9 rounded-md bg-primary px-3 text-sm text-primary-foreground" onClick={create} disabled={createProject.isPending}>Create</button>
         </div>
       </CrmDataCard>
@@ -83,7 +89,7 @@ export default function MarketplaceCrmProjectsPage() {
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr><th className="px-3 py-2">Project</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Progress</th><th className="px-3 py-2">Due Date</th><th className="px-3 py-2">Actions</th></tr>
+              <tr><th className="px-3 py-2">Project</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Owner</th><th className="px-3 py-2">Progress</th><th className="px-3 py-2">Due Date</th><th className="px-3 py-2">Actions</th></tr>
             </thead>
             <tbody>
               {rows.map((row) => (
@@ -98,17 +104,28 @@ export default function MarketplaceCrmProjectsPage() {
                       <option value="canceled">canceled</option>
                     </select>
                   ) : row.status}</td>
+                  <td className="px-3 py-2">{activeProjectId === row.id ? (
+                    <input className="h-8 rounded border border-input px-2 text-xs" value={draftOwnerUserId} onChange={(event) => setDraftOwnerUserId(event.target.value)} placeholder="owner user id" />
+                  ) : (row.owner_user_id || '-')}</td>
                   <td className="px-3 py-2">{activeProjectId === row.id ? <input className="h-8 w-20 rounded border border-input px-2 text-xs" value={draftProgress} onChange={(event) => setDraftProgress(event.target.value)} /> : `${row.progress_percent}%`}</td>
                   <td className="px-3 py-2">{activeProjectId === row.id ? <input className="h-8 rounded border border-input px-2 text-xs" type="date" value={draftDueDate} onChange={(event) => setDraftDueDate(event.target.value)} /> : (row.due_date || '-')}</td>
                   <td className="px-3 py-2">
                     {activeProjectId === row.id ? (
                       <div className="flex flex-wrap gap-2">
                         <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => saveRow(row.id)} disabled={updateProject.isPending}>Save</button>
-                        <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => setActiveProjectId(null)}>Cancel</button>
+                        <button
+                          className="rounded border border-border px-2 py-1 text-xs"
+                          onClick={() => {
+                            setActiveProjectId(null);
+                            setDraftOwnerUserId('');
+                          }}
+                        >
+                          Cancel
+                        </button>
                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-2">
-                        <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => editRow(row.id, row.status, row.progress_percent, row.due_date)}>Edit</button>
+                        <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => editRow(row.id, row.status, row.progress_percent, row.due_date, row.owner_user_id)}>Edit</button>
                         <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => quickStatus(row.id, 'active')} disabled={updateProject.isPending}>Activate</button>
                         <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => quickStatus(row.id, 'on_hold')} disabled={updateProject.isPending}>Hold</button>
                         <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => quickStatus(row.id, 'completed')} disabled={updateProject.isPending}>Complete</button>

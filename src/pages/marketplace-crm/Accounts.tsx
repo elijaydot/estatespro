@@ -13,9 +13,11 @@ export default function MarketplaceCrmAccountsPage() {
   const [search, setSearch] = useState('');
   const [name, setName] = useState('');
   const [website, setWebsite] = useState('');
+  const [ownerUserId, setOwnerUserId] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editWebsite, setEditWebsite] = useState('');
+  const [editOwnerUserId, setEditOwnerUserId] = useState('');
 
   const rows = useMemo(() => {
     const records = accountsQuery.data || [];
@@ -26,15 +28,21 @@ export default function MarketplaceCrmAccountsPage() {
 
   const onCreate = () => {
     if (!name.trim()) return;
-    createAccount.mutate({ name: name.trim(), website: website.trim() || null });
+    createAccount.mutate({
+      name: name.trim(),
+      website: website.trim() || null,
+      owner_user_id: ownerUserId.trim() || null,
+    });
     setName('');
     setWebsite('');
+    setOwnerUserId('');
   };
 
-  const startEdit = (id: string, currentName: string, currentWebsite: string | null) => {
+  const startEdit = (id: string, currentName: string, currentWebsite: string | null, currentOwnerUserId: string | null) => {
     setEditingId(id);
     setEditName(currentName);
     setEditWebsite(currentWebsite || '');
+    setEditOwnerUserId(currentOwnerUserId || '');
   };
 
   const onSaveEdit = () => {
@@ -46,6 +54,7 @@ export default function MarketplaceCrmAccountsPage() {
         payload: {
           name: editName.trim(),
           website: editWebsite.trim() || null,
+          owner_user_id: editOwnerUserId.trim() || null,
         },
       },
       {
@@ -53,6 +62,7 @@ export default function MarketplaceCrmAccountsPage() {
           setEditingId(null);
           setEditName('');
           setEditWebsite('');
+          setEditOwnerUserId('');
         },
       },
     );
@@ -61,9 +71,10 @@ export default function MarketplaceCrmAccountsPage() {
   return (
     <CrmWorkspace title="Accounts" subtitle="Business account records for partners, firms, and corporate tenants.">
       <CrmDataCard title="Create Account" description="Quick add for new account records.">
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
           <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Account name" value={name} onChange={(event) => setName(event.target.value)} />
           <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Website" value={website} onChange={(event) => setWebsite(event.target.value)} />
+          <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Owner user id (optional)" value={ownerUserId} onChange={(event) => setOwnerUserId(event.target.value)} />
           <button className="h-9 rounded-md bg-primary text-primary-foreground text-sm" onClick={onCreate} disabled={createAccount.isPending}>Create Account</button>
         </div>
       </CrmDataCard>
@@ -77,6 +88,7 @@ export default function MarketplaceCrmAccountsPage() {
                 <th className="px-3 py-2">Account Name</th>
                 <th className="px-3 py-2">Phone</th>
                 <th className="px-3 py-2">Website</th>
+                <th className="px-3 py-2">Owner</th>
                 <th className="px-3 py-2">Type</th>
                 <th className="px-3 py-2">Actions</th>
               </tr>
@@ -107,6 +119,18 @@ export default function MarketplaceCrmAccountsPage() {
                       row.website || '-'
                     )}
                   </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {editingId === row.id ? (
+                      <input
+                        className="h-8 w-full rounded-md border border-input px-2 text-sm"
+                        value={editOwnerUserId}
+                        onChange={(event) => setEditOwnerUserId(event.target.value)}
+                        placeholder="owner user id"
+                      />
+                    ) : (
+                      row.owner_user_id || '-'
+                    )}
+                  </td>
                   <td className="px-3 py-2">{row.account_type || '-'}</td>
                   <td className="px-3 py-2">
                     {editingId === row.id ? (
@@ -120,6 +144,7 @@ export default function MarketplaceCrmAccountsPage() {
                             setEditingId(null);
                             setEditName('');
                             setEditWebsite('');
+                            setEditOwnerUserId('');
                           }}
                         >
                           Cancel
@@ -128,7 +153,7 @@ export default function MarketplaceCrmAccountsPage() {
                     ) : (
                       <button
                         className="h-8 rounded-md border border-input px-2 text-xs"
-                        onClick={() => startEdit(row.id, row.name, row.website)}
+                        onClick={() => startEdit(row.id, row.name, row.website, row.owner_user_id)}
                       >
                         Edit
                       </button>

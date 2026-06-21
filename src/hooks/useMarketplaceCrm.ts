@@ -635,6 +635,7 @@ export function useTransitionCrmDealStage(companyId?: string | null) {
       stage,
       probability,
       amount,
+      ownerUserId,
       accountId,
       contactId,
       leadId,
@@ -645,6 +646,7 @@ export function useTransitionCrmDealStage(companyId?: string | null) {
       stage: string;
       probability: number;
       amount?: number | null;
+      ownerUserId?: string | null;
       accountId?: string | null;
       contactId?: string | null;
       leadId?: string | null;
@@ -659,6 +661,7 @@ export function useTransitionCrmDealStage(companyId?: string | null) {
       };
 
       if (amount !== undefined) payload.amount = amount;
+      if (ownerUserId !== undefined) payload.owner_user_id = ownerUserId;
       if (accountId !== undefined) payload.account_id = accountId;
       if (contactId !== undefined) payload.contact_id = contactId;
       if (leadId !== undefined) payload.lead_id = leadId;
