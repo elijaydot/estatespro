@@ -2,6 +2,24 @@
 -- Adds company plan/add-on assignment tables, monthly counters, usage events,
 -- and security-definer functions for deterministic quota checks.
 
+-- Bootstrap helper for environments that execute this migration out of order.
+CREATE OR REPLACE FUNCTION public.is_platform_super_admin(_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = _user_id
+      AND p.role = 'super_admin'
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_platform_super_admin(uuid) TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.saas_user_can_access_company(_user_id uuid, _company_id uuid)
 RETURNS boolean
 LANGUAGE sql

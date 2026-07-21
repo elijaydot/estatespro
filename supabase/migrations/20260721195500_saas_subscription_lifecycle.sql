@@ -1,6 +1,21 @@
--- SaaS Phase 5: subscription and billing lifecycle primitives.
--- Adds lifecycle event logs and secure functions for trial/start, upgrade/downgrade,
--- dunning/grace, cancellation, and reactivation.
+
+-- Bootstrap helper for environments that execute this migration out of order.
+CREATE OR REPLACE FUNCTION public.is_platform_super_admin(_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = _user_id
+      AND p.role = 'super_admin'
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_platform_super_admin(uuid) TO authenticated;
 
 CREATE TABLE IF NOT EXISTS public.saas_subscription_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
