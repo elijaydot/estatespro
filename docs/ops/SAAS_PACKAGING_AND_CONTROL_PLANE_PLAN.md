@@ -5,7 +5,8 @@
 - Phase 2: Complete (tier and pricing seed baselines authored)
 - Phase 3: Complete (entitlement key and baseline grants authored)
 - Phase 4: Complete (usage metering and quota enforcement migration authored)
-- Phase 5-10: Not started
+- Phase 5: Complete (subscription lifecycle migration authored)
+- Phase 6-10: Not started
 
 Last update: 2026-07-21
 
