@@ -169,6 +169,48 @@ function verifyEndpoint(request: VerifyRequest, state: MockState, providerAmount
 }
 
 describe('Week 2 - payment endpoint integration behavior', () => {
+  it('tenant invoice checkout then verify applies payment and duplicate verify is idempotent', () => {
+    const state: MockState = {
+      booking: { id: 'b0', token: 'tok_0', cancelled: false, totalAmount: 2000 },
+      invoice: { id: 'inv_0', amount: 2000, paidAmount: 0 },
+      payments: [],
+    };
+
+    const checkout = checkoutEndpoint({
+      source: 'tenant_invoice',
+      amount: 2000,
+      invoiceId: state.invoice.id,
+      gateway: 'flutterwave',
+    }, state);
+
+    expect(checkout.success).toBe(true);
+    if (!checkout.success) return;
+
+    const verifyFirst = verifyEndpoint({
+      gateway: checkout.gateway,
+      reference: checkout.reference,
+      invoiceId: state.invoice.id,
+      test_mode: false,
+    }, state, checkout.amount);
+
+    expect(verifyFirst.success).toBe(true);
+    if (!verifyFirst.success) return;
+    expect(verifyFirst.alreadyProcessed).toBe(false);
+    expect(state.invoice.paidAmount).toBe(2000);
+
+    const verifyDuplicate = verifyEndpoint({
+      gateway: checkout.gateway,
+      reference: checkout.reference,
+      invoiceId: state.invoice.id,
+      test_mode: false,
+    }, state, checkout.amount);
+
+    expect(verifyDuplicate.success).toBe(true);
+    if (!verifyDuplicate.success) return;
+    expect(verifyDuplicate.alreadyProcessed).toBe(true);
+    expect(state.invoice.paidAmount).toBe(2000);
+  });
+
   it('guest checkout then verify applies full payment and marks next verify as duplicate', () => {
     const state: MockState = {
       booking: { id: 'b1', token: 'tok_1', cancelled: false, totalAmount: 1500 },
@@ -248,6 +290,39 @@ describe('Week 2 - payment endpoint integration behavior', () => {
     expect(verify.success).toBe(true);
     if (!verify.success) return;
     expect(verify.amount).toBe(300);
+    expect(state.invoice.paidAmount).toBe(1000);
+  });
+
+  it('tenant invoice verify clamps overpayment and follows through to full settlement across calls', () => {
+    const state: MockState = {
+      booking: { id: 'b3b', token: 'tok_3b', cancelled: false, totalAmount: 1000 },
+      invoice: { id: 'inv_3b', amount: 1000, paidAmount: 400 },
+      payments: [],
+    };
+
+    const firstVerify = verifyEndpoint({
+      gateway: 'paystack',
+      reference: 'INV-ref-3b-a',
+      invoiceId: state.invoice.id,
+      test_mode: false,
+    }, state, 900);
+
+    expect(firstVerify.success).toBe(true);
+    if (!firstVerify.success) return;
+    expect(firstVerify.amount).toBe(600);
+    expect(state.invoice.paidAmount).toBe(1000);
+
+    const secondVerify = verifyEndpoint({
+      gateway: 'paystack',
+      reference: 'INV-ref-3b-b',
+      invoiceId: state.invoice.id,
+      test_mode: false,
+    }, state, 50);
+
+    expect(secondVerify.success).toBe(true);
+    if (!secondVerify.success) return;
+    expect(secondVerify.alreadyProcessed).toBe(true);
+    expect(secondVerify.amount).toBe(0);
     expect(state.invoice.paidAmount).toBe(1000);
   });
 

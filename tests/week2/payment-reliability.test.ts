@@ -33,6 +33,14 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   return Promise.race([promise, timeoutPromise]);
 }
 
+async function retryWithTimeout<T>(
+  task: () => Promise<T>,
+  timeoutMs: number,
+  maxAttempts: number,
+): Promise<RetryResult<T>> {
+  return retryGateway(() => withTimeout(task(), timeoutMs), maxAttempts);
+}
+
 type BookingStatus = 'pending' | 'cancelled';
 type PaymentStatus = 'pending' | 'partial' | 'paid';
 
@@ -89,6 +97,21 @@ describe('Week 2 - payment reliability checks', () => {
     });
 
     await expect(withTimeout(slowPromise, 10)).rejects.toThrow('Gateway timeout');
+  });
+
+  it('retries timeout once and succeeds on a later fast response', async () => {
+    const task = vi
+      .fn<() => Promise<string>>()
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        setTimeout(() => resolve('slow-first'), 30);
+      }))
+      .mockResolvedValueOnce('fast-second');
+
+    const result = await retryWithTimeout(task, 10, 2);
+
+    expect(result.value).toBe('fast-second');
+    expect(result.attempts).toBe(2);
+    expect(task).toHaveBeenCalledTimes(2);
   });
 
   it('applies only remaining amount for partial reconciliation', () => {

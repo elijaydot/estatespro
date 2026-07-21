@@ -1,0 +1,50 @@
+{
+  "version": "2026-07-21",
+  "source": "audit_events",
+  "routes": [
+    {
+      "severity": "info",
+      "channel": "ops-observability",
+      "action": "dashboard_only",
+      "runbook": "docs/ops/SLO_SLI_PLAN.md"
+    },
+    {
+      "severity": "warning",
+      "channel": "ops-triage",
+      "action": "open_ticket",
+      "runbook": "docs/ops/SLO_SLI_PLAN.md"
+    },
+    {
+      "severity": "error",
+      "channel": "ops-oncall",
+      "action": "page_on_call",
+      "runbook": "docs/ops/SLO_SLI_PLAN.md"
+    },
+    {
+      "severity": "critical",
+      "channel": "ops-oncall",
+      "action": "page_on_call",
+      "runbook": "docs/ops/SLO_SLI_PLAN.md"
+    }
+  ],
+  "requiredPayload": [
+    "event_type",
+    "severity",
+    "correlation_id",
+    "entity_type",
+    "entity_id"
+  ],
+  "eventOverrides": [
+    {
+      "eventType": "maintenance.request.status_changed",
+      "when": {
+        "next_status_in": [
+          "pending_vendor",
+          "blocked"
+        ]
+      },
+      "channel": "ops-triage",
+      "action": "open_ticket"
+    }
+  ]
+}

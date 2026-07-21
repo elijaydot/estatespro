@@ -28,6 +28,7 @@
 ## Required Artifacts
 1. Dashboard JSON or reproducible dashboard config.
 2. Alert routes and severity matrix.
+	- Canonical config: `docs/ops/ALERT_ROUTING_MATRIX.json`.
 3. Incident runbooks mapped to each SLO.
 4. Weekly SLO report and action tracker.
 

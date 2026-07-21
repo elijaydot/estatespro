@@ -188,8 +188,18 @@ type LeadRow = {
   converted_at: string | null;
   lost_reason: string | null;
   marketplace_listings: { title: string | null; slug: string | null } | null;
-  lead_contacts: Array<{ full_name: string | null; email: string | null; phone_e164: string | null }> | null;
+  lead_contacts:
+    | Array<{ full_name: string | null; email: string | null; phone_e164: string | null }>
+    | { full_name: string | null; email: string | null; phone_e164: string | null }
+    | null;
 };
+
+type ManagedListingRow = Omit<ManagedMarketplaceListing, 'inquiry_count'>;
+
+function normalizeLeadContacts(contacts: LeadRow['lead_contacts']) {
+  if (!contacts) return [];
+  return Array.isArray(contacts) ? contacts : [contacts];
+}
 
 type LeadActivityRow = {
   id: string;
@@ -292,12 +302,8 @@ export function useCrmLeads(companyId?: string | null) {
 
       if (error) throw error;
 
-      return ((data || []) as unknown as LeadRow[]).map((lead) => {
-        const contacts = Array.isArray(lead.lead_contacts)
-          ? lead.lead_contacts
-          : lead.lead_contacts
-            ? [lead.lead_contacts as unknown as { full_name: string | null; email: string | null; phone_e164: string | null }]
-            : [];
+      return ((data || []) as LeadRow[]).map((lead) => {
+        const contacts = normalizeLeadContacts(lead.lead_contacts);
         return {
           ...lead,
           listing_title: lead.marketplace_listings?.title ?? null,
@@ -673,7 +679,7 @@ export function useManagedMarketplaceListings(companyId?: string | null) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return ((data || []) as unknown as Array<Omit<ManagedMarketplaceListing, 'inquiry_count'>>).map((row) => ({
+      return ((data || []) as ManagedListingRow[]).map((row) => ({
         ...row,
         inquiry_count: 0,
       })) as ManagedMarketplaceListing[];
