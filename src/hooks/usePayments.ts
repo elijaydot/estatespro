@@ -89,6 +89,18 @@ export interface CreatePaymentInput {
   notes?: string | null;
 }
 
+export interface UpdatePaymentInput {
+  id: string;
+  amount?: number;
+  method?: string;
+  momo_phone?: string | null;
+  momo_transaction_id?: string | null;
+  reference?: string | null;
+  receipt_number?: string | null;
+  status?: string;
+  notes?: string | null;
+}
+
 export function useCreatePayment() {
   const queryClient = useQueryClient();
 
@@ -116,7 +128,7 @@ export function useCreatePayment() {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast({ title: 'Success', description: 'Payment recorded successfully' });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
@@ -126,7 +138,7 @@ export function useUpdatePayment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...payment }: Partial<Payment> & { id: string }) => {
+    mutationFn: async ({ id, ...payment }: UpdatePaymentInput) => {
       const { data, error } = await supabase
         .from('payments')
         .update(payment)
@@ -143,7 +155,7 @@ export function useUpdatePayment() {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast({ title: 'Success', description: 'Payment updated successfully' });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });

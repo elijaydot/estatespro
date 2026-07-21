@@ -66,7 +66,7 @@ export function usePaymentSettings(companyId?: string, propertyId?: string) {
       if (error) throw error;
       if (!data) return null;
 
-      return data as unknown as PaymentSettings;
+      return data as PaymentSettings;
     },
     enabled: true,
   });
@@ -101,7 +101,7 @@ export function usePaymentSettings(companyId?: string, propertyId?: string) {
       queryClient.invalidateQueries({ queryKey: ['payment-settings'] });
       toast({ title: 'Success', description: 'Payment settings saved successfully' });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });

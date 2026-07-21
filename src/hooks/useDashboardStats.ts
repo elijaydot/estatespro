@@ -113,14 +113,12 @@ export function useDashboardStats() {
         tenantsRes,
         bookingsRes,
         invoicesRes,
-        paymentsRes,
         maintenanceRes,
       ] = await Promise.all([
         supabase.from('units').select('id, status').in('property_id', propertyIds),
         supabase.from('tenants').select('id, status, lease_end_date').in('property_id', propertyIds),
         supabase.from('bookings').select('id, status, payment_status, created_at, guest_response_status').in('property_id', propertyIds),
         supabase.from('invoices').select('id, amount, paid_amount, status, due_date').in('property_id', propertyIds),
-        supabase.from('payments').select('id, amount, status, created_at, booking_id').in('invoice_id', []),
         supabase.from('maintenance_requests').select('id, status').in('property_id', propertyIds),
       ]);
 
