@@ -28,7 +28,7 @@ import {
 } from '@/hooks/useMarketplace';
 
 export default function MarketplaceReviewerQueue() {
-  const { isSuperAdmin } = useUserRole();
+  const { isSuperAdmin, isLandlord, isPropertyManager } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
 
   const [scopeAllCompanies, setScopeAllCompanies] = useState(true);
@@ -189,7 +189,7 @@ export default function MarketplaceReviewerQueue() {
     [auditTrail, auditVisibleCount],
   );
 
-  if (!isSuperAdmin) {
+  if (!(isSuperAdmin || isLandlord || isPropertyManager)) {
     return <Navigate to="/dashboard" replace />;
   }
 

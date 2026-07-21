@@ -164,10 +164,15 @@ describe('marketplace CRM reports helpers', () => {
   });
 
   it('filters records by date range and owner', () => {
+    const now = Date.now();
+    const fiveDaysAgo = new Date(now - (5 * 24 * 60 * 60 * 1000)).toISOString();
+    const fortyDaysAgo = new Date(now - (40 * 24 * 60 * 60 * 1000)).toISOString();
+    const oneHundredDaysAgo = new Date(now - (100 * 24 * 60 * 60 * 1000)).toISOString();
+
     const rows = [
-      { owner_user_id: 'u1', created_at: '2026-06-20T00:00:00.000Z' },
-      { owner_user_id: 'u2', created_at: '2026-05-15T00:00:00.000Z' },
-      { owner_user_id: 'u1', created_at: '2026-03-01T00:00:00.000Z' },
+      { owner_user_id: 'u1', created_at: fiveDaysAgo },
+      { owner_user_id: 'u2', created_at: fortyDaysAgo },
+      { owner_user_id: 'u1', created_at: oneHundredDaysAgo },
     ];
 
     const byOwner = filterByOwner(rows, 'u1', (row) => row.owner_user_id);
