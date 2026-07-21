@@ -123,6 +123,10 @@ function verifyEndpoint(request: VerifyRequest, state: MockState, providerAmount
   const parsed = parseVerifyPayload(request);
   if (!parsed.ok) return buildPaymentErrorEnvelope(parsed.error);
 
+  if (parsed.value.bookingToken && state.booking.cancelled) {
+    return errorResult('validation_failed', 'Booking is cancelled');
+  }
+
   const invoiceId = parsed.value.invoiceId || state.invoice.id;
 
   const duplicate = state.payments.find((payment) => payment.invoiceId === invoiceId && payment.reference === parsed.value.reference);
@@ -264,5 +268,37 @@ describe('Week 2 - payment endpoint integration behavior', () => {
     expect(verify.success).toBe(false);
     if (verify.success) return;
     expect(verify.errorCode).toBe('validation_failed');
+  });
+
+  it('prevents guest verify apply when booking gets cancelled after checkout initialization', () => {
+    const state: MockState = {
+      booking: { id: 'b5', token: 'tok_5', cancelled: false, totalAmount: 1100 },
+      invoice: { id: 'inv_5', amount: 1100, paidAmount: 0 },
+      payments: [],
+    };
+
+    const checkout = checkoutEndpoint({
+      source: 'guest_booking',
+      amount: 1100,
+      bookingToken: state.booking.token,
+      gateway: 'paystack',
+    }, state);
+
+    expect(checkout.success).toBe(true);
+    if (!checkout.success) return;
+
+    state.booking.cancelled = true;
+
+    const verify = verifyEndpoint({
+      gateway: 'paystack',
+      reference: checkout.reference,
+      bookingToken: state.booking.token,
+      test_mode: false,
+    }, state, 1100);
+
+    expect(verify.success).toBe(false);
+    if (verify.success) return;
+    expect(verify.errorCode).toBe('validation_failed');
+    expect(state.invoice.paidAmount).toBe(0);
   });
 });
