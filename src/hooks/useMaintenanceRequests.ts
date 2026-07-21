@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { createCorrelationId, emitAuditEvent } from '@/lib/auditEvents';
 
 export interface MaintenanceRequest {
   id: string;
@@ -91,6 +92,24 @@ export function useCreateMaintenanceRequest() {
         .single();
 
       if (error) throw error;
+
+      await emitAuditEvent({
+        source: 'maintenance_requests',
+        eventType: 'maintenance.request.created',
+        severity: 'info',
+        entityType: 'maintenance_request',
+        entityId: data.id,
+        actorUserId: user.id,
+        correlationId: createCorrelationId('maintenance-create'),
+        details: {
+          property_id: data.property_id,
+          unit_id: data.unit_id,
+          tenant_id: data.tenant_id,
+          priority: data.priority,
+          status: data.status,
+        },
+      });
+
       return data;
     },
     onSuccess: () => {
@@ -108,6 +127,14 @@ export function useUpdateMaintenanceRequest() {
 
   return useMutation({
     mutationFn: async ({ id, ...request }: Partial<MaintenanceRequest> & { id: string }) => {
+      const { data: previousRow, error: previousError } = await supabase
+        .from('maintenance_requests')
+        .select('status, assigned_to, priority')
+        .eq('id', id)
+        .single();
+
+      if (previousError) throw previousError;
+
       const { data, error } = await supabase
         .from('maintenance_requests')
         .update(request)
@@ -116,14 +143,39 @@ export function useUpdateMaintenanceRequest() {
         .single();
 
       if (error) throw error;
-      return data;
+      return {
+        data,
+        previousStatus: previousRow.status,
+        previousAssignedTo: previousRow.assigned_to,
+      };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['maintenance_requests'] });
       queryClient.invalidateQueries({ queryKey: ['maintenance_requests', variables.id] });
+
+      const nextStatus = result.data.status;
+      const previousStatus = result.previousStatus;
+      const statusChanged = previousStatus !== nextStatus;
+
+      void emitAuditEvent({
+        source: 'maintenance_requests',
+        eventType: statusChanged ? 'maintenance.request.status_changed' : 'maintenance.request.updated',
+        severity: 'info',
+        entityType: 'maintenance_request',
+        entityId: variables.id,
+        correlationId: createCorrelationId('maintenance-update'),
+        details: {
+          previous_status: previousStatus,
+          next_status: nextStatus,
+          previous_assigned_to: result.previousAssignedTo,
+          next_assigned_to: result.data.assigned_to,
+          priority: result.data.priority,
+        },
+      });
+
       toast({ title: 'Success', description: 'Maintenance request updated successfully' });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });

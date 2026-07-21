@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { createCorrelationId, emitAuditEvent } from '@/lib/auditEvents';
 
 export interface TenantInvite {
   id: string;
@@ -59,13 +60,29 @@ export function useCreateTenantInvite() {
         .single();
 
       if (error) throw error;
+
+      await emitAuditEvent({
+        source: 'tenant_invites',
+        eventType: 'tenant.invite.created',
+        severity: 'info',
+        entityType: 'tenant_invite',
+        entityId: data.id,
+        correlationId: createCorrelationId('tenant-invite-create'),
+        actorUserId: user.id,
+        details: {
+          tenant_id: tenantId,
+          email,
+          expires_at: expiresAt.toISOString(),
+        },
+      });
+
       return { ...data, token };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant_invites'] });
       toast({ title: 'Success', description: 'Tenant invite created' });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
@@ -126,18 +143,37 @@ export function useDeleteTenantInvite() {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      const { data: inviteRow } = await supabase
+        .from('tenant_invites')
+        .select('id, tenant_id, email')
+        .eq('id', id)
+        .maybeSingle();
+
       const { error } = await supabase
         .from('tenant_invites')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+
+      await emitAuditEvent({
+        source: 'tenant_invites',
+        eventType: 'tenant.invite.deleted',
+        severity: 'warning',
+        entityType: 'tenant_invite',
+        entityId: id,
+        correlationId: createCorrelationId('tenant-invite-delete'),
+        details: {
+          tenant_id: inviteRow?.tenant_id || null,
+          email: inviteRow?.email || null,
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant_invites'] });
       toast({ title: 'Success', description: 'Invite deleted' });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });

@@ -5,6 +5,7 @@ import { toast } from '@/components/ui/use-toast';
 // Helper for tables not yet in auto-generated types
 const db = supabase;
 import { useAuth } from '@/contexts/useAuth';
+import { createCorrelationId, emitAuditEvent } from '@/lib/auditEvents';
 
 export interface Company {
   id: string;
@@ -237,6 +238,22 @@ export function useCreatePMInvite() {
         .select('id, company_id, email, invited_by, expires_at, used_at, created_at')
         .single();
       if (error) throw error;
+
+      await emitAuditEvent({
+        source: 'company_membership',
+        eventType: 'company.pm_invite.created',
+        severity: 'info',
+        entityType: 'pm_invite',
+        entityId: data.id,
+        correlationId: createCorrelationId('pm-invite-create'),
+        actorUserId: user.id,
+        details: {
+          company_id: companyId,
+          email,
+          expires_at: expiresAt.toISOString(),
+        },
+      });
+
       return { ...data, token };
     },
     onSuccess: () => {
