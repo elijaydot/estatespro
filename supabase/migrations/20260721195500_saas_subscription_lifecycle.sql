@@ -17,6 +17,17 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.is_platform_super_admin(uuid) TO authenticated;
 
+DO $$
+BEGIN
+  IF to_regclass('public.saas_company_plan_subscriptions') IS NULL
+     OR to_regclass('public.saas_products') IS NULL
+     OR to_regclass('public.saas_plans') IS NULL
+     OR to_regclass('public.saas_plan_prices') IS NULL THEN
+    RAISE EXCEPTION 'SAAS_PHASE5_PREREQUISITES_MISSING: Run Phase 1 and Phase 4 migrations first.';
+  END IF;
+END;
+$$;
+
 CREATE TABLE IF NOT EXISTS public.saas_subscription_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   subscription_id uuid NOT NULL REFERENCES public.saas_company_plan_subscriptions(id) ON DELETE CASCADE,

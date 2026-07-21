@@ -20,6 +20,19 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.is_platform_super_admin(uuid) TO authenticated;
 
+DO $$
+BEGIN
+  IF to_regclass('public.saas_products') IS NULL
+     OR to_regclass('public.saas_plans') IS NULL
+     OR to_regclass('public.saas_addons') IS NULL
+     OR to_regclass('public.saas_quota_dimensions') IS NULL
+     OR to_regclass('public.saas_plan_quotas') IS NULL
+     OR to_regclass('public.saas_addon_quota_overrides') IS NULL THEN
+    RAISE EXCEPTION 'SAAS_PHASE4_PREREQUISITES_MISSING: Run 20260721173000_saas_catalog_and_tiers_foundation.sql first.';
+  END IF;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.saas_user_can_access_company(_user_id uuid, _company_id uuid)
 RETURNS boolean
 LANGUAGE sql
