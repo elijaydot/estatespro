@@ -149,6 +149,7 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
 
   const getRoleLabel = (role?: string) => {
     switch (role) {
+      case 'super_admin': return 'Super Admin';
       case 'landlord': return 'Landlord';
       case 'property_manager': return 'Property Manager';
       default: return role || 'User';

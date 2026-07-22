@@ -12,6 +12,22 @@ export function useUserRole() {
     queryFn: async () => {
       if (!user?.id) return null;
 
+      // profiles.role is the source of truth for app authorization.
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Error fetching user role from profiles:', profileError);
+      }
+
+      const profileRole = (profileData?.role as AppRole | null) ?? null;
+      if (profileRole) {
+        return profileRole;
+      }
+
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
@@ -22,24 +38,7 @@ export function useUserRole() {
         console.error('Error fetching user role from user_roles:', error);
       }
 
-      const role = (data?.role as AppRole | null) ?? null;
-
-      if (role) {
-        return role;
-      }
-
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('Error fetching user role from profiles:', profileError);
-        return null;
-      }
-
-      return (profileData?.role as AppRole) || null;
+      return (data?.role as AppRole | null) ?? null;
     },
     enabled: !!user?.id,
   });
