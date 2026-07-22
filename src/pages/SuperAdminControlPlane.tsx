@@ -44,6 +44,7 @@ import {
 } from '@/lib/controlPlaneViews';
 import { getControlPlaneExportRows } from '@/lib/controlPlaneExports';
 import {
+  buildCorrelationFilterOptions,
   matchesCompanyFilter,
   matchesUserFilter,
   type CompanyDirectoryEntry,
@@ -353,6 +354,25 @@ export default function SuperAdminControlPlane() {
     return options;
   }, [userOptions]);
 
+  const scopedEventsForCorrelationOptions = useMemo(() => {
+    return (events.data || []).filter((item) => {
+      if (!isInTimeRange(item.created_at, timeRange)) return false;
+      if (severityFilter !== 'all' && item.severity !== severityFilter) return false;
+      if (eventResultFilter !== 'all' && item.result_status !== eventResultFilter) return false;
+      if (!matchesCompanyFilter(item.company_id, companyFilter, companyDirectory)) return false;
+      if (!matchesUserFilter(item.actor_user_id, userFilter, userDirectory)) return false;
+      return true;
+    });
+  }, [companyDirectory, companyFilter, eventResultFilter, events.data, severityFilter, timeRange, userDirectory, userFilter]);
+
+  const correlationFilterOptions = useMemo<SearchableSelectOption[]>(() => {
+    return buildCorrelationFilterOptions(scopedEventsForCorrelationOptions).map((row) => ({
+      value: row.value,
+      label: row.label,
+      description: row.description,
+    }));
+  }, [scopedEventsForCorrelationOptions]);
+
   const companyRows = useMemo(() => {
     return buildCompany360Rows(filteredEvents, filteredAlerts, filteredDecisions, filteredUsage);
   }, [filteredAlerts, filteredDecisions, filteredEvents, filteredUsage]);
@@ -523,7 +543,14 @@ export default function SuperAdminControlPlane() {
             searchPlaceholder="Search user by name, email, UUID..."
             emptyMessage="No user options found"
           />
-          <Input value={correlationFilter} onChange={(e) => setCorrelationFilter(e.target.value)} placeholder="Correlation filter" />
+          <SearchableSelect
+            options={correlationFilterOptions}
+            value={correlationFilter}
+            onValueChange={setCorrelationFilter}
+            placeholder="Correlation filter"
+            searchPlaceholder="Search correlation id..."
+            emptyMessage="No correlation options found"
+          />
           <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRange)}>
             <SelectTrigger>
               <SelectValue placeholder="Time range" />

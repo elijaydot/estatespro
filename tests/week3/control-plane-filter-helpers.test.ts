@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildCorrelationFilterOptions,
   matchesCompanyFilter,
   matchesUserFilter,
   type CompanyDirectoryEntry,
@@ -35,5 +36,18 @@ describe('controlPlane filter helpers', () => {
 
     expect(matchesCompanyFilter(null, 'unscoped', companyDirectory)).toBe(true);
     expect(matchesUserFilter(null, 'unknown', userDirectory)).toBe(true);
+  });
+
+  it('builds correlation options sorted by event count and recency', () => {
+    const options = buildCorrelationFilterOptions([
+      { correlation_id: 'corr-b', created_at: '2026-07-22T10:00:00.000Z' },
+      { correlation_id: 'corr-a', created_at: '2026-07-22T11:00:00.000Z' },
+      { correlation_id: 'corr-b', created_at: '2026-07-22T12:00:00.000Z' },
+    ]);
+
+    expect(options[0].value).toBe('');
+    expect(options[1].value).toBe('corr-b');
+    expect(options[1].description).toContain('2 events');
+    expect(options[2].value).toBe('corr-a');
   });
 });

@@ -10,6 +10,12 @@ export type UserDirectoryEntry = {
   email: string | null;
 };
 
+export type CorrelationOptionRow = {
+  value: string;
+  label: string;
+  description: string;
+};
+
 function normalize(value: string | null | undefined) {
   return (value || '').trim().toLowerCase();
 }
@@ -54,4 +60,47 @@ export function matchesUserFilter(
   ].map(normalize);
 
   return candidates.some((candidate) => candidate.includes(normalizedQuery));
+}
+
+export function buildCorrelationFilterOptions(
+  events: Array<{ correlation_id: string; created_at: string }>,
+  limit = 200,
+): CorrelationOptionRow[] {
+  const summary = new Map<string, { count: number; latestAt: string }>();
+
+  events.forEach((event) => {
+    const key = event.correlation_id;
+    const current = summary.get(key);
+    if (!current) {
+      summary.set(key, { count: 1, latestAt: event.created_at });
+      return;
+    }
+
+    current.count += 1;
+    if (new Date(event.created_at).getTime() > new Date(current.latestAt).getTime()) {
+      current.latestAt = event.created_at;
+    }
+  });
+
+  const rows = Array.from(summary.entries())
+    .sort((a, b) => {
+      const countDiff = b[1].count - a[1].count;
+      if (countDiff !== 0) return countDiff;
+      return new Date(b[1].latestAt).getTime() - new Date(a[1].latestAt).getTime();
+    })
+    .slice(0, limit)
+    .map(([correlationId, meta]) => ({
+      value: correlationId,
+      label: correlationId,
+      description: `${meta.count} events • latest ${new Date(meta.latestAt).toLocaleString()}`,
+    }));
+
+  return [
+    {
+      value: '',
+      label: 'All correlations',
+      description: 'Clear correlation filter',
+    },
+    ...rows,
+  ];
 }
