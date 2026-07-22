@@ -8,11 +8,11 @@
 - Phase 5: Complete (subscription lifecycle migration authored)
 - Phase 6: Complete (route/sidebar/dashboard gating, quota enforcement, metering triggers, and billing plan-change UI action implemented)
 - Phase 7: Complete (governance schema/RLS, super-admin control plane UI, platform override mode, filtering, and operator-role management implemented)
-- Phase 8: In progress (overview/company/user/incident IA screens and drill views integrated into control plane page)
-- Phase 9: In progress (URL-persisted filters/tab state, export actions, and week3 utility test coverage added)
-- Phase 10: Not started
+- Phase 8: Complete (global overview, company 360, user 360, incident timeline, and drillable filtered surfaces implemented)
+- Phase 9: Complete (URL state persistence, export workflows, modularized tabs/helpers, and expanded regression suite delivered)
+- Phase 10: Complete (analytics and ops controls tab with signal thresholds, module adoption, company risk watchlist, and searchable governance filters)
 
-Last update: 2026-07-22
+Last update: 2026-07-22 (closeout pass)
 
 ## Objective
 Design and implement a monetization-first SaaS architecture for EstatesPro with:

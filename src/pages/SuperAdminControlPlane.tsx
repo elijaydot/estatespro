@@ -34,6 +34,7 @@ import {
   type SeverityFilter,
 } from '@/lib/controlPlaneState';
 import { EmptyState } from '@/components/control-plane/EmptyState';
+import { AnalyticsOpsTab } from '@/components/control-plane/tabs/AnalyticsOpsTab';
 import { OverviewTab } from '@/components/control-plane/tabs/OverviewTab';
 import { OperatorsTab, type OperatorRole } from '@/components/control-plane/tabs/OperatorsTab';
 import {
@@ -43,6 +44,11 @@ import {
   buildUser360Rows,
 } from '@/lib/controlPlaneViews';
 import { getControlPlaneExportRows } from '@/lib/controlPlaneExports';
+import {
+  buildCompanyRiskRows,
+  buildModuleAdoptionRows,
+  buildOpsSignals,
+} from '@/lib/controlPlaneAnalytics';
 import {
   buildCorrelationFilterOptions,
   matchesCompanyFilter,
@@ -386,6 +392,37 @@ export default function SuperAdminControlPlane() {
   }, [filteredEvents]);
 
   const correlationSummary = useMemo(() => buildCorrelationSummary(filteredEvents), [filteredEvents]);
+  const moduleAdoptionRows = useMemo(() => buildModuleAdoptionRows(filteredEvents), [filteredEvents]);
+  const opsSignals = useMemo(() => buildOpsSignals(filteredEvents, filteredDecisions, filteredAlerts, filteredUsage), [filteredAlerts, filteredDecisions, filteredEvents, filteredUsage]);
+  const companyRiskRows = useMemo(() => buildCompanyRiskRows(filteredEvents, filteredDecisions, filteredAlerts, filteredUsage), [filteredAlerts, filteredDecisions, filteredEvents, filteredUsage]);
+  const analyticsRows = useMemo(() => {
+    return [
+      ...opsSignals.map((row) => ({
+        row_type: 'ops_signal',
+        signal: row.signal,
+        value: row.value,
+        threshold: row.threshold,
+        status: row.status,
+        unit: row.unit,
+      })),
+      ...moduleAdoptionRows.map((row) => ({
+        row_type: 'module_adoption',
+        module: row.module,
+        events: row.events,
+        denied_or_blocked: row.denied_or_blocked,
+        high_risk: row.high_risk,
+      })),
+      ...companyRiskRows.map((row) => ({
+        row_type: 'company_risk',
+        company_id: row.company_id,
+        denial_events: row.denial_events,
+        high_risk_events: row.high_risk_events,
+        open_alerts: row.open_alerts,
+        usage_pressure: row.usage_pressure,
+        risk_score: row.risk_score,
+      })),
+    ];
+  }, [companyRiskRows, moduleAdoptionRows, opsSignals]);
 
   const openAlerts = filteredAlerts.filter((item) => item.status === 'open').length;
   const blockedEvents = filteredEvents.filter((item) => item.result_status === 'blocked' || item.result_status === 'denied').length;
@@ -403,6 +440,7 @@ export default function SuperAdminControlPlane() {
       incidents: incidentTimeline,
       companyRows,
       userRows,
+      analyticsRows,
       operators: operatorRoles.data || [],
       correlationSummary,
     });
@@ -668,6 +706,7 @@ export default function SuperAdminControlPlane() {
             <TabsTrigger value="incidents">Incidents</TabsTrigger>
             <TabsTrigger value="company360">Company 360</TabsTrigger>
             <TabsTrigger value="user360">User 360</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics/Ops</TabsTrigger>
             <TabsTrigger value="operators">Operators</TabsTrigger>
           </TabsList>
 
@@ -975,6 +1014,12 @@ export default function SuperAdminControlPlane() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <AnalyticsOpsTab
+            moduleRows={moduleAdoptionRows}
+            opsSignals={opsSignals}
+            companyRiskRows={companyRiskRows}
+          />
 
           <OperatorsTab
             roles={operatorRoles.data || []}

@@ -24,6 +24,7 @@ export type ControlPlaneExportRowsInput = {
   incidents: IncidentTimelineRow[];
   companyRows: Company360Row[];
   userRows: User360Row[];
+  analyticsRows: Record<string, unknown>[];
   operators: PlatformOperatorRole[];
   correlationSummary: CorrelationSummaryRow[];
 };
@@ -54,6 +55,8 @@ export function getControlPlaneExportRows(
       return input.companyRows;
     case 'user360':
       return input.userRows;
+    case 'analytics':
+      return input.analyticsRows;
     case 'operators':
       return input.operators;
     default:

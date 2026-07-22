@@ -9,6 +9,7 @@ export type ControlPlaneTab =
   | 'incidents'
   | 'company360'
   | 'user360'
+  | 'analytics'
   | 'operators';
 
 export type SeverityFilter = 'all' | 'info' | 'warning' | 'error' | 'critical';
@@ -29,7 +30,7 @@ export type ControlPlaneUiState = {
   correlationFilter: string;
 };
 
-const VALID_TABS: ControlPlaneTab[] = ['overview', 'alerts', 'events', 'decisions', 'usage', 'incidents', 'company360', 'user360', 'operators'];
+const VALID_TABS: ControlPlaneTab[] = ['overview', 'alerts', 'events', 'decisions', 'usage', 'incidents', 'company360', 'user360', 'analytics', 'operators'];
 const VALID_TIME_RANGES: TimeRange[] = ['24h', '7d', '30d', 'all'];
 const VALID_SEVERITY: SeverityFilter[] = ['all', 'info', 'warning', 'error', 'critical'];
 const VALID_EVENT_RESULTS: EventResultFilter[] = ['all', 'success', 'warning', 'blocked', 'denied', 'error'];

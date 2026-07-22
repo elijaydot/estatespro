@@ -1,5 +1,11 @@
 # Phase 9 Control Plane Implementation Spec
 
+## Completion Snapshot (2026-07-22)
+- Sprint 1 and Sprint 2 MVP scope implemented in `src/pages/SuperAdminControlPlane.tsx` and supporting hooks/utilities.
+- Control plane filters support UUID + friendly search with searchable dropdowns for company/user/correlation.
+- CSV/JSON exports implemented across tabs, including analytics/ops rows.
+- Week3 regression suite expanded and green across state, filters, exports, correlation, analytics, and views.
+
 ## Objective
 Implement the approved Phase 8 IA as a production-ready dashboard with robust query performance, policy-safe data access, and operational workflows.
 

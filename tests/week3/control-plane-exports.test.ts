@@ -85,6 +85,14 @@ const baseInput: ControlPlaneExportRowsInput = {
     blocked_events: 1,
     last_activity_at: '2026-07-22T00:00:00.000Z',
   }],
+  analyticsRows: [{
+    row_type: 'ops_signal',
+    signal: 'Blocked/Denied Event Rate',
+    value: 25,
+    threshold: 15,
+    status: 'warning',
+    unit: 'percent',
+  }],
   operators: [{
     id: 'opr-1',
     user_id: 'user-1',
@@ -112,6 +120,7 @@ describe('controlPlane export rows', () => {
     expect(getControlPlaneExportRows('incidents', baseInput)).toEqual(baseInput.incidents);
     expect(getControlPlaneExportRows('company360', baseInput)).toEqual(baseInput.companyRows);
     expect(getControlPlaneExportRows('user360', baseInput)).toEqual(baseInput.userRows);
+    expect(getControlPlaneExportRows('analytics', baseInput)).toEqual(baseInput.analyticsRows);
     expect(getControlPlaneExportRows('operators', baseInput)).toEqual(baseInput.operators);
   });
 });
