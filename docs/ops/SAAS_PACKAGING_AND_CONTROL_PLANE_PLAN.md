@@ -10,7 +10,7 @@
 - Phase 7: Complete (governance schema/RLS, super-admin control plane UI, platform override mode, filtering, and operator-role management implemented)
 - Phase 8: Complete (global overview, company 360, user 360, incident timeline, and drillable filtered surfaces implemented)
 - Phase 9: Complete (URL state persistence, export workflows, modularized tabs/helpers, and expanded regression suite delivered)
-- Phase 10: Complete (analytics and ops controls tab with signal thresholds, module adoption, company risk watchlist, and searchable governance filters)
+- Phase 10: Complete (analytics and ops controls tab, persisted analytics snapshots, scheduled drift checks, and governance alert records)
 
 Last update: 2026-07-22 (closeout pass)
 

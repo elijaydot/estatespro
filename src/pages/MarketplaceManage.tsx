@@ -203,7 +203,7 @@ function LeadCard({
 export default function MarketplaceManage() {
   const { user } = useAuth();
   const { activeCompanyId, companies } = useActiveCompany();
-  const { isLandlord, isPropertyManager } = useUserRole();
+  const { isLandlord, isPropertyManager, isSuperAdmin } = useUserRole();
 
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
@@ -285,7 +285,7 @@ export default function MarketplaceManage() {
     return { total, qualified, converted, openTasks, overdueTasks, staleLeads, activeListings };
   }, [leadTasks, leads, listings]);
 
-  if (!isLandlord && !isPropertyManager) {
+  if (!isLandlord && !isPropertyManager && !isSuperAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
