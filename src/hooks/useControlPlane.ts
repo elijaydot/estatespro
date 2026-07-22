@@ -9,6 +9,7 @@ export type ControlPlaneEvent = {
   action: string;
   severity: 'info' | 'warning' | 'error' | 'critical';
   result_status: 'success' | 'warning' | 'blocked' | 'denied' | 'error';
+  actor_user_id: string | null;
   company_id: string | null;
   correlation_id: string;
   risk_score: number;
@@ -30,11 +31,13 @@ export type GovernanceAlert = {
 export type EntitlementDecision = {
   id: string;
   company_id: string;
+  actor_user_id: string | null;
   module: string;
   action: string;
   entitlement_key: string;
   allowed: boolean;
   decision_reason: string | null;
+  correlation_id: string;
   risk_score: number;
   created_at: string;
 };
@@ -66,7 +69,7 @@ export function useControlPlaneEvents(limit = 100) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('platform_audit_events' as never)
-        .select('id, source, event_type, module, action, severity, result_status, company_id, correlation_id, risk_score, created_at')
+        .select('id, source, event_type, module, action, severity, result_status, actor_user_id, company_id, correlation_id, risk_score, created_at')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -98,7 +101,7 @@ export function useEntitlementDecisions(limit = 100) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('entitlement_decisions' as never)
-        .select('id, company_id, module, action, entitlement_key, allowed, decision_reason, risk_score, created_at')
+        .select('id, company_id, actor_user_id, module, action, entitlement_key, allowed, decision_reason, correlation_id, risk_score, created_at')
         .order('created_at', { ascending: false })
         .limit(limit);
 

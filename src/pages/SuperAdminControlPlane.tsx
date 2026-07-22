@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Shield, Siren, Activity, Fingerprint, RefreshCw, Plus, Trash2, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Shield, Siren, Activity, Fingerprint, RefreshCw, Plus, Trash2, Sparkles, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,8 @@ import { useSuperAdminOverride } from '@/hooks/useSuperAdminOverride';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
+import { useSearchParams } from 'react-router-dom';
+import { downloadCsv, downloadJson, isInTimeRange, matchesSearch, rowsToCsv, type TimeRange } from '@/lib/controlPlane';
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString();
@@ -32,25 +34,27 @@ function SeverityBadge({ severity }: { severity: string }) {
   return <Badge variant="outline">{severity}</Badge>;
 }
 
-type TimeRange = '24h' | '7d' | '30d' | 'all';
-
 type OperatorRole = 'security_auditor' | 'support_operator' | 'billing_operator';
+type ControlPlaneTab =
+  | 'overview'
+  | 'alerts'
+  | 'events'
+  | 'decisions'
+  | 'usage'
+  | 'incidents'
+  | 'company360'
+  | 'user360'
+  | 'operators';
 
-function isInTimeRange(value: string, timeRange: TimeRange) {
-  if (timeRange === 'all') return true;
+const VALID_TABS: ControlPlaneTab[] = ['overview', 'alerts', 'events', 'decisions', 'usage', 'incidents', 'company360', 'user360', 'operators'];
 
-  const now = Date.now();
-  const createdAt = new Date(value).getTime();
-  if (Number.isNaN(createdAt)) return false;
-
-  const hours = timeRange === '24h' ? 24 : timeRange === '7d' ? 24 * 7 : 24 * 30;
-  return now - createdAt <= hours * 60 * 60 * 1000;
+function normalizeTab(value: string | null): ControlPlaneTab {
+  if (!value) return 'overview';
+  return (VALID_TABS as string[]).includes(value) ? (value as ControlPlaneTab) : 'overview';
 }
 
-function matchesSearch(haystack: Array<string | null | undefined>, needle: string) {
-  const search = needle.trim().toLowerCase();
-  if (!search) return true;
-  return haystack.some((value) => String(value || '').toLowerCase().includes(search));
+function isUuidLike(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
 }
 
 function EmptyState({
@@ -60,7 +64,7 @@ function EmptyState({
 }: {
   title: string;
   description: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <div className="rounded-lg border border-dashed border-border/70 p-6 text-center space-y-2">
@@ -75,6 +79,7 @@ export default function SuperAdminControlPlane() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { canOverride, overrideEnabled, setOverrideEnabled } = useSuperAdminOverride();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const events = useControlPlaneEvents(100);
   const alerts = useControlPlaneAlerts(100);
@@ -84,14 +89,49 @@ export default function SuperAdminControlPlane() {
   const assignOperatorRole = useAssignPlatformOperatorRole();
   const removeOperatorRole = useRemovePlatformOperatorRole();
 
-  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
-  const [search, setSearch] = useState('');
-  const [severityFilter, setSeverityFilter] = useState<'all' | 'info' | 'warning' | 'error' | 'critical'>('all');
-  const [eventResultFilter, setEventResultFilter] = useState<'all' | 'success' | 'warning' | 'blocked' | 'denied' | 'error'>('all');
-  const [alertStatusFilter, setAlertStatusFilter] = useState<'all' | 'open' | 'acknowledged' | 'resolved'>('all');
-  const [decisionFilter, setDecisionFilter] = useState<'all' | 'allowed' | 'denied'>('all');
+  const [activeTab, setActiveTab] = useState<ControlPlaneTab>(() => normalizeTab(searchParams.get('cp_tab')));
+  const [timeRange, setTimeRange] = useState<TimeRange>(() => (searchParams.get('cp_range') as TimeRange) || '7d');
+  const [search, setSearch] = useState(() => searchParams.get('cp_q') || '');
+  const [severityFilter, setSeverityFilter] = useState<'all' | 'info' | 'warning' | 'error' | 'critical'>(() => (searchParams.get('cp_sev') as 'all' | 'info' | 'warning' | 'error' | 'critical') || 'all');
+  const [eventResultFilter, setEventResultFilter] = useState<'all' | 'success' | 'warning' | 'blocked' | 'denied' | 'error'>(() => (searchParams.get('cp_result') as 'all' | 'success' | 'warning' | 'blocked' | 'denied' | 'error') || 'all');
+  const [alertStatusFilter, setAlertStatusFilter] = useState<'all' | 'open' | 'acknowledged' | 'resolved'>(() => (searchParams.get('cp_alert') as 'all' | 'open' | 'acknowledged' | 'resolved') || 'all');
+  const [decisionFilter, setDecisionFilter] = useState<'all' | 'allowed' | 'denied'>(() => (searchParams.get('cp_decision') as 'all' | 'allowed' | 'denied') || 'all');
+  const [companyFilter, setCompanyFilter] = useState(() => searchParams.get('cp_company') || '');
+  const [userFilter, setUserFilter] = useState(() => searchParams.get('cp_user') || '');
+  const [correlationFilter, setCorrelationFilter] = useState(() => searchParams.get('cp_correlation') || '');
   const [operatorUserId, setOperatorUserId] = useState('');
   const [operatorRole, setOperatorRole] = useState<OperatorRole>('security_auditor');
+
+  useEffect(() => {
+    const next = new URLSearchParams();
+    next.set('cp_tab', activeTab);
+    next.set('cp_range', timeRange);
+    if (search) next.set('cp_q', search);
+    if (severityFilter !== 'all') next.set('cp_sev', severityFilter);
+    if (eventResultFilter !== 'all') next.set('cp_result', eventResultFilter);
+    if (alertStatusFilter !== 'all') next.set('cp_alert', alertStatusFilter);
+    if (decisionFilter !== 'all') next.set('cp_decision', decisionFilter);
+    if (companyFilter) next.set('cp_company', companyFilter);
+    if (userFilter) next.set('cp_user', userFilter);
+    if (correlationFilter) next.set('cp_correlation', correlationFilter);
+
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [
+    activeTab,
+    alertStatusFilter,
+    companyFilter,
+    correlationFilter,
+    decisionFilter,
+    eventResultFilter,
+    search,
+    searchParams,
+    setSearchParams,
+    severityFilter,
+    timeRange,
+    userFilter,
+  ]);
 
   const isLoading = events.isLoading || alerts.isLoading || decisions.isLoading || usage.isLoading || operatorRoles.isLoading;
   const hasError = events.error || alerts.error || decisions.error || usage.error || operatorRoles.error;
@@ -111,51 +151,239 @@ export default function SuperAdminControlPlane() {
       if (severityFilter !== 'all' && item.severity !== severityFilter && !(severityFilter === 'error' && item.severity === 'critical')) {
         return false;
       }
+      if (companyFilter && item.company_id !== companyFilter) return false;
+      if (correlationFilter && item.correlation_id !== correlationFilter) return false;
       return matchesSearch([item.title, item.description, item.alert_type, item.correlation_id, item.company_id, item.status], search);
     });
-  }, [alerts.data, alertStatusFilter, search, severityFilter, timeRange]);
+  }, [alerts.data, alertStatusFilter, companyFilter, correlationFilter, search, severityFilter, timeRange]);
 
   const filteredEvents = useMemo(() => {
     return (events.data || []).filter((item) => {
       if (!isInTimeRange(item.created_at, timeRange)) return false;
       if (severityFilter !== 'all' && item.severity !== severityFilter) return false;
       if (eventResultFilter !== 'all' && item.result_status !== eventResultFilter) return false;
+      if (companyFilter && item.company_id !== companyFilter) return false;
+      if (userFilter && item.actor_user_id !== userFilter) return false;
+      if (correlationFilter && item.correlation_id !== correlationFilter) return false;
       return matchesSearch([
         item.source,
         item.event_type,
         item.module,
         item.action,
+        item.actor_user_id,
         item.correlation_id,
         item.company_id,
       ], search);
     });
-  }, [eventResultFilter, events.data, search, severityFilter, timeRange]);
+  }, [companyFilter, correlationFilter, eventResultFilter, events.data, search, severityFilter, timeRange, userFilter]);
 
   const filteredDecisions = useMemo(() => {
     return (decisions.data || []).filter((item) => {
       if (!isInTimeRange(item.created_at, timeRange)) return false;
       if (decisionFilter === 'allowed' && !item.allowed) return false;
       if (decisionFilter === 'denied' && item.allowed) return false;
+      if (companyFilter && item.company_id !== companyFilter) return false;
+      if (userFilter && item.actor_user_id !== userFilter) return false;
+      if (correlationFilter && item.correlation_id !== correlationFilter) return false;
       return matchesSearch([
         item.module,
         item.action,
         item.entitlement_key,
         item.decision_reason,
+        item.actor_user_id,
+        item.correlation_id,
         item.company_id,
       ], search);
     });
-  }, [decisionFilter, decisions.data, search, timeRange]);
+  }, [companyFilter, correlationFilter, decisionFilter, decisions.data, search, timeRange, userFilter]);
 
   const filteredUsage = useMemo(() => {
     return (usage.data || []).filter((item) => {
       if (!isInTimeRange(item.snapshot_at, timeRange)) return false;
+      if (companyFilter && item.company_id !== companyFilter) return false;
       return matchesSearch([item.company_id, item.product_code, item.quota_code, item.limit_state], search);
     });
-  }, [search, timeRange, usage.data]);
+  }, [companyFilter, search, timeRange, usage.data]);
+
+  const companyRows = useMemo(() => {
+    const rows = new Map<string, {
+      company_id: string;
+      events: number;
+      alerts: number;
+      decisions: number;
+      usage_snapshots: number;
+      blocked_events: number;
+      last_activity_at: string;
+    }>();
+
+    filteredEvents.forEach((item) => {
+      const companyId = item.company_id || 'unscoped';
+      const current = rows.get(companyId) || {
+        company_id: companyId,
+        events: 0,
+        alerts: 0,
+        decisions: 0,
+        usage_snapshots: 0,
+        blocked_events: 0,
+        last_activity_at: item.created_at,
+      };
+      current.events += 1;
+      if (item.result_status === 'blocked' || item.result_status === 'denied') current.blocked_events += 1;
+      if (new Date(item.created_at).getTime() > new Date(current.last_activity_at).getTime()) current.last_activity_at = item.created_at;
+      rows.set(companyId, current);
+    });
+
+    filteredAlerts.forEach((item) => {
+      const companyId = item.company_id || 'unscoped';
+      const current = rows.get(companyId) || {
+        company_id: companyId,
+        events: 0,
+        alerts: 0,
+        decisions: 0,
+        usage_snapshots: 0,
+        blocked_events: 0,
+        last_activity_at: item.created_at,
+      };
+      current.alerts += 1;
+      if (new Date(item.created_at).getTime() > new Date(current.last_activity_at).getTime()) current.last_activity_at = item.created_at;
+      rows.set(companyId, current);
+    });
+
+    filteredDecisions.forEach((item) => {
+      const companyId = item.company_id || 'unscoped';
+      const current = rows.get(companyId) || {
+        company_id: companyId,
+        events: 0,
+        alerts: 0,
+        decisions: 0,
+        usage_snapshots: 0,
+        blocked_events: 0,
+        last_activity_at: item.created_at,
+      };
+      current.decisions += 1;
+      if (new Date(item.created_at).getTime() > new Date(current.last_activity_at).getTime()) current.last_activity_at = item.created_at;
+      rows.set(companyId, current);
+    });
+
+    filteredUsage.forEach((item) => {
+      const companyId = item.company_id || 'unscoped';
+      const current = rows.get(companyId) || {
+        company_id: companyId,
+        events: 0,
+        alerts: 0,
+        decisions: 0,
+        usage_snapshots: 0,
+        blocked_events: 0,
+        last_activity_at: item.snapshot_at,
+      };
+      current.usage_snapshots += 1;
+      if (new Date(item.snapshot_at).getTime() > new Date(current.last_activity_at).getTime()) current.last_activity_at = item.snapshot_at;
+      rows.set(companyId, current);
+    });
+
+    return Array.from(rows.values()).sort((a, b) => new Date(b.last_activity_at).getTime() - new Date(a.last_activity_at).getTime());
+  }, [filteredAlerts, filteredDecisions, filteredEvents, filteredUsage]);
+
+  const userRows = useMemo(() => {
+    const rows = new Map<string, {
+      user_id: string;
+      event_count: number;
+      decision_count: number;
+      high_risk_events: number;
+      blocked_events: number;
+      last_activity_at: string;
+    }>();
+
+    filteredEvents.forEach((item) => {
+      const actorId = item.actor_user_id || 'unknown';
+      const current = rows.get(actorId) || {
+        user_id: actorId,
+        event_count: 0,
+        decision_count: 0,
+        high_risk_events: 0,
+        blocked_events: 0,
+        last_activity_at: item.created_at,
+      };
+      current.event_count += 1;
+      if (item.risk_score >= 80) current.high_risk_events += 1;
+      if (item.result_status === 'blocked' || item.result_status === 'denied') current.blocked_events += 1;
+      if (new Date(item.created_at).getTime() > new Date(current.last_activity_at).getTime()) current.last_activity_at = item.created_at;
+      rows.set(actorId, current);
+    });
+
+    filteredDecisions.forEach((item) => {
+      const actorId = item.actor_user_id || 'unknown';
+      const current = rows.get(actorId) || {
+        user_id: actorId,
+        event_count: 0,
+        decision_count: 0,
+        high_risk_events: 0,
+        blocked_events: 0,
+        last_activity_at: item.created_at,
+      };
+      current.decision_count += 1;
+      if (new Date(item.created_at).getTime() > new Date(current.last_activity_at).getTime()) current.last_activity_at = item.created_at;
+      rows.set(actorId, current);
+    });
+
+    return Array.from(rows.values()).sort((a, b) => new Date(b.last_activity_at).getTime() - new Date(a.last_activity_at).getTime());
+  }, [filteredDecisions, filteredEvents]);
+
+  const incidentTimeline = useMemo(() => {
+    const timeline = filteredEvents.map((event) => ({
+      type: 'event',
+      id: event.id,
+      created_at: event.created_at,
+      correlation_id: event.correlation_id,
+      module: event.module,
+      action: event.action,
+      detail: `${event.event_type} (${event.result_status})`,
+      risk_score: event.risk_score,
+      company_id: event.company_id,
+      actor_user_id: event.actor_user_id,
+    }));
+
+    return timeline.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  }, [filteredEvents]);
 
   const openAlerts = filteredAlerts.filter((item) => item.status === 'open').length;
   const blockedEvents = filteredEvents.filter((item) => item.result_status === 'blocked' || item.result_status === 'denied').length;
   const highRiskEvents = filteredEvents.filter((item) => item.risk_score >= 80).length;
+
+  const exportRows = () => {
+    const map: Record<ControlPlaneTab, unknown[]> = {
+      overview: [{ openAlerts, blockedEvents, highRiskEvents, usageSnapshots: filteredUsage.length }],
+      alerts: filteredAlerts,
+      events: filteredEvents,
+      decisions: filteredDecisions,
+      usage: filteredUsage,
+      incidents: incidentTimeline,
+      company360: companyRows,
+      user360: userRows,
+      operators: operatorRoles.data || [],
+    };
+
+    return map[activeTab] || [];
+  };
+
+  const handleExportCsv = () => {
+    const rows = exportRows();
+    if (!rows.length) {
+      toast({ title: 'Nothing to export', description: 'No rows in current view.' });
+      return;
+    }
+    const csv = rowsToCsv(rows as Record<string, unknown>[]);
+    downloadCsv(`control-plane-${activeTab}-${Date.now()}.csv`, csv);
+  };
+
+  const handleExportJson = () => {
+    const rows = exportRows();
+    if (!rows.length) {
+      toast({ title: 'Nothing to export', description: 'No rows in current view.' });
+      return;
+    }
+    downloadJson(`control-plane-${activeTab}-${Date.now()}.json`, rows);
+  };
 
   const handleSeedEvent = async () => {
     const { error } = await supabase.rpc('platform_ingest_audit_event' as never, {
@@ -188,9 +416,7 @@ export default function SuperAdminControlPlane() {
 
   const handleAssignRole = async () => {
     const trimmed = operatorUserId.trim();
-    const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-    if (!uuidLike.test(trimmed)) {
+    if (!isUuidLike(trimmed)) {
       toast({ title: 'Invalid user ID', description: 'Enter a valid user UUID.', variant: 'destructive' });
       return;
     }
@@ -206,6 +432,26 @@ export default function SuperAdminControlPlane() {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleUsageSnapshotRefresh = async () => {
+    if (!isUuidLike(companyFilter)) {
+      toast({ title: 'Company ID required', description: 'Enter a valid company UUID filter first.', variant: 'destructive' });
+      return;
+    }
+
+    const { error } = await supabase.rpc('platform_refresh_usage_snapshot' as never, {
+      p_company_id: companyFilter,
+      p_product_code: 'core_property',
+    } as never);
+
+    if (error) {
+      toast({ title: 'Snapshot refresh failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    toast({ title: 'Usage snapshot refreshed', description: 'Usage rows were generated for the company.' });
+    void usage.refetch();
   };
 
   return (
@@ -224,6 +470,12 @@ export default function SuperAdminControlPlane() {
               <Switch checked={overrideEnabled} onCheckedChange={setOverrideEnabled} />
             </div>
           )}
+          <Button variant="outline" className="gap-2" onClick={handleExportCsv}>
+            <Download className="h-4 w-4" /> CSV
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={handleExportJson}>
+            <Download className="h-4 w-4" /> JSON
+          </Button>
           <Button variant="outline" className="gap-2" onClick={refreshAll}>
             <RefreshCw className="h-4 w-4" /> Refresh
           </Button>
@@ -231,8 +483,11 @@ export default function SuperAdminControlPlane() {
       </div>
 
       <Card>
-        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2">
+        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-8 gap-2">
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search module, action, company, correlation..." />
+          <Input value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)} placeholder="Company UUID filter" />
+          <Input value={userFilter} onChange={(e) => setUserFilter(e.target.value)} placeholder="User UUID filter" />
+          <Input value={correlationFilter} onChange={(e) => setCorrelationFilter(e.target.value)} placeholder="Correlation filter" />
           <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRange)}>
             <SelectTrigger>
               <SelectValue placeholder="Time range" />
@@ -320,7 +575,7 @@ export default function SuperAdminControlPlane() {
               <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Usage Snapshots</p>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </div>
-            <p className="text-2xl font-bold mt-2">{(usage.data || []).length}</p>
+            <p className="text-2xl font-bold mt-2">{filteredUsage.length}</p>
           </CardContent>
         </Card>
       </div>
@@ -340,14 +595,94 @@ export default function SuperAdminControlPlane() {
       )}
 
       {!isLoading && (
-        <Tabs defaultValue="alerts" className="w-full">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(normalizeTab(value))} className="w-full">
           <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
             <TabsTrigger value="events">Events</TabsTrigger>
             <TabsTrigger value="decisions">Entitlements</TabsTrigger>
             <TabsTrigger value="usage">Usage</TabsTrigger>
+            <TabsTrigger value="incidents">Incidents</TabsTrigger>
+            <TabsTrigger value="company360">Company 360</TabsTrigger>
+            <TabsTrigger value="user360">User 360</TabsTrigger>
             <TabsTrigger value="operators">Operators</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="overview">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Top Risk Correlations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {filteredEvents.length === 0 ? (
+                    <EmptyState title="No events yet" description="Generate a test event or expand filters." />
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Correlation</TableHead>
+                          <TableHead>Events</TableHead>
+                          <TableHead>High Risk</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {Object.values(
+                          filteredEvents.reduce<Record<string, { correlation_id: string; events: number; high_risk: number }>>((acc, event) => {
+                            const key = event.correlation_id;
+                            const current = acc[key] || { correlation_id: key, events: 0, high_risk: 0 };
+                            current.events += 1;
+                            if (event.risk_score >= 80) current.high_risk += 1;
+                            acc[key] = current;
+                            return acc;
+                          }, {})
+                        )
+                          .sort((a, b) => b.high_risk - a.high_risk || b.events - a.events)
+                          .slice(0, 10)
+                          .map((row) => (
+                            <TableRow key={row.correlation_id}>
+                              <TableCell className="max-w-[300px] truncate" title={row.correlation_id}>{row.correlation_id}</TableCell>
+                              <TableCell>{row.events}</TableCell>
+                              <TableCell>{row.high_risk}</TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Recent Governance Alerts</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {filteredAlerts.length === 0 ? (
+                    <EmptyState title="No alerts" description="No alerts are currently visible with your filters." />
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Created</TableHead>
+                          <TableHead>Severity</TableHead>
+                          <TableHead>Title</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredAlerts.slice(0, 10).map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>{formatDate(item.created_at)}</TableCell>
+                            <TableCell><SeverityBadge severity={item.severity} /></TableCell>
+                            <TableCell>{item.title}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
 
           <TabsContent value="alerts">
             <Card>
@@ -490,6 +825,11 @@ export default function SuperAdminControlPlane() {
                 <CardTitle className="text-base">Usage Snapshots</CardTitle>
               </CardHeader>
               <CardContent>
+                <div className="mb-3 flex justify-end">
+                  <Button size="sm" variant="outline" onClick={() => void handleUsageSnapshotRefresh()}>
+                    Refresh Snapshot for Company Filter
+                  </Button>
+                </div>
                 {filteredUsage.length === 0 ? (
                   <EmptyState
                     title="No usage snapshots matched"
@@ -516,6 +856,122 @@ export default function SuperAdminControlPlane() {
                           <TableCell>{item.used_value}</TableCell>
                           <TableCell>{item.hard_limit}</TableCell>
                           <TableCell>{item.usage_percent}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="incidents">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Incident Timeline</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {incidentTimeline.length === 0 ? (
+                  <EmptyState title="No incident timeline entries" description="Use a correlation filter or generate test events." />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Correlation</TableHead>
+                        <TableHead>Module</TableHead>
+                        <TableHead>Action</TableHead>
+                        <TableHead>Detail</TableHead>
+                        <TableHead>Risk</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {incidentTimeline.slice(-40).map((row) => (
+                        <TableRow key={row.id}>
+                          <TableCell>{formatDate(row.created_at)}</TableCell>
+                          <TableCell className="max-w-[220px] truncate" title={row.correlation_id}>{row.correlation_id}</TableCell>
+                          <TableCell>{row.module}</TableCell>
+                          <TableCell>{row.action}</TableCell>
+                          <TableCell>{row.detail}</TableCell>
+                          <TableCell>{row.risk_score}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="company360">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Company 360</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {companyRows.length === 0 ? (
+                  <EmptyState title="No companies in current view" description="Adjust filters to include more company activity." />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Events</TableHead>
+                        <TableHead>Alerts</TableHead>
+                        <TableHead>Decisions</TableHead>
+                        <TableHead>Usage Snapshots</TableHead>
+                        <TableHead>Blocked Events</TableHead>
+                        <TableHead>Last Activity</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {companyRows.map((row) => (
+                        <TableRow key={row.company_id}>
+                          <TableCell className="max-w-[220px] truncate" title={row.company_id}>{row.company_id}</TableCell>
+                          <TableCell>{row.events}</TableCell>
+                          <TableCell>{row.alerts}</TableCell>
+                          <TableCell>{row.decisions}</TableCell>
+                          <TableCell>{row.usage_snapshots}</TableCell>
+                          <TableCell>{row.blocked_events}</TableCell>
+                          <TableCell>{formatDate(row.last_activity_at)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="user360">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">User 360</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {userRows.length === 0 ? (
+                  <EmptyState title="No user activity in current filters" description="Use broader filters or seed events." />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Events</TableHead>
+                        <TableHead>Decisions</TableHead>
+                        <TableHead>High Risk</TableHead>
+                        <TableHead>Blocked</TableHead>
+                        <TableHead>Last Activity</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {userRows.map((row) => (
+                        <TableRow key={row.user_id}>
+                          <TableCell className="max-w-[260px] truncate" title={row.user_id}>{row.user_id}</TableCell>
+                          <TableCell>{row.event_count}</TableCell>
+                          <TableCell>{row.decision_count}</TableCell>
+                          <TableCell>{row.high_risk_events}</TableCell>
+                          <TableCell>{row.blocked_events}</TableCell>
+                          <TableCell>{formatDate(row.last_activity_at)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -578,7 +1034,18 @@ export default function SuperAdminControlPlane() {
                               size="sm"
                               variant="ghost"
                               disabled={removeOperatorRole.isPending}
-                              onClick={() => void removeOperatorRole.mutateAsync(item.id)}
+                              onClick={async () => {
+                                try {
+                                  await removeOperatorRole.mutateAsync(item.id);
+                                  toast({ title: 'Operator role removed', description: `${item.role} revoked.` });
+                                } catch (error) {
+                                  toast({
+                                    title: 'Removal failed',
+                                    description: error instanceof Error ? error.message : 'Could not remove role.',
+                                    variant: 'destructive',
+                                  });
+                                }
+                              }}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

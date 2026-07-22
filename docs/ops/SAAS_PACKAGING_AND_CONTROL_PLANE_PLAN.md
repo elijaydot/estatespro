@@ -7,8 +7,10 @@
 - Phase 4: Complete (usage metering and quota enforcement migration authored)
 - Phase 5: Complete (subscription lifecycle migration authored)
 - Phase 6: Complete (route/sidebar/dashboard gating, quota enforcement, metering triggers, and billing plan-change UI action implemented)
-- Phase 7: In progress (governance schema/RLS, super-admin control plane UI, platform override mode, filtering, and operator-role management implemented)
-- Phase 8-10: Not started
+- Phase 7: Complete (governance schema/RLS, super-admin control plane UI, platform override mode, filtering, and operator-role management implemented)
+- Phase 8: In progress (overview/company/user/incident IA screens and drill views integrated into control plane page)
+- Phase 9: In progress (URL-persisted filters/tab state, export actions, and week3 utility test coverage added)
+- Phase 10: Not started
 
 Last update: 2026-07-22
 
