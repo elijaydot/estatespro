@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Shield, Siren, Activity, Fingerprint, RefreshCw, Plus, Trash2, Sparkles, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,13 @@ import {
   type EventResultFilter,
   type SeverityFilter,
 } from '@/lib/controlPlaneState';
+import { EmptyState } from '@/components/control-plane/EmptyState';
+import {
+  buildCompany360Rows,
+  buildCorrelationSummary,
+  buildIncidentTimeline,
+  buildUser360Rows,
+} from '@/lib/controlPlaneViews';
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString();
@@ -50,24 +57,6 @@ function normalizeTab(value: string | null): ControlPlaneTab {
 
 function isUuidLike(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
-}
-
-function EmptyState({
-  title,
-  description,
-  action,
-}: {
-  title: string;
-  description: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="rounded-lg border border-dashed border-border/70 p-6 text-center space-y-2">
-      <p className="text-sm font-semibold text-foreground">{title}</p>
-      <p className="text-xs text-muted-foreground">{description}</p>
-      {action ? <div className="pt-1 flex justify-center">{action}</div> : null}
-    </div>
-  );
 }
 
 export default function SuperAdminControlPlane() {
@@ -203,145 +192,18 @@ export default function SuperAdminControlPlane() {
   }, [companyFilter, search, timeRange, usage.data]);
 
   const companyRows = useMemo(() => {
-    const rows = new Map<string, {
-      company_id: string;
-      events: number;
-      alerts: number;
-      decisions: number;
-      usage_snapshots: number;
-      blocked_events: number;
-      last_activity_at: string;
-    }>();
-
-    filteredEvents.forEach((item) => {
-      const companyId = item.company_id || 'unscoped';
-      const current = rows.get(companyId) || {
-        company_id: companyId,
-        events: 0,
-        alerts: 0,
-        decisions: 0,
-        usage_snapshots: 0,
-        blocked_events: 0,
-        last_activity_at: item.created_at,
-      };
-      current.events += 1;
-      if (item.result_status === 'blocked' || item.result_status === 'denied') current.blocked_events += 1;
-      if (new Date(item.created_at).getTime() > new Date(current.last_activity_at).getTime()) current.last_activity_at = item.created_at;
-      rows.set(companyId, current);
-    });
-
-    filteredAlerts.forEach((item) => {
-      const companyId = item.company_id || 'unscoped';
-      const current = rows.get(companyId) || {
-        company_id: companyId,
-        events: 0,
-        alerts: 0,
-        decisions: 0,
-        usage_snapshots: 0,
-        blocked_events: 0,
-        last_activity_at: item.created_at,
-      };
-      current.alerts += 1;
-      if (new Date(item.created_at).getTime() > new Date(current.last_activity_at).getTime()) current.last_activity_at = item.created_at;
-      rows.set(companyId, current);
-    });
-
-    filteredDecisions.forEach((item) => {
-      const companyId = item.company_id || 'unscoped';
-      const current = rows.get(companyId) || {
-        company_id: companyId,
-        events: 0,
-        alerts: 0,
-        decisions: 0,
-        usage_snapshots: 0,
-        blocked_events: 0,
-        last_activity_at: item.created_at,
-      };
-      current.decisions += 1;
-      if (new Date(item.created_at).getTime() > new Date(current.last_activity_at).getTime()) current.last_activity_at = item.created_at;
-      rows.set(companyId, current);
-    });
-
-    filteredUsage.forEach((item) => {
-      const companyId = item.company_id || 'unscoped';
-      const current = rows.get(companyId) || {
-        company_id: companyId,
-        events: 0,
-        alerts: 0,
-        decisions: 0,
-        usage_snapshots: 0,
-        blocked_events: 0,
-        last_activity_at: item.snapshot_at,
-      };
-      current.usage_snapshots += 1;
-      if (new Date(item.snapshot_at).getTime() > new Date(current.last_activity_at).getTime()) current.last_activity_at = item.snapshot_at;
-      rows.set(companyId, current);
-    });
-
-    return Array.from(rows.values()).sort((a, b) => new Date(b.last_activity_at).getTime() - new Date(a.last_activity_at).getTime());
+    return buildCompany360Rows(filteredEvents, filteredAlerts, filteredDecisions, filteredUsage);
   }, [filteredAlerts, filteredDecisions, filteredEvents, filteredUsage]);
 
   const userRows = useMemo(() => {
-    const rows = new Map<string, {
-      user_id: string;
-      event_count: number;
-      decision_count: number;
-      high_risk_events: number;
-      blocked_events: number;
-      last_activity_at: string;
-    }>();
-
-    filteredEvents.forEach((item) => {
-      const actorId = item.actor_user_id || 'unknown';
-      const current = rows.get(actorId) || {
-        user_id: actorId,
-        event_count: 0,
-        decision_count: 0,
-        high_risk_events: 0,
-        blocked_events: 0,
-        last_activity_at: item.created_at,
-      };
-      current.event_count += 1;
-      if (item.risk_score >= 80) current.high_risk_events += 1;
-      if (item.result_status === 'blocked' || item.result_status === 'denied') current.blocked_events += 1;
-      if (new Date(item.created_at).getTime() > new Date(current.last_activity_at).getTime()) current.last_activity_at = item.created_at;
-      rows.set(actorId, current);
-    });
-
-    filteredDecisions.forEach((item) => {
-      const actorId = item.actor_user_id || 'unknown';
-      const current = rows.get(actorId) || {
-        user_id: actorId,
-        event_count: 0,
-        decision_count: 0,
-        high_risk_events: 0,
-        blocked_events: 0,
-        last_activity_at: item.created_at,
-      };
-      current.decision_count += 1;
-      if (new Date(item.created_at).getTime() > new Date(current.last_activity_at).getTime()) current.last_activity_at = item.created_at;
-      rows.set(actorId, current);
-    });
-
-    return Array.from(rows.values()).sort((a, b) => new Date(b.last_activity_at).getTime() - new Date(a.last_activity_at).getTime());
+    return buildUser360Rows(filteredEvents, filteredDecisions);
   }, [filteredDecisions, filteredEvents]);
 
   const incidentTimeline = useMemo(() => {
-    const timeline = filteredEvents.map((event) => ({
-      type: 'event',
-      id: event.id,
-      created_at: event.created_at,
-      correlation_id: event.correlation_id,
-      module: event.module,
-      action: event.action,
-      detail: `${event.event_type} (${event.result_status})`,
-      risk_score: event.risk_score,
-      company_id: event.company_id,
-      actor_user_id: event.actor_user_id,
-    }));
-
-    return timeline.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    return buildIncidentTimeline(filteredEvents);
   }, [filteredEvents]);
+
+  const correlationSummary = useMemo(() => buildCorrelationSummary(filteredEvents), [filteredEvents]);
 
   const openAlerts = filteredAlerts.filter((item) => item.status === 'open').length;
   const blockedEvents = filteredEvents.filter((item) => item.result_status === 'blocked' || item.result_status === 'denied').length;
@@ -624,25 +486,13 @@ export default function SuperAdminControlPlane() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {Object.values(
-                          filteredEvents.reduce<Record<string, { correlation_id: string; events: number; high_risk: number }>>((acc, event) => {
-                            const key = event.correlation_id;
-                            const current = acc[key] || { correlation_id: key, events: 0, high_risk: 0 };
-                            current.events += 1;
-                            if (event.risk_score >= 80) current.high_risk += 1;
-                            acc[key] = current;
-                            return acc;
-                          }, {})
-                        )
-                          .sort((a, b) => b.high_risk - a.high_risk || b.events - a.events)
-                          .slice(0, 10)
-                          .map((row) => (
+                        {correlationSummary.map((row) => (
                             <TableRow key={row.correlation_id}>
                               <TableCell className="max-w-[300px] truncate" title={row.correlation_id}>{row.correlation_id}</TableCell>
                               <TableCell>{row.events}</TableCell>
                               <TableCell>{row.high_risk}</TableCell>
                             </TableRow>
-                          ))}
+                        ))}
                       </TableBody>
                     </Table>
                   )}
