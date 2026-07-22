@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export type ControlPlaneEvent = {
@@ -51,6 +51,13 @@ export type UsageSnapshot = {
   usage_percent: number;
   limit_state: string;
   snapshot_at: string;
+};
+
+export type PlatformOperatorRole = {
+  id: string;
+  user_id: string;
+  role: 'security_auditor' | 'support_operator' | 'billing_operator';
+  created_at: string;
 };
 
 export function useControlPlaneEvents(limit = 100) {
@@ -113,6 +120,62 @@ export function useUsageSnapshots(limit = 100) {
 
       if (error) throw error;
       return (data || []) as UsageSnapshot[];
+    },
+  });
+}
+
+export function usePlatformOperatorRoles(limit = 200) {
+  return useQuery({
+    queryKey: ['platform-operator-roles', limit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('platform_operator_roles' as never)
+        .select('id, user_id, role, created_at')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return (data || []) as PlatformOperatorRole[];
+    },
+  });
+}
+
+export function useAssignPlatformOperatorRole() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      userId: string;
+      role: PlatformOperatorRole['role'];
+    }) => {
+      const { error } = await supabase
+        .from('platform_operator_roles' as never)
+        .insert({ user_id: input.userId, role: input.role });
+
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['platform-operator-roles'] });
+    },
+  });
+}
+
+export function useRemovePlatformOperatorRole() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('platform_operator_roles' as never)
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['platform-operator-roles'] });
     },
   });
 }

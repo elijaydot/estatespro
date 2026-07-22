@@ -7,7 +7,7 @@
 - Phase 4: Complete (usage metering and quota enforcement migration authored)
 - Phase 5: Complete (subscription lifecycle migration authored)
 - Phase 6: Complete (route/sidebar/dashboard gating, quota enforcement, metering triggers, and billing plan-change UI action implemented)
-- Phase 7: In progress (governance schema + RLS foundation and initial Super Admin control plane UI authored)
+- Phase 7: In progress (governance schema/RLS, super-admin control plane UI, platform override mode, filtering, and operator-role management implemented)
 - Phase 8-10: Not started
 
 Last update: 2026-07-22
@@ -237,5 +237,7 @@ No implementation begins until all three pre-implementation artifacts are approv
 - supabase/migrations/20260621160000_wave2_documents_lifecycle_and_automation_replay.sql
 - supabase/migrations/20260722112000_phase7_control_plane_foundation.sql
 - docs/ops/PHASE7_CONTROL_PLANE_EXECUTION_AND_TEST_PLAN.md
+- docs/ops/PHASE8_SUPER_ADMIN_DASHBOARD_IA_BLUEPRINT.md
+- docs/ops/PHASE9_CONTROL_PLANE_IMPLEMENTATION_SPEC.md
 - src/pages/SuperAdminControlPlane.tsx
 - src/hooks/useControlPlane.ts
