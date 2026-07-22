@@ -800,6 +800,8 @@ export default function SuperAdminControlPlane() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Created</TableHead>
+                        <TableHead>Updated</TableHead>
+                        <TableHead>Resolved</TableHead>
                         <TableHead>Severity</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Title</TableHead>
@@ -811,6 +813,8 @@ export default function SuperAdminControlPlane() {
                       {filteredAlerts.slice(0, 20).map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{formatDate(item.created_at)}</TableCell>
+                          <TableCell>{formatDate(item.updated_at)}</TableCell>
+                          <TableCell>{item.resolved_at ? formatDate(item.resolved_at) : '-'}</TableCell>
                           <TableCell><SeverityBadge severity={item.severity} /></TableCell>
                           <TableCell>{item.alert_type}</TableCell>
                           <TableCell>{item.title}</TableCell>

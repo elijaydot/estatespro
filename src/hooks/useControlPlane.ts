@@ -26,6 +26,8 @@ export type GovernanceAlert = {
   company_id: string | null;
   correlation_id: string | null;
   created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
 };
 
 export type EntitlementDecision = {
@@ -129,7 +131,7 @@ export function useControlPlaneAlerts(limit = 100) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('governance_alerts' as never)
-        .select('id, severity, status, alert_type, title, description, company_id, correlation_id, created_at')
+        .select('id, severity, status, alert_type, title, description, company_id, correlation_id, created_at, updated_at, resolved_at')
         .order('created_at', { ascending: false })
         .limit(limit);
 
