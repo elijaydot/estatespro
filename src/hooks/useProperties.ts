@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { assertQuotaAvailable } from '@/lib/saasGuards';
 
 export interface Property {
   id: string;
@@ -87,6 +88,14 @@ export function useCreateProperty() {
           .eq('owner_id', user.id)
           .limit(1);
         companyId = companies?.[0]?.id || null;
+      }
+
+      if (companyId) {
+        await assertQuotaAvailable({
+          companyId,
+          quotaCode: 'properties_managed',
+          requestedDelta: 1,
+        });
       }
 
       const { data, error } = await supabase

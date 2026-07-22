@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { assertQuotaAvailable, getCompanyIdForProperty } from '@/lib/saasGuards';
 
 export interface Tenant {
   id: string;
@@ -85,11 +86,25 @@ export function useTenant(id: string) {
 
 export function useCreateTenant() {
   const queryClient = useQueryClient();
+  const { activeCompanyId } = useActiveCompany();
 
   return useMutation({
     mutationFn: async (tenant: Omit<Tenant, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+
+      let companyId: string | null = activeCompanyId || null;
+      if (tenant.property_id) {
+        companyId = await getCompanyIdForProperty(tenant.property_id);
+      }
+
+      if (companyId) {
+        await assertQuotaAvailable({
+          companyId,
+          quotaCode: 'active_tenants',
+          requestedDelta: 1,
+        });
+      }
 
       const { data, error } = await supabase
         .from('tenants')

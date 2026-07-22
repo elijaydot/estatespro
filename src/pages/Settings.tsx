@@ -11,6 +11,7 @@ import { NotificationSettings } from "@/components/settings/NotificationSettings
 import { InspectionChecklistSettings } from "@/components/settings/InspectionChecklistSettings";
 import { PaymentSettings } from "@/components/settings/PaymentSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
+import { BillingPlansSettings } from "@/components/settings/BillingPlansSettings";
 
 const tabs = [
   { id: "profile", label: "Profile", icon: User, description: "Account details" },
@@ -20,6 +21,7 @@ const tabs = [
   { id: "appearance", label: "Appearance", icon: Palette, description: "Colors & theme" },
   { id: "lease", label: "Lease Documents", icon: FileText, description: "PDF styling" },
   { id: "payments", label: "Payments", icon: CreditCard, description: "Gateway & manual" },
+  { id: "billing", label: "Billing & Plans", icon: CreditCard, description: "Pricing, access, upgrades" },
   { id: "notifications", label: "Notifications", icon: Bell, description: "Alerts & emails" },
   { id: "inspections", label: "Inspections", icon: ClipboardCheck, description: "Checklists" },
 ];
@@ -95,6 +97,7 @@ export default function Settings() {
           {activeTab === "appearance" && <AppearanceSettings />}
           {activeTab === "lease" && <LeaseDocumentSettings />}
           {activeTab === "payments" && <PaymentSettingsWrapper />}
+          {activeTab === "billing" && <BillingPlansSettingsWrapper />}
           {activeTab === "notifications" && <NotificationSettings />}
           {activeTab === "inspections" && <InspectionChecklistWrapper />}
         </div>
@@ -147,6 +150,18 @@ function SecuritySettingsWrapper() {
         <p className="text-sm text-muted-foreground">Set up and manage multi-factor authentication for your account.</p>
       </div>
       <SecuritySettings />
+    </div>
+  );
+}
+
+function BillingPlansSettingsWrapper() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-foreground">Billing & Plans</h2>
+        <p className="text-sm text-muted-foreground">See pricing, active access, and upgrade your company subscription.</p>
+      </div>
+      <BillingPlansSettings />
     </div>
   );
 }

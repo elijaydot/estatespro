@@ -60,5 +60,48 @@ export async function emitAuditEvent(input: AuditEventInput) {
       entityId,
       message: error.message,
     });
+    return;
+  }
+
+  const [moduleName, actionName] = eventType.includes('.')
+    ? eventType.split('.', 2)
+    : [source, eventType];
+
+  const hasFailureSignal =
+    severity === 'error' ||
+    severity === 'critical' ||
+    eventType.includes('blocked') ||
+    eventType.includes('denied') ||
+    eventType.includes('failed') ||
+    eventType.includes('error');
+
+  const resultStatus = hasFailureSignal ? 'error' : 'success';
+  const riskScore = severity === 'critical' ? 95 : severity === 'error' ? 80 : severity === 'warning' ? 55 : 25;
+
+  const { error: controlPlaneError } = await supabase.rpc('platform_ingest_audit_event' as never, {
+    p_source: source,
+    p_event_type: eventType,
+    p_module: moduleName,
+    p_action: actionName,
+    p_result_status: resultStatus,
+    p_severity: severity,
+    p_actor_user_id: resolvedActor,
+    p_company_id: null,
+    p_target_entity_type: entityType,
+    p_target_entity_id: entityId,
+    p_correlation_id: correlationId || createCorrelationId(source),
+    p_risk_score: riskScore,
+    p_ip_address: null,
+    p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    p_device_info: { client: 'web', source },
+    p_metadata: details,
+  } as never);
+
+  if (controlPlaneError) {
+    console.error('Failed to emit platform control-plane event', {
+      source,
+      eventType,
+      message: controlPlaneError.message,
+    });
   }
 }

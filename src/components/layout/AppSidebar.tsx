@@ -30,6 +30,8 @@ import {
   Link2,
   Zap,
   Wallet,
+  Lock,
+  Radar,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -37,6 +39,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useSaasAccess, type SaasEntitlementKey } from '@/hooks/useSaasAccess';
 
 interface AppSidebarProps {
   mobile?: boolean;
@@ -47,6 +50,7 @@ type NavItem = {
   icon: typeof LayoutDashboard;
   label: string;
   href: string;
+  entitlementKey?: SaasEntitlementKey;
 };
 
 type NavSection = {
@@ -65,11 +69,11 @@ const sharedSections: NavSection[] = [
       { icon: FileText, label: 'Leases', href: '/leases' },
       { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
       { icon: CalendarCheck, label: 'Bookings', href: '/bookings' },
-      { icon: Store, label: 'Marketplace CRM', href: '/marketplace/crm' },
-      { icon: Store, label: 'Marketplace', href: '/marketplace/manage' },
-      { icon: ShieldAlert, label: 'Moderation', href: '/marketplace/moderation' },
-      { icon: ShieldCheck, label: 'Verification', href: '/marketplace/verification' },
-      { icon: ShieldCheck, label: 'Reviewer Queue', href: '/marketplace/reviewer' },
+      { icon: Store, label: 'Marketplace CRM', href: '/marketplace/crm', entitlementKey: 'crm.leads.manage' },
+      { icon: Store, label: 'Marketplace', href: '/marketplace/manage', entitlementKey: 'marketplace.listings.manage' },
+      { icon: ShieldAlert, label: 'Moderation', href: '/marketplace/moderation', entitlementKey: 'marketplace.moderation.view' },
+      { icon: ShieldCheck, label: 'Verification', href: '/marketplace/verification', entitlementKey: 'marketplace.moderation.view' },
+      { icon: ShieldCheck, label: 'Reviewer Queue', href: '/marketplace/reviewer', entitlementKey: 'marketplace.moderation.view' },
       { icon: Link2, label: 'Guest Booking Portal', href: '/guest-booking-portal' },
     ],
   },
@@ -98,6 +102,11 @@ const landlordOnlySection: NavSection = {
   items: [{ icon: UserCog, label: 'Team', href: '/team' }],
 };
 
+const superAdminSection: NavSection = {
+  title: 'Control Plane',
+  items: [{ icon: Radar, label: 'Super Admin', href: '/super-admin/control-plane' }],
+};
+
 const bottomNavItems = [
   { icon: Settings, label: 'Settings', href: '/settings' },
 ];
@@ -109,9 +118,14 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
   const { user, profile, logout } = useAuth();
   const { isLandlord, role } = useUserRole();
   const { companies, activeCompanyId, setActiveCompanyId } = useActiveCompany();
+  const { entitlements, isLoading: saasLoading } = useSaasAccess();
   const collapsedView = !mobile && collapsed;
 
-  const navSectionsBase = isLandlord ? [landlordOnlySection, ...sharedSections] : sharedSections;
+  const navSectionsBase = role === 'super_admin'
+    ? [superAdminSection, ...sharedSections]
+    : isLandlord
+      ? [landlordOnlySection, ...sharedSections]
+      : sharedSections;
   const navSections = navSectionsBase.map((section) => {
     if (section.title !== 'Communication') return section;
     if (role === 'landlord' || role === 'property_manager') {
@@ -280,15 +294,19 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
                 <ul className="space-y-1">
                   {section.items.map((item) => {
                     const isActive = isItemActive(item.href);
+                    const isLocked = Boolean(item.entitlementKey) && !saasLoading && !entitlements[item.entitlementKey as SaasEntitlementKey];
+                    const targetHref = isLocked ? '/settings?tab=billing' : item.href;
+                    const linkLabel = isLocked ? `${item.label} (Upgrade)` : item.label;
 
                     return (
                       <li key={item.href}>
                         <Link
-                          to={item.href}
+                          to={targetHref}
                           onClick={onNavigate}
-                          title={collapsedView ? item.label : undefined}
+                          title={collapsedView ? linkLabel : undefined}
                           className={cn(
                             'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                            isLocked && 'border border-dashed border-sidebar-border/60',
                             isActive
                               ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
                               : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground hover:translate-x-0.5'
@@ -296,7 +314,17 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
                         >
                           {isActive && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-sidebar-primary-foreground/85" aria-hidden />}
                           <item.icon className={cn('h-5 w-5 flex-shrink-0 transition-transform duration-200', !isActive && 'group-hover:scale-105')} />
-                          {!collapsedView && <span>{item.label}</span>}
+                          {!collapsedView && (
+                            <span className="flex items-center gap-2">
+                              <span>{item.label}</span>
+                              {isLocked && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-sidebar-border/70 bg-sidebar/50 px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-sidebar-foreground/75">
+                                  <Lock className="h-3 w-3" />
+                                  Upgrade
+                                </span>
+                              )}
+                            </span>
+                          )}
                         </Link>
                       </li>
                     );

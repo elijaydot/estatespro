@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { assertQuotaAvailable, getCompanyIdForProperty } from '@/lib/saasGuards';
 
 export interface Unit {
   id: string;
@@ -86,6 +87,13 @@ export function useCreateUnit() {
     mutationFn: async (unit: Omit<Unit, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+
+      const companyId = await getCompanyIdForProperty(unit.property_id);
+      await assertQuotaAvailable({
+        companyId,
+        quotaCode: 'units_managed',
+        requestedDelta: 1,
+      });
 
       const { data, error } = await supabase
         .from('units')

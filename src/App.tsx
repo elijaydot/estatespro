@@ -13,6 +13,12 @@ import { TenantPortalLayout } from "@/pages/tenant-portal/TenantPortalLayout";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useMyMembership } from "@/hooks/useCompanies";
 import { isDeviceTrusted } from "@/lib/trustedDevice";
+import { useSaasAccess, type SaasEntitlementKey } from "@/hooks/useSaasAccess";
+import { useActiveCompany } from "@/contexts/useActiveCompany";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { Lock } from "lucide-react";
 
 import PendingApproval from "./pages/PendingApproval";
 
@@ -82,6 +88,7 @@ const MarketplaceCrmCampaigns = lazy(() => import("./pages/marketplace-crm/Campa
 const MarketplaceCrmDocuments = lazy(() => import("./pages/marketplace-crm/Documents"));
 const MarketplaceCrmVisits = lazy(() => import("./pages/marketplace-crm/Visits"));
 const MarketplaceCrmProjects = lazy(() => import("./pages/marketplace-crm/Projects"));
+const SuperAdminControlPlane = lazy(() => import("./pages/SuperAdminControlPlane"));
 
 const queryClient = new QueryClient();
 
@@ -95,6 +102,56 @@ function FullPageLoading() {
       Loading...
     </div>
   );
+}
+
+function FeatureLockedPage({ featureName }: { featureName: string }) {
+  return (
+    <div className="p-4 sm:p-6 max-w-3xl">
+      <Card className="border-border/70">
+        <CardContent className="py-10 text-center space-y-3">
+          <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+            <Lock className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <p className="text-lg font-semibold text-foreground">{featureName} is not included in your current plan</p>
+          <p className="text-sm text-muted-foreground">
+            Upgrade your subscription to unlock this module for your active company.
+          </p>
+          <div className="flex justify-center">
+            <Button asChild>
+              <Link to="/settings?tab=billing">Open Billing & Plans</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function FeatureRoute({
+  entitlementKey,
+  featureName,
+  children,
+}: {
+  entitlementKey: SaasEntitlementKey;
+  featureName: string;
+  children: ReactNode;
+}) {
+  const { activeCompanyId } = useActiveCompany();
+  const { entitlements, isLoading } = useSaasAccess();
+
+  if (isLoading) {
+    return <FullPageLoading />;
+  }
+
+  if (!activeCompanyId) {
+    return <FeatureLockedPage featureName={featureName} />;
+  }
+
+  if (!entitlements[entitlementKey]) {
+    return <FeatureLockedPage featureName={featureName} />;
+  }
+
+  return <>{children}</>;
 }
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -158,6 +215,25 @@ function TenantPortalRoute({ children }: { children: ReactNode }) {
   }
 
   return <TenantPortalLayout>{children}</TenantPortalLayout>;
+}
+
+function SuperAdminRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { role, isLoading: roleLoading } = useUserRole();
+
+  if (authLoading || roleLoading) {
+    return <FullPageLoading />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (role !== "super_admin") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <AppLayout>{children}</AppLayout>;
 }
 
 function AuthenticatedRoute({ children }: { children: ReactNode }) {
@@ -230,31 +306,89 @@ function AppRoutes() {
       <Route path="/recurring-bills" element={<PrivateRoute>{withSuspense(<RecurringBills />)}</PrivateRoute>} />
       <Route path="/messages" element={<PrivateRoute>{withSuspense(<MessagesPageV2 />)}</PrivateRoute>} />
       <Route path="/bookings" element={<PrivateRoute>{withSuspense(<Bookings />)}</PrivateRoute>} />
-      <Route path="/marketplace/manage" element={<PrivateRoute>{withSuspense(<MarketplaceManage />)}</PrivateRoute>} />
-      <Route path="/marketplace/moderation" element={<PrivateRoute>{withSuspense(<MarketplaceModeration />)}</PrivateRoute>} />
-      <Route path="/marketplace/verification" element={<PrivateRoute>{withSuspense(<MarketplaceVerification />)}</PrivateRoute>} />
-      <Route path="/marketplace/reviewer" element={<PrivateRoute>{withSuspense(<MarketplaceReviewerQueue />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm" element={<PrivateRoute>{withSuspense(<MarketplaceCrmOverview />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/reports" element={<PrivateRoute>{withSuspense(<MarketplaceCrmReports />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/automation" element={<PrivateRoute>{withSuspense(<MarketplaceCrmAutomation />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/modules" element={<PrivateRoute>{withSuspense(<MarketplaceCrmModules />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/leads" element={<PrivateRoute>{withSuspense(<MarketplaceCrmLeads />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/contacts" element={<PrivateRoute>{withSuspense(<MarketplaceCrmContacts />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/accounts" element={<PrivateRoute>{withSuspense(<MarketplaceCrmAccounts />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/deals" element={<PrivateRoute>{withSuspense(<MarketplaceCrmDeals />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/tasks" element={<PrivateRoute>{withSuspense(<MarketplaceCrmTasks />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/meetings" element={<PrivateRoute>{withSuspense(<MarketplaceCrmMeetings />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/calls" element={<PrivateRoute>{withSuspense(<MarketplaceCrmCalls />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/campaigns" element={<PrivateRoute>{withSuspense(<MarketplaceCrmCampaigns />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/documents" element={<PrivateRoute>{withSuspense(<MarketplaceCrmDocuments />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/visits" element={<PrivateRoute>{withSuspense(<MarketplaceCrmVisits />)}</PrivateRoute>} />
-      <Route path="/marketplace/crm/projects" element={<PrivateRoute>{withSuspense(<MarketplaceCrmProjects />)}</PrivateRoute>} />
+      <Route
+        path="/marketplace/manage"
+        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.listings.manage" featureName="Marketplace">{withSuspense(<MarketplaceManage />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/moderation"
+        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.moderation.view" featureName="Marketplace Moderation">{withSuspense(<MarketplaceModeration />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/verification"
+        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.moderation.view" featureName="Marketplace Verification">{withSuspense(<MarketplaceVerification />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/reviewer"
+        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.moderation.view" featureName="Marketplace Reviewer Queue">{withSuspense(<MarketplaceReviewerQueue />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.leads.manage" featureName="Marketplace CRM">{withSuspense(<MarketplaceCrmOverview />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/reports"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.leads.manage" featureName="Marketplace CRM Reports">{withSuspense(<MarketplaceCrmReports />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/automation"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.automation.manage" featureName="Marketplace CRM Automation">{withSuspense(<MarketplaceCrmAutomation />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/modules"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.automation.manage" featureName="Marketplace CRM Modules">{withSuspense(<MarketplaceCrmModules />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/leads"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.leads.manage" featureName="Marketplace CRM Leads">{withSuspense(<MarketplaceCrmLeads />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/contacts"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.leads.manage" featureName="Marketplace CRM Contacts">{withSuspense(<MarketplaceCrmContacts />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/accounts"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.leads.manage" featureName="Marketplace CRM Accounts">{withSuspense(<MarketplaceCrmAccounts />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/deals"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.deals.manage" featureName="Marketplace CRM Deals">{withSuspense(<MarketplaceCrmDeals />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/tasks"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.calls_meetings.manage" featureName="Marketplace CRM Tasks">{withSuspense(<MarketplaceCrmTasks />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/meetings"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.calls_meetings.manage" featureName="Marketplace CRM Meetings">{withSuspense(<MarketplaceCrmMeetings />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/calls"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.calls_meetings.manage" featureName="Marketplace CRM Calls">{withSuspense(<MarketplaceCrmCalls />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/campaigns"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.automation.manage" featureName="Marketplace CRM Campaigns">{withSuspense(<MarketplaceCrmCampaigns />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/documents"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.leads.manage" featureName="Marketplace CRM Documents">{withSuspense(<MarketplaceCrmDocuments />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/visits"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.leads.manage" featureName="Marketplace CRM Visits">{withSuspense(<MarketplaceCrmVisits />)}</FeatureRoute></PrivateRoute>}
+      />
+      <Route
+        path="/marketplace/crm/projects"
+        element={<PrivateRoute><FeatureRoute entitlementKey="crm.leads.manage" featureName="Marketplace CRM Projects">{withSuspense(<MarketplaceCrmProjects />)}</FeatureRoute></PrivateRoute>}
+      />
       <Route path="/guest-booking-portal" element={<PrivateRoute>{withSuspense(<GuestBookingPortal />)}</PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute>{withSuspense(<Notifications />)}</PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute>{withSuspense(<Reports />)}</PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute>{withSuspense(<Settings />)}</PrivateRoute>} />
       <Route path="/support" element={<PrivateRoute>{withSuspense(<HelpSupport />)}</PrivateRoute>} />
       <Route path="/broadcasts" element={<PrivateRoute>{withSuspense(<Broadcasts />)}</PrivateRoute>} />
+      <Route path="/super-admin/control-plane" element={<SuperAdminRoute>{withSuspense(<SuperAdminControlPlane />)}</SuperAdminRoute>} />
 
       <Route path="/tenant/login" element={withSuspense(<TenantLogin />)} />
       <Route path="/tenant/signup" element={withSuspense(<TenantSignup />)} />

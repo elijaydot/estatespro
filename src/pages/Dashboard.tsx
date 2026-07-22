@@ -31,6 +31,8 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { useSaasAccess } from '@/hooks/useSaasAccess';
 
 function StatCard({ 
   title, value, subtitle, icon: Icon, iconColor, trend, href, className
@@ -73,8 +75,19 @@ function StatCard({
 
 export default function Dashboard() {
   const { data: stats, isLoading } = useDashboardStats();
+  const { entitlements, quotas, isLoading: saasLoading } = useSaasAccess();
   const { formatCurrency } = useSettings();
   const navigate = useNavigate();
+
+  const quotaLabels: Record<string, string> = {
+    properties_managed: 'Properties',
+    units_managed: 'Units',
+    active_tenants: 'Active Tenants',
+    property_manager_seats: 'Manager Seats',
+    ai_credits_monthly: 'AI Credits',
+  };
+
+  const aiEnabled = entitlements['ai.assistant.enabled'];
 
   const attentionItems = stats
     ? [
@@ -238,6 +251,42 @@ export default function Dashboard() {
               <p className="text-xs text-primary">
                 Receivables exposure today: {formatCurrency(stats.pendingPayments + stats.overduePayments)}
               </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!saasLoading && quotas.length > 0 && (
+        <Card className="border border-border/70 bg-card/90 backdrop-blur-sm card-shadow-md">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Plan Usage Snapshot</p>
+                <p className="text-sm font-medium text-foreground mt-1">Current quota usage for your active company.</p>
+              </div>
+              <Button size="sm" variant="outline" className="rounded-full" onClick={() => navigate('/settings?tab=billing')}>
+                View Plan
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {quotas.map((quota) => {
+                const hardLimitText = quota.hard_limit > 0 ? String(quota.hard_limit) : 'Unlimited';
+                return (
+                  <div key={quota.quota_code} className="rounded-xl border border-border/70 bg-background/70 p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">{quotaLabels[quota.quota_code] || quota.quota_code}</p>
+                      <p className="text-xs font-semibold text-foreground">
+                        {quota.used_value} / {hardLimitText}
+                      </p>
+                    </div>
+                    <Progress value={quota.usage_percent} className="h-2" />
+                    <p className="text-[11px] text-muted-foreground">
+                      {quota.remaining > 0 ? `${quota.remaining} remaining` : 'At or above limit'}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -412,23 +461,37 @@ export default function Dashboard() {
       </div>
 
       {/* Smart Search & Insights */}
-      <div className="animate-enter stagger-2">
-        <SmartSearchInsights />
-      </div>
+      {aiEnabled ? (
+        <>
+          <div className="animate-enter stagger-2">
+            <SmartSearchInsights />
+          </div>
 
-      {/* Financial Intelligence */}
-      <div className="animate-enter stagger-3">
-        <FinancialIntelligence />
-      </div>
+          {/* Financial Intelligence */}
+          <div className="animate-enter stagger-3">
+            <FinancialIntelligence />
+          </div>
 
-      {/* Predictive Analytics */}
-      <div className="animate-enter stagger-4">
-        <PredictiveAnalytics />
-      </div>
+          {/* Predictive Analytics */}
+          <div className="animate-enter stagger-4">
+            <PredictiveAnalytics />
+          </div>
 
-      <div className="animate-enter stagger-5">
-        <AIAssistant />
-      </div>
+          <div className="animate-enter stagger-5">
+            <AIAssistant />
+          </div>
+        </>
+      ) : (
+        <Card className="border-dashed border-border/70 animate-enter stagger-2">
+          <CardContent className="p-6 text-center space-y-2">
+            <p className="text-base font-semibold text-foreground">AI Intelligence Add-on Locked</p>
+            <p className="text-sm text-muted-foreground">Upgrade your plan to unlock AI insights, predictive analytics, and assistant workflows.</p>
+            <div className="flex justify-center">
+              <Button onClick={() => navigate('/settings?tab=billing')}>Explore AI Add-on</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
