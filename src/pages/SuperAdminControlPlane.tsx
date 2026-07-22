@@ -23,6 +23,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import { useSearchParams } from 'react-router-dom';
 import { downloadCsv, downloadJson, isInTimeRange, matchesSearch, rowsToCsv, type TimeRange } from '@/lib/controlPlane';
+import {
+  parseControlPlaneUiState,
+  toControlPlaneSearchParams,
+  type AlertStatusFilter,
+  type ControlPlaneTab,
+  type DecisionFilter,
+  type EventResultFilter,
+  type SeverityFilter,
+} from '@/lib/controlPlaneState';
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString();
@@ -35,22 +44,8 @@ function SeverityBadge({ severity }: { severity: string }) {
 }
 
 type OperatorRole = 'security_auditor' | 'support_operator' | 'billing_operator';
-type ControlPlaneTab =
-  | 'overview'
-  | 'alerts'
-  | 'events'
-  | 'decisions'
-  | 'usage'
-  | 'incidents'
-  | 'company360'
-  | 'user360'
-  | 'operators';
-
-const VALID_TABS: ControlPlaneTab[] = ['overview', 'alerts', 'events', 'decisions', 'usage', 'incidents', 'company360', 'user360', 'operators'];
-
 function normalizeTab(value: string | null): ControlPlaneTab {
-  if (!value) return 'overview';
-  return (VALID_TABS as string[]).includes(value) ? (value as ControlPlaneTab) : 'overview';
+  return parseControlPlaneUiState(new URLSearchParams(value ? `cp_tab=${value}` : '')).tab;
 }
 
 function isUuidLike(value: string) {
@@ -80,6 +75,7 @@ export default function SuperAdminControlPlane() {
   const { toast } = useToast();
   const { canOverride, overrideEnabled, setOverrideEnabled } = useSuperAdminOverride();
   const [searchParams, setSearchParams] = useSearchParams();
+  const parsedState = parseControlPlaneUiState(searchParams);
 
   const events = useControlPlaneEvents(100);
   const alerts = useControlPlaneAlerts(100);
@@ -89,31 +85,32 @@ export default function SuperAdminControlPlane() {
   const assignOperatorRole = useAssignPlatformOperatorRole();
   const removeOperatorRole = useRemovePlatformOperatorRole();
 
-  const [activeTab, setActiveTab] = useState<ControlPlaneTab>(() => normalizeTab(searchParams.get('cp_tab')));
-  const [timeRange, setTimeRange] = useState<TimeRange>(() => (searchParams.get('cp_range') as TimeRange) || '7d');
-  const [search, setSearch] = useState(() => searchParams.get('cp_q') || '');
-  const [severityFilter, setSeverityFilter] = useState<'all' | 'info' | 'warning' | 'error' | 'critical'>(() => (searchParams.get('cp_sev') as 'all' | 'info' | 'warning' | 'error' | 'critical') || 'all');
-  const [eventResultFilter, setEventResultFilter] = useState<'all' | 'success' | 'warning' | 'blocked' | 'denied' | 'error'>(() => (searchParams.get('cp_result') as 'all' | 'success' | 'warning' | 'blocked' | 'denied' | 'error') || 'all');
-  const [alertStatusFilter, setAlertStatusFilter] = useState<'all' | 'open' | 'acknowledged' | 'resolved'>(() => (searchParams.get('cp_alert') as 'all' | 'open' | 'acknowledged' | 'resolved') || 'all');
-  const [decisionFilter, setDecisionFilter] = useState<'all' | 'allowed' | 'denied'>(() => (searchParams.get('cp_decision') as 'all' | 'allowed' | 'denied') || 'all');
-  const [companyFilter, setCompanyFilter] = useState(() => searchParams.get('cp_company') || '');
-  const [userFilter, setUserFilter] = useState(() => searchParams.get('cp_user') || '');
-  const [correlationFilter, setCorrelationFilter] = useState(() => searchParams.get('cp_correlation') || '');
+  const [activeTab, setActiveTab] = useState<ControlPlaneTab>(parsedState.tab);
+  const [timeRange, setTimeRange] = useState<TimeRange>(parsedState.timeRange);
+  const [search, setSearch] = useState(parsedState.search);
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>(parsedState.severityFilter);
+  const [eventResultFilter, setEventResultFilter] = useState<EventResultFilter>(parsedState.eventResultFilter);
+  const [alertStatusFilter, setAlertStatusFilter] = useState<AlertStatusFilter>(parsedState.alertStatusFilter);
+  const [decisionFilter, setDecisionFilter] = useState<DecisionFilter>(parsedState.decisionFilter);
+  const [companyFilter, setCompanyFilter] = useState(parsedState.companyFilter);
+  const [userFilter, setUserFilter] = useState(parsedState.userFilter);
+  const [correlationFilter, setCorrelationFilter] = useState(parsedState.correlationFilter);
   const [operatorUserId, setOperatorUserId] = useState('');
   const [operatorRole, setOperatorRole] = useState<OperatorRole>('security_auditor');
 
   useEffect(() => {
-    const next = new URLSearchParams();
-    next.set('cp_tab', activeTab);
-    next.set('cp_range', timeRange);
-    if (search) next.set('cp_q', search);
-    if (severityFilter !== 'all') next.set('cp_sev', severityFilter);
-    if (eventResultFilter !== 'all') next.set('cp_result', eventResultFilter);
-    if (alertStatusFilter !== 'all') next.set('cp_alert', alertStatusFilter);
-    if (decisionFilter !== 'all') next.set('cp_decision', decisionFilter);
-    if (companyFilter) next.set('cp_company', companyFilter);
-    if (userFilter) next.set('cp_user', userFilter);
-    if (correlationFilter) next.set('cp_correlation', correlationFilter);
+    const next = toControlPlaneSearchParams({
+      tab: activeTab,
+      timeRange,
+      search,
+      severityFilter,
+      eventResultFilter,
+      alertStatusFilter,
+      decisionFilter,
+      companyFilter,
+      userFilter,
+      correlationFilter,
+    });
 
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
