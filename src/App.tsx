@@ -15,6 +15,7 @@ import { useMyMembership } from "@/hooks/useCompanies";
 import { isDeviceTrusted } from "@/lib/trustedDevice";
 import { useSaasAccess, type SaasEntitlementKey } from "@/hooks/useSaasAccess";
 import { useActiveCompany } from "@/contexts/useActiveCompany";
+import { useSuperAdminOverride } from "@/hooks/useSuperAdminOverride";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -137,7 +138,16 @@ function FeatureRoute({
   children: ReactNode;
 }) {
   const { activeCompanyId } = useActiveCompany();
+  const { isOverrideActive, isLoadingRole } = useSuperAdminOverride();
   const { entitlements, isLoading } = useSaasAccess();
+
+  if (isLoadingRole) {
+    return <FullPageLoading />;
+  }
+
+  if (isOverrideActive) {
+    return <>{children}</>;
+  }
 
   if (isLoading) {
     return <FullPageLoading />;

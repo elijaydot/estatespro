@@ -40,6 +40,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useSaasAccess, type SaasEntitlementKey } from '@/hooks/useSaasAccess';
+import { useSuperAdminOverride } from '@/hooks/useSuperAdminOverride';
+import { Switch } from '@/components/ui/switch';
 
 interface AppSidebarProps {
   mobile?: boolean;
@@ -119,6 +121,7 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
   const { isLandlord, role } = useUserRole();
   const { companies, activeCompanyId, setActiveCompanyId } = useActiveCompany();
   const { entitlements, isLoading: saasLoading } = useSaasAccess();
+  const { canOverride, overrideEnabled, isOverrideActive, setOverrideEnabled } = useSuperAdminOverride();
   const collapsedView = !mobile && collapsed;
 
   const navSectionsBase = role === 'super_admin'
@@ -295,7 +298,7 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
                 <ul className="space-y-1">
                   {section.items.map((item) => {
                     const isActive = isItemActive(item.href);
-                    const isLocked = Boolean(item.entitlementKey) && !saasLoading && !entitlements[item.entitlementKey as SaasEntitlementKey];
+                    const isLocked = Boolean(item.entitlementKey) && !isOverrideActive && !saasLoading && !entitlements[item.entitlementKey as SaasEntitlementKey];
                     const targetHref = isLocked ? '/settings?tab=billing' : item.href;
                     const linkLabel = isLocked ? `${item.label} (Upgrade)` : item.label;
 
@@ -363,6 +366,21 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
           </ul>
 
           <Separator className="my-3 bg-sidebar-border" />
+
+          {!collapsedView && canOverride && (
+            <>
+              <div className="mb-3 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/50 px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-sidebar-foreground/55">Platform Override</p>
+                    <p className="text-xs text-sidebar-foreground/70">Bypass plan entitlement locks</p>
+                  </div>
+                  <Switch checked={overrideEnabled} onCheckedChange={setOverrideEnabled} />
+                </div>
+              </div>
+              <Separator className="my-3 bg-sidebar-border" />
+            </>
+          )}
 
           {/* User Profile */}
           <div className={cn('flex items-center gap-3', collapsedView && 'justify-center')}>
