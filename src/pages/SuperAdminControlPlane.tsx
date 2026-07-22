@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Shield, Siren, Activity, Fingerprint, RefreshCw, Plus, Trash2, Sparkles, Download } from 'lucide-react';
+import { Shield, Siren, Activity, Fingerprint, RefreshCw, Sparkles, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,12 +33,15 @@ import {
   type SeverityFilter,
 } from '@/lib/controlPlaneState';
 import { EmptyState } from '@/components/control-plane/EmptyState';
+import { OverviewTab } from '@/components/control-plane/tabs/OverviewTab';
+import { OperatorsTab, type OperatorRole } from '@/components/control-plane/tabs/OperatorsTab';
 import {
   buildCompany360Rows,
   buildCorrelationSummary,
   buildIncidentTimeline,
   buildUser360Rows,
 } from '@/lib/controlPlaneViews';
+import { getControlPlaneExportRows } from '@/lib/controlPlaneExports';
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString();
@@ -50,7 +53,6 @@ function SeverityBadge({ severity }: { severity: string }) {
   return <Badge variant="outline">{severity}</Badge>;
 }
 
-type OperatorRole = 'security_auditor' | 'support_operator' | 'billing_operator';
 function normalizeTab(value: string | null): ControlPlaneTab {
   return parseControlPlaneUiState(new URLSearchParams(value ? `cp_tab=${value}` : '')).tab;
 }
@@ -210,19 +212,20 @@ export default function SuperAdminControlPlane() {
   const highRiskEvents = filteredEvents.filter((item) => item.risk_score >= 80).length;
 
   const exportRows = () => {
-    const map: Record<ControlPlaneTab, unknown[]> = {
-      overview: [{ openAlerts, blockedEvents, highRiskEvents, usageSnapshots: filteredUsage.length }],
+    return getControlPlaneExportRows(activeTab, {
+      openAlerts,
+      blockedEvents,
+      highRiskEvents,
       alerts: filteredAlerts,
       events: filteredEvents,
       decisions: filteredDecisions,
       usage: filteredUsage,
       incidents: incidentTimeline,
-      company360: companyRows,
-      user360: userRows,
+      companyRows,
+      userRows,
       operators: operatorRoles.data || [],
-    };
-
-    return map[activeTab] || [];
+      correlationSummary,
+    });
   };
 
   const handleExportCsv = () => {
@@ -467,69 +470,13 @@ export default function SuperAdminControlPlane() {
             <TabsTrigger value="operators">Operators</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Top Risk Correlations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {filteredEvents.length === 0 ? (
-                    <EmptyState title="No events yet" description="Generate a test event or expand filters." />
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Correlation</TableHead>
-                          <TableHead>Events</TableHead>
-                          <TableHead>High Risk</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {correlationSummary.map((row) => (
-                            <TableRow key={row.correlation_id}>
-                              <TableCell className="max-w-[300px] truncate" title={row.correlation_id}>{row.correlation_id}</TableCell>
-                              <TableCell>{row.events}</TableCell>
-                              <TableCell>{row.high_risk}</TableCell>
-                            </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Recent Governance Alerts</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {filteredAlerts.length === 0 ? (
-                    <EmptyState title="No alerts" description="No alerts are currently visible with your filters." />
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Created</TableHead>
-                          <TableHead>Severity</TableHead>
-                          <TableHead>Title</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredAlerts.slice(0, 10).map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>{formatDate(item.created_at)}</TableCell>
-                            <TableCell><SeverityBadge severity={item.severity} /></TableCell>
-                            <TableCell>{item.title}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+          <OverviewTab
+            eventsCount={filteredEvents.length}
+            alerts={filteredAlerts}
+            correlations={correlationSummary}
+            formatDate={formatDate}
+            renderSeverity={(severity) => <SeverityBadge severity={severity} />}
+          />
 
           <TabsContent value="alerts">
             <Card>
@@ -828,83 +775,31 @@ export default function SuperAdminControlPlane() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="operators">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Platform Operator Roles</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_220px_auto] gap-2">
-                  <Input
-                    placeholder="User UUID"
-                    value={operatorUserId}
-                    onChange={(e) => setOperatorUserId(e.target.value)}
-                  />
-                  <Select value={operatorRole} onValueChange={(value) => setOperatorRole(value as OperatorRole)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="security_auditor">security_auditor</SelectItem>
-                      <SelectItem value="support_operator">support_operator</SelectItem>
-                      <SelectItem value="billing_operator">billing_operator</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button onClick={() => void handleAssignRole()} disabled={assignOperatorRole.isPending}>
-                    <Plus className="h-4 w-4 mr-1" /> Assign
-                  </Button>
-                </div>
-
-                {(operatorRoles.data || []).length === 0 ? (
-                  <EmptyState
-                    title="No operator roles assigned"
-                    description="Assign security, support, and billing operator users here."
-                  />
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Created</TableHead>
-                        <TableHead>User ID</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(operatorRoles.data || []).map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{formatDate(item.created_at)}</TableCell>
-                          <TableCell className="max-w-[320px] truncate" title={item.user_id}>{item.user_id}</TableCell>
-                          <TableCell>{item.role}</TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={removeOperatorRole.isPending}
-                              onClick={async () => {
-                                try {
-                                  await removeOperatorRole.mutateAsync(item.id);
-                                  toast({ title: 'Operator role removed', description: `${item.role} revoked.` });
-                                } catch (error) {
-                                  toast({
-                                    title: 'Removal failed',
-                                    description: error instanceof Error ? error.message : 'Could not remove role.',
-                                    variant: 'destructive',
-                                  });
-                                }
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+          <OperatorsTab
+            roles={operatorRoles.data || []}
+            operatorUserId={operatorUserId}
+            operatorRole={operatorRole}
+            isAssignPending={assignOperatorRole.isPending}
+            isRemovePending={removeOperatorRole.isPending}
+            onOperatorUserIdChange={setOperatorUserId}
+            onOperatorRoleChange={setOperatorRole}
+            onAssign={() => void handleAssignRole()}
+            onRemove={(id) => {
+              void (async () => {
+                try {
+                  await removeOperatorRole.mutateAsync(id);
+                  toast({ title: 'Operator role removed', description: 'Role revoked.' });
+                } catch (error) {
+                  toast({
+                    title: 'Removal failed',
+                    description: error instanceof Error ? error.message : 'Could not remove role.',
+                    variant: 'destructive',
+                  });
+                }
+              })();
+            }}
+            formatDate={formatDate}
+          />
         </Tabs>
       )}
     </div>

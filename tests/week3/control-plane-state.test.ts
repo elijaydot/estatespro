@@ -40,4 +40,38 @@ describe('controlPlaneState utils', () => {
 
     expect(decoded).toEqual(original);
   });
+
+  it('keeps URLs concise by omitting default filters while preserving tab/range', () => {
+    const encoded = toControlPlaneSearchParams({
+      ...DEFAULT_CONTROL_PLANE_STATE,
+      tab: 'operators',
+      timeRange: '24h',
+      search: '',
+      severityFilter: 'all',
+      eventResultFilter: 'all',
+      alertStatusFilter: 'all',
+      decisionFilter: 'all',
+      companyFilter: '',
+      userFilter: '',
+      correlationFilter: '',
+    });
+
+    expect(encoded.get('cp_tab')).toBe('operators');
+    expect(encoded.get('cp_range')).toBe('24h');
+    expect(encoded.has('cp_q')).toBe(false);
+    expect(encoded.has('cp_sev')).toBe(false);
+    expect(encoded.has('cp_result')).toBe(false);
+    expect(encoded.has('cp_alert')).toBe(false);
+    expect(encoded.has('cp_decision')).toBe(false);
+    expect(encoded.has('cp_company')).toBe(false);
+    expect(encoded.has('cp_user')).toBe(false);
+    expect(encoded.has('cp_correlation')).toBe(false);
+
+    const decoded = parseControlPlaneUiState(encoded);
+    expect(decoded).toEqual({
+      ...DEFAULT_CONTROL_PLANE_STATE,
+      tab: 'operators',
+      timeRange: '24h',
+    });
+  });
 });
