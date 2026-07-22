@@ -105,6 +105,8 @@ export type PlatformPhase10RunResult = {
   correlation_id: string;
 };
 
+export type GovernanceAlertStatus = GovernanceAlert['status'];
+
 export function useControlPlaneEvents(limit = 100) {
   return useQuery({
     queryKey: ['control-plane-events', limit],
@@ -237,6 +239,29 @@ export function useRunPlatformPhase10() {
         queryClient.invalidateQueries({ queryKey: ['control-plane-events'] }),
         queryClient.invalidateQueries({ queryKey: ['control-plane-alerts'] }),
       ]);
+    },
+  });
+}
+
+export function useUpdateGovernanceAlertStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      status: GovernanceAlertStatus;
+    }) => {
+      const resolvedAt = input.status === 'resolved' ? new Date().toISOString() : null;
+      const { error } = await supabase
+        .from('governance_alerts' as never)
+        .update({ status: input.status, resolved_at: resolvedAt } as never)
+        .eq('id', input.id);
+
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['control-plane-alerts'] });
     },
   });
 }

@@ -19,6 +19,7 @@ import {
   usePlatformOperatorRoles,
   useRemovePlatformOperatorRole,
   useRunPlatformPhase10,
+  useUpdateGovernanceAlertStatus,
   useUsageSnapshots,
 } from '@/hooks/useControlPlane';
 import { useSuperAdminOverride } from '@/hooks/useSuperAdminOverride';
@@ -95,6 +96,7 @@ export default function SuperAdminControlPlane() {
   const assignOperatorRole = useAssignPlatformOperatorRole();
   const removeOperatorRole = useRemovePlatformOperatorRole();
   const runPhase10 = useRunPlatformPhase10();
+  const updateAlertStatus = useUpdateGovernanceAlertStatus();
 
   const [activeTab, setActiveTab] = useState<ControlPlaneTab>(parsedState.tab);
   const [timeRange, setTimeRange] = useState<TimeRange>(parsedState.timeRange);
@@ -580,6 +582,23 @@ export default function SuperAdminControlPlane() {
     }
   };
 
+  const handleUpdateAlertStatus = async (id: string, status: 'acknowledged' | 'resolved') => {
+    try {
+      await updateAlertStatus.mutateAsync({ id, status });
+      toast({
+        title: 'Alert updated',
+        description: `Alert marked as ${status}.`,
+      });
+      void alerts.refetch();
+    } catch (error) {
+      toast({
+        title: 'Alert update failed',
+        description: error instanceof Error ? error.message : 'Could not update alert status.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -785,6 +804,7 @@ export default function SuperAdminControlPlane() {
                         <TableHead>Type</TableHead>
                         <TableHead>Title</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -795,6 +815,25 @@ export default function SuperAdminControlPlane() {
                           <TableCell>{item.alert_type}</TableCell>
                           <TableCell>{item.title}</TableCell>
                           <TableCell>{item.status}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={item.status !== 'open' || updateAlertStatus.isPending}
+                                onClick={() => void handleUpdateAlertStatus(item.id, 'acknowledged')}
+                              >
+                                Acknowledge
+                              </Button>
+                              <Button
+                                size="sm"
+                                disabled={item.status === 'resolved' || updateAlertStatus.isPending}
+                                onClick={() => void handleUpdateAlertStatus(item.id, 'resolved')}
+                              >
+                                Resolve
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
