@@ -14,8 +14,11 @@ import {
   useControlPlaneAlerts,
   useControlPlaneEvents,
   useEntitlementDecisions,
+  usePlatformAnalyticsSnapshots,
+  usePlatformDriftChecks,
   usePlatformOperatorRoles,
   useRemovePlatformOperatorRole,
+  useRunPlatformPhase10,
   useUsageSnapshots,
 } from '@/hooks/useControlPlane';
 import { useSuperAdminOverride } from '@/hooks/useSuperAdminOverride';
@@ -86,9 +89,12 @@ export default function SuperAdminControlPlane() {
   const alerts = useControlPlaneAlerts(100);
   const decisions = useEntitlementDecisions(100);
   const usage = useUsageSnapshots(100);
+  const analyticsSnapshots = usePlatformAnalyticsSnapshots(20);
+  const driftChecks = usePlatformDriftChecks(50);
   const operatorRoles = usePlatformOperatorRoles(200);
   const assignOperatorRole = useAssignPlatformOperatorRole();
   const removeOperatorRole = useRemovePlatformOperatorRole();
+  const runPhase10 = useRunPlatformPhase10();
 
   const [activeTab, setActiveTab] = useState<ControlPlaneTab>(parsedState.tab);
   const [timeRange, setTimeRange] = useState<TimeRange>(parsedState.timeRange);
@@ -137,8 +143,8 @@ export default function SuperAdminControlPlane() {
     userFilter,
   ]);
 
-  const isLoading = events.isLoading || alerts.isLoading || decisions.isLoading || usage.isLoading || operatorRoles.isLoading;
-  const hasError = events.error || alerts.error || decisions.error || usage.error || operatorRoles.error;
+  const isLoading = events.isLoading || alerts.isLoading || decisions.isLoading || usage.isLoading || analyticsSnapshots.isLoading || driftChecks.isLoading || operatorRoles.isLoading;
+  const hasError = events.error || alerts.error || decisions.error || usage.error || analyticsSnapshots.error || driftChecks.error || operatorRoles.error;
 
   useEffect(() => {
     const companyIds = new Set<string>();
@@ -230,6 +236,8 @@ export default function SuperAdminControlPlane() {
     void alerts.refetch();
     void decisions.refetch();
     void usage.refetch();
+    void analyticsSnapshots.refetch();
+    void driftChecks.refetch();
     void operatorRoles.refetch();
   };
 
@@ -421,8 +429,29 @@ export default function SuperAdminControlPlane() {
         usage_pressure: row.usage_pressure,
         risk_score: row.risk_score,
       })),
+      ...(analyticsSnapshots.data || []).map((row) => ({
+        row_type: 'analytics_snapshot',
+        snapshot_id: row.id,
+        snapshot_window: row.snapshot_window,
+        snapshot_start: row.snapshot_start,
+        snapshot_end: row.snapshot_end,
+        total_events: row.total_events,
+        entitlement_denied: row.entitlement_denied,
+        critical_open_alerts: row.critical_open_alerts,
+        created_at: row.created_at,
+      })),
+      ...(driftChecks.data || []).map((row) => ({
+        row_type: 'drift_check',
+        drift_check_id: row.id,
+        check_key: row.check_key,
+        status: row.status,
+        observed_value: row.observed_value,
+        threshold_value: row.threshold_value,
+        alert_id: row.alert_id,
+        created_at: row.created_at,
+      })),
     ];
-  }, [companyRiskRows, moduleAdoptionRows, opsSignals]);
+  }, [analyticsSnapshots.data, companyRiskRows, driftChecks.data, moduleAdoptionRows, opsSignals]);
 
   const openAlerts = filteredAlerts.filter((item) => item.status === 'open').length;
   const blockedEvents = filteredEvents.filter((item) => item.result_status === 'blocked' || item.result_status === 'denied').length;
@@ -532,6 +561,23 @@ export default function SuperAdminControlPlane() {
 
     toast({ title: 'Usage snapshot refreshed', description: 'Usage rows were generated for the company.' });
     void usage.refetch();
+  };
+
+  const handleRunPhase10 = async () => {
+    try {
+      const result = await runPhase10.mutateAsync();
+      toast({
+        title: 'Phase 10 backend run complete',
+        description: `Snapshot ${result.snapshot_id.slice(0, 8)}... captured with ${result.total_events} events.`,
+      });
+      refreshAll();
+    } catch (error) {
+      toast({
+        title: 'Phase 10 backend run failed',
+        description: error instanceof Error ? error.message : 'Could not execute backend analytics run.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -1019,6 +1065,12 @@ export default function SuperAdminControlPlane() {
             moduleRows={moduleAdoptionRows}
             opsSignals={opsSignals}
             companyRiskRows={companyRiskRows}
+            snapshots={analyticsSnapshots.data || []}
+            driftChecks={driftChecks.data || []}
+            onRunPhase10={() => void handleRunPhase10()}
+            onRefreshPhase10={refreshAll}
+            isRunPending={runPhase10.isPending}
+            formatDate={formatDate}
           />
 
           <OperatorsTab

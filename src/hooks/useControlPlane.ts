@@ -63,6 +63,48 @@ export type PlatformOperatorRole = {
   created_at: string;
 };
 
+export type PlatformAnalyticsSnapshot = {
+  id: string;
+  snapshot_window: string;
+  snapshot_start: string;
+  snapshot_end: string;
+  total_events: number;
+  blocked_events: number;
+  denied_events: number;
+  high_risk_events: number;
+  entitlement_allowed: number;
+  entitlement_denied: number;
+  open_alerts: number;
+  critical_open_alerts: number;
+  usage_pressure_count: number;
+  created_at: string;
+};
+
+export type PlatformDriftCheck = {
+  id: string;
+  check_key: string;
+  status: 'ok' | 'warning' | 'critical';
+  observed_value: number;
+  threshold_value: number;
+  window_start: string;
+  window_end: string;
+  alert_id: string | null;
+  created_at: string;
+};
+
+export type PlatformPhase10RunResult = {
+  snapshot_id: string;
+  window_start: string;
+  window_end: string;
+  total_events: number;
+  entitlement_denial_rate: number;
+  high_risk_rate: number;
+  critical_open_alerts: number;
+  usage_pressure_count: number;
+  webhook_dead_letters: number;
+  correlation_id: string;
+};
+
 export function useControlPlaneEvents(limit = 100) {
   return useQuery({
     queryKey: ['control-plane-events', limit],
@@ -139,6 +181,62 @@ export function usePlatformOperatorRoles(limit = 200) {
 
       if (error) throw error;
       return (data || []) as PlatformOperatorRole[];
+    },
+  });
+}
+
+export function usePlatformAnalyticsSnapshots(limit = 20) {
+  return useQuery({
+    queryKey: ['platform-analytics-snapshots', limit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('platform_analytics_snapshots' as never)
+        .select('id, snapshot_window, snapshot_start, snapshot_end, total_events, blocked_events, denied_events, high_risk_events, entitlement_allowed, entitlement_denied, open_alerts, critical_open_alerts, usage_pressure_count, created_at')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return (data || []) as PlatformAnalyticsSnapshot[];
+    },
+  });
+}
+
+export function usePlatformDriftChecks(limit = 50) {
+  return useQuery({
+    queryKey: ['platform-drift-checks', limit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('platform_drift_checks' as never)
+        .select('id, check_key, status, observed_value, threshold_value, window_start, window_end, alert_id, created_at')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return (data || []) as PlatformDriftCheck[];
+    },
+  });
+}
+
+export function useRunPlatformPhase10() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc('platform_phase10_run_all' as never, {
+        p_window: '24 hours',
+        p_emit_alerts: true,
+      } as never);
+
+      if (error) throw error;
+      return data as unknown as PlatformPhase10RunResult;
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['platform-analytics-snapshots'] }),
+        queryClient.invalidateQueries({ queryKey: ['platform-drift-checks'] }),
+        queryClient.invalidateQueries({ queryKey: ['control-plane-events'] }),
+        queryClient.invalidateQueries({ queryKey: ['control-plane-alerts'] }),
+      ]);
     },
   });
 }
