@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { Switch } from '@/components/ui/switch';
 import {
   useAssignPlatformOperatorRole,
@@ -298,6 +299,60 @@ export default function SuperAdminControlPlane() {
       .slice(0, 300);
   }, [userDirectory]);
 
+  const companyFilterOptions = useMemo<SearchableSelectOption[]>(() => {
+    const options: SearchableSelectOption[] = [
+      {
+        value: '',
+        label: 'All companies',
+        description: 'Clear company filter',
+      },
+      {
+        value: 'unscoped',
+        label: 'Unscoped company activity',
+        description: 'Rows where company_id is null',
+      },
+    ];
+
+    companyOptions.forEach((item) => {
+      const name = item.name || 'Unnamed company';
+      const email = item.email ? ` • ${item.email}` : '';
+      options.push({
+        value: item.id,
+        label: `${name}${email}`,
+        description: `UUID: ${item.id}`,
+      });
+    });
+
+    return options;
+  }, [companyOptions]);
+
+  const userFilterOptions = useMemo<SearchableSelectOption[]>(() => {
+    const options: SearchableSelectOption[] = [
+      {
+        value: '',
+        label: 'All users',
+        description: 'Clear user filter',
+      },
+      {
+        value: 'unknown',
+        label: 'Unknown actors',
+        description: 'Rows where actor_user_id is null',
+      },
+    ];
+
+    userOptions.forEach((item) => {
+      const name = item.name || 'Unknown user';
+      const email = item.email ? ` • ${item.email}` : '';
+      options.push({
+        value: item.user_id,
+        label: `${name}${email}`,
+        description: `UUID: ${item.user_id}`,
+      });
+    });
+
+    return options;
+  }, [userOptions]);
+
   const companyRows = useMemo(() => {
     return buildCompany360Rows(filteredEvents, filteredAlerts, filteredDecisions, filteredUsage);
   }, [filteredAlerts, filteredDecisions, filteredEvents, filteredUsage]);
@@ -452,17 +507,21 @@ export default function SuperAdminControlPlane() {
       <Card>
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-8 gap-2">
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search module, action, company, correlation..." />
-          <Input
+          <SearchableSelect
+            options={companyFilterOptions}
             value={companyFilter}
-            onChange={(e) => setCompanyFilter(e.target.value)}
-            placeholder="Company filter (UUID, name, or email)"
-            list="cp-company-options"
+            onValueChange={setCompanyFilter}
+            placeholder="Company filter (name, email, UUID)"
+            searchPlaceholder="Search company by name, email, UUID..."
+            emptyMessage="No company options found"
           />
-          <Input
+          <SearchableSelect
+            options={userFilterOptions}
             value={userFilter}
-            onChange={(e) => setUserFilter(e.target.value)}
-            placeholder="User filter (UUID, name, or email)"
-            list="cp-user-options"
+            onValueChange={setUserFilter}
+            placeholder="User filter (name, email, UUID)"
+            searchPlaceholder="Search user by name, email, UUID..."
+            emptyMessage="No user options found"
           />
           <Input value={correlationFilter} onChange={(e) => setCorrelationFilter(e.target.value)} placeholder="Correlation filter" />
           <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRange)}>
@@ -514,44 +573,6 @@ export default function SuperAdminControlPlane() {
           </Select>
         </CardContent>
       </Card>
-
-      <datalist id="cp-company-options">
-        {companyOptions.map((item) => (
-          <option
-            key={item.id}
-            value={item.id}
-            label={`${item.name || 'Unnamed'}${item.email ? ` (${item.email})` : ''}`}
-          />
-        ))}
-        {companyOptions
-          .filter((item) => Boolean(item.email))
-          .map((item) => (
-            <option
-              key={`${item.id}-email`}
-              value={item.email || ''}
-              label={`${item.name || 'Unnamed'} (${item.id})`}
-            />
-          ))}
-      </datalist>
-
-      <datalist id="cp-user-options">
-        {userOptions.map((item) => (
-          <option
-            key={item.user_id}
-            value={item.user_id}
-            label={`${item.name || 'Unknown'}${item.email ? ` (${item.email})` : ''}`}
-          />
-        ))}
-        {userOptions
-          .filter((item) => Boolean(item.email))
-          .map((item) => (
-            <option
-              key={`${item.user_id}-email`}
-              value={item.email || ''}
-              label={`${item.name || 'Unknown'} (${item.user_id})`}
-            />
-          ))}
-      </datalist>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card>
