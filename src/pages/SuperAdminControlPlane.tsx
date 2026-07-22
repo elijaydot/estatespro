@@ -42,6 +42,12 @@ import {
   buildUser360Rows,
 } from '@/lib/controlPlaneViews';
 import { getControlPlaneExportRows } from '@/lib/controlPlaneExports';
+import {
+  matchesCompanyFilter,
+  matchesUserFilter,
+  type CompanyDirectoryEntry,
+  type UserDirectoryEntry,
+} from '@/lib/controlPlaneFilterHelpers';
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString();
@@ -88,6 +94,8 @@ export default function SuperAdminControlPlane() {
   const [correlationFilter, setCorrelationFilter] = useState(parsedState.correlationFilter);
   const [operatorUserId, setOperatorUserId] = useState('');
   const [operatorRole, setOperatorRole] = useState<OperatorRole>('security_auditor');
+  const [companyDirectory, setCompanyDirectory] = useState<Map<string, CompanyDirectoryEntry>>(new Map());
+  const [userDirectory, setUserDirectory] = useState<Map<string, UserDirectoryEntry>>(new Map());
 
   useEffect(() => {
     const next = toControlPlaneSearchParams({
@@ -124,6 +132,91 @@ export default function SuperAdminControlPlane() {
   const isLoading = events.isLoading || alerts.isLoading || decisions.isLoading || usage.isLoading || operatorRoles.isLoading;
   const hasError = events.error || alerts.error || decisions.error || usage.error || operatorRoles.error;
 
+  useEffect(() => {
+    const companyIds = new Set<string>();
+    const userIds = new Set<string>();
+
+    (events.data || []).forEach((event) => {
+      if (event.company_id) companyIds.add(event.company_id);
+      if (event.actor_user_id) userIds.add(event.actor_user_id);
+    });
+
+    (alerts.data || []).forEach((alert) => {
+      if (alert.company_id) companyIds.add(alert.company_id);
+    });
+
+    (decisions.data || []).forEach((decision) => {
+      if (decision.company_id) companyIds.add(decision.company_id);
+      if (decision.actor_user_id) userIds.add(decision.actor_user_id);
+    });
+
+    (usage.data || []).forEach((snapshot) => {
+      if (snapshot.company_id) companyIds.add(snapshot.company_id);
+    });
+
+    (operatorRoles.data || []).forEach((role) => {
+      if (role.user_id) userIds.add(role.user_id);
+    });
+
+    let cancelled = false;
+
+    const loadDirectory = async () => {
+      if (companyIds.size === 0) {
+        setCompanyDirectory(new Map());
+      }
+
+      if (userIds.size === 0) {
+        setUserDirectory(new Map());
+      }
+
+      const requests: Promise<void>[] = [];
+
+      if (companyIds.size > 0) {
+        const ids = Array.from(companyIds);
+        requests.push((async () => {
+          const { data, error } = await supabase
+            .from('companies' as never)
+            .select('id, name, email')
+            .in('id', ids);
+
+          if (error || cancelled) return;
+
+          const next = new Map<string, CompanyDirectoryEntry>();
+          (data || []).forEach((item: { id: string; name: string | null; email: string | null }) => {
+            next.set(item.id, item);
+          });
+          setCompanyDirectory(next);
+        })());
+      }
+
+      if (userIds.size > 0) {
+        const ids = Array.from(userIds);
+        requests.push((async () => {
+          const { data, error } = await supabase
+            .from('profiles' as never)
+            .select('user_id, name, email')
+            .in('user_id', ids);
+
+          if (error || cancelled) return;
+
+          const next = new Map<string, UserDirectoryEntry>();
+          (data || []).forEach((item: { user_id: string; name: string | null; email: string | null }) => {
+            next.set(item.user_id, item);
+          });
+          setUserDirectory(next);
+        })());
+      }
+
+      await Promise.all(requests);
+    };
+
+    void loadDirectory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [alerts.data, decisions.data, events.data, operatorRoles.data, usage.data]);
+
   const refreshAll = () => {
     void events.refetch();
     void alerts.refetch();
@@ -139,19 +232,19 @@ export default function SuperAdminControlPlane() {
       if (severityFilter !== 'all' && item.severity !== severityFilter && !(severityFilter === 'error' && item.severity === 'critical')) {
         return false;
       }
-      if (companyFilter && item.company_id !== companyFilter) return false;
+      if (!matchesCompanyFilter(item.company_id, companyFilter, companyDirectory)) return false;
       if (correlationFilter && item.correlation_id !== correlationFilter) return false;
       return matchesSearch([item.title, item.description, item.alert_type, item.correlation_id, item.company_id, item.status], search);
     });
-  }, [alerts.data, alertStatusFilter, companyFilter, correlationFilter, search, severityFilter, timeRange]);
+  }, [alerts.data, alertStatusFilter, companyDirectory, companyFilter, correlationFilter, search, severityFilter, timeRange]);
 
   const filteredEvents = useMemo(() => {
     return (events.data || []).filter((item) => {
       if (!isInTimeRange(item.created_at, timeRange)) return false;
       if (severityFilter !== 'all' && item.severity !== severityFilter) return false;
       if (eventResultFilter !== 'all' && item.result_status !== eventResultFilter) return false;
-      if (companyFilter && item.company_id !== companyFilter) return false;
-      if (userFilter && item.actor_user_id !== userFilter) return false;
+      if (!matchesCompanyFilter(item.company_id, companyFilter, companyDirectory)) return false;
+      if (!matchesUserFilter(item.actor_user_id, userFilter, userDirectory)) return false;
       if (correlationFilter && item.correlation_id !== correlationFilter) return false;
       return matchesSearch([
         item.source,
@@ -163,15 +256,15 @@ export default function SuperAdminControlPlane() {
         item.company_id,
       ], search);
     });
-  }, [companyFilter, correlationFilter, eventResultFilter, events.data, search, severityFilter, timeRange, userFilter]);
+  }, [companyDirectory, companyFilter, correlationFilter, eventResultFilter, events.data, search, severityFilter, timeRange, userDirectory, userFilter]);
 
   const filteredDecisions = useMemo(() => {
     return (decisions.data || []).filter((item) => {
       if (!isInTimeRange(item.created_at, timeRange)) return false;
       if (decisionFilter === 'allowed' && !item.allowed) return false;
       if (decisionFilter === 'denied' && item.allowed) return false;
-      if (companyFilter && item.company_id !== companyFilter) return false;
-      if (userFilter && item.actor_user_id !== userFilter) return false;
+      if (!matchesCompanyFilter(item.company_id, companyFilter, companyDirectory)) return false;
+      if (!matchesUserFilter(item.actor_user_id, userFilter, userDirectory)) return false;
       if (correlationFilter && item.correlation_id !== correlationFilter) return false;
       return matchesSearch([
         item.module,
@@ -183,15 +276,27 @@ export default function SuperAdminControlPlane() {
         item.company_id,
       ], search);
     });
-  }, [companyFilter, correlationFilter, decisionFilter, decisions.data, search, timeRange, userFilter]);
+  }, [companyDirectory, companyFilter, correlationFilter, decisionFilter, decisions.data, search, timeRange, userDirectory, userFilter]);
 
   const filteredUsage = useMemo(() => {
     return (usage.data || []).filter((item) => {
       if (!isInTimeRange(item.snapshot_at, timeRange)) return false;
-      if (companyFilter && item.company_id !== companyFilter) return false;
+      if (!matchesCompanyFilter(item.company_id, companyFilter, companyDirectory)) return false;
       return matchesSearch([item.company_id, item.product_code, item.quota_code, item.limit_state], search);
     });
-  }, [companyFilter, search, timeRange, usage.data]);
+  }, [companyDirectory, companyFilter, search, timeRange, usage.data]);
+
+  const companyOptions = useMemo(() => {
+    return Array.from(companyDirectory.values())
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+      .slice(0, 200);
+  }, [companyDirectory]);
+
+  const userOptions = useMemo(() => {
+    return Array.from(userDirectory.values())
+      .sort((a, b) => (a.email || '').localeCompare(b.email || ''))
+      .slice(0, 300);
+  }, [userDirectory]);
 
   const companyRows = useMemo(() => {
     return buildCompany360Rows(filteredEvents, filteredAlerts, filteredDecisions, filteredUsage);
@@ -347,8 +452,18 @@ export default function SuperAdminControlPlane() {
       <Card>
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-8 gap-2">
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search module, action, company, correlation..." />
-          <Input value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)} placeholder="Company UUID filter" />
-          <Input value={userFilter} onChange={(e) => setUserFilter(e.target.value)} placeholder="User UUID filter" />
+          <Input
+            value={companyFilter}
+            onChange={(e) => setCompanyFilter(e.target.value)}
+            placeholder="Company filter (UUID, name, or email)"
+            list="cp-company-options"
+          />
+          <Input
+            value={userFilter}
+            onChange={(e) => setUserFilter(e.target.value)}
+            placeholder="User filter (UUID, name, or email)"
+            list="cp-user-options"
+          />
           <Input value={correlationFilter} onChange={(e) => setCorrelationFilter(e.target.value)} placeholder="Correlation filter" />
           <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRange)}>
             <SelectTrigger>
@@ -399,6 +514,44 @@ export default function SuperAdminControlPlane() {
           </Select>
         </CardContent>
       </Card>
+
+      <datalist id="cp-company-options">
+        {companyOptions.map((item) => (
+          <option
+            key={item.id}
+            value={item.id}
+            label={`${item.name || 'Unnamed'}${item.email ? ` (${item.email})` : ''}`}
+          />
+        ))}
+        {companyOptions
+          .filter((item) => Boolean(item.email))
+          .map((item) => (
+            <option
+              key={`${item.id}-email`}
+              value={item.email || ''}
+              label={`${item.name || 'Unnamed'} (${item.id})`}
+            />
+          ))}
+      </datalist>
+
+      <datalist id="cp-user-options">
+        {userOptions.map((item) => (
+          <option
+            key={item.user_id}
+            value={item.user_id}
+            label={`${item.name || 'Unknown'}${item.email ? ` (${item.email})` : ''}`}
+          />
+        ))}
+        {userOptions
+          .filter((item) => Boolean(item.email))
+          .map((item) => (
+            <option
+              key={`${item.user_id}-email`}
+              value={item.email || ''}
+              label={`${item.name || 'Unknown'} (${item.user_id})`}
+            />
+          ))}
+      </datalist>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card>
