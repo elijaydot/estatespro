@@ -131,7 +131,7 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
       : sharedSections;
   const navSections = navSectionsBase.map((section) => {
     if (section.title !== 'Communication') return section;
-    if (role === 'landlord' || role === 'property_manager') {
+    if (role === 'landlord' || role === 'property_manager' || role === 'super_admin') {
       return { ...section, items: [...section.items.slice(0, 1), managerCommunicationItem, ...section.items.slice(1)] };
     }
     return section;

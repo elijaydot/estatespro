@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useSuperAdminOverride } from '@/hooks/useSuperAdminOverride';
 
 export type SaasEntitlementKey =
   | 'marketplace.listings.manage'
@@ -56,6 +57,7 @@ const EMPTY_ENTITLEMENTS: Record<SaasEntitlementKey, boolean> = {
 
 export function useSaasAccess() {
   const { activeCompanyId } = useActiveCompany();
+  const { isOverrideActive } = useSuperAdminOverride();
 
   const query = useQuery({
     queryKey: ['saas-access', activeCompanyId],
@@ -108,7 +110,12 @@ export function useSaasAccess() {
 
   return {
     ...query,
-    entitlements: query.data?.entitlements ?? EMPTY_ENTITLEMENTS,
+    entitlements: isOverrideActive
+      ? ENTITLEMENT_KEYS.reduce<Record<SaasEntitlementKey, boolean>>((acc, key) => {
+          acc[key] = true;
+          return acc;
+        }, { ...EMPTY_ENTITLEMENTS })
+      : (query.data?.entitlements ?? EMPTY_ENTITLEMENTS),
     quotas: query.data?.quotas ?? [],
     quotaByCode,
   };
