@@ -15,6 +15,7 @@ import {
   Sparkles,
   MessageSquare,
   Wallet,
+  LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -74,7 +75,7 @@ export default function TenantDashboard() {
     );
   }
 
-  const { tenant, property, unit, currentLease, nextPayment, stats, recurringBills = [], totalRecurringAmount = 0 } = portalData;
+  const { tenant, property, unit, currentLease, nextPayment, stats, recurringBills = [], totalRecurringAmount = 0, latestExit } = portalData;
 
   const leaseProgress = currentLease
     ? (() => {
@@ -180,6 +181,27 @@ export default function TenantDashboard() {
           <Link to="/tenant/notifications"><Button variant="outline" size="sm" className="rounded-full">Updates</Button></Link>
         </div>
       </div>
+
+      {latestExit && (
+        <Card className="card-shadow-md border-border/70 bg-gradient-to-r from-info/10 via-card to-primary/5">
+          <CardContent className="pt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-lg bg-info/15">
+                <LogOut className="h-5 w-5 text-info" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Move-out workflow in progress</p>
+                <p className="text-xs text-muted-foreground">
+                  Track your inspection, approval, and refund timeline from the tenant portal.
+                </p>
+              </div>
+            </div>
+            <Link to="/tenant/exit">
+              <Button variant="outline" className="rounded-full">Open Exit Status</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column */}

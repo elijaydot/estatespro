@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ClipboardCheck, DollarSign, CheckCircle2, Send,
-  AlertTriangle, Camera, Loader2, XCircle, ChevronRight,
+  AlertTriangle, Loader2, XCircle, ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,9 +26,10 @@ import {
   useTenantExit,
   useUpdateTenantExit,
   useExitInspectionItems,
-  useCreateInspectionItems,
+  useSeedExitInspectionItems,
   useUpdateInspectionItem,
-  useDefaultChecklist,
+  useMoveInInventorySnapshot,
+  useLeaseInventoryItems,
 } from '@/hooks/useTenantExits';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -54,11 +55,6 @@ const REFUND_METHODS = [
   { value: 'cheque', label: 'Cheque' },
 ];
 
-type ChecklistItemRow = {
-  item_name: string;
-  item_category: string;
-};
-
 export default function TenantExitWorkflow() {
   const { exitId } = useParams();
   const navigate = useNavigate();
@@ -68,9 +64,10 @@ export default function TenantExitWorkflow() {
 
   const { data: exitData, isLoading } = useTenantExit(exitId || '');
   const { data: inspectionItems = [], isLoading: loadingItems } = useExitInspectionItems(exitId || '');
-  const { data: defaultChecklist = [] } = useDefaultChecklist(exitData?.property_id);
+  const moveInSnapshot = useMoveInInventorySnapshot(exitData?.tenant_id, exitData?.property_id, exitData?.unit_id);
+  const moveInItems = useLeaseInventoryItems(moveInSnapshot.data?.id);
   const updateExit = useUpdateTenantExit();
-  const createItems = useCreateInspectionItems();
+  const seedItems = useSeedExitInspectionItems();
   const updateItem = useUpdateInspectionItem();
 
   const [activeStep, setActiveStep] = useState('inspection');
@@ -101,15 +98,12 @@ export default function TenantExitWorkflow() {
     }
   }, [exitData]);
 
-  // Load default checklist items when first loading inspection
+  // Seed inspection items from scope (global/property/unit) when entering workflow the first time.
   useEffect(() => {
-    if (exitId && inspectionItems.length === 0 && defaultChecklist.length > 0 && exitData?.status === 'inspection_pending' && !loadingItems) {
-      createItems.mutate({
-        exitId,
-        items: (defaultChecklist as ChecklistItemRow[]).map((c) => ({ item_name: c.item_name, item_category: c.item_category })),
-      });
+    if (exitId && inspectionItems.length === 0 && exitData?.status === 'inspection_pending' && !loadingItems && !seedItems.isPending) {
+      seedItems.mutate(exitId);
     }
-  }, [exitId, inspectionItems.length, defaultChecklist.length, exitData?.status, loadingItems, createItems, defaultChecklist]);
+  }, [exitId, inspectionItems.length, exitData?.status, loadingItems, seedItems]);
 
   const handleUpdateItemCondition = (itemId: string, condition: string) => {
     updateItem.mutate({ itemId, exitId: exitId!, data: { condition } });
@@ -125,6 +119,8 @@ export default function TenantExitWorkflow() {
 
   const totalDamageCost = inspectionItems.reduce((sum, item) => sum + Number(item.damage_cost), 0);
   const allItemsChecked = inspectionItems.length > 0 && inspectionItems.every(i => i.condition !== 'not_checked');
+  const hasFinalizedBaseline = moveInSnapshot.data?.status === 'finalized';
+  const baselineByKey = new Map((moveInItems.data || []).map((item) => [`${item.item_category}::${item.item_name}`.toLowerCase(), item]));
 
   const handleCompleteInspection = async () => {
     await updateExit.mutateAsync({
@@ -270,6 +266,9 @@ export default function TenantExitWorkflow() {
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate(`/tenant-inventory-baseline/${exitData.tenant_id}`)}>
+            Move-in Baseline
+          </Button>
           <Badge variant="outline">
             {exitData.exit_reason.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
           </Badge>
@@ -378,6 +377,16 @@ export default function TenantExitWorkflow() {
             <CardDescription>
               Inspect each item and record its condition. Items marked as "Damaged" will contribute to deduction calculations.
             </CardDescription>
+            {!hasFinalizedBaseline && (
+              <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
+                Move-in baseline is not finalized for this tenant. Capture and finalize it first for stronger move-out evidence.
+                <div className="mt-2">
+                  <Button size="sm" variant="outline" onClick={() => navigate(`/tenant-inventory-baseline/${exitData.tenant_id}`)}>
+                    Open Baseline Capture
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardHeader>
           <CardContent className="space-y-6">
             {Object.entries(itemsByCategory).map(([category, items]) => (
@@ -388,6 +397,21 @@ export default function TenantExitWorkflow() {
                 <div className="space-y-3">
                   {items.map(item => (
                     <div key={item.id} className="p-4 rounded-lg border bg-card hover:bg-secondary/30 transition-colors">
+                      {(() => {
+                        const baselineKey = `${item.item_category}::${item.item_name}`.toLowerCase();
+                        const baseline = baselineByKey.get(baselineKey);
+                        return (
+                          <div className="mb-3 rounded-md border border-border/70 bg-secondary/20 px-3 py-2">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Move-in baseline</p>
+                            <p className="text-xs mt-0.5 text-foreground">
+                              {baseline ? `Condition: ${baseline.condition.replace('_', ' ')}` : `Condition: ${item.baseline_condition.replace('_', ' ')}`}
+                            </p>
+                            {(baseline?.notes || item.baseline_notes) && (
+                              <p className="text-xs text-muted-foreground">Notes: {baseline?.notes || item.baseline_notes}</p>
+                            )}
+                          </div>
+                        );
+                      })()}
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
                           <p className="font-medium text-foreground">{item.item_name}</p>

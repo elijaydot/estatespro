@@ -2,12 +2,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import { toast } from '@/components/ui/use-toast';
+import { mergeScopedChecklistItems, type ScopedChecklistItem } from '@/lib/inspectionChecklist';
 
 const db = supabase;
 
 type DefaultChecklistItem = {
+  id: string;
   item_name: string;
   item_category: string;
+  is_global: boolean;
+  property_id: string | null;
+  unit_id: string | null;
+  created_at: string;
 };
 
 const getErrorMessage = (error: unknown) => {
@@ -53,6 +59,9 @@ export interface ExitInspectionItem {
   exit_id: string;
   item_name: string;
   item_category: string;
+  baseline_condition: string;
+  baseline_notes: string | null;
+  baseline_photo_url: string | null;
   condition: string;
   damage_cost: number;
   notes: string | null;
@@ -60,6 +69,35 @@ export interface ExitInspectionItem {
   checked_by: string | null;
   checked_at: string | null;
   created_at: string;
+}
+
+export interface LeaseInventorySnapshot {
+  id: string;
+  tenant_id: string;
+  property_id: string;
+  unit_id: string;
+  lease_id: string | null;
+  exit_id: string | null;
+  phase: 'move_in' | 'move_out';
+  status: 'draft' | 'finalized';
+  notes: string | null;
+  captured_by: string | null;
+  captured_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeaseInventoryItem {
+  id: string;
+  snapshot_id: string;
+  item_name: string;
+  item_category: string;
+  condition: string;
+  notes: string | null;
+  photo_url: string | null;
+  damage_cost: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // Fetch a single tenant exit
@@ -179,13 +217,32 @@ export function useExitInspectionItems(exitId: string) {
     queryFn: async () => {
       const { data, error } = await db
         .from('exit_inspection_items')
-        .select('*')
+        .select('id, exit_id, item_name, item_category, baseline_condition, baseline_notes, baseline_photo_url, condition, damage_cost, notes, photo_url, checked_by, checked_at, created_at')
         .eq('exit_id', exitId)
         .order('item_category', { ascending: true });
       if (error) throw error;
       return data as ExitInspectionItem[];
     },
     enabled: !!exitId,
+  });
+}
+
+export function useSeedExitInspectionItems() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (exitId: string) => {
+      const { data, error } = await db.rpc('seed_exit_inspection_items_from_scope' as never, {
+        p_exit_id: exitId,
+      } as never);
+      if (error) throw error;
+      return Number(data || 0);
+    },
+    onSuccess: (_, exitId) => {
+      queryClient.invalidateQueries({ queryKey: ['exit-inspection-items', exitId] });
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
+    },
   });
 }
 
@@ -244,37 +301,140 @@ export function useUpdateInspectionItem() {
 }
 
 // Fetch default inspection checklist for a property (global + property-specific)
-export function useDefaultChecklist(propertyId: string | undefined) {
+export function useDefaultChecklist(propertyId: string | undefined, unitId?: string | undefined) {
   return useQuery({
-    queryKey: ['default-checklist', propertyId],
+    queryKey: ['default-checklist', propertyId, unitId],
     queryFn: async () => {
-      // Fetch global items
-      const { data: globalItems, error: globalError } = await db
+      const { data, error } = await db
         .from('default_inspection_checklist')
-        .select('*')
-        .eq('is_global', true)
+        .select('id, item_name, item_category, is_global, property_id, unit_id, created_at')
+        .or([
+          'is_global.eq.true',
+          propertyId ? `property_id.eq.${propertyId}` : '',
+          unitId ? `unit_id.eq.${unitId}` : '',
+        ].filter(Boolean).join(','))
         .order('item_category');
-      if (globalError) throw globalError;
+      if (error) throw error;
 
-      let propertyItems: DefaultChecklistItem[] = [];
-      if (propertyId) {
-        const { data, error } = await db
-          .from('default_inspection_checklist')
-          .select('*')
-          .eq('property_id', propertyId)
-          .eq('is_global', false)
-          .order('item_category');
-        if (!error) propertyItems = data || [];
-      }
-
-      // Merge: property-specific items override globals with same name
-      const propertyItemNames = new Set(propertyItems.map((i) => i.item_name));
-      const merged = [
-        ...(globalItems || []).filter((g: DefaultChecklistItem) => !propertyItemNames.has(g.item_name)),
-        ...propertyItems,
-      ];
-      return merged;
+      return mergeScopedChecklistItems((data || []) as ScopedChecklistItem[]);
     },
     enabled: true,
+  });
+}
+
+export function useMoveInInventorySnapshot(tenantId: string | undefined, propertyId: string | undefined, unitId: string | undefined) {
+  return useQuery({
+    queryKey: ['move-in-inventory-snapshot', tenantId, propertyId, unitId],
+    queryFn: async () => {
+      if (!tenantId || !propertyId || !unitId) return null;
+      const { data, error } = await db
+        .from('lease_inventory_snapshots' as never)
+        .select('id, tenant_id, property_id, unit_id, lease_id, exit_id, phase, status, notes, captured_by, captured_at, created_at, updated_at')
+        .eq('tenant_id', tenantId)
+        .eq('property_id', propertyId)
+        .eq('unit_id', unitId)
+        .eq('phase', 'move_in')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return (data || null) as LeaseInventorySnapshot | null;
+    },
+    enabled: !!tenantId && !!propertyId && !!unitId,
+  });
+}
+
+export function useLeaseInventoryItems(snapshotId: string | undefined) {
+  return useQuery({
+    queryKey: ['lease-inventory-items', snapshotId],
+    queryFn: async () => {
+      if (!snapshotId) return [];
+      const { data, error } = await db
+        .from('lease_inventory_items' as never)
+        .select('id, snapshot_id, item_name, item_category, condition, notes, photo_url, damage_cost, created_at, updated_at')
+        .eq('snapshot_id', snapshotId)
+        .order('item_category', { ascending: true });
+      if (error) throw error;
+      return (data || []) as LeaseInventoryItem[];
+    },
+    enabled: !!snapshotId,
+  });
+}
+
+export function useSeedMoveInInventorySnapshot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      tenantId: string;
+      propertyId: string;
+      unitId: string;
+      leaseId?: string | null;
+    }) => {
+      const { data, error } = await db.rpc('seed_move_in_inventory_snapshot' as never, {
+        p_tenant_id: input.tenantId,
+        p_property_id: input.propertyId,
+        p_unit_id: input.unitId,
+        p_lease_id: input.leaseId || null,
+      } as never);
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['move-in-inventory-snapshot'] });
+      queryClient.invalidateQueries({ queryKey: ['lease-inventory-items'] });
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateLeaseInventoryItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ itemId, snapshotId, data: updateData }: { itemId: string; snapshotId: string; data: Record<string, unknown> }) => {
+      const { data, error } = await db
+        .from('lease_inventory_items' as never)
+        .update({ ...updateData, updated_at: new Date().toISOString() } as never)
+        .eq('id', itemId)
+        .select('id, snapshot_id, item_name, item_category, condition, notes, photo_url, damage_cost, created_at, updated_at')
+        .single();
+      if (error) throw error;
+      return data as LeaseInventoryItem;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['lease-inventory-items', variables.snapshotId] });
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
+    },
+  });
+}
+
+export function useFinalizeMoveInInventorySnapshot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ snapshotId, notes }: { snapshotId: string; notes?: string }) => {
+      const { data, error } = await db
+        .from('lease_inventory_snapshots' as never)
+        .update({
+          status: 'finalized',
+          notes: notes || null,
+          captured_by: (await db.auth.getUser()).data.user?.id || null,
+          captured_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as never)
+        .eq('id', snapshotId)
+        .select('id, tenant_id, property_id, unit_id, lease_id, exit_id, phase, status, notes, captured_by, captured_at, created_at, updated_at')
+        .single();
+      if (error) throw error;
+      return data as LeaseInventorySnapshot;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['move-in-inventory-snapshot'] });
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
+    },
   });
 }

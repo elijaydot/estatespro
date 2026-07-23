@@ -428,6 +428,14 @@ export default function TenantDetail() {
               >
                 <Calendar className="h-4 w-4 mr-2" /> Create Lease
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  navigate(`/tenant-inventory-baseline/${tenant.id}`);
+                }}
+              >
+                <FileText className="h-4 w-4 mr-2" /> Move-in Baseline Inventory
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               {tenant.status === 'active' && (
                 <DropdownMenuItem

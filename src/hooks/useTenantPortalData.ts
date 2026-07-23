@@ -98,6 +98,18 @@ export function useTenantPortalData() {
       const activeBills = filteredBills;
       const totalRecurringAmount = activeBills.reduce((sum, b) => sum + Number(b.amount), 0);
 
+      const { data: tenantExits, error: tenantExitsError } = await supabase
+        .from('tenant_exits')
+        .select('*')
+        .eq('tenant_id', tenant.id)
+        .order('created_at', { ascending: false });
+
+      if (tenantExitsError) {
+        console.error('Error fetching tenant exits:', tenantExitsError);
+      }
+
+      const latestExit = (tenantExits || [])[0] || null;
+
       let paymentSettings: unknown = null;
       if (tenant.property_id) {
         const { data: paymentSettingsRows, error: paymentSettingsError } = await supabase
@@ -133,6 +145,8 @@ export function useTenantPortalData() {
         completedMaintenanceRequests,
         recurringBills: activeBills,
         totalRecurringAmount,
+        tenantExits: tenantExits || [],
+        latestExit,
         stats: {
           balance: tenant.balance || 0,
           openMaintenance: openMaintenanceRequests.length,

@@ -47,6 +47,7 @@ const Bookings = lazy(() => import("./pages/Bookings"));
 const GuestBookingPortal = lazy(() => import("./pages/GuestBookingPortal"));
 const TeamManagement = lazy(() => import("./pages/TeamManagement"));
 const TenantExitWorkflow = lazy(() => import("./pages/TenantExitWorkflow"));
+const TenantInventoryBaseline = lazy(() => import("./pages/TenantInventoryBaseline"));
 const HelpSupport = lazy(() => import("./pages/HelpSupport"));
 const Broadcasts = lazy(() => import("./pages/Broadcasts"));
 const MfaChallenge = lazy(() => import("./pages/MfaChallenge"));
@@ -62,6 +63,7 @@ const TenantLease = lazy(() => import("./pages/tenant-portal/TenantLease"));
 const TenantMessages = lazy(() => import("./pages/tenant-portal/TenantMessages"));
 const TenantNotifications = lazy(() => import("./pages/tenant-portal/TenantNotifications"));
 const TenantSettings = lazy(() => import("./pages/tenant-portal/TenantSettings"));
+const TenantExitStatus = lazy(() => import("./pages/tenant-portal/TenantExitStatus"));
 const TenantLeaseSign = lazy(() => import("./pages/tenant-portal/TenantLeaseSign"));
 const TenantLogin = lazy(() => import("./pages/tenant-portal/TenantLogin"));
 const TenantSignup = lazy(() => import("./pages/tenant-portal/TenantSignup"));
@@ -309,6 +311,7 @@ function AppRoutes() {
       <Route path="/tenants" element={<PrivateRoute>{withSuspense(<Tenants />)}</PrivateRoute>} />
       <Route path="/tenants/:id" element={<PrivateRoute>{withSuspense(<TenantDetail />)}</PrivateRoute>} />
       <Route path="/tenant-exit/:exitId" element={<PrivateRoute>{withSuspense(<TenantExitWorkflow />)}</PrivateRoute>} />
+      <Route path="/tenant-inventory-baseline/:tenantId" element={<PrivateRoute>{withSuspense(<TenantInventoryBaseline />)}</PrivateRoute>} />
       <Route path="/leases" element={<PrivateRoute>{withSuspense(<Leases />)}</PrivateRoute>} />
       <Route path="/invoices" element={<PrivateRoute>{withSuspense(<Invoices />)}</PrivateRoute>} />
       <Route path="/payments" element={<PrivateRoute>{withSuspense(<Payments />)}</PrivateRoute>} />
@@ -414,6 +417,7 @@ function AppRoutes() {
       <Route path="/tenant/messages" element={<TenantPortalRoute>{withSuspense(<TenantMessages />)}</TenantPortalRoute>} />
       <Route path="/tenant/notifications" element={<TenantPortalRoute>{withSuspense(<TenantNotifications />)}</TenantPortalRoute>} />
       <Route path="/tenant/settings" element={<TenantPortalRoute>{withSuspense(<TenantSettings />)}</TenantPortalRoute>} />
+      <Route path="/tenant/exit" element={<TenantPortalRoute>{withSuspense(<TenantExitStatus />)}</TenantPortalRoute>} />
       <Route path="/tenant/support" element={<TenantPortalRoute>{withSuspense(<HelpSupport />)}</TenantPortalRoute>} />
 
       <Route path="/portal" element={<Navigate to="/tenant" replace />} />

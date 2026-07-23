@@ -35,6 +35,7 @@ const navItems = [
   { label: 'Recurring Bills', icon: RefreshCw, href: '/tenant/recurring-bills' },
   { label: 'Maintenance', icon: Wrench, href: '/tenant/maintenance' },
   { label: 'Lease', icon: FileText, href: '/tenant/lease' },
+  { label: 'Exit Status', icon: LogOut, href: '/tenant/exit' },
   { label: 'Messages', icon: MessageSquare, href: '/tenant/messages' },
   { label: 'Notifications', icon: Bell, href: '/tenant/notifications' },
   { label: 'Settings', icon: Shield, href: '/tenant/settings' },
