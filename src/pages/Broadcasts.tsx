@@ -101,7 +101,7 @@ export default function Broadcasts() {
     return (
       <div className="py-10 text-center space-y-2">
         <p className="text-lg font-semibold text-foreground">Access restricted</p>
-        <p className="text-sm text-muted-foreground">Only landlords and property managers can send broadcasts.</p>
+        <p className="text-sm text-muted-foreground">Only super admins, landlords, and property managers can send broadcasts.</p>
       </div>
     );
   }

@@ -50,6 +50,6 @@ export function useUserRole() {
     isLandlord: role === 'landlord',
     isPropertyManager: role === 'property_manager',
     isTenant: role === 'tenant',
-    isManager: role === 'landlord' || role === 'property_manager',
+    isManager: role === 'landlord' || role === 'property_manager' || role === 'super_admin',
   };
 }

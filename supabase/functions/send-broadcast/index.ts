@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
 
     const currentUser = authData.user;
 
-    const [{ data: company }, { data: membership }] = await Promise.all([
+    const [{ data: company }, { data: membership }, { data: profile }] = await Promise.all([
       adminClient
         .from('companies')
         .select('id, owner_id')
@@ -108,12 +108,18 @@ Deno.serve(async (req) => {
         .eq('user_id', currentUser.id)
         .eq('status', 'approved')
         .maybeSingle(),
+      adminClient
+        .from('profiles')
+        .select('role')
+        .eq('user_id', currentUser.id)
+        .maybeSingle(),
     ]);
 
     const isOwner = company?.owner_id === currentUser.id;
     const isApprovedManager = membership?.role === 'property_manager' && membership?.status === 'approved';
+    const isSuperAdmin = profile?.role === 'super_admin';
 
-    if (!isOwner && !isApprovedManager) {
+    if (!isOwner && !isApprovedManager && !isSuperAdmin) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
