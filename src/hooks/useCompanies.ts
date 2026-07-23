@@ -5,6 +5,7 @@ import { toast } from '@/components/ui/use-toast';
 // Helper for tables not yet in auto-generated types
 const db = supabase;
 import { useAuth } from '@/contexts/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { createCorrelationId, emitAuditEvent } from '@/lib/auditEvents';
 
 export interface Company {
@@ -59,10 +60,21 @@ export function useAllCompanies() {
 // Fetch companies owned by current user (landlord)
 export function useMyCompanies() {
   const { user } = useAuth();
+  const { role } = useUserRole();
   return useQuery({
-    queryKey: ['my_companies', user?.id],
+    queryKey: ['my_companies', user?.id, role],
     queryFn: async () => {
       if (!user?.id) return [];
+
+      if (role === 'super_admin') {
+        const { data, error } = await db
+          .from('companies')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data as Company[];
+      }
+
       const { data, error } = await db
         .from('companies')
         .select('*')
@@ -71,7 +83,7 @@ export function useMyCompanies() {
       if (error) throw error;
       return data as Company[];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!role,
   });
 }
 

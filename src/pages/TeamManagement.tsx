@@ -47,7 +47,7 @@ type PmInvite = {
 };
 
 export default function TeamManagement() {
-  const { isLandlord } = useUserRole();
+  const { isLandlord, isSuperAdmin } = useUserRole();
   const { data: companies, isLoading: loadingCompanies } = useMyCompanies();
   const { activeCompanyId, setActiveCompanyId } = useActiveCompany();
   const [inviteEmail, setInviteEmail] = useState('');
@@ -218,14 +218,14 @@ export default function TeamManagement() {
     }
   };
 
-  if (!isLandlord) {
+  if (!isLandlord && !isSuperAdmin) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center">
             <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
-            <p className="text-muted-foreground">Only landlords can manage teams and property assignments.</p>
+            <p className="text-muted-foreground">Only landlords and super admins can manage teams and property assignments.</p>
           </CardContent>
         </Card>
       </div>

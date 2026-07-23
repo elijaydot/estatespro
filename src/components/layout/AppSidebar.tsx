@@ -125,7 +125,7 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
   const collapsedView = !mobile && collapsed;
 
   const navSectionsBase = role === 'super_admin'
-    ? [landlordOnlySection, superAdminSection, ...sharedSections]
+    ? [superAdminSection, landlordOnlySection, ...sharedSections]
     : isLandlord
       ? [landlordOnlySection, ...sharedSections]
       : sharedSections;
