@@ -22,6 +22,7 @@ import { useSettings } from '@/contexts/useSettings';
 import { useAuth } from '@/contexts/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Skeleton } from '@/components/ui/skeleton';
+import { InventoryPhotoUploader } from '@/components/tenants/InventoryPhotoUploader';
 import {
   useTenantExit,
   useUpdateTenantExit,
@@ -30,6 +31,7 @@ import {
   useUpdateInspectionItem,
   useMoveInInventorySnapshot,
   useLeaseInventoryItems,
+  useSyncCheckoutSnapshot,
 } from '@/hooks/useTenantExits';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -69,6 +71,7 @@ export default function TenantExitWorkflow() {
   const updateExit = useUpdateTenantExit();
   const seedItems = useSeedExitInspectionItems();
   const updateItem = useUpdateInspectionItem();
+  const syncCheckoutSnapshot = useSyncCheckoutSnapshot();
 
   const [activeStep, setActiveStep] = useState('inspection');
   const [inspectionNotes, setInspectionNotes] = useState('');
@@ -134,6 +137,7 @@ export default function TenantExitWorkflow() {
         refund_amount: Math.max(0, (exitData?.deposit_amount || 0) - totalDamageCost),
       },
     });
+    await syncCheckoutSnapshot.mutateAsync(exitId!);
     toast({ title: 'Inspection Complete', description: 'Moving to deposit decision phase.' });
     setActiveStep('deposit');
   };
@@ -189,6 +193,7 @@ export default function TenantExitWorkflow() {
         portal_access_until: portalAccessUntil.toISOString(),
       },
     });
+    await syncCheckoutSnapshot.mutateAsync(exitId!);
 
     // Update tenant status and unit status
     if (exitData) {
@@ -445,7 +450,17 @@ export default function TenantExitWorkflow() {
                         )}
                       </div>
                       {(item.condition === 'damaged' || item.condition === 'fair') && (
-                        <div className="mt-2">
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <InventoryPhotoUploader
+                            value={item.photo_url}
+                            tenantId={exitData.tenant_id}
+                            scope="move_out"
+                            recordId={item.id}
+                            disabled={updateItem.isPending}
+                            onChange={async (nextValue) => {
+                              await updateItem.mutateAsync({ itemId: item.id, exitId: exitId!, data: { photo_url: nextValue } });
+                            }}
+                          />
                           <Input
                             placeholder="Add notes about the condition..."
                             value={item.notes || ''}

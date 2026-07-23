@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useTenant } from '@/hooks/useTenants';
+import { InventoryPhotoUploader } from '@/components/tenants/InventoryPhotoUploader';
 import {
   useDefaultChecklist,
   useMoveInInventorySnapshot,
@@ -241,15 +242,17 @@ export default function TenantInventoryBaseline() {
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
-                      <Input
-                        value={item.photo_url || ''}
-                        placeholder="Photo URL (optional)"
+                      <InventoryPhotoUploader
+                        value={item.photo_url}
+                        tenantId={tenant.id}
+                        scope="move_in"
+                        recordId={item.id}
                         disabled={moveInSnapshot.data?.status === 'finalized' || updateItem.isPending}
-                        onChange={(e) => {
-                          void updateItem.mutateAsync({
+                        onChange={async (nextValue) => {
+                          await updateItem.mutateAsync({
                             itemId: item.id,
                             snapshotId: item.snapshot_id,
-                            data: { photo_url: e.target.value || null },
+                            data: { photo_url: nextValue },
                           });
                         }}
                       />

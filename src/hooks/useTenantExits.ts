@@ -438,3 +438,22 @@ export function useFinalizeMoveInInventorySnapshot() {
     },
   });
 }
+
+export function useSyncCheckoutSnapshot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (exitId: string) => {
+      const { data, error } = await db.rpc('tenant_exit_sync_checkout_snapshot' as never, {
+        p_exit_id: exitId,
+      } as never);
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: (_, exitId) => {
+      queryClient.invalidateQueries({ queryKey: ['tenant-exit', exitId] });
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Snapshot sync failed', description: getErrorMessage(error), variant: 'destructive' });
+    },
+  });
+}
