@@ -122,6 +122,7 @@ export default function TenantExitWorkflow() {
 
   const totalDamageCost = inspectionItems.reduce((sum, item) => sum + Number(item.damage_cost), 0);
   const allItemsChecked = inspectionItems.length > 0 && inspectionItems.every(i => i.condition !== 'not_checked');
+  const damagedWithoutPhotoCount = inspectionItems.filter((i) => i.condition === 'damaged' && !i.photo_url).length;
   const hasFinalizedBaseline = moveInSnapshot.data?.status === 'finalized';
   const baselineByKey = new Map((moveInItems.data || []).map((item) => [`${item.item_category}::${item.item_name}`.toLowerCase(), item]));
 
@@ -497,7 +498,7 @@ export default function TenantExitWorkflow() {
 
             <Button
               onClick={handleCompleteInspection}
-              disabled={!allItemsChecked || updateExit.isPending}
+              disabled={!allItemsChecked || damagedWithoutPhotoCount > 0 || updateExit.isPending}
               className="w-full gap-2"
               size="lg"
             >
@@ -506,6 +507,11 @@ export default function TenantExitWorkflow() {
             </Button>
             {!allItemsChecked && (
               <p className="text-sm text-warning text-center">Please check all items before proceeding</p>
+            )}
+            {damagedWithoutPhotoCount > 0 && (
+              <p className="text-sm text-warning text-center">
+                Upload photo evidence for all damaged items before proceeding ({damagedWithoutPhotoCount} remaining).
+              </p>
             )}
           </CardContent>
         </Card>

@@ -68,6 +68,7 @@ export default function TenantInventoryBaseline() {
 
   const checkedCount = (snapshotItems.data || []).filter((item) => item.condition !== 'not_checked').length;
   const totalCount = (snapshotItems.data || []).length;
+  const damagedWithoutPhotoCount = (snapshotItems.data || []).filter((item) => item.condition === 'damaged' && !item.photo_url).length;
 
   const handleSeed = async () => {
     if (!tenant?.property_id || !tenant?.unit_id) {
@@ -97,6 +98,14 @@ export default function TenantInventoryBaseline() {
     if (!moveInSnapshot.data?.id) return;
     if (!totalCount || checkedCount !== totalCount) {
       toast({ title: 'Checklist incomplete', description: 'Every baseline inventory item must be checked before finalizing.', variant: 'destructive' });
+      return;
+    }
+    if (damagedWithoutPhotoCount > 0) {
+      toast({
+        title: 'Missing photo evidence',
+        description: `Upload photos for all damaged items before finalizing (${damagedWithoutPhotoCount} remaining).`,
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -179,6 +188,16 @@ export default function TenantInventoryBaseline() {
               </div>
             </CardContent>
           </Card>
+
+          {damagedWithoutPhotoCount > 0 && (
+            <Card className="border-warning/30 bg-warning/5">
+              <CardContent className="pt-4">
+                <p className="text-sm text-warning-foreground">
+                  Upload photo evidence for all damaged baseline items before finalizing ({damagedWithoutPhotoCount} remaining).
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="border-border/70">
             <CardHeader>
