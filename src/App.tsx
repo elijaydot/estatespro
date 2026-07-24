@@ -267,6 +267,27 @@ function AuthenticatedRoute({ children }: { children: ReactNode }) {
   return <AppLayout>{children}</AppLayout>;
 }
 
+function MfaChallengeRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading: authLoading, mfa, user } = useAuth();
+  const { role, isLoading: roleLoading } = useUserRole();
+
+  if (authLoading || roleLoading || mfa.isLoading) {
+    return <FullPageLoading />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to={role === "tenant" ? "/tenant/login" : "/login"} replace />;
+  }
+
+  // If challenge is no longer required (or device became trusted), return to role home.
+  if (!mfa.needsChallenge || isDeviceTrusted(user?.id)) {
+    return <Navigate to={role === "tenant" ? "/tenant" : "/dashboard"} replace />;
+  }
+
+  // Intentionally no AppLayout/TenantPortalLayout to match login-style flow.
+  return <>{children}</>;
+}
+
 function PublicRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading, mfa, user } = useAuth();
   const { role, isLoading: roleLoading } = useUserRole();
@@ -292,7 +313,7 @@ function AppRoutes() {
       <Route path="/signup" element={<PublicRoute>{withSuspense(<Signup />)}</PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute>{withSuspense(<ForgotPassword />)}</PublicRoute>} />
       <Route path="/reset-password" element={<PublicRoute>{withSuspense(<ResetPassword />)}</PublicRoute>} />
-      <Route path="/mfa-challenge" element={<AuthenticatedRoute>{withSuspense(<MfaChallenge />)}</AuthenticatedRoute>} />
+      <Route path="/mfa-challenge" element={<MfaChallengeRoute>{withSuspense(<MfaChallenge />)}</MfaChallengeRoute>} />
       <Route path="/book/:propertyId" element={withSuspense(<GuestBookingPage />)} />
       <Route path="/bookings/guest-action" element={withSuspense(<GuestBookingActionPage />)} />
       <Route path="/marketplace" element={withSuspense(<MarketplacePublic />)} />
