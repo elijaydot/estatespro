@@ -17,6 +17,8 @@ export interface MarketplaceListing {
   description?: string | null;
   city: string;
   area: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   rent_amount: number;
   currency: string;
   bedrooms: number | null;

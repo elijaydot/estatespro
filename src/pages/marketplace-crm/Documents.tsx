@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
+import { DocumentUploader } from '@/components/marketplace-crm/DocumentUploader';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useCreateCrmDocument, useCrmDocuments, useUpdateCrmDocument } from '@/hooks/useMarketplaceCrm';
@@ -12,7 +13,9 @@ export default function MarketplaceCrmDocumentsPage() {
 
   const [search, setSearch] = useState('');
   const [title, setTitle] = useState('');
-  const [storagePath, setStoragePath] = useState('');
+  const [storagePath, setStoragePath] = useState<string | null>(null);
+  const [mimeType, setMimeType] = useState<string | null>(null);
+  const [documentUploadResetKey, setDocumentUploadResetKey] = useState(0);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [draftStatus, setDraftStatus] = useState('draft');
   const [draftCompliance, setDraftCompliance] = useState('pending');
@@ -27,23 +30,25 @@ export default function MarketplaceCrmDocumentsPage() {
   }, [documentsQuery.data, search]);
 
   const create = () => {
-    if (!title.trim() || !storagePath.trim()) return;
+    if (!title.trim() || !storagePath) return;
     createDocument.mutate({
       title: title.trim(),
       related_type: 'deal',
       related_id: null,
-      storage_path: storagePath.trim(),
+      storage_path: storagePath,
       status: 'draft',
       compliance_state: 'pending',
       version_no: 1,
       expires_at: null,
       reviewed_at: null,
       review_notes: null,
-      mime_type: null,
+      mime_type: mimeType,
       uploaded_by: null,
     });
     setTitle('');
-    setStoragePath('');
+    setStoragePath(null);
+    setMimeType(null);
+    setDocumentUploadResetKey((current) => current + 1);
   };
 
   const editDocument = (documentId: string, status: string, complianceState: string, expiresAt: string | null, reviewNotes: string | null) => {
@@ -71,12 +76,28 @@ export default function MarketplaceCrmDocumentsPage() {
 
   return (
     <CrmWorkspace title="Documents" subtitle="Record-linked documents for compliance, sales, and operations.">
-      <CrmDataCard title="Add Document Reference" description="Attach a storage path to CRM records.">
+      <CrmDataCard title="Add Document" description="Upload and attach CRM documents to records.">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
           <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Document title" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="storage/path/file.pdf" value={storagePath} onChange={(event) => setStoragePath(event.target.value)} />
+          <div>
+            <DocumentUploader
+              bucket="crm-documents"
+              pathPrefix={`${activeCompanyId || 'unknown-company'}/general`}
+              acceptedMimeTypes={['application/pdf', 'image/jpeg', 'image/png']}
+              maxFileSizeBytes={10 * 1024 * 1024}
+              resetKey={`${documentUploadResetKey}`}
+              uploadLabel="Upload CRM file"
+              disabled={!activeCompanyId || createDocument.isPending}
+              onUploaded={(uploadedPath, uploadedMimeType) => {
+                setStoragePath(uploadedPath);
+                setMimeType(uploadedMimeType);
+              }}
+            />
+          </div>
           <button className="h-9 rounded-md bg-primary px-3 text-sm text-primary-foreground" onClick={create} disabled={createDocument.isPending}>Save</button>
         </div>
+
+        {storagePath ? <p className="text-xs text-muted-foreground">Ready to save: {storagePath}</p> : null}
       </CrmDataCard>
 
       <CrmDataCard title="Document Index" description="CRM-linked document references.">

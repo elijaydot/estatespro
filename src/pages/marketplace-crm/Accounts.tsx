@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
+import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
 import { useCreateCrmAccount, useCrmAccounts, useUpdateCrmAccount } from '@/hooks/useMarketplaceCrm';
 
 export default function MarketplaceCrmAccountsPage() {
   const { activeCompanyId } = useActiveCompany();
   const accountsQuery = useCrmAccounts(activeCompanyId);
+  const assignableUsersQuery = useCrmAssignableUsers(activeCompanyId);
   const createAccount = useCreateCrmAccount(activeCompanyId);
   const updateAccount = useUpdateCrmAccount(activeCompanyId);
 
@@ -26,12 +29,20 @@ export default function MarketplaceCrmAccountsPage() {
     return records.filter((row) => (`${row.name} ${row.website || ''} ${row.phone || ''}`).toLowerCase().includes(query));
   }, [accountsQuery.data, search]);
 
+  const ownerNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    (assignableUsersQuery.data || []).forEach((user) => {
+      map.set(user.user_id, user.name || user.user_id);
+    });
+    return map;
+  }, [assignableUsersQuery.data]);
+
   const onCreate = () => {
     if (!name.trim()) return;
     createAccount.mutate({
       name: name.trim(),
       website: website.trim() || null,
-      owner_user_id: ownerUserId.trim() || null,
+      owner_user_id: ownerUserId || null,
     });
     setName('');
     setWebsite('');
@@ -54,7 +65,7 @@ export default function MarketplaceCrmAccountsPage() {
         payload: {
           name: editName.trim(),
           website: editWebsite.trim() || null,
-          owner_user_id: editOwnerUserId.trim() || null,
+          owner_user_id: editOwnerUserId || null,
         },
       },
       {
@@ -74,7 +85,13 @@ export default function MarketplaceCrmAccountsPage() {
         <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
           <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Account name" value={name} onChange={(event) => setName(event.target.value)} />
           <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Website" value={website} onChange={(event) => setWebsite(event.target.value)} />
-          <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Owner user id (optional)" value={ownerUserId} onChange={(event) => setOwnerUserId(event.target.value)} />
+          <AssigneePicker
+            users={assignableUsersQuery.data || []}
+            value={ownerUserId || null}
+            onChange={(next) => setOwnerUserId(next || '')}
+            placeholder="Owner (optional)"
+            className="h-9"
+          />
           <button className="h-9 rounded-md bg-primary text-primary-foreground text-sm" onClick={onCreate} disabled={createAccount.isPending}>Create Account</button>
         </div>
       </CrmDataCard>
@@ -121,14 +138,15 @@ export default function MarketplaceCrmAccountsPage() {
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">
                     {editingId === row.id ? (
-                      <input
-                        className="h-8 w-full rounded-md border border-input px-2 text-sm"
-                        value={editOwnerUserId}
-                        onChange={(event) => setEditOwnerUserId(event.target.value)}
-                        placeholder="owner user id"
+                      <AssigneePicker
+                        users={assignableUsersQuery.data || []}
+                        value={editOwnerUserId || null}
+                        onChange={(next) => setEditOwnerUserId(next || '')}
+                        placeholder="Owner"
+                        className="h-8"
                       />
                     ) : (
-                      row.owner_user_id || '-'
+                      (row.owner_user_id ? (ownerNameById.get(row.owner_user_id) || row.owner_user_id) : '-')
                     )}
                   </td>
                   <td className="px-3 py-2">{row.account_type || '-'}</td>

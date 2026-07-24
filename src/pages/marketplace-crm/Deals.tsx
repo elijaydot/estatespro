@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
+import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useSettings } from '@/contexts/useSettings';
 import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
 import {
   useCompleteCrmDealHandoff,
@@ -25,6 +27,7 @@ function dealStageChipClass(stage: string) {
 
 export default function MarketplaceCrmDealsPage() {
   const { activeCompanyId } = useActiveCompany();
+  const { settings } = useSettings();
   const dealsQuery = useCrmDeals(activeCompanyId);
   const accountsQuery = useCrmAccounts(activeCompanyId);
   const contactsQuery = useCrmContacts(activeCompanyId);
@@ -92,6 +95,14 @@ export default function MarketplaceCrmDealsPage() {
     return map;
   }, [handoffsQuery.data]);
 
+  const currencyCode = settings.currencyCode || 'NGN';
+  const currencySymbol = settings.currencySymbol || currencyCode;
+
+  const formatDealAmount = (value: number | null) => {
+    if (value == null) return 'No amount';
+    return `${currencySymbol} ${Number(value).toLocaleString()}`;
+  };
+
   const onCreate = () => {
     if (!dealName.trim()) return;
     const parsedProbability = Number(createProbability);
@@ -103,7 +114,7 @@ export default function MarketplaceCrmDealsPage() {
       owner_user_id: createOwnerUserId || null,
       account_id: createAccountId || null,
       contact_id: createContactId || null,
-      currency: 'NGN',
+      currency: currencyCode,
       stage: createStage,
       probability: parsedProbability,
       expected_close_date: createExpectedCloseDate || null,
@@ -197,7 +208,7 @@ export default function MarketplaceCrmDealsPage() {
         </div>
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
           <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Deal name" value={dealName} onChange={(event) => setDealName(event.target.value)} />
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" placeholder="Amount (NGN)" value={amount} onChange={(event) => setAmount(event.target.value)} />
+          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" placeholder={`Amount (${currencyCode})`} value={amount} onChange={(event) => setAmount(event.target.value)} />
           <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={createStage} onChange={(event) => setCreateStage(event.target.value)}>
             {DEAL_STAGES.map((stage) => (
               <option key={stage} value={stage}>{stage.replace(/_/g, ' ')}</option>
@@ -206,12 +217,15 @@ export default function MarketplaceCrmDealsPage() {
           <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" placeholder="Probability %" value={createProbability} onChange={(event) => setCreateProbability(event.target.value)} />
           <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" type="date" value={createExpectedCloseDate} onChange={(event) => setCreateExpectedCloseDate(event.target.value)} />
 
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-4" value={createOwnerUserId} onChange={(event) => setCreateOwnerUserId(event.target.value)}>
-            <option value="">Owner (optional)</option>
-            {(assignableUsersQuery.data || []).map((user) => (
-              <option key={user.user_id} value={user.user_id}>{user.name}</option>
-            ))}
-          </select>
+          <div className="lg:col-span-4">
+            <AssigneePicker
+              users={assignableUsersQuery.data || []}
+              value={createOwnerUserId || null}
+              onChange={(next) => setCreateOwnerUserId(next || '')}
+              placeholder="Owner (optional)"
+              className="h-10"
+            />
+          </div>
           <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-4" value={createAccountId} onChange={(event) => setCreateAccountId(event.target.value)}>
             <option value="">Link Account (optional)</option>
             {(accountsQuery.data || []).map((account) => (
@@ -251,7 +265,7 @@ export default function MarketplaceCrmDealsPage() {
                         <p className="font-medium leading-tight">{deal.deal_name}</p>
                         <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${dealStageChipClass(deal.stage)}`}>{deal.stage.replace(/_/g, ' ')}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">{deal.amount ? `NGN ${Number(deal.amount).toLocaleString()}` : 'No amount'}</p>
+                      <p className="text-xs text-muted-foreground">{formatDealAmount(deal.amount)}</p>
                       <p className="text-xs text-muted-foreground">Probability: {deal.probability}%</p>
                       <p className="text-xs text-muted-foreground">Owner: {deal.owner_user_id ? (ownerNameById.get(deal.owner_user_id) || deal.owner_user_id) : '-'}</p>
                       {handoffByDealId.get(deal.id) ? (
@@ -278,11 +292,12 @@ export default function MarketplaceCrmDealsPage() {
                             onChange={(event) => setEditAmount(event.target.value)}
                             placeholder="Amount (required for closed won)"
                           />
-                          <input
-                            className="h-8 w-full rounded-md border border-input px-2 text-xs"
-                            value={editOwnerUserId}
-                            onChange={(event) => setEditOwnerUserId(event.target.value)}
-                            placeholder="Owner user id"
+                          <AssigneePicker
+                            users={assignableUsersQuery.data || []}
+                            value={editOwnerUserId || null}
+                            onChange={(next) => setEditOwnerUserId(next || '')}
+                            placeholder="Owner"
+                            className="h-8"
                           />
                           <input
                             className="h-8 w-full rounded-md border border-input px-2 text-xs"

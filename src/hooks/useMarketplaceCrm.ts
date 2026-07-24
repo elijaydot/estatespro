@@ -1132,6 +1132,38 @@ export function useReplayCrmAutomationRun(companyId?: string | null) {
   });
 }
 
+export function usePreviewCrmAutomationRule(companyId?: string | null) {
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      samplePayload,
+    }: {
+      ruleId: string;
+      samplePayload: Record<string, unknown>;
+    }) => {
+      if (!companyId) throw new Error('Active company is required');
+
+      const { data, error } = await supabase.rpc('crm_preview_automation_rule' as never, {
+        p_rule_id: ruleId,
+        p_sample_payload: samplePayload,
+      } as never);
+
+      if (error) throw error;
+      return (data || {}) as Record<string, unknown>;
+    },
+    onSuccess: (preview) => {
+      const wouldRun = Boolean(preview.would_run_actions);
+      toast({
+        title: 'Rule Preview Complete',
+        description: wouldRun ? 'Conditions matched. Actions would execute.' : 'Conditions did not match. Run would be skipped.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Rule Preview Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
 export function useStartCrmDealHandoff(companyId?: string | null) {
   const queryClient = useQueryClient();
 

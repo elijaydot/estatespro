@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Loader2, ShieldCheck, ShieldX, ShieldQuestion, FileUp } from 'lucide-react';
+import { DocumentUploader } from '@/components/marketplace-crm/DocumentUploader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -73,9 +74,18 @@ export default function MarketplaceVerification() {
   const reviewVerificationDocument = useReviewerDecisionOnVerificationDocument(verificationId);
 
   const [documentType, setDocumentType] = useState<VerificationDocument['document_type']>('id_card');
-  const [documentPath, setDocumentPath] = useState('');
+  const [documentPath, setDocumentPath] = useState<string | null>(null);
+  const [documentMimeType, setDocumentMimeType] = useState<string | null>(null);
+  const [documentUploadResetKey, setDocumentUploadResetKey] = useState(0);
   const [verificationRejectionReason, setVerificationRejectionReason] = useState('');
   const [documentRejectionReasons, setDocumentRejectionReasons] = useState<Record<string, string>>({});
+
+  const acceptedMimeTypesByDocumentType: Record<VerificationDocument['document_type'], string[]> = {
+    id_card: ['application/pdf', 'image/jpeg', 'image/png'],
+    business_registration: ['application/pdf', 'image/jpeg', 'image/png'],
+    utility_bill: ['application/pdf', 'image/jpeg', 'image/png'],
+    other: ['application/pdf', 'image/jpeg', 'image/png'],
+  };
 
   const companyName = useMemo(
     () => companies.find((company) => company.id === activeCompanyId)?.name ?? 'Active company',
@@ -203,29 +213,45 @@ export default function MarketplaceVerification() {
                 ))}
               </SelectContent>
             </Select>
-
-            <Input
-              className="md:col-span-2"
-              placeholder="storage/path/to/document.pdf"
-              value={documentPath}
-              onChange={(event) => setDocumentPath(event.target.value)}
-            />
+            <div className="md:col-span-2">
+              <DocumentUploader
+                bucket="verification-documents"
+                pathPrefix={`${activeCompanyId || 'unknown-company'}/${verificationId || 'pending-verification'}`}
+                acceptedMimeTypes={acceptedMimeTypesByDocumentType[documentType]}
+                maxFileSizeBytes={8 * 1024 * 1024}
+                disabled={!canSubmit || !verificationId}
+                resetKey={`${documentUploadResetKey}`}
+                uploadLabel="Upload verification file"
+                onUploaded={(storagePath, mimeType) => {
+                  setDocumentPath(storagePath);
+                  setDocumentMimeType(mimeType);
+                }}
+              />
+            </div>
           </div>
 
           <Button
-            disabled={!canSubmit || !verificationId || !documentPath.trim() || addDocument.isPending}
+            disabled={!canSubmit || !verificationId || !documentPath || addDocument.isPending}
             onClick={() => {
               if (!verificationId) return;
               addDocument.mutate({
                 verificationId,
                 documentType,
-                storagePath: documentPath.trim(),
+                storagePath: documentPath,
               });
-              setDocumentPath('');
+              setDocumentPath(null);
+              setDocumentMimeType(null);
+              setDocumentUploadResetKey((current) => current + 1);
             }}
           >
             {addDocument.isPending ? 'Adding...' : 'Add Document'}
           </Button>
+
+          {documentPath && (
+            <p className="text-xs text-muted-foreground">
+              Ready to attach: {documentPath} {documentMimeType ? `(${documentMimeType})` : ''}
+            </p>
+          )}
 
           {!verificationId && (
             <p className="text-xs text-muted-foreground">Start verification first to enable document attachments.</p>

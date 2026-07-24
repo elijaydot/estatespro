@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, MetricCard, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useSettings } from '@/contexts/useSettings';
 import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
 import {
   useCrmContacts,
@@ -29,6 +30,7 @@ import {
 export default function MarketplaceCrmReportsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { activeCompanyId } = useActiveCompany();
+  const { formatCurrency } = useSettings();
   const reportsQuery = useCrmReportLibrary();
   const assignableUsersQuery = useCrmAssignableUsers(activeCompanyId);
   const dealsQuery = useCrmDeals(activeCompanyId);
@@ -293,8 +295,8 @@ export default function MarketplaceCrmReportsPage() {
 
       <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Open Deals" value={pipelineSummary.openDeals} helper="Deals not yet in final outcome stage." />
-        <MetricCard label="Open Pipeline Value" value={`NGN ${pipelineSummary.openValue.toLocaleString()}`} helper="Gross value of non-closed deals." />
-        <MetricCard label="Weighted Pipeline" value={`NGN ${Math.round(pipelineSummary.weightedValue).toLocaleString()}`} helper="Probability-adjusted open pipeline." />
+        <MetricCard label="Open Pipeline Value" value={formatCurrency(pipelineSummary.openValue)} helper="Gross value of non-closed deals." />
+        <MetricCard label="Weighted Pipeline" value={formatCurrency(Math.round(pipelineSummary.weightedValue))} helper="Probability-adjusted open pipeline." />
         <MetricCard label="Inquiry to Won %" value={`${executionSummary.inquiryToWonRate}%`} helper="30-day marketplace conversion." />
         <MetricCard label="Open Tasks" value={executionSummary.openTasks} helper="Execution workload currently pending." />
         <MetricCard label="Calls Logged" value={executionSummary.callsLogged} helper="Total call records in current scope." />

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
@@ -132,12 +133,15 @@ export default function MarketplaceCrmCallsPage() {
             ))}
           </select>
           <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-3" type="datetime-local" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} />
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-3" value={ownerUserId} onChange={(event) => setOwnerUserId(event.target.value)}>
-            <option value="">Owner (optional)</option>
-            {(assignableUsersQuery.data || []).map((user) => (
-              <option key={user.user_id} value={user.user_id}>{user.name}</option>
-            ))}
-          </select>
+          <div className="lg:col-span-3">
+            <AssigneePicker
+              users={assignableUsersQuery.data || []}
+              value={ownerUserId || null}
+              onChange={(next) => setOwnerUserId(next || '')}
+              placeholder="Owner (optional)"
+              className="h-10"
+            />
+          </div>
           <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Contact name (optional)" value={contactName} onChange={(event) => setContactName(event.target.value)} />
           <button className="h-10 rounded-md bg-primary px-3 text-sm text-primary-foreground lg:col-span-2" onClick={create} disabled={createCall.isPending}>Create</button>
         </div>

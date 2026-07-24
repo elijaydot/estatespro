@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
@@ -99,12 +100,15 @@ export default function MarketplaceCrmMeetingsPage() {
               <option key={lead.id} value={lead.id}>{lead.contact_name || lead.contact_email || lead.id}</option>
             ))}
           </select>
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-3" value={hostUserId} onChange={(event) => setHostUserId(event.target.value)}>
-            <option value="">Host (optional)</option>
-            {(assignableUsersQuery.data || []).map((user) => (
-              <option key={user.user_id} value={user.user_id}>{user.name}</option>
-            ))}
-          </select>
+          <div className="lg:col-span-3">
+            <AssigneePicker
+              users={assignableUsersQuery.data || []}
+              value={hostUserId || null}
+              onChange={(next) => setHostUserId(next || '')}
+              placeholder="Host (optional)"
+              className="h-10"
+            />
+          </div>
           <button className="h-10 rounded-md bg-primary px-3 text-sm text-primary-foreground lg:col-span-2" onClick={create} disabled={createMeeting.isPending}>Create</button>
 
           <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-3" type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} />

@@ -14,6 +14,7 @@ import {
   applyPublisherVerificationDecision,
   applyVerificationDocumentDecision,
 } from '@/lib/reviewerDecisions';
+import { mapManagedListingsWithInquiryCount } from '@/lib/marketplaceManagedListings';
 
 export interface CrmLead {
   id: string;
@@ -90,6 +91,8 @@ export interface ModerationCase {
   state: 'open' | 'in_review' | 'resolved' | 'dismissed';
   queue: string;
   assigned_moderator: string | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
   resolution_notes: string | null;
   opened_at: string;
   closed_at: string | null;
@@ -241,8 +244,7 @@ export function useMarketplaceListings(params: MarketplaceListParams = {}) {
   return useQuery({
     queryKey: ['marketplace', 'public-list', params],
     queryFn: async () => {
-      const response = await fetchMarketplaceListings(params);
-      return response.data || [];
+      return fetchMarketplaceListings(params);
     },
   });
 }
@@ -672,17 +674,12 @@ export function useManagedMarketplaceListings(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as ManagedMarketplaceListing[];
 
-      const { data, error } = await supabase
-        .from('marketplace_listings')
-        .select('id, company_id, title, slug, status, verification_state, city, area, rent_amount, currency, published_at, created_at')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.rpc('get_managed_marketplace_listings_with_inquiry_counts' as never, {
+        p_company_id: companyId,
+      } as never);
 
       if (error) throw error;
-      return ((data || []) as ManagedListingRow[]).map((row) => ({
-        ...row,
-        inquiry_count: 0,
-      })) as ManagedMarketplaceListing[];
+      return mapManagedListingsWithInquiryCount((data || []) as Array<ManagedListingRow & { inquiry_count: number | string | null }>);
     },
     enabled: !!companyId,
   });
@@ -741,7 +738,7 @@ export function useModerationCases(companyId?: string | null) {
 
       const { data, error } = await supabase
         .from('moderation_cases' as never)
-        .select('id, entity_type, entity_id, reason_code, severity, state, queue, assigned_moderator, resolution_notes, opened_at, closed_at, created_at, updated_at')
+        .select('id, entity_type, entity_id, reason_code, severity, state, queue, assigned_moderator, resolved_by, resolved_at, resolution_notes, opened_at, closed_at, created_at, updated_at')
         .eq('company_id', companyId)
         .order('opened_at', { ascending: true })
         .limit(100);
@@ -760,22 +757,34 @@ export function useUpdateModerationCaseState(companyId?: string | null) {
     mutationFn: async ({
       caseId,
       state,
+      assignedModerator,
       resolutionNotes,
     }: {
       caseId: string;
       state: ModerationCase['state'];
+      assignedModerator?: string | null;
       resolutionNotes?: string;
     }) => {
       const now = new Date().toISOString();
       const shouldClose = state === 'resolved' || state === 'dismissed';
+      const updatePayload: {
+        state: ModerationCase['state'];
+        resolution_notes: string | null;
+        closed_at: string | null;
+        assigned_moderator?: string | null;
+      } = {
+        state,
+        resolution_notes: resolutionNotes ?? null,
+        closed_at: shouldClose ? now : null,
+      };
+
+      if (assignedModerator !== undefined) {
+        updatePayload.assigned_moderator = assignedModerator;
+      }
 
       const { data, error } = await supabase
-        .from('moderation_cases')
-        .update({
-          state,
-          resolution_notes: resolutionNotes ?? null,
-          closed_at: shouldClose ? now : null,
-        })
+        .from('moderation_cases' as never)
+        .update(updatePayload as never)
         .eq('id', caseId)
         .select('id, state')
         .single();
@@ -922,6 +931,23 @@ export function useAddVerificationDocument(companyId?: string | null) {
     onError: (error: Error) => {
       toast({ title: 'Document Add Failed', description: error.message, variant: 'destructive' });
     },
+  });
+}
+
+export function useIsInternalMarketplaceReviewer(userId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'is-internal-reviewer', userId || 'anonymous'],
+    queryFn: async () => {
+      if (!userId) return false;
+
+      const { data, error } = await supabase.rpc('is_internal_marketplace_reviewer' as never, {
+        _user_id: userId,
+      } as never);
+
+      if (error) throw error;
+      return Boolean(data);
+    },
+    enabled: !!userId,
   });
 }
 

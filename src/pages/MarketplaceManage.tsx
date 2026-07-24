@@ -47,6 +47,7 @@ import {
   useCrmLeadActivities,
   useCrmLeads,
   useCrmLeadTasks,
+  useIsInternalMarketplaceReviewer,
   useManagedMarketplaceListings,
   useModerationCases,
   usePublisherVerification,
@@ -204,6 +205,7 @@ export default function MarketplaceManage() {
   const { user } = useAuth();
   const { activeCompanyId, companies } = useActiveCompany();
   const { isLandlord, isPropertyManager, isSuperAdmin } = useUserRole();
+  const reviewerAccessQuery = useIsInternalMarketplaceReviewer(user?.id);
 
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
@@ -300,6 +302,8 @@ export default function MarketplaceManage() {
     createTask.isPending ||
     updateTaskStatus.isPending ||
     convertLead.isPending;
+
+  const canModerate = isSuperAdmin || reviewerAccessQuery.data === true;
 
   return (
     <div className="space-y-6 pb-8">
@@ -854,9 +858,11 @@ export default function MarketplaceManage() {
                             updateModerationState.mutate({
                               caseId: moderationCase.id,
                               state: nextState as 'open' | 'in_review' | 'resolved' | 'dismissed',
+                              assignedModerator:
+                                moderationCase.assigned_moderator || user?.id || null,
                             })
                           }
-                          disabled={!isPropertyManager && !isLandlord}
+                          disabled={!canModerate || updateModerationState.isPending}
                         >
                           <SelectTrigger className="h-8 w-[130px] text-xs">
                             <SelectValue placeholder="Set state" />

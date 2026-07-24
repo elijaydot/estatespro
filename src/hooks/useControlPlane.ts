@@ -61,7 +61,7 @@ export type UsageSnapshot = {
 export type PlatformOperatorRole = {
   id: string;
   user_id: string;
-  role: 'security_auditor' | 'support_operator' | 'billing_operator';
+  role: 'security_auditor' | 'support_operator' | 'billing_operator' | 'marketplace_reviewer';
   created_at: string;
 };
 

@@ -4,7 +4,17 @@ import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useAssignCrmLead, useCrmAssignableUsers, useCrmLeads, useUpdateCrmLeadStage } from '@/hooks/useMarketplace';
 
-const LEAD_STAGES = ['new', 'contacted', 'qualified', 'viewing', 'negotiation', 'converted', 'lost'];
+const LEAD_STAGES = [
+  'new',
+  'attempted_contact',
+  'contacted',
+  'qualified',
+  'viewing_scheduled',
+  'offer_made',
+  'lease_in_progress',
+  'converted',
+  'lost',
+];
 
 function leadStageChipClass(stage: string) {
   if (stage === 'converted') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
@@ -26,6 +36,7 @@ export default function MarketplaceCrmLeadsPage() {
   const updateLeadStage = useUpdateCrmLeadStage(activeCompanyId);
   const assignLead = useAssignCrmLead(activeCompanyId);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'created_desc' | 'score_desc' | 'score_asc'>('score_desc');
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [draftStage, setDraftStage] = useState('new');
   const [draftAssignee, setDraftAssignee] = useState('');
@@ -33,9 +44,21 @@ export default function MarketplaceCrmLeadsPage() {
   const rows = useMemo(() => {
     const records = leadsQuery.data || [];
     const query = search.toLowerCase().trim();
-    if (!query) return records;
-    return records.filter((row) => (`${row.contact_name || ''} ${row.contact_email || ''} ${row.stage} ${row.status} ${row.listing_title || ''}`).toLowerCase().includes(query));
-  }, [leadsQuery.data, search]);
+    const filtered = !query
+      ? records
+      : records.filter((row) => (`${row.contact_name || ''} ${row.contact_email || ''} ${row.stage} ${row.status} ${row.listing_title || ''}`).toLowerCase().includes(query));
+
+    const sorted = [...filtered];
+    if (sortBy === 'score_desc') {
+      sorted.sort((a, b) => b.score - a.score || Date.parse(b.created_at) - Date.parse(a.created_at));
+    } else if (sortBy === 'score_asc') {
+      sorted.sort((a, b) => a.score - b.score || Date.parse(b.created_at) - Date.parse(a.created_at));
+    } else {
+      sorted.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+    }
+
+    return sorted;
+  }, [leadsQuery.data, search, sortBy]);
 
   const startEdit = (leadId: string, stage: string, assignedTo: string | null) => {
     setEditingLeadId(leadId);
@@ -74,6 +97,14 @@ export default function MarketplaceCrmLeadsPage() {
     <CrmWorkspace title="Leads" subtitle="Primary lead pipeline sourced from marketplace inquiries.">
       <CrmDataCard title="All Leads" description="Filter leads by contact, stage, and source context.">
         <SimpleToolbar search={search} setSearch={setSearch} />
+        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Sort by:</span>
+          <select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={sortBy} onChange={(event) => setSortBy(event.target.value as 'created_desc' | 'score_desc' | 'score_asc')}>
+            <option value="score_desc">Score (high to low)</option>
+            <option value="score_asc">Score (low to high)</option>
+            <option value="created_desc">Newest first</option>
+          </select>
+        </div>
         <div className="mt-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
           Edit stage and owner directly in the table to keep triage velocity high.
         </div>
@@ -87,6 +118,7 @@ export default function MarketplaceCrmLeadsPage() {
                 <th className="px-3 py-2.5">Phone</th>
                 <th className="px-3 py-2.5">Stage</th>
                 <th className="px-3 py-2.5">Status</th>
+                <th className="px-3 py-2.5">Score</th>
                 <th className="px-3 py-2.5">Owner</th>
                 <th className="px-3 py-2.5">Actions</th>
               </tr>
@@ -108,6 +140,11 @@ export default function MarketplaceCrmLeadsPage() {
                     ) : <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${leadStageChipClass(row.stage)}`}>{row.stage}</span>}
                   </td>
                   <td className="px-3 py-2"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${leadStatusChipClass(row.status)}`}>{row.status}</span></td>
+                  <td className="px-3 py-2">
+                    <span className="inline-flex min-w-10 items-center justify-center rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+                      {row.score}
+                    </span>
+                  </td>
                   <td className="px-3 py-2">
                     {editingLeadId === row.id ? (
                       <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={draftAssignee} onChange={(event) => setDraftAssignee(event.target.value)}>

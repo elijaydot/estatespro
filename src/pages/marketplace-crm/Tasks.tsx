@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
@@ -101,12 +102,16 @@ export default function MarketplaceCrmTasksPage() {
               <option key={lead.id} value={lead.id}>{lead.contact_name || lead.contact_email || lead.id}</option>
             ))}
           </select>
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-3" value={ownerUserId} onChange={(event) => setOwnerUserId(event.target.value)}>
-            <option value="">Select owner</option>
-            {(assignableUsersQuery.data || []).map((user) => (
-              <option key={user.user_id} value={user.user_id}>{user.name}</option>
-            ))}
-          </select>
+          <div className="lg:col-span-3">
+            <AssigneePicker
+              users={assignableUsersQuery.data || []}
+              value={ownerUserId || null}
+              onChange={(next) => setOwnerUserId(next || '')}
+              placeholder="Select owner"
+              className="h-10"
+              allowUnassigned={false}
+            />
+          </div>
           <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={taskType} onChange={(event) => setTaskType(event.target.value)}>
             {TASK_TYPES.map((type) => (
               <option key={type} value={type}>{type.replace(/_/g, ' ')}</option>
@@ -188,11 +193,14 @@ export default function MarketplaceCrmTasksPage() {
                   <td className="px-3 py-2">
                     {editingTaskId === row.id ? (
                       <div className="flex gap-2">
-                        <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={editOwnerUserId} onChange={(event) => setEditOwnerUserId(event.target.value)}>
-                          {(assignableUsersQuery.data || []).map((user) => (
-                            <option key={user.user_id} value={user.user_id}>{user.name}</option>
-                          ))}
-                        </select>
+                        <AssigneePicker
+                          users={assignableUsersQuery.data || []}
+                          value={editOwnerUserId || null}
+                          onChange={(next) => setEditOwnerUserId(next || '')}
+                          placeholder="Select owner"
+                          className="h-8"
+                          allowUnassigned={false}
+                        />
                         <button className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground" onClick={saveEdit} disabled={updateTaskDetails.isPending}>Save</button>
                         <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => setEditingTaskId(null)} disabled={updateTaskDetails.isPending}>Close</button>
                       </div>

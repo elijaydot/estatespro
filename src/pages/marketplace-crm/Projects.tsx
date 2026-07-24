@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
+import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, MetricCard, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
 import { useCreateCrmProject, useCrmProjects, useUpdateCrmProject } from '@/hooks/useMarketplaceCrm';
 import { buildProjectSlaSummary } from '@/lib/marketplaceCrmWorkflow';
 
 export default function MarketplaceCrmProjectsPage() {
   const { activeCompanyId } = useActiveCompany();
+  const assignableUsersQuery = useCrmAssignableUsers(activeCompanyId);
   const projectsQuery = useCrmProjects(activeCompanyId);
   const createProject = useCreateCrmProject(activeCompanyId);
   const updateProject = useUpdateCrmProject(activeCompanyId);
@@ -29,13 +32,21 @@ export default function MarketplaceCrmProjectsPage() {
 
   const slaSummary = useMemo(() => buildProjectSlaSummary(projectsQuery.data || []), [projectsQuery.data]);
 
+  const ownerNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    (assignableUsersQuery.data || []).forEach((user) => {
+      map.set(user.user_id, user.name || user.user_id);
+    });
+    return map;
+  }, [assignableUsersQuery.data]);
+
   const create = () => {
     if (!name.trim()) return;
     createProject.mutate({
       name: name.trim(),
       description: null,
       status: 'planned',
-      owner_user_id: ownerUserId.trim() || null,
+      owner_user_id: ownerUserId || null,
       due_date: null,
       progress_percent: 0,
     });
@@ -59,7 +70,7 @@ export default function MarketplaceCrmProjectsPage() {
         status: draftStatus,
         progress_percent: Number.isNaN(progressPercent) ? 0 : Math.max(0, Math.min(progressPercent, 100)),
         due_date: draftDueDate || null,
-        owner_user_id: draftOwnerUserId.trim() || null,
+        owner_user_id: draftOwnerUserId || null,
       },
     });
     setActiveProjectId(null);
@@ -79,7 +90,13 @@ export default function MarketplaceCrmProjectsPage() {
       <CrmDataCard title="Create Project" description="Track strategic CRM and marketplace initiatives.">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
           <input className="h-9 flex-1 rounded-md border border-input px-3 text-sm" placeholder="Project name" value={name} onChange={(event) => setName(event.target.value)} />
-          <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Owner user id (optional)" value={ownerUserId} onChange={(event) => setOwnerUserId(event.target.value)} />
+          <AssigneePicker
+            users={assignableUsersQuery.data || []}
+            value={ownerUserId || null}
+            onChange={(next) => setOwnerUserId(next || '')}
+            placeholder="Owner (optional)"
+            className="h-9"
+          />
           <button className="h-9 rounded-md bg-primary px-3 text-sm text-primary-foreground" onClick={create} disabled={createProject.isPending}>Create</button>
         </div>
       </CrmDataCard>
@@ -105,8 +122,14 @@ export default function MarketplaceCrmProjectsPage() {
                     </select>
                   ) : row.status}</td>
                   <td className="px-3 py-2">{activeProjectId === row.id ? (
-                    <input className="h-8 rounded border border-input px-2 text-xs" value={draftOwnerUserId} onChange={(event) => setDraftOwnerUserId(event.target.value)} placeholder="owner user id" />
-                  ) : (row.owner_user_id || '-')}</td>
+                    <AssigneePicker
+                      users={assignableUsersQuery.data || []}
+                      value={draftOwnerUserId || null}
+                      onChange={(next) => setDraftOwnerUserId(next || '')}
+                      placeholder="Owner"
+                      className="h-8"
+                    />
+                  ) : (row.owner_user_id ? (ownerNameById.get(row.owner_user_id) || row.owner_user_id) : '-')}</td>
                   <td className="px-3 py-2">{activeProjectId === row.id ? <input className="h-8 w-20 rounded border border-input px-2 text-xs" value={draftProgress} onChange={(event) => setDraftProgress(event.target.value)} /> : `${row.progress_percent}%`}</td>
                   <td className="px-3 py-2">{activeProjectId === row.id ? <input className="h-8 rounded border border-input px-2 text-xs" type="date" value={draftDueDate} onChange={(event) => setDraftDueDate(event.target.value)} /> : (row.due_date || '-')}</td>
                   <td className="px-3 py-2">

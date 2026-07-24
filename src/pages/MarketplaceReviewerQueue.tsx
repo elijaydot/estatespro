@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/contexts/useAuth';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useUserRole } from '@/hooks/useUserRole';
 import {
@@ -20,6 +21,7 @@ import {
 import {
   useReviewerDecisionOnPublisherVerification,
   useReviewerDecisionOnVerificationDocument,
+  useIsInternalMarketplaceReviewer,
   useReviewerProfiles,
   useReviewerPublisherDecisionHistory,
   useReviewerPublisherVerificationQueue,
@@ -28,8 +30,10 @@ import {
 } from '@/hooks/useMarketplace';
 
 export default function MarketplaceReviewerQueue() {
+  const { user } = useAuth();
   const { isSuperAdmin, isLandlord, isPropertyManager } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
+  const reviewerAccessQuery = useIsInternalMarketplaceReviewer(user?.id);
 
   const [scopeAllCompanies, setScopeAllCompanies] = useState(true);
   const [search, setSearch] = useState('');
@@ -190,6 +194,15 @@ export default function MarketplaceReviewerQueue() {
   );
 
   if (!(isSuperAdmin || isLandlord || isPropertyManager)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (!isSuperAdmin && reviewerAccessQuery.isLoading) {
+    return <div className="p-4 text-sm text-muted-foreground">Checking reviewer access...</div>;
+  }
+
+  const canReview = isSuperAdmin || reviewerAccessQuery.data === true;
+  if (!canReview) {
     return <Navigate to="/dashboard" replace />;
   }
 

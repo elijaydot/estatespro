@@ -56,6 +56,7 @@ export function OperatorsTab({
                 <SelectItem value="security_auditor">security_auditor</SelectItem>
                 <SelectItem value="support_operator">support_operator</SelectItem>
                 <SelectItem value="billing_operator">billing_operator</SelectItem>
+                <SelectItem value="marketplace_reviewer">marketplace_reviewer</SelectItem>
               </SelectContent>
             </Select>
             <Button onClick={onAssign} disabled={isAssignPending}>
