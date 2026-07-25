@@ -54,6 +54,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "abuse_signals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "abuse_signals_inquiry_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
@@ -328,6 +335,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "broadcasts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "broadcasts_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
@@ -418,6 +432,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       company_settings: {
@@ -504,6 +525,149 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "crm_accounts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      crm_automation_rules: {
+        Row: {
+          actions_json: Json
+          company_id: string
+          conditions_json: Json
+          created_at: string
+          created_by: string | null
+          event_type: string
+          id: string
+          is_active: boolean
+          name: string
+          retry_limit: number
+          updated_at: string
+        }
+        Insert: {
+          actions_json?: Json
+          company_id: string
+          conditions_json?: Json
+          created_at?: string
+          created_by?: string | null
+          event_type: string
+          id?: string
+          is_active?: boolean
+          name: string
+          retry_limit?: number
+          updated_at?: string
+        }
+        Update: {
+          actions_json?: Json
+          company_id?: string
+          conditions_json?: Json
+          created_at?: string
+          created_by?: string | null
+          event_type?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          retry_limit?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_automation_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_automation_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      crm_automation_runs: {
+        Row: {
+          attempts: number
+          company_id: string
+          correlation_id: string | null
+          created_at: string
+          event_source_id: string | null
+          event_source_type: string
+          event_type: string
+          id: string
+          last_error: string | null
+          max_attempts: number
+          next_retry_at: string | null
+          payload_json: Json
+          result_json: Json
+          rule_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          company_id: string
+          correlation_id?: string | null
+          created_at?: string
+          event_source_id?: string | null
+          event_source_type: string
+          event_type: string
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          next_retry_at?: string | null
+          payload_json?: Json
+          result_json?: Json
+          rule_id: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          company_id?: string
+          correlation_id?: string | null
+          created_at?: string
+          event_source_id?: string | null
+          event_source_type?: string
+          event_type?: string
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          next_retry_at?: string | null
+          payload_json?: Json
+          result_json?: Json
+          rule_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_automation_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_automation_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "crm_automation_runs_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "crm_automation_rules"
+            referencedColumns: ["id"]
+          },
         ]
       }
       crm_calls: {
@@ -562,6 +726,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_calls_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -623,6 +794,152 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_campaigns_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      crm_deal_handoffs: {
+        Row: {
+          checklist_json: Json
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          deal_id: string
+          id: string
+          lease_id: string | null
+          readiness_notes: string | null
+          started_at: string | null
+          status: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          checklist_json?: Json
+          company_id: string
+          completed_at?: string | null
+          created_at?: string
+          deal_id: string
+          id?: string
+          lease_id?: string | null
+          readiness_notes?: string | null
+          started_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          checklist_json?: Json
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string
+          deal_id?: string
+          id?: string
+          lease_id?: string | null
+          readiness_notes?: string | null
+          started_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_deal_handoffs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_deal_handoffs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "crm_deal_handoffs_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
+            referencedRelation: "crm_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_deal_handoffs_lease_id_fkey"
+            columns: ["lease_id"]
+            isOneToOne: false
+            referencedRelation: "leases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_deal_handoffs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_deal_stage_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          company_id: string
+          deal_id: string
+          from_stage: string | null
+          id: string
+          metadata: Json
+          reason: string | null
+          to_stage: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          company_id: string
+          deal_id: string
+          from_stage?: string | null
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          to_stage: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          company_id?: string
+          deal_id?: string
+          from_stage?: string | null
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          to_stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_deal_stage_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_deal_stage_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "crm_deal_stage_history_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "crm_deals"
             referencedColumns: ["id"]
           },
         ]
@@ -701,6 +1018,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "crm_deals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "crm_deals_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
@@ -733,36 +1057,60 @@ export type Database = {
       crm_documents: {
         Row: {
           company_id: string
+          compliance_state: string
           created_at: string
+          expires_at: string | null
           id: string
           mime_type: string | null
           related_id: string | null
           related_type: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
           storage_path: string
           title: string
+          updated_at: string
           uploaded_by: string | null
+          version_no: number
         }
         Insert: {
           company_id: string
+          compliance_state?: string
           created_at?: string
+          expires_at?: string | null
           id?: string
           mime_type?: string | null
           related_id?: string | null
           related_type: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
           storage_path: string
           title: string
+          updated_at?: string
           uploaded_by?: string | null
+          version_no?: number
         }
         Update: {
           company_id?: string
+          compliance_state?: string
           created_at?: string
+          expires_at?: string | null
           id?: string
           mime_type?: string | null
           related_id?: string | null
           related_type?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
           storage_path?: string
           title?: string
+          updated_at?: string
           uploaded_by?: string | null
+          version_no?: number
         }
         Relationships: [
           {
@@ -770,6 +1118,81 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      crm_followup_automation_log: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          lead_id: string | null
+          message: string | null
+          metadata: Json
+          source_id: string
+          source_type: string
+          status: string
+          task_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          message?: string | null
+          metadata?: Json
+          source_id: string
+          source_type: string
+          status: string
+          task_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          message?: string | null
+          metadata?: Json
+          source_id?: string
+          source_type?: string
+          status?: string
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_followup_automation_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_followup_automation_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "crm_followup_automation_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_followup_automation_log_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "lead_tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -828,6 +1251,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "crm_meetings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       crm_projects: {
@@ -877,6 +1307,73 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_projects_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      crm_trust_flags: {
+        Row: {
+          company_id: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          metadata: Json
+          reason: string | null
+          severity: string
+          source: string
+          source_id: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          severity: string
+          source: string
+          source_id?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          severity?: string
+          source?: string
+          source_id?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_trust_flags_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_trust_flags_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -946,6 +1443,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "crm_visits_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       default_inspection_checklist: {
@@ -956,6 +1460,7 @@ export type Database = {
           item_category: string
           item_name: string
           property_id: string | null
+          unit_id: string | null
           user_id: string
         }
         Insert: {
@@ -965,6 +1470,7 @@ export type Database = {
           item_category?: string
           item_name: string
           property_id?: string | null
+          unit_id?: string | null
           user_id: string
         }
         Update: {
@@ -974,6 +1480,7 @@ export type Database = {
           item_category?: string
           item_name?: string
           property_id?: string | null
+          unit_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -984,10 +1491,80 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "default_inspection_checklist_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entitlement_decisions: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          allowed: boolean
+          company_id: string
+          correlation_id: string
+          created_at: string
+          decision_reason: string | null
+          entitlement_key: string
+          id: string
+          metadata: Json
+          module: string
+          risk_score: number
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          allowed: boolean
+          company_id: string
+          correlation_id: string
+          created_at?: string
+          decision_reason?: string | null
+          entitlement_key: string
+          id?: string
+          metadata?: Json
+          module: string
+          risk_score?: number
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          allowed?: boolean
+          company_id?: string
+          correlation_id?: string
+          created_at?: string
+          decision_reason?: string | null
+          entitlement_key?: string
+          id?: string
+          metadata?: Json
+          module?: string
+          risk_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entitlement_decisions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlement_decisions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       exit_inspection_items: {
         Row: {
+          baseline_condition: string
+          baseline_notes: string | null
+          baseline_photo_url: string | null
           checked_at: string | null
           checked_by: string | null
           condition: string
@@ -1001,6 +1578,9 @@ export type Database = {
           photo_url: string | null
         }
         Insert: {
+          baseline_condition?: string
+          baseline_notes?: string | null
+          baseline_photo_url?: string | null
           checked_at?: string | null
           checked_by?: string | null
           condition?: string
@@ -1014,6 +1594,9 @@ export type Database = {
           photo_url?: string | null
         }
         Update: {
+          baseline_condition?: string
+          baseline_notes?: string | null
+          baseline_photo_url?: string | null
           checked_at?: string | null
           checked_by?: string | null
           condition?: string
@@ -1032,6 +1615,76 @@ export type Database = {
             columns: ["exit_id"]
             isOneToOne: false
             referencedRelation: "tenant_exits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      governance_alerts: {
+        Row: {
+          alert_type: string
+          company_id: string | null
+          correlation_id: string | null
+          created_at: string
+          description: string | null
+          event_id: string | null
+          id: string
+          metadata: Json
+          resolved_at: string | null
+          severity: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          alert_type: string
+          company_id?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          description?: string | null
+          event_id?: string | null
+          id?: string
+          metadata?: Json
+          resolved_at?: string | null
+          severity: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          alert_type?: string
+          company_id?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          description?: string | null
+          event_id?: string | null
+          id?: string
+          metadata?: Json
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governance_alerts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "governance_alerts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "governance_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "platform_audit_events"
             referencedColumns: ["id"]
           },
         ]
@@ -1202,6 +1855,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_payment_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "landlord_payment_settings_property_id_fkey"
@@ -1440,6 +2100,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "leads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "leads_listing_id_fkey"
             columns: ["listing_id"]
             isOneToOne: false
@@ -1491,6 +2158,137 @@ export type Database = {
             columns: ["lease_id"]
             isOneToOne: false
             referencedRelation: "leases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lease_inventory_items: {
+        Row: {
+          condition: string
+          created_at: string
+          damage_cost: number
+          id: string
+          item_category: string
+          item_name: string
+          notes: string | null
+          photo_url: string | null
+          snapshot_id: string
+          updated_at: string
+        }
+        Insert: {
+          condition?: string
+          created_at?: string
+          damage_cost?: number
+          id?: string
+          item_category?: string
+          item_name: string
+          notes?: string | null
+          photo_url?: string | null
+          snapshot_id: string
+          updated_at?: string
+        }
+        Update: {
+          condition?: string
+          created_at?: string
+          damage_cost?: number
+          id?: string
+          item_category?: string
+          item_name?: string
+          notes?: string | null
+          photo_url?: string | null
+          snapshot_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lease_inventory_items_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "lease_inventory_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lease_inventory_snapshots: {
+        Row: {
+          captured_at: string | null
+          captured_by: string | null
+          created_at: string
+          exit_id: string | null
+          id: string
+          lease_id: string | null
+          notes: string | null
+          phase: string
+          property_id: string
+          status: string
+          tenant_id: string
+          unit_id: string
+          updated_at: string
+        }
+        Insert: {
+          captured_at?: string | null
+          captured_by?: string | null
+          created_at?: string
+          exit_id?: string | null
+          id?: string
+          lease_id?: string | null
+          notes?: string | null
+          phase: string
+          property_id: string
+          status?: string
+          tenant_id: string
+          unit_id: string
+          updated_at?: string
+        }
+        Update: {
+          captured_at?: string | null
+          captured_by?: string | null
+          created_at?: string
+          exit_id?: string | null
+          id?: string
+          lease_id?: string | null
+          notes?: string | null
+          phase?: string
+          property_id?: string
+          status?: string
+          tenant_id?: string
+          unit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lease_inventory_snapshots_exit_id_fkey"
+            columns: ["exit_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_exits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_inventory_snapshots_lease_id_fkey"
+            columns: ["lease_id"]
+            isOneToOne: false
+            referencedRelation: "leases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_inventory_snapshots_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_inventory_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_inventory_snapshots_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
             referencedColumns: ["id"]
           },
         ]
@@ -1703,6 +2501,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "listing_publish_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "listing_publish_history_listing_id_fkey"
             columns: ["listing_id"]
             isOneToOne: false
@@ -1883,6 +2688,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "marketplace_inquiries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "marketplace_inquiries_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
@@ -1913,6 +2725,8 @@ export type Database = {
           currency: string
           description: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
           paused_at: string | null
           property_id: string | null
           published_at: string | null
@@ -1938,6 +2752,8 @@ export type Database = {
           currency?: string
           description?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           paused_at?: string | null
           property_id?: string | null
           published_at?: string | null
@@ -1963,6 +2779,8 @@ export type Database = {
           currency?: string
           description?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           paused_at?: string | null
           property_id?: string | null
           published_at?: string | null
@@ -1981,6 +2799,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "marketplace_listings_property_id_fkey"
@@ -2211,6 +3036,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "moderation_actions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       moderation_cases: {
@@ -2222,9 +3054,12 @@ export type Database = {
           entity_type: string
           id: string
           opened_at: string
+          opened_by: string | null
           queue: string
           reason_code: string
           resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
           severity: string
           state: string
           updated_at: string
@@ -2237,9 +3072,12 @@ export type Database = {
           entity_type: string
           id?: string
           opened_at?: string
+          opened_by?: string | null
           queue?: string
           reason_code: string
           resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           severity: string
           state?: string
           updated_at?: string
@@ -2252,9 +3090,12 @@ export type Database = {
           entity_type?: string
           id?: string
           opened_at?: string
+          opened_by?: string | null
           queue?: string
           reason_code?: string
           resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           severity?: string
           state?: string
           updated_at?: string
@@ -2379,6 +3220,336 @@ export type Database = {
           },
         ]
       }
+      platform_analytics_snapshots: {
+        Row: {
+          blocked_events: number
+          company_risk_watchlist: Json
+          created_at: string
+          critical_open_alerts: number
+          denied_events: number
+          entitlement_allowed: number
+          entitlement_denied: number
+          high_risk_events: number
+          id: string
+          metadata: Json
+          module_breakdown: Json
+          open_alerts: number
+          snapshot_end: string
+          snapshot_start: string
+          snapshot_window: string
+          total_events: number
+          usage_pressure_count: number
+        }
+        Insert: {
+          blocked_events?: number
+          company_risk_watchlist?: Json
+          created_at?: string
+          critical_open_alerts?: number
+          denied_events?: number
+          entitlement_allowed?: number
+          entitlement_denied?: number
+          high_risk_events?: number
+          id?: string
+          metadata?: Json
+          module_breakdown?: Json
+          open_alerts?: number
+          snapshot_end: string
+          snapshot_start: string
+          snapshot_window: string
+          total_events?: number
+          usage_pressure_count?: number
+        }
+        Update: {
+          blocked_events?: number
+          company_risk_watchlist?: Json
+          created_at?: string
+          critical_open_alerts?: number
+          denied_events?: number
+          entitlement_allowed?: number
+          entitlement_denied?: number
+          high_risk_events?: number
+          id?: string
+          metadata?: Json
+          module_breakdown?: Json
+          open_alerts?: number
+          snapshot_end?: string
+          snapshot_start?: string
+          snapshot_window?: string
+          total_events?: number
+          usage_pressure_count?: number
+        }
+        Relationships: []
+      }
+      platform_audit_events: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          company_id: string | null
+          correlation_id: string
+          created_at: string
+          device_info: Json
+          event_type: string
+          id: string
+          impersonator_user_id: string | null
+          ip_address: string | null
+          metadata: Json
+          module: string
+          result_status: string
+          risk_score: number
+          severity: string
+          source: string
+          target_entity_id: string | null
+          target_entity_type: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          company_id?: string | null
+          correlation_id: string
+          created_at?: string
+          device_info?: Json
+          event_type: string
+          id?: string
+          impersonator_user_id?: string | null
+          ip_address?: string | null
+          metadata?: Json
+          module: string
+          result_status?: string
+          risk_score?: number
+          severity?: string
+          source: string
+          target_entity_id?: string | null
+          target_entity_type?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          company_id?: string | null
+          correlation_id?: string
+          created_at?: string
+          device_info?: Json
+          event_type?: string
+          id?: string
+          impersonator_user_id?: string | null
+          ip_address?: string | null
+          metadata?: Json
+          module?: string
+          result_status?: string
+          risk_score?: number
+          severity?: string
+          source?: string
+          target_entity_id?: string | null
+          target_entity_type?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_audit_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_audit_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      platform_drift_checks: {
+        Row: {
+          alert_id: string | null
+          check_key: string
+          created_at: string
+          details: Json
+          id: string
+          observed_value: number
+          status: string
+          threshold_value: number
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          alert_id?: string | null
+          check_key: string
+          created_at?: string
+          details?: Json
+          id?: string
+          observed_value: number
+          status: string
+          threshold_value: number
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          alert_id?: string | null
+          check_key?: string
+          created_at?: string
+          details?: Json
+          id?: string
+          observed_value?: number
+          status?: string
+          threshold_value?: number
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_drift_checks_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "governance_alerts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_impersonation_sessions: {
+        Row: {
+          actor_user_id: string
+          company_id: string | null
+          created_at: string
+          ended_at: string | null
+          id: string
+          metadata: Json
+          reason: string | null
+          session_id: string | null
+          started_at: string
+          target_user_id: string
+        }
+        Insert: {
+          actor_user_id: string
+          company_id?: string | null
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          session_id?: string | null
+          started_at?: string
+          target_user_id: string
+        }
+        Update: {
+          actor_user_id?: string
+          company_id?: string | null
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          session_id?: string | null
+          started_at?: string
+          target_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_impersonation_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_impersonation_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "platform_impersonation_sessions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "platform_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_operator_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      platform_sessions: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          device_info: Json
+          ended_at: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json
+          risk_score: number
+          session_key: string
+          started_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          device_info?: Json
+          ended_at?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          risk_score?: number
+          session_key: string
+          started_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          device_info?: Json
+          ended_at?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          risk_score?: number
+          session_key?: string
+          started_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
       pm_invites: {
         Row: {
           company_id: string
@@ -2417,6 +3588,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pm_invites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -2522,6 +3700,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "properties_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       property_manager_assignments: {
@@ -2556,6 +3741,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_manager_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "property_manager_assignments_property_id_fkey"
@@ -2607,6 +3799,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "publisher_verifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -2746,6 +3945,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "risk_decisions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "risk_decisions_inquiry_id_fkey"
             columns: ["inquiry_id"]
             isOneToOne: false
@@ -2757,6 +3963,1109 @@ export type Database = {
             columns: ["listing_id"]
             isOneToOne: false
             referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_addon_entitlements: {
+        Row: {
+          addon_id: string
+          bool_value: boolean | null
+          created_at: string
+          entitlement_key_id: string
+          id: string
+          int_value: number | null
+          json_value: Json | null
+          mode: string
+          updated_at: string
+        }
+        Insert: {
+          addon_id: string
+          bool_value?: boolean | null
+          created_at?: string
+          entitlement_key_id: string
+          id?: string
+          int_value?: number | null
+          json_value?: Json | null
+          mode?: string
+          updated_at?: string
+        }
+        Update: {
+          addon_id?: string
+          bool_value?: boolean | null
+          created_at?: string
+          entitlement_key_id?: string
+          id?: string
+          int_value?: number | null
+          json_value?: Json | null
+          mode?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_addon_entitlements_addon_id_fkey"
+            columns: ["addon_id"]
+            isOneToOne: false
+            referencedRelation: "saas_addons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_addon_entitlements_entitlement_key_id_fkey"
+            columns: ["entitlement_key_id"]
+            isOneToOne: false
+            referencedRelation: "saas_entitlement_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_addon_prices: {
+        Row: {
+          addon_id: string
+          amount_minor: number
+          billing_interval: string
+          created_at: string
+          currency_code: string
+          id: string
+          is_default: boolean
+          updated_at: string
+        }
+        Insert: {
+          addon_id: string
+          amount_minor: number
+          billing_interval?: string
+          created_at?: string
+          currency_code: string
+          id?: string
+          is_default?: boolean
+          updated_at?: string
+        }
+        Update: {
+          addon_id?: string
+          amount_minor?: number
+          billing_interval?: string
+          created_at?: string
+          currency_code?: string
+          id?: string
+          is_default?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_addon_prices_addon_id_fkey"
+            columns: ["addon_id"]
+            isOneToOne: false
+            referencedRelation: "saas_addons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_addon_quota_overrides: {
+        Row: {
+          addon_id: string
+          created_at: string
+          hard_limit_override: number | null
+          id: string
+          increment_by: number | null
+          mode: string
+          quota_dimension_id: string
+          updated_at: string
+        }
+        Insert: {
+          addon_id: string
+          created_at?: string
+          hard_limit_override?: number | null
+          id?: string
+          increment_by?: number | null
+          mode?: string
+          quota_dimension_id: string
+          updated_at?: string
+        }
+        Update: {
+          addon_id?: string
+          created_at?: string
+          hard_limit_override?: number | null
+          id?: string
+          increment_by?: number | null
+          mode?: string
+          quota_dimension_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_addon_quota_overrides_addon_id_fkey"
+            columns: ["addon_id"]
+            isOneToOne: false
+            referencedRelation: "saas_addons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_addon_quota_overrides_quota_dimension_id_fkey"
+            columns: ["quota_dimension_id"]
+            isOneToOne: false
+            referencedRelation: "saas_quota_dimensions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_addons: {
+        Row: {
+          attach_scope: string
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          attach_scope?: string
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          attach_scope?: string
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      saas_company_addon_subscriptions: {
+        Row: {
+          addon_id: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          end_at: string | null
+          grace_end_at: string | null
+          id: string
+          metadata: Json
+          notes: string | null
+          start_at: string
+          status: string
+          trial_end_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          addon_id: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          end_at?: string | null
+          grace_end_at?: string | null
+          id?: string
+          metadata?: Json
+          notes?: string | null
+          start_at?: string
+          status?: string
+          trial_end_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          addon_id?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          end_at?: string | null
+          grace_end_at?: string | null
+          id?: string
+          metadata?: Json
+          notes?: string | null
+          start_at?: string
+          status?: string
+          trial_end_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_company_addon_subscriptions_addon_id_fkey"
+            columns: ["addon_id"]
+            isOneToOne: false
+            referencedRelation: "saas_addons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_company_addon_subscriptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_company_addon_subscriptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      saas_company_plan_subscriptions: {
+        Row: {
+          auto_renew: boolean
+          company_id: string
+          created_at: string
+          created_by: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          dunning_attempt_count: number
+          end_at: string | null
+          grace_end_at: string | null
+          id: string
+          last_dunning_attempt_at: string | null
+          last_paid_at: string | null
+          metadata: Json
+          next_renewal_at: string | null
+          notes: string | null
+          payment_state: string
+          plan_id: string
+          product_id: string
+          renewal_interval: string
+          start_at: string
+          status: string
+          trial_end_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          auto_renew?: boolean
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          dunning_attempt_count?: number
+          end_at?: string | null
+          grace_end_at?: string | null
+          id?: string
+          last_dunning_attempt_at?: string | null
+          last_paid_at?: string | null
+          metadata?: Json
+          next_renewal_at?: string | null
+          notes?: string | null
+          payment_state?: string
+          plan_id: string
+          product_id: string
+          renewal_interval?: string
+          start_at?: string
+          status?: string
+          trial_end_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auto_renew?: boolean
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          dunning_attempt_count?: number
+          end_at?: string | null
+          grace_end_at?: string | null
+          id?: string
+          last_dunning_attempt_at?: string | null
+          last_paid_at?: string | null
+          metadata?: Json
+          next_renewal_at?: string | null
+          notes?: string | null
+          payment_state?: string
+          plan_id?: string
+          product_id?: string
+          renewal_interval?: string
+          start_at?: string
+          status?: string
+          trial_end_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_company_plan_subscriptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_company_plan_subscriptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "saas_company_plan_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "saas_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_company_plan_subscriptions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "saas_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_entitlement_keys: {
+        Row: {
+          created_at: string
+          description: string | null
+          domain: string
+          id: string
+          key: string
+          value_type: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          domain: string
+          id?: string
+          key: string
+          value_type: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          domain?: string
+          id?: string
+          key?: string
+          value_type?: string
+        }
+        Relationships: []
+      }
+      saas_plan_entitlements: {
+        Row: {
+          bool_value: boolean | null
+          created_at: string
+          entitlement_key_id: string
+          id: string
+          int_value: number | null
+          json_value: Json | null
+          plan_id: string
+          updated_at: string
+        }
+        Insert: {
+          bool_value?: boolean | null
+          created_at?: string
+          entitlement_key_id: string
+          id?: string
+          int_value?: number | null
+          json_value?: Json | null
+          plan_id: string
+          updated_at?: string
+        }
+        Update: {
+          bool_value?: boolean | null
+          created_at?: string
+          entitlement_key_id?: string
+          id?: string
+          int_value?: number | null
+          json_value?: Json | null
+          plan_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_plan_entitlements_entitlement_key_id_fkey"
+            columns: ["entitlement_key_id"]
+            isOneToOne: false
+            referencedRelation: "saas_entitlement_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_plan_entitlements_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "saas_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_plan_prices: {
+        Row: {
+          amount_minor: number
+          billing_interval: string
+          created_at: string
+          currency_code: string
+          id: string
+          is_default: boolean
+          plan_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_minor: number
+          billing_interval?: string
+          created_at?: string
+          currency_code: string
+          id?: string
+          is_default?: boolean
+          plan_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_minor?: number
+          billing_interval?: string
+          created_at?: string
+          currency_code?: string
+          id?: string
+          is_default?: boolean
+          plan_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_plan_prices_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "saas_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_plan_quotas: {
+        Row: {
+          created_at: string
+          hard_limit: number
+          id: string
+          plan_id: string
+          quota_dimension_id: string
+          soft_limit: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hard_limit: number
+          id?: string
+          plan_id: string
+          quota_dimension_id: string
+          soft_limit: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hard_limit?: number
+          id?: string
+          plan_id?: string
+          quota_dimension_id?: string
+          soft_limit?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_plan_quotas_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "saas_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_plan_quotas_quota_dimension_id_fkey"
+            columns: ["quota_dimension_id"]
+            isOneToOne: false
+            referencedRelation: "saas_quota_dimensions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_plans: {
+        Row: {
+          billing_interval: string
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          product_id: string
+          sort_order: number
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          billing_interval?: string
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          product_id: string
+          sort_order?: number
+          tier: string
+          updated_at?: string
+        }
+        Update: {
+          billing_interval?: string
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          product_id?: string
+          sort_order?: number
+          tier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_plans_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "saas_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_products: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_standalone: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_standalone?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_standalone?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      saas_quota_dimensions: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          unit: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          unit: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          unit?: string
+        }
+        Relationships: []
+      }
+      saas_subscription_change_log: {
+        Row: {
+          actor_user_id: string | null
+          company_id: string
+          created_at: string
+          currency_code: string
+          effective_at: string
+          estimated_charge_minor: number | null
+          estimated_credit_minor: number | null
+          id: string
+          new_plan_id: string | null
+          previous_plan_id: string | null
+          product_id: string
+          reason: string | null
+          subscription_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          company_id: string
+          created_at?: string
+          currency_code: string
+          effective_at: string
+          estimated_charge_minor?: number | null
+          estimated_credit_minor?: number | null
+          id?: string
+          new_plan_id?: string | null
+          previous_plan_id?: string | null
+          product_id: string
+          reason?: string | null
+          subscription_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          company_id?: string
+          created_at?: string
+          currency_code?: string
+          effective_at?: string
+          estimated_charge_minor?: number | null
+          estimated_credit_minor?: number | null
+          id?: string
+          new_plan_id?: string | null
+          previous_plan_id?: string | null
+          product_id?: string
+          reason?: string | null
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_subscription_change_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_change_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_change_log_new_plan_id_fkey"
+            columns: ["new_plan_id"]
+            isOneToOne: false
+            referencedRelation: "saas_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_change_log_previous_plan_id_fkey"
+            columns: ["previous_plan_id"]
+            isOneToOne: false
+            referencedRelation: "saas_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_change_log_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "saas_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_change_log_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "saas_company_plan_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_subscription_events: {
+        Row: {
+          actor_user_id: string | null
+          company_id: string
+          correlation_id: string | null
+          created_at: string
+          details: Json
+          event_type: string
+          id: string
+          product_id: string
+          subscription_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          company_id: string
+          correlation_id?: string | null
+          created_at?: string
+          details?: Json
+          event_type: string
+          id?: string
+          product_id: string
+          subscription_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          company_id?: string
+          correlation_id?: string | null
+          created_at?: string
+          details?: Json
+          event_type?: string
+          id?: string
+          product_id?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_subscription_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_events_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "saas_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_events_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "saas_company_plan_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_subscription_invoices: {
+        Row: {
+          amount_minor: number
+          company_id: string
+          correlation_id: string | null
+          created_at: string
+          currency_code: string
+          due_at: string
+          external_reference: string | null
+          id: string
+          invoice_kind: string
+          invoice_status: string
+          metadata: Json
+          paid_at: string | null
+          period_end: string | null
+          period_start: string | null
+          product_id: string
+          subscription_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_minor: number
+          company_id: string
+          correlation_id?: string | null
+          created_at?: string
+          currency_code?: string
+          due_at?: string
+          external_reference?: string | null
+          id?: string
+          invoice_kind: string
+          invoice_status?: string
+          metadata?: Json
+          paid_at?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          product_id: string
+          subscription_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_minor?: number
+          company_id?: string
+          correlation_id?: string | null
+          created_at?: string
+          currency_code?: string
+          due_at?: string
+          external_reference?: string | null
+          id?: string
+          invoice_kind?: string
+          invoice_status?: string
+          metadata?: Json
+          paid_at?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          product_id?: string
+          subscription_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_subscription_invoices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_invoices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_invoices_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "saas_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_invoices_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "saas_company_plan_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_subscription_payment_attempts: {
+        Row: {
+          amount_minor: number
+          attempt_count: number
+          company_id: string
+          correlation_id: string | null
+          created_at: string
+          currency_code: string
+          failure_reason: string | null
+          gateway: string
+          gateway_reference: string
+          gateway_transaction_id: string | null
+          id: string
+          idempotency_key: string
+          invoice_id: string
+          metadata: Json
+          payment_method: string
+          payment_status: string
+          subscription_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_minor: number
+          attempt_count?: number
+          company_id: string
+          correlation_id?: string | null
+          created_at?: string
+          currency_code: string
+          failure_reason?: string | null
+          gateway: string
+          gateway_reference: string
+          gateway_transaction_id?: string | null
+          id?: string
+          idempotency_key: string
+          invoice_id: string
+          metadata?: Json
+          payment_method: string
+          payment_status?: string
+          subscription_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_minor?: number
+          attempt_count?: number
+          company_id?: string
+          correlation_id?: string | null
+          created_at?: string
+          currency_code?: string
+          failure_reason?: string | null
+          gateway?: string
+          gateway_reference?: string
+          gateway_transaction_id?: string | null
+          id?: string
+          idempotency_key?: string
+          invoice_id?: string
+          metadata?: Json
+          payment_method?: string
+          payment_status?: string
+          subscription_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_subscription_payment_attempts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_payment_attempts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_payment_attempts_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "saas_subscription_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_subscription_payment_attempts_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "saas_company_plan_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_usage_counters: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+          product_id: string
+          quota_dimension_id: string
+          updated_at: string
+          used_value: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          period_end: string
+          period_start: string
+          product_id: string
+          quota_dimension_id: string
+          updated_at?: string
+          used_value?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          product_id?: string
+          quota_dimension_id?: string
+          updated_at?: string
+          used_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_usage_counters_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_usage_counters_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "saas_usage_counters_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "saas_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_usage_counters_quota_dimension_id_fkey"
+            columns: ["quota_dimension_id"]
+            isOneToOne: false
+            referencedRelation: "saas_quota_dimensions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_usage_events: {
+        Row: {
+          actor_user_id: string | null
+          allowed: boolean
+          company_id: string
+          correlation_id: string | null
+          created_at: string
+          delta: number
+          id: string
+          metadata: Json
+          product_id: string
+          quota_dimension_id: string
+          reason: string | null
+          resulting_used: number
+        }
+        Insert: {
+          actor_user_id?: string | null
+          allowed: boolean
+          company_id: string
+          correlation_id?: string | null
+          created_at?: string
+          delta: number
+          id?: string
+          metadata?: Json
+          product_id: string
+          quota_dimension_id: string
+          reason?: string | null
+          resulting_used: number
+        }
+        Update: {
+          actor_user_id?: string | null
+          allowed?: boolean
+          company_id?: string
+          correlation_id?: string | null
+          created_at?: string
+          delta?: number
+          id?: string
+          metadata?: Json
+          product_id?: string
+          quota_dimension_id?: string
+          reason?: string | null
+          resulting_used?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_usage_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_usage_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "saas_usage_events_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "saas_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_usage_events_quota_dimension_id_fkey"
+            columns: ["quota_dimension_id"]
+            isOneToOne: false
+            referencedRelation: "saas_quota_dimensions"
             referencedColumns: ["id"]
           },
         ]
@@ -3162,6 +5471,66 @@ export type Database = {
           },
         ]
       }
+      usage_snapshots: {
+        Row: {
+          company_id: string
+          created_at: string
+          hard_limit: number
+          id: string
+          limit_state: string
+          product_code: string
+          quota_code: string
+          remaining: number
+          snapshot_at: string
+          soft_limit: number
+          usage_percent: number
+          used_value: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          hard_limit: number
+          id?: string
+          limit_state: string
+          product_code: string
+          quota_code: string
+          remaining: number
+          snapshot_at?: string
+          soft_limit: number
+          usage_percent: number
+          used_value: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          hard_limit?: number
+          id?: string
+          limit_state?: string
+          product_code?: string
+          quota_code?: string
+          remaining?: number
+          snapshot_at?: string
+          soft_limit?: number
+          usage_percent?: number
+          used_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_snapshots_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_snapshots_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
       user_mfa: {
         Row: {
           created_at: string
@@ -3420,505 +5789,35 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      crm_accounts: {
-        Row: {
-          account_type: string | null
-          annual_revenue: number | null
-          company_id: string
-          created_at: string
-          created_by: string | null
-          id: string
-          name: string
-          owner_user_id: string | null
-          phone: string | null
-          updated_at: string
-          website: string | null
-        }
-        Insert: {
-          account_type?: string | null
-          annual_revenue?: number | null
-          company_id: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          name: string
-          owner_user_id?: string | null
-          phone?: string | null
-          updated_at?: string
-          website?: string | null
-        }
-        Update: {
-          account_type?: string | null
-          annual_revenue?: number | null
-          company_id?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          name?: string
-          owner_user_id?: string | null
-          phone?: string | null
-          updated_at?: string
-          website?: string | null
-        }
-        Relationships: [
           {
-            foreignKeyName: "crm_accounts_company_id_fkey"
+            foreignKeyName: "webhook_endpoints_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      crm_calls: {
-        Row: {
-          call_type: string
-          company_id: string
-          contact_name: string | null
-          created_at: string
-          created_by: string | null
-          duration_minutes: number
-          id: string
-          owner_user_id: string | null
-          related_id: string | null
-          related_type: string
-          result: string | null
-          started_at: string
-          subject: string
-          updated_at: string
-        }
-        Insert: {
-          call_type: string
-          company_id: string
-          contact_name?: string | null
-          created_at?: string
-          created_by?: string | null
-          duration_minutes?: number
-          id?: string
-          owner_user_id?: string | null
-          related_id?: string | null
-          related_type?: string
-          result?: string | null
-          started_at: string
-          subject: string
-          updated_at?: string
-        }
-        Update: {
-          call_type?: string
-          company_id?: string
-          contact_name?: string | null
-          created_at?: string
-          created_by?: string | null
-          duration_minutes?: number
-          id?: string
-          owner_user_id?: string | null
-          related_id?: string | null
-          related_type?: string
-          result?: string | null
-          started_at?: string
-          subject?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "crm_calls_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      crm_campaigns: {
-        Row: {
-          bounce_rate: number | null
-          budget_amount: number | null
-          channel: string
-          company_id: string
-          created_at: string
-          created_by: string | null
-          ends_on: string | null
-          id: string
-          name: string
-          open_rate: number | null
-          spend_amount: number | null
-          starts_on: string | null
-          status: string
-          updated_at: string
-          click_rate: number | null
-        }
-        Insert: {
-          bounce_rate?: number | null
-          budget_amount?: number | null
-          channel?: string
-          company_id: string
-          created_at?: string
-          created_by?: string | null
-          ends_on?: string | null
-          id?: string
-          name: string
-          open_rate?: number | null
-          spend_amount?: number | null
-          starts_on?: string | null
-          status?: string
-          updated_at?: string
-          click_rate?: number | null
-        }
-        Update: {
-          bounce_rate?: number | null
-          budget_amount?: number | null
-          channel?: string
-          company_id?: string
-          created_at?: string
-          created_by?: string | null
-          ends_on?: string | null
-          id?: string
-          name?: string
-          open_rate?: number | null
-          spend_amount?: number | null
-          starts_on?: string | null
-          status?: string
-          updated_at?: string
-          click_rate?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "crm_campaigns_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      crm_deals: {
-        Row: {
-          account_id: string | null
-          amount: number | null
-          company_id: string
-          contact_id: string | null
-          created_at: string
-          created_by: string | null
-          currency: string
-          deal_name: string
-          expected_close_date: string | null
-          id: string
-          lead_id: string | null
-          listing_id: string | null
-          owner_user_id: string | null
-          probability: number
-          stage: string
-          unit_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          account_id?: string | null
-          amount?: number | null
-          company_id: string
-          contact_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          currency?: string
-          deal_name: string
-          expected_close_date?: string | null
-          id?: string
-          lead_id?: string | null
-          listing_id?: string | null
-          owner_user_id?: string | null
-          probability?: number
-          stage?: string
-          unit_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          account_id?: string | null
-          amount?: number | null
-          company_id?: string
-          contact_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          currency?: string
-          deal_name?: string
-          expected_close_date?: string | null
-          id?: string
-          lead_id?: string | null
-          listing_id?: string | null
-          owner_user_id?: string | null
-          probability?: number
-          stage?: string
-          unit_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "crm_deals_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "crm_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "crm_deals_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "crm_deals_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "lead_contacts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "crm_deals_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "leads"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "crm_deals_listing_id_fkey"
-            columns: ["listing_id"]
-            isOneToOne: false
-            referencedRelation: "marketplace_listings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "crm_deals_unit_id_fkey"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      crm_documents: {
-        Row: {
-          company_id: string
-          created_at: string
-          id: string
-          mime_type: string | null
-          related_id: string | null
-          related_type: string
-          storage_path: string
-          title: string
-          uploaded_by: string | null
-        }
-        Insert: {
-          company_id: string
-          created_at?: string
-          id?: string
-          mime_type?: string | null
-          related_id?: string | null
-          related_type: string
-          storage_path: string
-          title: string
-          uploaded_by?: string | null
-        }
-        Update: {
-          company_id?: string
-          created_at?: string
-          id?: string
-          mime_type?: string | null
-          related_id?: string | null
-          related_type?: string
-          storage_path?: string
-          title?: string
-          uploaded_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "crm_documents_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      crm_meetings: {
-        Row: {
-          company_id: string
-          created_at: string
-          created_by: string | null
-          ends_at: string
-          host_user_id: string | null
-          id: string
-          notes: string | null
-          related_id: string | null
-          related_type: string
-          starts_at: string
-          status: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          company_id: string
-          created_at?: string
-          created_by?: string | null
-          ends_at: string
-          host_user_id?: string | null
-          id?: string
-          notes?: string | null
-          related_id?: string | null
-          related_type?: string
-          starts_at: string
-          status?: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          company_id?: string
-          created_at?: string
-          created_by?: string | null
-          ends_at?: string
-          host_user_id?: string | null
-          id?: string
-          notes?: string | null
-          related_id?: string | null
-          related_type?: string
-          starts_at?: string
-          status?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "crm_meetings_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      crm_projects: {
-        Row: {
-          company_id: string
-          created_at: string
-          created_by: string | null
-          description: string | null
-          due_date: string | null
-          id: string
-          name: string
-          owner_user_id: string | null
-          progress_percent: number
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          company_id: string
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          due_date?: string | null
-          id?: string
-          name: string
-          owner_user_id?: string | null
-          progress_percent?: number
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          company_id?: string
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          due_date?: string | null
-          id?: string
-          name?: string
-          owner_user_id?: string | null
-          progress_percent?: number
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "crm_projects_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      crm_visits: {
-        Row: {
-          address_text: string | null
-          check_in_at: string | null
-          check_in_lat: number | null
-          check_in_lng: number | null
-          check_out_at: string | null
-          company_id: string
-          created_at: string
-          created_by: string | null
-          id: string
-          locality: string | null
-          notes: string | null
-          outcome: string | null
-          proof_path: string | null
-          related_id: string | null
-          related_type: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          address_text?: string | null
-          check_in_at?: string | null
-          check_in_lat?: number | null
-          check_in_lng?: number | null
-          check_out_at?: string | null
-          company_id: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          locality?: string | null
-          notes?: string | null
-          outcome?: string | null
-          proof_path?: string | null
-          related_id?: string | null
-          related_type?: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          address_text?: string | null
-          check_in_at?: string | null
-          check_in_lat?: number | null
-          check_in_lng?: number | null
-          check_out_at?: string | null
-          company_id?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          locality?: string | null
-          notes?: string | null
-          outcome?: string | null
-          proof_path?: string | null
-          related_id?: string | null
-          related_type?: string
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "crm_visits_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
           },
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      crm_marketplace_funnel_metrics: {
+        Row: {
+          company_id: string | null
+          company_name: string | null
+          deals_open: number | null
+          deals_won_30d: number | null
+          inquiries_30d: number | null
+          inquiry_to_won_rate_pct: number | null
+          leads_open: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      can_access_tenant_exit_inventory: {
+        Args: { tenant_id_text: string }
+        Returns: boolean
+      }
       consume_recovery_code: { Args: { p_code: string }; Returns: boolean }
       create_marketplace_inquiry: {
         Args: {
@@ -3940,6 +5839,61 @@ export type Database = {
           reused: boolean
         }[]
       }
+      crm_complete_handoff: {
+        Args: {
+          p_handoff_id: string
+          p_lease_end: string
+          p_lease_start: string
+          p_monthly_rent: number
+          p_security_deposit?: number
+          p_tenant_email: string
+          p_tenant_name: string
+          p_tenant_phone: string
+        }
+        Returns: string
+      }
+      crm_compute_lead_score: { Args: { p_lead_id: string }; Returns: number }
+      crm_conditions_match: {
+        Args: { conditions: Json; payload: Json }
+        Returns: boolean
+      }
+      crm_execute_automation_rule: {
+        Args: {
+          p_correlation_id?: string
+          p_event_type: string
+          p_payload: Json
+          p_rule_id: string
+          p_source_id: string
+          p_source_type: string
+        }
+        Returns: undefined
+      }
+      crm_preview_automation_rule: {
+        Args: { p_rule_id: string; p_sample_payload?: Json }
+        Returns: Json
+      }
+      crm_refresh_lead_score: { Args: { p_lead_id: string }; Returns: number }
+      crm_replay_automation_run: { Args: { p_run_id: string }; Returns: string }
+      crm_replay_automation_run_system: {
+        Args: { p_replay_mode?: string; p_run_id: string }
+        Returns: string
+      }
+      crm_retry_failed_automation_runs: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
+      crm_run_automation_for_event: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_event_type: string
+          p_payload: Json
+          p_source_id: string
+          p_source_type: string
+        }
+        Returns: undefined
+      }
+      crm_schedule_automation_retry_worker: { Args: never; Returns: boolean }
       evaluate_marketplace_inquiry_risk: {
         Args: { p_inquiry_id: string }
         Returns: {
@@ -3955,6 +5909,24 @@ export type Database = {
       get_company_property_ids: {
         Args: { _user_id: string }
         Returns: string[]
+      }
+      get_managed_marketplace_listings_with_inquiry_counts: {
+        Args: { p_company_id: string }
+        Returns: {
+          area: string
+          city: string
+          company_id: string
+          created_at: string
+          currency: string
+          id: string
+          inquiry_count: number
+          published_at: string
+          rent_amount: number
+          slug: string
+          status: string
+          title: string
+          verification_state: string
+        }[]
       }
       get_message_participant_name: {
         Args: { _participant_id: string }
@@ -4025,6 +5997,8 @@ export type Database = {
           currency: string
           description: string
           id: string
+          latitude: number
+          longitude: number
           published_at: string
           rent_amount: number
           slug: string
@@ -4052,6 +6026,8 @@ export type Database = {
           company_name: string
           currency: string
           id: string
+          latitude: number
+          longitude: number
           published_at: string
           rent_amount: number
           slug: string
@@ -4091,6 +6067,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      has_platform_operator_role: {
+        Args: { _role: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -4107,6 +6087,11 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      is_platform_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_valid_crm_deal_stage_transition: {
+        Args: { from_stage: string; to_stage: string }
+        Returns: boolean
+      }
       log_security_event: {
         Args: {
           p_event_type: string
@@ -4115,6 +6100,63 @@ export type Database = {
           p_user_agent?: string
         }
         Returns: string
+      }
+      platform_create_governance_alert: {
+        Args: {
+          p_alert_type: string
+          p_company_id?: string
+          p_correlation_id?: string
+          p_description?: string
+          p_event_id?: string
+          p_metadata?: Json
+          p_severity: string
+          p_title: string
+        }
+        Returns: string
+      }
+      platform_ingest_audit_event: {
+        Args: {
+          p_action: string
+          p_actor_user_id?: string
+          p_company_id?: string
+          p_correlation_id?: string
+          p_device_info?: Json
+          p_event_type: string
+          p_ip_address?: string
+          p_metadata?: Json
+          p_module: string
+          p_result_status?: string
+          p_risk_score?: number
+          p_severity?: string
+          p_source: string
+          p_target_entity_id?: string
+          p_target_entity_type?: string
+          p_user_agent?: string
+        }
+        Returns: string
+      }
+      platform_phase10_run_all: {
+        Args: { p_emit_alerts?: boolean; p_window?: string }
+        Returns: Json
+      }
+      platform_phase10_schedule_drift_checks: { Args: never; Returns: boolean }
+      platform_record_drift_check: {
+        Args: {
+          p_check_key: string
+          p_correlation_id?: string
+          p_details?: Json
+          p_emit_alert?: boolean
+          p_observed_value: number
+          p_status: string
+          p_threshold_value: number
+          p_window_end: string
+          p_window_start: string
+        }
+        Returns: string
+      }
+      platform_refresh_usage_snapshot: {
+        Args: { p_company_id: string; p_product_code?: string }
+        Returns: number
       }
       process_payment:
         | {
@@ -4155,8 +6197,237 @@ export type Database = {
         }
         Returns: Json
       }
+      saas_adjust_usage_counter: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_delta: number
+          p_metadata?: Json
+          p_product_code?: string
+          p_quota_code: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
+      saas_cancel_subscription: {
+        Args: {
+          p_at_period_end?: boolean
+          p_company_id: string
+          p_correlation_id?: string
+          p_product_code: string
+          p_reason?: string
+        }
+        Returns: string
+      }
+      saas_change_subscription_plan: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_currency_code?: string
+          p_effective_now?: boolean
+          p_metadata?: Json
+          p_new_plan_code: string
+          p_product_code: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
+      saas_check_quota: {
+        Args: {
+          p_company_id: string
+          p_product_code?: string
+          p_quota_code: string
+          p_requested_delta?: number
+        }
+        Returns: Json
+      }
+      saas_finalize_plan_change_after_payment: {
+        Args: {
+          p_attempt_id: string
+          p_correlation_id?: string
+          p_gateway_reference?: string
+          p_gateway_transaction_id?: string
+          p_metadata?: Json
+        }
+        Returns: Json
+      }
+      saas_get_effective_plan_id: {
+        Args: { p_company_id: string; p_product_code?: string }
+        Returns: string
+      }
+      saas_get_effective_quota_limits: {
+        Args: {
+          p_company_id: string
+          p_product_code?: string
+          p_quota_code: string
+        }
+        Returns: {
+          hard_limit: number
+          limit_state: string
+          plan_id: string
+          product_id: string
+          remaining: number
+          soft_limit: number
+          used_value: number
+        }[]
+      }
+      saas_get_pending_payment_attempts: {
+        Args: { p_company_id?: string; p_limit?: number }
+        Returns: {
+          attempt_id: string
+          company_id: string
+          gateway: string
+          last_pending_provider_status: string
+          last_pending_reference: string
+          last_pending_verification_at: string
+          payment_status: string
+          pending_verification_count: number
+          subscription_id: string
+          updated_at: string
+        }[]
+      }
+      saas_get_pending_verification_health: {
+        Args: { p_company_id?: string; p_limit?: number }
+        Returns: {
+          company_id: string
+          latest_pending_verification_at: string
+          max_pending_verification_count: number
+          oldest_pending_verification_at: string
+          pending_attempt_count: number
+        }[]
+      }
+      saas_get_plan_price_minor: {
+        Args: { p_currency_code?: string; p_plan_id: string }
+        Returns: number
+      }
+      saas_get_quota_snapshot: {
+        Args: { p_company_id: string; p_product_code?: string }
+        Returns: {
+          hard_limit: number
+          limit_state: string
+          quota_code: string
+          remaining: number
+          soft_limit: number
+          usage_percent: number
+          used_value: number
+        }[]
+      }
+      saas_has_entitlement: {
+        Args: {
+          p_company_id: string
+          p_entitlement_key: string
+          p_product_code?: string
+        }
+        Returns: boolean
+      }
+      saas_mark_plan_change_payment_failed: {
+        Args: {
+          p_attempt_id: string
+          p_correlation_id?: string
+          p_failure_reason?: string
+        }
+        Returns: Json
+      }
+      saas_mark_subscription_grace: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_grace_days?: number
+          p_product_code: string
+          p_reason?: string
+        }
+        Returns: string
+      }
+      saas_prepare_plan_change_charge: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_currency_code?: string
+          p_gateway?: string
+          p_metadata?: Json
+          p_new_plan_code: string
+          p_payment_method?: string
+          p_product_code: string
+        }
+        Returns: Json
+      }
+      saas_process_subscription_renewals: {
+        Args: { p_correlation_id?: string; p_limit?: number }
+        Returns: Json
+      }
+      saas_queue_subscription_renewal_invoices: {
+        Args: { p_correlation_id?: string; p_limit?: number }
+        Returns: Json
+      }
+      saas_reactivate_subscription: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_product_code: string
+        }
+        Returns: string
+      }
+      saas_reconcile_usage_counters: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_product_code?: string
+        }
+        Returns: Json
+      }
+      saas_record_usage: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_delta: number
+          p_metadata?: Json
+          p_product_code?: string
+          p_quota_code: string
+        }
+        Returns: Json
+      }
+      saas_schedule_subscription_renewal_worker: {
+        Args: never
+        Returns: boolean
+      }
+      saas_start_or_replace_subscription: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_metadata?: Json
+          p_plan_code: string
+          p_product_code: string
+          p_trial_days?: number
+        }
+        Returns: string
+      }
+      saas_user_can_access_company: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
+      saas_user_can_administer_billing: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
+      seed_exit_inspection_items_from_scope: {
+        Args: { p_exit_id: string }
+        Returns: number
+      }
+      seed_move_in_inventory_snapshot: {
+        Args: {
+          p_lease_id?: string
+          p_property_id: string
+          p_tenant_id: string
+          p_unit_id: string
+        }
+        Returns: string
+      }
       set_recovery_codes: { Args: { p_codes: string[] }; Returns: number }
       slugify_text: { Args: { p_input: string }; Returns: string }
+      tenant_exit_sync_checkout_snapshot: {
+        Args: { p_exit_id: string }
+        Returns: string
+      }
       tenant_lease_update_guard: {
         Args: {
           p_created_at: string
