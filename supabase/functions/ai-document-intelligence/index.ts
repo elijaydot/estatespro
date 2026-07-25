@@ -50,7 +50,7 @@ serve(async (req) => {
       userId,
       req,
       requestBody: typeof payload === "object" && payload ? payload as Record<string, unknown> : null,
-      requestedDelta: 1,
+      requestedDelta: 4,
       reason: "ai.document_intelligence.request",
     });
 

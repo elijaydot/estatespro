@@ -48,7 +48,7 @@ serve(async (req) => {
       userId: user.id,
       req,
       requestBody: payload,
-      requestedDelta: 1,
+      requestedDelta: 3,
       reason: "ai.financial_insights.request",
     });
 

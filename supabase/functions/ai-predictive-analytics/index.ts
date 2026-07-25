@@ -49,7 +49,7 @@ serve(async (req) => {
       userId,
       req,
       requestBody: payload,
-      requestedDelta: 1,
+      requestedDelta: 3,
       reason: "ai.predictive_analytics.request",
     });
 

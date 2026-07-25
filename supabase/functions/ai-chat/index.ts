@@ -89,7 +89,7 @@ serve(async (req) => {
       userId,
       req,
       requestBody: typeof body === "object" && body ? body as Record<string, unknown> : null,
-      requestedDelta: 1,
+      requestedDelta: 2,
       correlationId,
       reason: "ai.chat.request",
     });

@@ -47,7 +47,7 @@ serve(async (req) => {
       userId: user.id,
       req,
       requestBody: typeof payload === "object" && payload ? payload as Record<string, unknown> : null,
-      requestedDelta: 1,
+      requestedDelta: 2,
       reason: "ai.generate_description.request",
     });
 
