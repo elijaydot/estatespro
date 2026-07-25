@@ -71,3 +71,12 @@ verify_jwt = false
 
 [functions.process-scheduled-messages]
 verify_jwt = false
+
+[functions.saas-subscription-checkout]
+verify_jwt = false
+
+[functions.saas-verify-subscription-payment]
+verify_jwt = false
+
+[functions.run-subscription-renewals]
+verify_jwt = false

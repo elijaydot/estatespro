@@ -5,6 +5,7 @@ import {
   checkRateLimit,
   handleCorsPreflight,
 } from "../_shared/security.ts";
+import { enforceAiCreditQuota } from "../_shared/saas-quota.ts";
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -81,6 +82,21 @@ serve(async (req) => {
     const { data, error: claimsError } = await supabaseClient.auth.getClaims(token);
     const userId = data?.claims?.sub;
     if (claimsError || !userId) throw new Error("Unauthorized");
+
+    const correlationId = createCorrelationId();
+    const quotaResult = await enforceAiCreditQuota({
+      supabase: supabaseClient,
+      userId,
+      req,
+      requestBody: typeof body === "object" && body ? body as Record<string, unknown> : null,
+      requestedDelta: 1,
+      correlationId,
+      reason: "ai.chat.request",
+    });
+
+    if (!quotaResult.allowed) {
+      return jsonResponse(req, { error: quotaResult.message }, quotaResult.status);
+    }
 
     const context = await getPortfolioContext(supabaseClient, userId);
     

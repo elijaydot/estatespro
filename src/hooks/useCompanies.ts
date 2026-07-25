@@ -7,6 +7,7 @@ const db = supabase;
 import { useAuth } from '@/contexts/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { createCorrelationId, emitAuditEvent } from '@/lib/auditEvents';
+import { assertQuotaAvailable } from '@/lib/saasGuards';
 
 export interface Company {
   id: string;
@@ -234,6 +235,14 @@ export function useCreatePMInvite() {
   return useMutation({
     mutationFn: async ({ companyId, email }: { companyId: string; email: string }) => {
       if (!user?.id) throw new Error('Not authenticated');
+
+      await assertQuotaAvailable({
+        companyId,
+        quotaCode: 'property_manager_seats',
+        requestedDelta: 1,
+        productCode: 'core_property',
+      });
+
       const token = crypto.randomUUID();
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);

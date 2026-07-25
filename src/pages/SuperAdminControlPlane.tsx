@@ -14,6 +14,8 @@ import {
   useControlPlaneAlerts,
   useControlPlaneEvents,
   useEntitlementDecisions,
+  usePendingPaymentAttempts,
+  usePendingVerificationHealth,
   usePlatformAnalyticsSnapshots,
   usePlatformDriftChecks,
   usePlatformOperatorRoles,
@@ -112,6 +114,9 @@ export default function SuperAdminControlPlane() {
   const [operatorRole, setOperatorRole] = useState<OperatorRole>('security_auditor');
   const [companyDirectory, setCompanyDirectory] = useState<Map<string, CompanyDirectoryEntry>>(new Map());
   const [userDirectory, setUserDirectory] = useState<Map<string, UserDirectoryEntry>>(new Map());
+  const pendingVerificationScopeCompanyId = isUuidLike(companyFilter) ? companyFilter : null;
+  const pendingAttempts = usePendingPaymentAttempts(150, pendingVerificationScopeCompanyId);
+  const pendingHealth = usePendingVerificationHealth(150, pendingVerificationScopeCompanyId);
 
   useEffect(() => {
     const next = toControlPlaneSearchParams({
@@ -145,8 +150,8 @@ export default function SuperAdminControlPlane() {
     userFilter,
   ]);
 
-  const isLoading = events.isLoading || alerts.isLoading || decisions.isLoading || usage.isLoading || analyticsSnapshots.isLoading || driftChecks.isLoading || operatorRoles.isLoading;
-  const hasError = events.error || alerts.error || decisions.error || usage.error || analyticsSnapshots.error || driftChecks.error || operatorRoles.error;
+  const isLoading = events.isLoading || alerts.isLoading || decisions.isLoading || usage.isLoading || analyticsSnapshots.isLoading || driftChecks.isLoading || pendingAttempts.isLoading || pendingHealth.isLoading || operatorRoles.isLoading;
+  const hasError = events.error || alerts.error || decisions.error || usage.error || analyticsSnapshots.error || driftChecks.error || pendingAttempts.error || pendingHealth.error || operatorRoles.error;
 
   useEffect(() => {
     const companyIds = new Set<string>();
@@ -240,8 +245,34 @@ export default function SuperAdminControlPlane() {
     void usage.refetch();
     void analyticsSnapshots.refetch();
     void driftChecks.refetch();
+    void pendingAttempts.refetch();
+    void pendingHealth.refetch();
     void operatorRoles.refetch();
   };
+
+  const filteredPendingAttempts = useMemo(() => {
+    return (pendingAttempts.data || []).filter((item) => {
+      const ts = item.last_pending_verification_at || item.updated_at;
+      if (!isInTimeRange(ts, timeRange)) return false;
+      if (!matchesCompanyFilter(item.company_id, companyFilter, companyDirectory)) return false;
+      if (correlationFilter && !(item.last_pending_reference || '').includes(correlationFilter)) return false;
+      return matchesSearch([
+        item.company_id,
+        item.gateway,
+        item.payment_status,
+        item.last_pending_provider_status,
+        item.last_pending_reference,
+        item.subscription_id,
+      ], search);
+    });
+  }, [companyDirectory, companyFilter, correlationFilter, pendingAttempts.data, search, timeRange]);
+
+  const filteredPendingHealth = useMemo(() => {
+    return (pendingHealth.data || []).filter((item) => {
+      if (!matchesCompanyFilter(item.company_id, companyFilter, companyDirectory)) return false;
+      return matchesSearch([item.company_id], search);
+    });
+  }, [companyDirectory, companyFilter, pendingHealth.data, search]);
 
   const filteredAlerts = useMemo(() => {
     return (alerts.data || []).filter((item) => {
@@ -303,6 +334,10 @@ export default function SuperAdminControlPlane() {
       return matchesSearch([item.company_id, item.product_code, item.quota_code, item.limit_state], search);
     });
   }, [companyDirectory, companyFilter, search, timeRange, usage.data]);
+
+  const pendingVerificationAlerts = useMemo(() => {
+    return filteredAlerts.filter((item) => item.alert_type === 'billing_pending_verification_retry_depth');
+  }, [filteredAlerts]);
 
   const companyOptions = useMemo(() => {
     return Array.from(companyDirectory.values())
@@ -452,8 +487,29 @@ export default function SuperAdminControlPlane() {
         alert_id: row.alert_id,
         created_at: row.created_at,
       })),
+      ...filteredPendingHealth.map((row) => ({
+        row_type: 'pending_verification_health',
+        company_id: row.company_id,
+        pending_attempt_count: row.pending_attempt_count,
+        max_pending_verification_count: row.max_pending_verification_count,
+        oldest_pending_verification_at: row.oldest_pending_verification_at,
+        latest_pending_verification_at: row.latest_pending_verification_at,
+      })),
+      ...filteredPendingAttempts.map((row) => ({
+        row_type: 'pending_payment_attempt',
+        attempt_id: row.attempt_id,
+        company_id: row.company_id,
+        subscription_id: row.subscription_id,
+        gateway: row.gateway,
+        payment_status: row.payment_status,
+        pending_verification_count: row.pending_verification_count,
+        last_pending_verification_at: row.last_pending_verification_at,
+        last_pending_provider_status: row.last_pending_provider_status,
+        last_pending_reference: row.last_pending_reference,
+        updated_at: row.updated_at,
+      })),
     ];
-  }, [analyticsSnapshots.data, companyRiskRows, driftChecks.data, moduleAdoptionRows, opsSignals]);
+  }, [analyticsSnapshots.data, companyRiskRows, driftChecks.data, filteredPendingAttempts, filteredPendingHealth, moduleAdoptionRows, opsSignals]);
 
   const openAlerts = filteredAlerts.filter((item) => item.status === 'open').length;
   const blockedEvents = filteredEvents.filter((item) => item.result_status === 'blocked' || item.result_status === 'denied').length;
@@ -1110,8 +1166,15 @@ export default function SuperAdminControlPlane() {
             companyRiskRows={companyRiskRows}
             snapshots={analyticsSnapshots.data || []}
             driftChecks={driftChecks.data || []}
+            pendingAttempts={filteredPendingAttempts}
+            pendingHealth={filteredPendingHealth}
+            pendingVerificationAlerts={pendingVerificationAlerts}
             onRunPhase10={() => void handleRunPhase10()}
             onRefreshPhase10={refreshAll}
+            onRefreshPendingVerification={refreshAll}
+            onAcknowledgeAlert={(id) => void handleUpdateAlertStatus(id, 'acknowledged')}
+            onResolveAlert={(id) => void handleUpdateAlertStatus(id, 'resolved')}
+            isAlertActionPending={updateAlertStatus.isPending}
             isRunPending={runPhase10.isPending}
             formatDate={formatDate}
           />

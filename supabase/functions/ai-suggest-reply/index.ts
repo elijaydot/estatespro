@@ -5,6 +5,7 @@ import {
   checkRateLimit,
   handleCorsPreflight,
 } from "../_shared/security.ts";
+import { enforceAiCreditQuota } from "../_shared/saas-quota.ts";
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -27,7 +28,8 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, tenantName } = await req.json();
+    const payload = await req.json();
+    const { messages, tenantName } = payload;
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -39,6 +41,19 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
     if (userError || !user) throw new Error("Unauthorized");
+
+    const quotaResult = await enforceAiCreditQuota({
+      supabase: supabaseClient,
+      userId: user.id,
+      req,
+      requestBody: typeof payload === "object" && payload ? payload as Record<string, unknown> : null,
+      requestedDelta: 1,
+      reason: "ai.suggest_reply.request",
+    });
+
+    if (!quotaResult.allowed) {
+      return jsonResponse(req, { error: quotaResult.message }, quotaResult.status);
+    }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");

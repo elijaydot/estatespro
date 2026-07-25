@@ -25,6 +25,7 @@ export type GovernanceAlert = {
   description: string | null;
   company_id: string | null;
   correlation_id: string | null;
+  metadata?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
@@ -94,6 +95,27 @@ export type PlatformDriftCheck = {
   created_at: string;
 };
 
+export type PendingPaymentAttemptRow = {
+  attempt_id: string;
+  company_id: string;
+  subscription_id: string;
+  gateway: 'paystack' | 'flutterwave';
+  payment_status: 'pending' | 'processing';
+  pending_verification_count: number;
+  last_pending_verification_at: string | null;
+  last_pending_provider_status: string | null;
+  last_pending_reference: string | null;
+  updated_at: string;
+};
+
+export type PendingVerificationHealthRow = {
+  company_id: string;
+  pending_attempt_count: number;
+  max_pending_verification_count: number;
+  oldest_pending_verification_at: string | null;
+  latest_pending_verification_at: string | null;
+};
+
 export type PlatformPhase10RunResult = {
   snapshot_id: string;
   window_start: string;
@@ -131,7 +153,7 @@ export function useControlPlaneAlerts(limit = 100) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('governance_alerts' as never)
-        .select('id, severity, status, alert_type, title, description, company_id, correlation_id, created_at, updated_at, resolved_at')
+        .select('id, severity, status, alert_type, title, description, company_id, correlation_id, metadata, created_at, updated_at, resolved_at')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -217,6 +239,36 @@ export function usePlatformDriftChecks(limit = 50) {
 
       if (error) throw error;
       return (data || []) as PlatformDriftCheck[];
+    },
+  });
+}
+
+export function usePendingPaymentAttempts(limit = 100, companyId: string | null = null) {
+  return useQuery({
+    queryKey: ['pending-payment-attempts', companyId, limit],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('saas_get_pending_payment_attempts' as never, {
+        p_company_id: companyId,
+        p_limit: limit,
+      } as never);
+
+      if (error) throw error;
+      return (data || []) as PendingPaymentAttemptRow[];
+    },
+  });
+}
+
+export function usePendingVerificationHealth(limit = 100, companyId: string | null = null) {
+  return useQuery({
+    queryKey: ['pending-verification-health', companyId, limit],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('saas_get_pending_verification_health' as never, {
+        p_company_id: companyId,
+        p_limit: limit,
+      } as never);
+
+      if (error) throw error;
+      return (data || []) as PendingVerificationHealthRow[];
     },
   });
 }

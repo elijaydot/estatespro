@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Lock, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,6 +56,23 @@ type SubscriptionRow = {
   } | null;
 };
 
+type PendingPaymentVerification = {
+  productCode: string;
+  attemptId: string;
+  invoiceId: string;
+  gateway: 'paystack' | 'flutterwave';
+  reference: string;
+  amountMinor: number;
+  currency: 'USD' | 'NGN' | 'GBP';
+};
+
+const PENDING_VERIFICATIONS_STORAGE_KEY = 'saas.pendingPlanVerifications.v1';
+const MAX_PAYMENT_VERIFY_RETRIES = 5;
+
+const wait = (ms: number) => new Promise<void>((resolve) => {
+  window.setTimeout(() => resolve(), ms);
+});
+
 const tierOrder: Record<string, number> = {
   free: 0,
   bronze: 1,
@@ -101,6 +118,37 @@ export function BillingPlansSettings() {
   const { entitlements, quotas, isLoading: saasAccessLoading } = useSaasAccess();
   const [currency, setCurrency] = useState<'USD' | 'NGN' | 'GBP'>('USD');
   const [pendingPlanId, setPendingPlanId] = useState<string | null>(null);
+  const [pendingVerificationByProduct, setPendingVerificationByProduct] = useState<Record<string, PendingPaymentVerification>>({});
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const raw = window.localStorage.getItem(PENDING_VERIFICATIONS_STORAGE_KEY);
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw) as Record<string, PendingPaymentVerification>;
+      if (parsed && typeof parsed === 'object') {
+        setPendingVerificationByProduct(parsed);
+      }
+    } catch {
+      window.localStorage.removeItem(PENDING_VERIFICATIONS_STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (Object.keys(pendingVerificationByProduct).length === 0) {
+      window.localStorage.removeItem(PENDING_VERIFICATIONS_STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(
+      PENDING_VERIFICATIONS_STORAGE_KEY,
+      JSON.stringify(pendingVerificationByProduct),
+    );
+  }, [pendingVerificationByProduct]);
 
   const { data: currentSubscriptions = [], isLoading: isSubscriptionLoading } = useQuery({
     queryKey: ['saas-current-subscriptions', activeCompanyId],
@@ -189,32 +237,83 @@ export function BillingPlansSettings() {
     try {
       const existing = subscriptionsByProduct.get(productCode);
 
-      if (existing) {
-        const { data, error } = await supabase.rpc('saas_change_subscription_plan' as never, {
-          p_company_id: activeCompanyId,
-          p_product_code: productCode,
-          p_new_plan_code: plan.code,
-          p_currency_code: currency,
-          p_effective_now: true,
-          p_reason: 'self_service_upgrade',
-          p_correlation_id: `ui-plan-change-${Date.now()}`,
-          p_metadata: { source: 'settings.billing.choose_plan' },
-        } as never);
+      const startPaidPlanCheckout = async () => {
+        const { data, error } = await supabase.functions.invoke('saas-subscription-checkout', {
+          body: {
+            companyId: activeCompanyId,
+            productCode,
+            planCode: plan.code,
+            currency,
+            gateway: 'paystack',
+            paymentMethod: 'link',
+            callbackUrl: `${window.location.origin}/settings?tab=billing`,
+          },
+        });
 
-        if (error) throw error;
+        if (error) throw new Error(error.message || 'Unable to initialize checkout');
 
-        const result = (data || {}) as { changed?: boolean; estimated_charge_minor?: number; currency_code?: string };
-        if (result.changed) {
-          const amount = result.estimated_charge_minor || 0;
-          const label = result.currency_code || currency;
+        const payload = (data || {}) as {
+          success?: boolean;
+          requiresPayment?: boolean;
+          checkoutUrl?: string;
+          attemptId?: string;
+          invoiceId?: string;
+          reference?: string;
+          amountMinor?: number;
+          currency?: 'USD' | 'NGN' | 'GBP';
+          changed?: boolean;
+          reason?: string;
+        };
+
+        if (payload.requiresPayment) {
+          if (!payload.attemptId || !payload.invoiceId || !payload.reference || !payload.checkoutUrl) {
+            throw new Error('Checkout initialized but missing payment verification details.');
+          }
+
+          setPendingVerificationByProduct((prev) => ({
+            ...prev,
+            [productCode]: {
+              productCode,
+              attemptId: payload.attemptId,
+              invoiceId: payload.invoiceId,
+              gateway: 'paystack',
+              reference: payload.reference,
+              amountMinor: payload.amountMinor || 0,
+              currency: payload.currency || currency,
+            },
+          }));
+
+          window.open(payload.checkoutUrl, '_blank', 'noopener,noreferrer');
+
+          toast({
+            title: 'Checkout started',
+            description: `Complete payment (${formatPrice(payload.amountMinor || 0, payload.currency || currency)}) and then click Verify Payment in the ${groupedPlans.find((g) => g.productCode === productCode)?.productName || productCode} section.`,
+          });
+          return;
+        }
+
+        if (payload.changed) {
           toast({
             title: 'Plan changed',
-            description: `Your ${productCode} subscription is now on ${plan.tier}. Estimated prorated charge: ${formatPrice(amount, label as 'USD' | 'NGN' | 'GBP')}.`,
+            description: `Your ${productCode} subscription is now on ${plan.tier}.`,
           });
-        } else {
-          toast({ title: 'No change', description: 'You are already on this plan.' });
+          return;
         }
+
+        toast({ title: 'No change', description: payload.reason || 'You are already on this plan.' });
+      };
+
+      if (existing) {
+        await startPaidPlanCheckout();
       } else {
+        if (plan.tier !== 'free') {
+          toast({
+            title: 'Plan start requires payment-enabled base subscription',
+            description: 'Start with the free tier first, then upgrade to paid plans through checkout.',
+          });
+          return;
+        }
+
         const { error } = await supabase.rpc('saas_start_or_replace_subscription' as never, {
           p_company_id: activeCompanyId,
           p_product_code: productCode,
@@ -242,6 +341,103 @@ export function BillingPlansSettings() {
       setPendingPlanId(null);
     }
   };
+
+  const handleVerifyPendingPayment = useCallback(async (productCode: string) => {
+    const pending = pendingVerificationByProduct[productCode];
+    if (!pending) return;
+
+    setPendingPlanId(`verify-${pending.attemptId}`);
+    try {
+      let attempt = 0;
+      let payload: { success?: boolean; alreadyProcessed?: boolean; pending?: boolean; retryAfterMs?: number } | null = null;
+
+      while (attempt <= MAX_PAYMENT_VERIFY_RETRIES) {
+        const { data, error } = await supabase.functions.invoke('saas-verify-subscription-payment', {
+          body: {
+            attemptId: pending.attemptId,
+            gateway: pending.gateway,
+            reference: pending.reference,
+            test_mode: false,
+          },
+        });
+
+        if (error) throw new Error(error.message || 'Failed to verify payment');
+
+        payload = (data || {}) as { success?: boolean; alreadyProcessed?: boolean; pending?: boolean; retryAfterMs?: number };
+
+        if (!payload.success) {
+          throw new Error('Payment verification did not complete successfully.');
+        }
+
+        if (!payload.pending) {
+          break;
+        }
+
+        if (attempt >= MAX_PAYMENT_VERIFY_RETRIES) {
+          throw new Error('Payment is still processing. Please wait a moment and click Verify Payment again.');
+        }
+
+        const retryAfterMs = Number(payload.retryAfterMs || 3000);
+        await wait(retryAfterMs > 0 ? retryAfterMs : 3000);
+        attempt += 1;
+      }
+
+      if (!payload || payload.pending) {
+        throw new Error('Payment is still processing. Please try verification again shortly.');
+      }
+
+      setPendingVerificationByProduct((prev) => {
+        const next = { ...prev };
+        delete next[productCode];
+        return next;
+      });
+
+      toast({
+        title: payload.alreadyProcessed ? 'Payment already verified' : 'Payment verified',
+        description: `Your ${productCode} subscription update is now active.`,
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['saas-current-subscriptions', activeCompanyId] }),
+        queryClient.invalidateQueries({ queryKey: ['saas-access', activeCompanyId] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard-stats', activeCompanyId] }),
+      ]);
+
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment_status');
+      url.searchParams.delete('reference');
+      url.searchParams.delete('trxref');
+      url.searchParams.delete('tx_ref');
+      window.history.replaceState({}, document.title, `${url.pathname}${url.search}`);
+    } catch (error) {
+      toast({ title: 'Payment verification failed', description: getErrorMessage(error), variant: 'destructive' });
+    } finally {
+      setPendingPlanId(null);
+    }
+  }, [activeCompanyId, pendingVerificationByProduct, queryClient, toast]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const url = new URL(window.location.href);
+    const status = (url.searchParams.get('payment_status') || '').toLowerCase();
+    const returnedReference =
+      url.searchParams.get('reference')
+      || url.searchParams.get('trxref')
+      || url.searchParams.get('tx_ref');
+
+    if (!status || !returnedReference) return;
+    if (!['success', 'successful', 'completed', 'paid'].includes(status)) return;
+
+    const matchingProductCode = Object.keys(pendingVerificationByProduct).find((productCode) => {
+      return pendingVerificationByProduct[productCode]?.reference === returnedReference;
+    });
+
+    if (!matchingProductCode) return;
+    if (pendingPlanId) return;
+
+    void handleVerifyPendingPayment(matchingProductCode);
+  }, [handleVerifyPendingPayment, pendingVerificationByProduct, pendingPlanId]);
 
   return (
     <div className="space-y-6">
@@ -348,6 +544,23 @@ export function BillingPlansSettings() {
                       );
                     })}
                   </div>
+                  {pendingVerificationByProduct[group.productCode] && (
+                    <div className="rounded-md border border-primary/30 bg-primary/5 p-3 flex items-center justify-between gap-2">
+                      <div className="text-xs text-muted-foreground">
+                        Payment pending for {group.productName}: {formatPrice(
+                          pendingVerificationByProduct[group.productCode].amountMinor,
+                          pendingVerificationByProduct[group.productCode].currency,
+                        )} (ref: {pendingVerificationByProduct[group.productCode].reference})
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={pendingPlanId === `verify-${pendingVerificationByProduct[group.productCode].attemptId}`}
+                        onClick={() => void handleVerifyPendingPayment(group.productCode)}
+                      >
+                        {pendingPlanId === `verify-${pendingVerificationByProduct[group.productCode].attemptId}` ? 'Verifying...' : 'Verify Payment'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))
             )}

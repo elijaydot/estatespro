@@ -5,6 +5,7 @@ import {
   checkRateLimit,
   handleCorsPreflight,
 } from "../_shared/security.ts";
+import { enforceAiCreditQuota } from "../_shared/saas-quota.ts";
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -63,7 +64,8 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const payload = await req.json();
+    const { messages } = payload;
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) throw new Error("No authorization header");
@@ -78,6 +80,19 @@ serve(async (req) => {
     const { data, error: claimsError } = await supabaseClient.auth.getClaims(token);
     const userId = data?.claims?.sub;
     if (claimsError || !userId) throw new Error("Unauthorized");
+
+    const quotaResult = await enforceAiCreditQuota({
+      supabase: supabaseClient,
+      userId,
+      req,
+      requestBody: typeof payload === "object" && payload ? payload as Record<string, unknown> : null,
+      requestedDelta: 1,
+      reason: "ai.tenant_chatbot.request",
+    });
+
+    if (!quotaResult.allowed) {
+      return jsonResponse(req, { error: quotaResult.message }, quotaResult.status);
+    }
 
     const context = await getTenantContext(supabaseClient, userId);
 
