@@ -17,6 +17,11 @@ const billingVisibilityMigrationPath = resolve(
   'supabase/migrations/20260726101500_saas_billing_visibility_and_dunning_notifications.sql',
 );
 
+const renewalCollectionMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20260726114500_saas_renewal_collection_orchestration.sql',
+);
+
 const billingSettingsPath = resolve(
   process.cwd(),
   'src/components/settings/BillingPlansSettings.tsx',
@@ -204,6 +209,29 @@ describe('billing visibility and dunning notifications', () => {
     expect(sql).toContain('Subscription in grace period');
     expect(sql).toContain('Subscription downgraded after grace period');
     expect(sql).toContain('next_billing_at = date_trunc(\'month\', now()) + interval \'1 month\'');
+  });
+});
+
+describe('renewal collection orchestration', () => {
+  it('adds renewal payment-attempt preparation and prevents premature dunning when attempts are pending', () => {
+    const sql = readFileSync(renewalCollectionMigrationPath, 'utf8');
+
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.saas_prepare_renewal_payment_attempts');
+    expect(sql).toContain("payment_status IN ('pending', 'processing', 'succeeded')");
+    expect(sql).toContain("concat('saas-renewal:', v_invoice.id::text)");
+    expect(sql).toContain("CREATE OR REPLACE FUNCTION public.saas_process_subscription_renewals");
+    expect(sql).toContain("payment_status IN ('pending', 'processing')");
+  });
+
+  it('orchestrates checkout initialization for renewal attempts in the renewal runner edge function', () => {
+    const renewalsSource = readFileSync(saasRenewalRunnerPath, 'utf8');
+
+    expect(renewalsSource).toContain('saas_prepare_renewal_payment_attempts');
+    expect(renewalsSource).toContain('saas.renewals.checkout_initialized');
+    expect(renewalsSource).toContain('saas.renewals.checkout_initialization_failed');
+    expect(renewalsSource).toContain('Subscription renewal payment required');
+    expect(renewalsSource).toContain('renewalAttemptsPrepared');
+    expect(renewalsSource).toContain('renewalCheckoutsInitialized');
   });
 });
 
