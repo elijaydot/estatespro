@@ -223,6 +223,21 @@ describe('renewal collection orchestration', () => {
     expect(sql).toContain("payment_status IN ('pending', 'processing')");
   });
 
+  const finalizeSubscriptionPaymentMigrationPath = resolve(
+    process.cwd(),
+    'supabase/migrations/20260726123000_saas_finalize_subscription_payment_attempt.sql',
+  );
+
+  it('adds unified payment finalizer that handles renewal invoices and plan-change invoices', () => {
+    const sql = readFileSync(finalizeSubscriptionPaymentMigrationPath, 'utf8');
+
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.saas_finalize_subscription_payment_attempt');
+    expect(sql).toContain("v_invoice.invoice_kind = 'plan_change_proration'");
+    expect(sql).toContain('billing.subscription.renewal_paid');
+    expect(sql).toContain('status = CASE WHEN status = \'grace_period\' THEN \'active\' ELSE status END');
+    expect(sql).toContain('invoice_kind');
+  });
+
   it('orchestrates checkout initialization for renewal attempts in the renewal runner edge function', () => {
     const renewalsSource = readFileSync(saasRenewalRunnerPath, 'utf8');
 
@@ -244,7 +259,7 @@ describe('saas billing edge functions', () => {
 
     expect(checkoutSource).toContain('saas_prepare_plan_change_charge');
     expect(checkoutSource).toContain('saas_change_subscription_plan');
-    expect(verifySource).toContain('saas_finalize_plan_change_after_payment');
+    expect(verifySource).toContain('saas_finalize_subscription_payment_attempt');
     expect(verifySource).toContain('saas_mark_plan_change_payment_failed');
     expect(verifySource).toContain('payment_verification_pending');
     expect(verifySource).toContain('verificationStatus: "pending"');

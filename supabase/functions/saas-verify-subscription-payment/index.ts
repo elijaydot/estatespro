@@ -392,7 +392,7 @@ serve(async (req: Request) => {
         provider_status: providerStatus,
       },
     }, async () => {
-      const { data, error } = await supabase.rpc("saas_finalize_plan_change_after_payment", {
+      const { data, error } = await supabase.rpc("saas_finalize_subscription_payment_attempt", {
         p_attempt_id: payload.attemptId,
         p_gateway_transaction_id: providerTransactionId,
         p_gateway_reference: payload.reference,
@@ -405,7 +405,7 @@ serve(async (req: Request) => {
         },
       });
 
-      if (error) throw new Error(error.message || "Failed to finalize subscription payment");
+      if (error) throw new Error(error.message || "Failed to finalize subscription payment attempt");
       return data;
     });
 
