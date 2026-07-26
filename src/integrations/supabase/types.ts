@@ -4228,6 +4228,7 @@ export type Database = {
           last_dunning_attempt_at: string | null
           last_paid_at: string | null
           metadata: Json
+          next_billing_at: string | null
           next_renewal_at: string | null
           notes: string | null
           payment_state: string
@@ -4253,6 +4254,7 @@ export type Database = {
           last_dunning_attempt_at?: string | null
           last_paid_at?: string | null
           metadata?: Json
+          next_billing_at?: string | null
           next_renewal_at?: string | null
           notes?: string | null
           payment_state?: string
@@ -4278,6 +4280,7 @@ export type Database = {
           last_dunning_attempt_at?: string | null
           last_paid_at?: string | null
           metadata?: Json
+          next_billing_at?: string | null
           next_renewal_at?: string | null
           notes?: string | null
           payment_state?: string
@@ -6101,6 +6104,18 @@ export type Database = {
         }
         Returns: string
       }
+      platform_admin_change_company_plan: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_currency_code?: string
+          p_metadata?: Json
+          p_new_plan_code: string
+          p_product_code: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
       platform_create_governance_alert: {
         Args: {
           p_alert_type: string
@@ -6240,6 +6255,17 @@ export type Database = {
           p_requested_delta?: number
         }
         Returns: Json
+      }
+      saas_emit_billing_notification: {
+        Args: {
+          p_company_id: string
+          p_link?: string
+          p_message: string
+          p_metadata?: Json
+          p_title: string
+          p_type?: string
+        }
+        Returns: undefined
       }
       saas_finalize_plan_change_after_payment: {
         Args: {
