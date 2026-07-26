@@ -10,6 +10,10 @@ import {
   emitAuditEvent,
   withTimedAudit,
 } from "../_shared/observability.ts";
+import {
+  buildPaymentErrorEnvelope,
+  type PaymentErrorCode,
+} from "../_shared/payment-contract.ts";
 
 type Gateway = "paystack" | "flutterwave";
 
@@ -38,8 +42,29 @@ function jsonResponse(req: Request, body: unknown, status = 200) {
   });
 }
 
+function paymentErrorCodeFromStatus(status: number): PaymentErrorCode {
+  if (status === 400) return "validation_failed";
+  if (status === 401) return "unauthorized";
+  if (status === 403) return "forbidden";
+  if (status === 404) return "not_found";
+  if (status === 429) return "rate_limited";
+  if (status >= 500) return "internal_error";
+  return "bad_request";
+}
+
 function paymentError(req: Request, message: string, status = 400, correlationId?: string) {
-  return jsonResponse(req, { success: false, error: message, correlationId }, status);
+  return jsonResponse(
+    req,
+    buildPaymentErrorEnvelope(
+      {
+        code: paymentErrorCodeFromStatus(status),
+        message,
+        status,
+      },
+      correlationId,
+    ),
+    status,
+  );
 }
 
 function normalizeMethod(method?: string | null) {

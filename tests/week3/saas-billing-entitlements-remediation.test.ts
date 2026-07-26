@@ -12,6 +12,11 @@ const phaseCompletionMigrationPath = resolve(
   'supabase/migrations/20260725173000_saas_phase_completion_atomic_quota_admin_bridge.sql',
 );
 
+const billingVisibilityMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20260726101500_saas_billing_visibility_and_dunning_notifications.sql',
+);
+
 const billingSettingsPath = resolve(
   process.cwd(),
   'src/components/settings/BillingPlansSettings.tsx',
@@ -110,6 +115,10 @@ describe('billing UI payment-before-entitlement flow', () => {
     expect(source).toContain('payload.pending');
     expect(source).toContain('retryAfterMs');
     expect(source).toContain('Payment is still processing');
+    expect(source).toContain('Outstanding Balance');
+    expect(source).toContain('Recent Subscription Invoices');
+    expect(source).toContain('Subscription Timeline');
+    expect(source).toContain('next_billing_at');
   });
 });
 
@@ -182,6 +191,19 @@ describe('phase completion quota atomicity and admin bridge', () => {
     expect(sql).toContain("public.has_platform_operator_role(v_actor, 'billing_operator')");
     expect(sql).toContain('INSUFFICIENT_PLATFORM_OPERATOR_ROLE');
     expect(sql).toContain('billing.subscription.plan_change.admin_requested');
+  });
+});
+
+describe('billing visibility and dunning notifications', () => {
+  it('adds next_billing_at and billing notification flow for dunning lifecycle', () => {
+    const sql = readFileSync(billingVisibilityMigrationPath, 'utf8');
+
+    expect(sql).toContain('ADD COLUMN IF NOT EXISTS next_billing_at');
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.saas_emit_billing_notification');
+    expect(sql).toContain('Subscription payment retry required');
+    expect(sql).toContain('Subscription in grace period');
+    expect(sql).toContain('Subscription downgraded after grace period');
+    expect(sql).toContain('next_billing_at = date_trunc(\'month\', now()) + interval \'1 month\'');
   });
 });
 

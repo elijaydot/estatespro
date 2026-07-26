@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 
 type PriceRow = {
@@ -43,10 +44,17 @@ type PlanRow = {
 };
 
 type SubscriptionRow = {
+  id: string;
+  company_id: string;
   product_id: string;
   plan_id: string;
   created_at: string;
   status: string;
+  payment_state: string | null;
+  dunning_attempt_count: number | null;
+  last_dunning_attempt_at: string | null;
+  next_renewal_at: string | null;
+  next_billing_at: string | null;
   saas_plans: {
     id: string;
     name: string;
@@ -54,6 +62,28 @@ type SubscriptionRow = {
     tier: string;
     saas_products: ProductRow | null;
   } | null;
+};
+
+type InvoiceRow = {
+  id: string;
+  company_id: string;
+  subscription_id: string;
+  invoice_kind: string;
+  invoice_status: string;
+  amount_minor: number;
+  currency_code: 'USD' | 'NGN' | 'GBP';
+  due_at: string;
+  paid_at: string | null;
+  external_reference: string | null;
+  created_at: string;
+};
+
+type SubscriptionEventRow = {
+  id: string;
+  company_id: string;
+  event_type: string;
+  details: Record<string, unknown> | null;
+  created_at: string;
 };
 
 type PendingPaymentVerification = {
@@ -111,6 +141,11 @@ function formatPrice(amountMinor: number, currencyCode: 'USD' | 'NGN' | 'GBP') {
   }).format(amount);
 }
 
+function formatDate(value: string | null | undefined) {
+  if (!value) return '-';
+  return new Date(value).toLocaleString();
+}
+
 export function BillingPlansSettings() {
   const { activeCompanyId } = useActiveCompany();
   const queryClient = useQueryClient();
@@ -156,7 +191,7 @@ export function BillingPlansSettings() {
     queryFn: async (): Promise<SubscriptionRow[]> => {
       const { data, error } = await supabase
         .from('saas_company_plan_subscriptions' as never)
-        .select('product_id, plan_id, created_at, status, saas_plans:plan_id(id, name, code, tier, saas_products:product_id(code, name))')
+        .select('id, company_id, product_id, plan_id, created_at, status, payment_state, dunning_attempt_count, last_dunning_attempt_at, next_renewal_at, next_billing_at, saas_plans:plan_id(id, name, code, tier, saas_products:product_id(code, name))')
         .eq('company_id', activeCompanyId)
         .in('status', ['active', 'trialing', 'grace_period'])
         .order('created_at', { ascending: false })
@@ -164,6 +199,38 @@ export function BillingPlansSettings() {
 
       if (error) throw error;
       return (data || []) as SubscriptionRow[];
+    },
+  });
+
+  const { data: recentInvoices = [], isLoading: isInvoicesLoading } = useQuery({
+    queryKey: ['saas-recent-invoices', activeCompanyId],
+    enabled: !!activeCompanyId,
+    queryFn: async (): Promise<InvoiceRow[]> => {
+      const { data, error } = await supabase
+        .from('saas_subscription_invoices' as never)
+        .select('id, company_id, subscription_id, invoice_kind, invoice_status, amount_minor, currency_code, due_at, paid_at, external_reference, created_at')
+        .eq('company_id', activeCompanyId)
+        .order('created_at', { ascending: false })
+        .limit(25);
+
+      if (error) throw error;
+      return (data || []) as InvoiceRow[];
+    },
+  });
+
+  const { data: recentEvents = [], isLoading: isEventsLoading } = useQuery({
+    queryKey: ['saas-subscription-events', activeCompanyId],
+    enabled: !!activeCompanyId,
+    queryFn: async (): Promise<SubscriptionEventRow[]> => {
+      const { data, error } = await supabase
+        .from('saas_subscription_events' as never)
+        .select('id, company_id, event_type, details, created_at')
+        .eq('company_id', activeCompanyId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      return (data || []) as SubscriptionEventRow[];
     },
   });
 
@@ -210,6 +277,30 @@ export function BillingPlansSettings() {
     });
     return map;
   }, [currentSubscriptions]);
+
+  const billingSummary = useMemo(() => {
+    const outstandingMinor = recentInvoices
+      .filter((row) => row.invoice_status === 'open' || row.invoice_status === 'uncollectible')
+      .reduce((sum, row) => sum + Number(row.amount_minor || 0), 0);
+
+    const paidCount = recentInvoices.filter((row) => row.invoice_status === 'paid').length;
+    const openCount = recentInvoices.filter((row) => row.invoice_status === 'open').length;
+    const uncollectibleCount = recentInvoices.filter((row) => row.invoice_status === 'uncollectible').length;
+    const nextBillingAt = currentSubscriptions
+      .map((row) => row.next_billing_at || row.next_renewal_at)
+      .filter((value): value is string => Boolean(value))
+      .sort()[0] || null;
+    const maxDunning = currentSubscriptions.reduce((max, row) => Math.max(max, Number(row.dunning_attempt_count || 0)), 0);
+
+    return {
+      outstandingMinor,
+      paidCount,
+      openCount,
+      uncollectibleCount,
+      nextBillingAt,
+      maxDunning,
+    };
+  }, [currentSubscriptions, recentInvoices]);
 
   const getErrorMessage = (error: unknown) => {
     if (error instanceof Error) {
@@ -458,6 +549,29 @@ export function BillingPlansSettings() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+            <div className="rounded-md border border-border/60 p-3">
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Outstanding Balance</p>
+              <p className="text-lg font-semibold mt-1">{formatPrice(billingSummary.outstandingMinor, currency)}</p>
+            </div>
+            <div className="rounded-md border border-border/60 p-3">
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Open Invoices</p>
+              <p className="text-lg font-semibold mt-1">{billingSummary.openCount}</p>
+            </div>
+            <div className="rounded-md border border-border/60 p-3">
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Paid Invoices</p>
+              <p className="text-lg font-semibold mt-1">{billingSummary.paidCount}</p>
+            </div>
+            <div className="rounded-md border border-border/60 p-3">
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Highest Dunning</p>
+              <p className="text-lg font-semibold mt-1">{billingSummary.maxDunning}</p>
+            </div>
+            <div className="rounded-md border border-border/60 p-3">
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Next Billing</p>
+              <p className="text-sm font-semibold mt-1">{formatDate(billingSummary.nextBillingAt)}</p>
+            </div>
+          </div>
+
           <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
             <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Current Subscription</p>
             {isSubscriptionLoading ? (
@@ -473,11 +587,85 @@ export function BillingPlansSettings() {
                     <p className="text-xs text-muted-foreground mt-1">
                       Product: {subscription.saas_plans?.saas_products?.name || 'N/A'}
                     </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Renewal: {formatDate(subscription.next_billing_at || subscription.next_renewal_at)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Payment state: {subscription.payment_state || 'current'} · Dunning attempts: {subscription.dunning_attempt_count || 0}
+                    </p>
                   </div>
                 ))}
               </div>
             ) : (
               <p className="text-sm mt-1 text-muted-foreground">No active subscription found for this company yet.</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Recent Subscription Invoices</p>
+            {isInvoicesLoading ? (
+              <p className="text-sm text-muted-foreground">Loading invoices...</p>
+            ) : recentInvoices.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No subscription invoices yet for this company.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Kind</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Due</TableHead>
+                    <TableHead>Paid</TableHead>
+                    <TableHead>Reference</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentInvoices.slice(0, 12).map((invoice) => (
+                    <TableRow key={invoice.id}>
+                      <TableCell>{formatDate(invoice.created_at)}</TableCell>
+                      <TableCell>{invoice.invoice_kind}</TableCell>
+                      <TableCell>
+                        <Badge variant={invoice.invoice_status === 'paid' ? 'default' : invoice.invoice_status === 'open' ? 'secondary' : 'outline'}>
+                          {invoice.invoice_status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatPrice(invoice.amount_minor, invoice.currency_code)}</TableCell>
+                      <TableCell>{formatDate(invoice.due_at)}</TableCell>
+                      <TableCell>{formatDate(invoice.paid_at)}</TableCell>
+                      <TableCell className="max-w-[220px] truncate" title={invoice.external_reference || ''}>{invoice.external_reference || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Subscription Timeline</p>
+            {isEventsLoading ? (
+              <p className="text-sm text-muted-foreground">Loading events...</p>
+            ) : recentEvents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No subscription events recorded yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {recentEvents.slice(0, 8).map((event) => (
+                  <div key={event.id} className="rounded-md border border-border/60 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium">{event.event_type}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(event.created_at)}</p>
+                    </div>
+                    {event.details && typeof event.details === 'object' && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {Object.entries(event.details)
+                          .slice(0, 3)
+                          .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
+                          .join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
