@@ -128,7 +128,7 @@ export default function TenantPayments() {
   const invoices = (portalData?.invoices || []) as TenantInvoicePayment[];
   const payments = (portalData?.payments || []) as TenantPayment[];
   const paymentSettings = (portalData?.paymentSettings || null) as TenantPaymentSettings | null;
-  const recurringBills = (portalData?.recurringBills || []) as TenantRecurringBill[];
+  const recurringBills = (portalData?.recurringBills || []) as unknown as TenantRecurringBill[];
 
   const availableGateways = useMemo(() => {
     const gateways: Array<{ value: 'paystack' | 'flutterwave'; label: string }> = [];
