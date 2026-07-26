@@ -120,6 +120,7 @@ export function InspectionChecklistSettings() {
         user_id: string;
         is_global: boolean;
         property_id?: string;
+        unit_id?: string;
       } = {
         item_name: newItemName.trim(),
         item_category: newItemCategory,
@@ -313,7 +314,7 @@ export function InspectionChecklistSettings() {
           </div>
         ) : Object.keys(grouped).length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
-            {isGlobalMode ? 'No global checklist items yet. Add some above.' : 
+            {scopeMode === 'global' ? 'No global checklist items yet. Add some above.' : 
               selectedPropertyId ? 'No property-specific items. Add some above or use global defaults.' : ''}
           </div>
         ) : (

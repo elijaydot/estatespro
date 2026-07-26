@@ -497,7 +497,7 @@ export function useAssignCrmLead(companyId?: string | null) {
         actor_user_id: actorUserId || null,
         payload_json: payloadJson,
         occurred_at: new Date().toISOString(),
-      });
+      } as never);
 
       if (activityError) throw activityError;
 
@@ -1132,7 +1132,7 @@ export function useReviewerDecisionOnPublisherVerification(companyId?: string | 
       rejectionReason?: string | null;
       companyId?: string | null;
     }) => {
-      return applyPublisherVerificationDecision<PublisherVerification>(supabase, {
+      return applyPublisherVerificationDecision<PublisherVerification>(supabase as never, {
         verificationId,
         state,
         rejectionReason,
@@ -1167,7 +1167,7 @@ export function useReviewerDecisionOnVerificationDocument(verificationId?: strin
       rejectionReason?: string | null;
       verificationId?: string | null;
     }) => {
-      return applyVerificationDocumentDecision<VerificationDocument>(supabase, {
+      return applyVerificationDocumentDecision<VerificationDocument>(supabase as never, {
         documentId,
         state,
         rejectionReason,

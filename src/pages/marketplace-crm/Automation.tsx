@@ -90,7 +90,7 @@ export default function MarketplaceCrmAutomationPage() {
   };
 
   const onChangeEventType = (nextEventType: string) => {
-    setEventType(nextEventType);
+    setEventType(nextEventType as 'call.logged' | 'deal.stage_changed' | 'meeting.completed' | 'visit.completed');
 
     const defaults = getEventDefinition(nextEventType);
     setConditionRows(defaults.defaultConditionRows);

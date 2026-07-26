@@ -314,7 +314,7 @@ export default function MessagesPageV2() {
         subject: newMessage.subject,
         content: newMessage.content,
         metadata: { scheduledFor: composeScheduledFor },
-      });
+      } as never);
     }, 700);
 
     return () => {
@@ -365,7 +365,7 @@ export default function MessagesPageV2() {
         thread_key: threadKey,
         is_typing: Boolean(replyContent.trim()),
         last_seen_at: new Date().toISOString(),
-      });
+      } as never);
     };
 
     const pullPresence = async () => {
@@ -377,17 +377,18 @@ export default function MessagesPageV2() {
         .limit(1)
         .maybeSingle();
 
-      if (!data) {
+      const presence = data as { is_typing?: boolean; last_seen_at?: string } | null;
+      if (!presence) {
         setPresenceLabel('Live conversation');
         return;
       }
 
-      if (data.is_typing) {
+      if (presence.is_typing) {
         setPresenceLabel('Typing...');
         return;
       }
 
-      setPresenceLabel(`Last seen ${formatDistanceToNow(new Date(data.last_seen_at), { addSuffix: true })}`);
+      setPresenceLabel(`Last seen ${formatDistanceToNow(new Date(presence.last_seen_at || Date.now()), { addSuffix: true })}`);
     };
 
     void pushPresence();
@@ -571,7 +572,7 @@ export default function MessagesPageV2() {
         file_size: attachment.size,
         mime_type: attachment.type,
         uploaded_by: user.id,
-      }))
+      })) as never
     );
   };
 
@@ -595,7 +596,7 @@ export default function MessagesPageV2() {
           content: newMessage.content,
           scheduled_for: scheduledAt.toISOString(),
           metadata: { attachments: composeAttachments },
-        });
+        } as never);
 
         toast({
           title: 'Message scheduled',
@@ -1021,7 +1022,7 @@ export default function MessagesPageV2() {
                 }}
               >
                 <SuggestedReplies
-                  messages={selectedThread.messages}
+                  messages={selectedThread.messages as unknown as { [key: string]: unknown; role?: string; content?: string }[]}
                   tenantName={selectedThread.tenantName}
                   onSelect={(reply) => setReplyContent(reply)}
                 />

@@ -50,7 +50,7 @@ export async function emitAuditEvent(input: AuditEventInput) {
       entity_id: entityId,
       details,
       correlation_id: correlationId,
-    });
+    } as never);
 
   if (error) {
     console.error('Failed to emit audit event', {

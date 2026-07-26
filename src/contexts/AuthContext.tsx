@@ -348,11 +348,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { data: null, error };
       }
 
+      const totp = (data as { totp?: { qr_code?: string; secret?: string; uri?: string } }).totp;
       const enrollment: MfaEnrollmentData = {
         factorId: data.id,
-        qrCode: data.totp?.qr_code || '',
-        secret: data.totp?.secret || '',
-        uri: data.totp?.uri || null,
+        qrCode: totp?.qr_code || '',
+        secret: totp?.secret || '',
+        uri: totp?.uri || null,
       };
 
       logMfaClient('enroll-created-response', {

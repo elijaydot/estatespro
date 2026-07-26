@@ -140,7 +140,7 @@ export function InvitesManagement() {
     setInviteToDelete(null);
   };
 
-  const typedInvites = invites as TenantInvite[];
+  const typedInvites = invites as unknown as TenantInvite[];
   const pendingCount = typedInvites.filter((i) => !i.used_at && !isPast(new Date(i.expires_at))).length;
   const usedCount = typedInvites.filter((i) => i.used_at).length;
   const expiredCount = typedInvites.filter((i) => !i.used_at && isPast(new Date(i.expires_at))).length;
