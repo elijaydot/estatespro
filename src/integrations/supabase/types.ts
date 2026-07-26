@@ -6377,6 +6377,25 @@ export type Database = {
         }
         Returns: Json
       }
+      saas_prepare_renewal_payment_attempts: {
+        Args: {
+          p_correlation_id?: string
+          p_gateway?: string
+          p_limit?: number
+          p_payment_method?: string
+        }
+        Returns: {
+          amount_minor: number
+          attempt_id: string
+          company_id: string
+          currency_code: string
+          gateway: string
+          gateway_reference: string
+          invoice_id: string
+          payment_method: string
+          subscription_id: string
+        }[]
+      }
       saas_process_subscription_renewals: {
         Args: { p_correlation_id?: string; p_limit?: number }
         Returns: Json
