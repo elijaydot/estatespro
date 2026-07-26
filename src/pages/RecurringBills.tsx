@@ -362,7 +362,7 @@ export default function RecurringBills() {
                       <TableCell>
                         <Switch
                           checked={bill.is_active}
-                          onCheckedChange={() => handleToggleActive(bill)}
+                          onCheckedChange={() => handleToggleActive(bill as never)}
                         />
                       </TableCell>
                       <TableCell className="text-right">
@@ -373,7 +373,7 @@ export default function RecurringBills() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleOpenDialog(bill)}>
+                            <DropdownMenuItem onClick={() => handleOpenDialog(bill as never)}>
                               <Pencil className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>

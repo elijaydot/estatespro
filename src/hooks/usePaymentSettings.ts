@@ -66,7 +66,7 @@ export function usePaymentSettings(companyId?: string, propertyId?: string) {
       if (error) throw error;
       if (!data) return null;
 
-      return data as PaymentSettings;
+      return data as unknown as PaymentSettings;
     },
     enabled: true,
   });

@@ -330,7 +330,7 @@ export function useAssignPlatformOperatorRole() {
     }) => {
       const { error } = await supabase
         .from('platform_operator_roles' as never)
-        .insert({ user_id: input.userId, role: input.role });
+        .insert({ user_id: input.userId, role: input.role } as never);
 
       if (error) throw error;
       return true;

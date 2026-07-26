@@ -462,7 +462,7 @@ export default function MarketplaceManage() {
                         </div>
                         <div className="rounded-lg border border-border/70 p-2">
                           <p className="text-muted-foreground">Source</p>
-                          <p className="font-medium">{selectedLead.source}</p>
+                          <p className="font-medium">{(selectedLead as { source?: string }).source ?? '—'}</p>
                         </div>
                         <div className="rounded-lg border border-border/70 p-2">
                           <p className="text-muted-foreground">Listing</p>

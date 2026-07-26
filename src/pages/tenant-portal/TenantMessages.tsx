@@ -338,7 +338,7 @@ export default function TenantMessages() {
           scheduledFor: composeScheduledFor,
           portal: 'tenant',
         },
-      });
+      } as never);
     }, 700);
 
     return () => window.clearTimeout(timeout);
@@ -498,7 +498,7 @@ export default function TenantMessages() {
         thread_key: threadKey,
         is_typing: Boolean(replyMessage.trim()),
         last_seen_at: new Date().toISOString(),
-      });
+      } as never);
     };
 
     const pullPresence = async () => {
@@ -510,17 +510,18 @@ export default function TenantMessages() {
         .limit(1)
         .maybeSingle();
 
-      if (!data) {
+      const presence = data as { is_typing?: boolean; last_seen_at?: string } | null;
+      if (!presence) {
         setPresenceLabel('Live conversation');
         return;
       }
 
-      if (data.is_typing) {
+      if (presence.is_typing) {
         setPresenceLabel('Property management is typing...');
         return;
       }
 
-      setPresenceLabel(`Last seen ${formatDistanceToNow(new Date(data.last_seen_at), { addSuffix: true })}`);
+      setPresenceLabel(`Last seen ${formatDistanceToNow(new Date(presence.last_seen_at || Date.now()), { addSuffix: true })}`);
     };
 
     void pushPresence();
@@ -703,7 +704,7 @@ export default function TenantMessages() {
         property_id: tenantProfile.property_id,
         source: 'tenant-portal',
       },
-    });
+    } as never);
 
     toast({
       title: 'Message scheduled',

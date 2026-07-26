@@ -470,7 +470,7 @@ export default function TenantLease() {
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-              {lease.tenant_signature_url ? (
+              {(lease as { tenant_signature_url?: string }).tenant_signature_url ? (
                 <CheckCircle className="h-5 w-5 text-success" />
               ) : (
                 <Clock className="h-5 w-5 text-muted-foreground" />
@@ -478,8 +478,8 @@ export default function TenantLease() {
               <div>
                 <p className="font-medium">Tenant</p>
                 <p className="text-sm text-muted-foreground">
-                  {lease.tenant_signature_url 
-                    ? `Signed ${format(new Date(lease.tenant_signed_at), 'MMM d, yyyy')}`
+                  {(lease as { tenant_signature_url?: string }).tenant_signature_url 
+                    ? `Signed ${format(new Date((lease as { tenant_signed_at?: string }).tenant_signed_at || Date.now()), 'MMM d, yyyy')}`
                     : 'Pending'}
                 </p>
               </div>

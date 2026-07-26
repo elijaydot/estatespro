@@ -93,7 +93,7 @@ export default function TenantDashboard() {
     ? differenceInDays(new Date(nextPayment.due_date), new Date())
     : 0;
 
-  const recurringBillRows = recurringBills as RecurringBillRow[];
+  const recurringBillRows = recurringBills as unknown as RecurringBillRow[];
   const paymentRows = portalData.payments as PaymentRow[];
   const maintenanceRows = portalData.maintenanceRequests as MaintenanceRequestRow[];
 
