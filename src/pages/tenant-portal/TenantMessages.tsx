@@ -704,7 +704,7 @@ export default function TenantMessages() {
         property_id: tenantProfile.property_id,
         source: 'tenant-portal',
       },
-    });
+    } as never);
 
     toast({
       title: 'Message scheduled',
