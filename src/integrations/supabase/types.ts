@@ -6277,6 +6277,16 @@ export type Database = {
         }
         Returns: Json
       }
+      saas_finalize_subscription_payment_attempt: {
+        Args: {
+          p_attempt_id: string
+          p_correlation_id?: string
+          p_gateway_reference?: string
+          p_gateway_transaction_id?: string
+          p_metadata?: Json
+        }
+        Returns: Json
+      }
       saas_get_effective_plan_id: {
         Args: { p_company_id: string; p_product_code?: string }
         Returns: string
