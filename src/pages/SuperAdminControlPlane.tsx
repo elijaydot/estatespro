@@ -71,6 +71,7 @@ import {
   buildCorrelationSummary,
   buildIncidentTimeline,
   buildUser360Rows,
+  type User360Row,
 } from '@/lib/controlPlaneViews';
 import { getControlPlaneExportRows } from '@/lib/controlPlaneExports';
 import {
@@ -772,8 +773,27 @@ export default function SuperAdminControlPlane() {
   }, [filteredAlerts, filteredDecisions, filteredEvents, filteredUsage]);
 
   const userRows = useMemo(() => {
-    return buildUser360Rows(filteredEvents, filteredDecisions);
-  }, [filteredDecisions, filteredEvents]);
+    const rows = buildUser360Rows(filteredEvents, filteredDecisions);
+    if (rows.length > 0) return rows;
+
+    if (!isUuidLike(userFilter)) return rows;
+
+    const directoryMatch = (pagedUsers.data?.rows || []).find((item) => item.user_id === userFilter)
+      || userDirectory.get(userFilter);
+
+    if (!directoryMatch) return rows;
+
+    const fallbackRow: User360Row = {
+      user_id: directoryMatch.user_id,
+      event_count: 0,
+      decision_count: 0,
+      high_risk_events: 0,
+      blocked_events: 0,
+      last_activity_at: '',
+    };
+
+    return [fallbackRow];
+  }, [filteredDecisions, filteredEvents, pagedUsers.data?.rows, userDirectory, userFilter]);
 
   const incidentTimeline = useMemo(() => {
     return buildIncidentTimeline(filteredEvents);
@@ -2805,7 +2825,12 @@ export default function SuperAdminControlPlane() {
               </CardHeader>
               <CardContent>
                 {userRows.length === 0 ? (
-                  <EmptyState title="No user activity in current filters" description="Use broader filters or seed events." />
+                  <EmptyState
+                    title="No user activity in current filters"
+                    description={isUuidLike(userFilter)
+                      ? 'Selected user currently has no control-plane events or decisions in this time window.'
+                      : 'Use broader filters or seed events.'}
+                  />
                 ) : (
                   <Table>
                     <TableHeader>
@@ -2826,7 +2851,7 @@ export default function SuperAdminControlPlane() {
                           <TableCell>{row.decision_count}</TableCell>
                           <TableCell>{row.high_risk_events}</TableCell>
                           <TableCell>{row.blocked_events}</TableCell>
-                          <TableCell>{formatDate(row.last_activity_at)}</TableCell>
+                          <TableCell>{row.last_activity_at ? formatDate(row.last_activity_at) : '-'}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

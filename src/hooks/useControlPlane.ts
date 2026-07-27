@@ -1,6 +1,53 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+function getErrorMessage(error: unknown) {
+  if (!error) return '';
+  if (error instanceof Error) return error.message || '';
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return String(error);
+}
+
+function isMissingControlPlaneBackendObject(error: unknown) {
+  const message = getErrorMessage(error).toLowerCase();
+  return message.includes('could not find the function public.')
+    || message.includes('in the schema cache')
+    || message.includes('pgrst202')
+    || (message.includes('relation') && message.includes('does not exist') && message.includes('platform_'));
+}
+
+function emptyCompanyAdminSnapshot(companyId: string | null): CompanyAdminSnapshot {
+  return {
+    company: {
+      id: companyId || 'unknown',
+      name: null,
+      email: null,
+      phone: null,
+      owner_id: null,
+      created_at: null,
+      updated_at: null,
+      is_verified: null,
+    },
+    portfolio: {
+      property_count: 0,
+      unit_count: 0,
+      tenant_count: 0,
+      active_member_count: 0,
+    },
+    operations: {
+      open_alert_count: 0,
+      abuse_signal_count: 0,
+      risk_decision_count: 0,
+    },
+    billing: {
+      active_subscription_count: 0,
+      active_addon_count: 0,
+    },
+  };
+}
+
 export type ControlPlaneEvent = {
   id: string;
   source: string;
@@ -531,8 +578,11 @@ export function useCompanyAdminSnapshot(companyId: string | null) {
         p_company_id: companyId,
       } as never);
 
+      if (error && isMissingControlPlaneBackendObject(error)) {
+        return emptyCompanyAdminSnapshot(companyId);
+      }
       if (error) throw error;
-      return (data || {}) as CompanyAdminSnapshot;
+      return (data || emptyCompanyAdminSnapshot(companyId)) as CompanyAdminSnapshot;
     },
   });
 }
@@ -547,6 +597,16 @@ export function useCompanyBillingContext(companyId: string | null, limit = 25) {
         p_limit: limit,
       } as never);
 
+      if (error && isMissingControlPlaneBackendObject(error)) {
+        return {
+          subscriptions: [],
+          invoices: [],
+          payment_attempts: [],
+          subscription_events: [],
+          subscription_change_log: [],
+          addons: [],
+        } as CompanyBillingContext;
+      }
       if (error) throw error;
       return (data || {
         subscriptions: [],
@@ -626,6 +686,7 @@ export function useEntitlementOverrides(companyId: string | null = null, onlyAct
         p_limit: limit,
       } as never);
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [];
       if (error) throw error;
       return (data || []) as EntitlementOverrideRow[];
     },
@@ -700,6 +761,7 @@ export function useActiveSuspensions(principalType: 'company' | 'user' | 'all' =
         p_limit: limit,
       } as never);
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [];
       if (error) throw error;
       return (data || []) as ActiveSuspensionRow[];
     },
@@ -746,6 +808,7 @@ export function useImpersonationSessions(onlyActive = true, limit = 100) {
         p_limit: limit,
       } as never);
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [];
       if (error) throw error;
       return (data || []) as ImpersonationSessionRow[];
     },
@@ -815,6 +878,7 @@ export function useRiskQueue(companyId: string | null = null, limit = 200) {
         p_limit: limit,
       } as never);
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [];
       if (error) throw error;
       return (data || []) as RiskQueueRow[];
     },
@@ -837,6 +901,7 @@ export function useRiskQueueTriageActions(companyId: string | null = null, limit
 
       const { data, error } = await query;
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [];
       if (error) throw error;
       return (data || []) as RiskTriageActionRow[];
     },
@@ -878,6 +943,14 @@ export function useRiskQueueTriageActionsPage(input: {
         p_page_size: safePageSize,
       } as never);
 
+      if (error && isMissingControlPlaneBackendObject(error)) {
+        return {
+          rows: [],
+          page: safePage,
+          pageSize: safePageSize,
+          totalCount: 0,
+        };
+      }
       if (error) throw error;
 
       const payload = (data || {}) as {
@@ -943,6 +1016,14 @@ export function useSessionRevocationHistoryPage(input: {
         p_page_size: safePageSize,
       } as never);
 
+      if (error && isMissingControlPlaneBackendObject(error)) {
+        return {
+          rows: [],
+          page: safePage,
+          pageSize: safePageSize,
+          totalCount: 0,
+        };
+      }
       if (error) throw error;
 
       const payload = (data || {}) as {
