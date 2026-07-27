@@ -395,6 +395,7 @@ export function useControlPlaneEvents(limit = 100) {
         .order('created_at', { ascending: false })
         .limit(limit);
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [];
       if (error) throw error;
       return (data || []) as ControlPlaneEvent[];
     },
@@ -411,6 +412,7 @@ export function useControlPlaneAlerts(limit = 100) {
         .order('created_at', { ascending: false })
         .limit(limit);
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [];
       if (error) throw error;
       return (data || []) as GovernanceAlert[];
     },
@@ -427,6 +429,7 @@ export function useEntitlementDecisions(limit = 100) {
         .order('created_at', { ascending: false })
         .limit(limit);
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [];
       if (error) throw error;
       return (data || []) as EntitlementDecision[];
     },
@@ -443,6 +446,7 @@ export function useUsageSnapshots(limit = 100) {
         .order('snapshot_at', { ascending: false })
         .limit(limit);
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [];
       if (error) throw error;
       return (data || []) as UsageSnapshot[];
     },
@@ -459,6 +463,7 @@ export function usePlatformOperatorRoles(limit = 200) {
         .order('created_at', { ascending: false })
         .limit(limit);
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [];
       if (error) throw error;
       return (data || []) as PlatformOperatorRole[];
     },
@@ -475,6 +480,7 @@ export function usePlatformAnalyticsSnapshots(limit = 20) {
         .order('created_at', { ascending: false })
         .limit(limit);
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [];
       if (error) throw error;
       return (data || []) as PlatformAnalyticsSnapshot[];
     },
@@ -491,6 +497,7 @@ export function usePlatformDriftChecks(limit = 50) {
         .order('created_at', { ascending: false })
         .limit(limit);
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [];
       if (error) throw error;
       return (data || []) as PlatformDriftCheck[];
     },
@@ -521,6 +528,14 @@ export function useCompanyDirectory(page: number, pageSize = 20, search = '') {
 
       const { data, error, count } = await query;
 
+      if (error && isMissingControlPlaneBackendObject(error)) {
+        return {
+          rows: [],
+          page: safePage,
+          pageSize: safePageSize,
+          totalCount: 0,
+        };
+      }
       if (error) throw error;
 
       return {
@@ -557,6 +572,14 @@ export function useUserDirectory(page: number, pageSize = 20, search = '') {
 
       const { data, error, count } = await query;
 
+      if (error && isMissingControlPlaneBackendObject(error)) {
+        return {
+          rows: [],
+          page: safePage,
+          pageSize: safePageSize,
+          totalCount: 0,
+        };
+      }
       if (error) throw error;
 
       return {
@@ -1135,6 +1158,7 @@ export function usePendingPaymentAttempts(limit = 100, companyId: string | null 
         p_limit: limit,
       } as never);
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [] as PendingPaymentAttemptRow[];
       if (error) throw error;
       return (data || []) as PendingPaymentAttemptRow[];
     },
@@ -1150,6 +1174,7 @@ export function usePendingVerificationHealth(limit = 100, companyId: string | nu
         p_limit: limit,
       } as never);
 
+      if (error && isMissingControlPlaneBackendObject(error)) return [] as PendingVerificationHealthRow[];
       if (error) throw error;
       return (data || []) as PendingVerificationHealthRow[];
     },
