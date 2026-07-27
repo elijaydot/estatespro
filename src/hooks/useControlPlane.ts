@@ -566,7 +566,11 @@ export function useBillingCatalog() {
     queryFn: async (): Promise<BillingCatalog> => {
       const { data, error } = await supabase.rpc('platform_get_billing_catalog' as never);
 
-      if (error) throw error;
+      if (error) {
+        // Some environments may not have monetization RPCs deployed yet.
+        // Return empty catalog so the control-plane UI can degrade gracefully.
+        return { products: [], plans: [], addons: [] };
+      }
       return (data || { products: [], plans: [], addons: [] }) as BillingCatalog;
     },
   });
@@ -580,7 +584,21 @@ export function useRevenueMetrics(currencyCode = 'USD') {
         p_currency_code: currencyCode,
       } as never);
 
-      if (error) throw error;
+      if (error) {
+        return {
+          currency_code: currencyCode,
+          mrr_minor: 0,
+          addon_mrr_minor: 0,
+          arr_minor: 0,
+          open_invoices_minor: 0,
+          open_invoice_count: 0,
+          failed_attempt_count_30d: 0,
+          active_companies: 0,
+          dunning_companies: 0,
+          quota_pressure_companies_7d: 0,
+          plan_mix: [],
+        } as RevenueMetrics;
+      }
       return (data || {
         currency_code: currencyCode,
         mrr_minor: 0,

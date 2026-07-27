@@ -100,6 +100,15 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString();
 }
 
+function formatQueryErrorMessage(error: unknown) {
+  if (!error) return null;
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return 'Unknown data loading error';
+}
+
 function formatMinor(amountMinor: number, currencyCode: string) {
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
@@ -377,7 +386,6 @@ export default function SuperAdminControlPlane() {
 
   const activeTabError =
     (activeTab === 'directory' && directoryError)
-    || (activeTab === 'monetization' && monetizationError)
     || (activeTab === 'safety' && safetyError)
     || (activeTab === 'operators' && operatorsError);
 
@@ -988,6 +996,20 @@ export default function SuperAdminControlPlane() {
   const companySubscriptions = (companyBillingContext.data?.subscriptions || []) as Array<Record<string, unknown>>;
   const companyInvoices = (companyBillingContext.data?.invoices || []) as Array<Record<string, unknown>>;
   const companyAddons = (companyBillingContext.data?.addons || []) as Array<Record<string, unknown>>;
+  const monetizationErrorMessages = useMemo(() => {
+    const messages = [
+      formatQueryErrorMessage(billingCatalog.error),
+      formatQueryErrorMessage(revenueMetrics.error),
+      formatQueryErrorMessage(companyAdminSnapshot.error),
+      formatQueryErrorMessage(companyBillingContext.error),
+    ].filter((item): item is string => Boolean(item));
+    return Array.from(new Set(messages));
+  }, [
+    billingCatalog.error,
+    companyAdminSnapshot.error,
+    companyBillingContext.error,
+    revenueMetrics.error,
+  ]);
 
   const handleExportCsv = () => {
     const rows = exportRows();
@@ -1660,7 +1682,14 @@ export default function SuperAdminControlPlane() {
                       </TableHeader>
                       <TableBody>
                         {(pagedUsers.data?.rows || []).map((row) => (
-                          <TableRow key={row.user_id}>
+                          <TableRow
+                            key={row.user_id}
+                            className="cursor-pointer"
+                            onClick={() => {
+                              setUserFilter(row.user_id);
+                              setActiveTab('user360');
+                            }}
+                          >
                             <TableCell>{row.name || 'Unknown user'}</TableCell>
                             <TableCell>{row.email || '-'}</TableCell>
                             <TableCell className="max-w-[240px] truncate" title={row.user_id}>{row.user_id}</TableCell>
@@ -1699,6 +1728,17 @@ export default function SuperAdminControlPlane() {
 
           <TabsContent value="monetization">
             <div className="space-y-3">
+              {monetizationError && monetizationErrorMessages.length > 0 && (
+                <Card className="border-destructive/40">
+                  <CardContent className="p-4 text-sm text-destructive space-y-1">
+                    <p>Some monetization data sources could not be loaded.</p>
+                    {monetizationErrorMessages.map((message) => (
+                      <p key={message} className="text-xs">- {message}</p>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Revenue Command Center</CardTitle>
@@ -1751,9 +1791,11 @@ export default function SuperAdminControlPlane() {
                           <SelectValue placeholder="Product" />
                         </SelectTrigger>
                         <SelectContent>
-                          {(billingCatalog.data?.products || []).map((product) => (
-                            <SelectItem key={product.code} value={product.code}>{product.name}</SelectItem>
-                          ))}
+                          {(billingCatalog.data?.products || []).length === 0
+                            ? <SelectItem value="__no_products" disabled>No products available</SelectItem>
+                            : (billingCatalog.data?.products || []).map((product) => (
+                              <SelectItem key={product.code} value={product.code}>{product.name}</SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                       <Select value={billingPlanCode} onValueChange={setBillingPlanCode}>
@@ -1761,11 +1803,13 @@ export default function SuperAdminControlPlane() {
                           <SelectValue placeholder="Plan" />
                         </SelectTrigger>
                         <SelectContent>
-                          {plansForSelectedProduct.map((plan) => (
-                            <SelectItem key={plan.code} value={plan.code}>
-                              {plan.name} ({plan.tier})
-                            </SelectItem>
-                          ))}
+                          {plansForSelectedProduct.length === 0
+                            ? <SelectItem value="__no_plans" disabled>No plans available</SelectItem>
+                            : plansForSelectedProduct.map((plan) => (
+                              <SelectItem key={plan.code} value={plan.code}>
+                                {plan.name} ({plan.tier})
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                       <Button onClick={() => void handleAdminPlanChange()} disabled={adminChangeCompanyPlan.isPending || !effectiveBillingCompanyId || !billingPlanCode}>
