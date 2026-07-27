@@ -11,6 +11,14 @@ export function isInTimeRange(value: string, timeRange: TimeRange) {
   return now - createdAt <= hours * 60 * 60 * 1000;
 }
 
+export function getTimeRangeStartIso(timeRange: TimeRange) {
+  if (timeRange === 'all') return null;
+
+  const hours = timeRange === '24h' ? 24 : timeRange === '7d' ? 24 * 7 : 24 * 30;
+  const startMs = Date.now() - (hours * 60 * 60 * 1000);
+  return new Date(startMs).toISOString();
+}
+
 export function matchesSearch(haystack: Array<string | null | undefined>, needle: string) {
   const search = needle.trim().toLowerCase();
   if (!search) return true;

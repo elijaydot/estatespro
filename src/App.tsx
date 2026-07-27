@@ -16,6 +16,7 @@ import { isDeviceTrusted } from "@/lib/trustedDevice";
 import { useSaasAccess, type SaasEntitlementKey } from "@/hooks/useSaasAccess";
 import { useActiveCompany } from "@/contexts/useActiveCompany";
 import { useSuperAdminOverride } from "@/hooks/useSuperAdminOverride";
+import { usePrincipalSuspension } from "@/hooks/usePrincipalSuspension";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -130,6 +131,26 @@ function FeatureLockedPage({ featureName }: { featureName: string }) {
   );
 }
 
+function AccessSuspendedPage({ scope }: { scope: 'account' | 'company' }) {
+  return (
+    <div className="p-4 sm:p-6 max-w-3xl">
+      <Card className="border-destructive/40">
+        <CardContent className="py-10 text-center space-y-3">
+          <div className="mx-auto h-12 w-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center">
+            <Lock className="h-5 w-5" />
+          </div>
+          <p className="text-lg font-semibold text-foreground">Access suspended</p>
+          <p className="text-sm text-muted-foreground">
+            {scope === 'company'
+              ? 'Your current company workspace is temporarily suspended. Contact support for reactivation.'
+              : 'Your account is temporarily suspended. Contact support for reactivation.'}
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function FeatureRoute({
   entitlementKey,
   featureName,
@@ -169,10 +190,13 @@ function FeatureRoute({
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading, mfa, user } = useAuth();
   const { role, isLoading: roleLoading, isPropertyManager, isTenant } = useUserRole();
+  const { activeCompanyId } = useActiveCompany();
   const { data: membership, isLoading: membershipLoading } = useMyMembership();
+  const userSuspension = usePrincipalSuspension('user', user?.id, Boolean(user?.id));
+  const companySuspension = usePrincipalSuspension('company', activeCompanyId, Boolean(activeCompanyId));
   const location = useLocation();
 
-  if (authLoading || roleLoading || membershipLoading || mfa.isLoading) {
+  if (authLoading || roleLoading || membershipLoading || mfa.isLoading || userSuspension.isLoading || companySuspension.isLoading) {
     return <FullPageLoading />;
   }
 
@@ -186,6 +210,14 @@ function PrivateRoute({ children }: { children: ReactNode }) {
 
   if (role !== "landlord" && role !== "property_manager" && role !== "super_admin") {
     return <Navigate to="/login" replace />;
+  }
+
+  if (userSuspension.data) {
+    return <AccessSuspendedPage scope="account" />;
+  }
+
+  if (role !== 'super_admin' && companySuspension.data) {
+    return <AccessSuspendedPage scope="company" />;
   }
 
   const trusted = isDeviceTrusted(user?.id);
@@ -209,8 +241,11 @@ function PrivateRoute({ children }: { children: ReactNode }) {
 function TenantPortalRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading, mfa, user } = useAuth();
   const { role, isLoading: roleLoading } = useUserRole();
+  const { activeCompanyId } = useActiveCompany();
+  const userSuspension = usePrincipalSuspension('user', user?.id, Boolean(user?.id));
+  const companySuspension = usePrincipalSuspension('company', activeCompanyId, Boolean(activeCompanyId));
 
-  if (authLoading || roleLoading || mfa.isLoading) {
+  if (authLoading || roleLoading || mfa.isLoading || userSuspension.isLoading || companySuspension.isLoading) {
     return <FullPageLoading />;
   }
 
@@ -220,6 +255,14 @@ function TenantPortalRoute({ children }: { children: ReactNode }) {
 
   if (role !== "tenant") {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  if (userSuspension.data) {
+    return <AccessSuspendedPage scope="account" />;
+  }
+
+  if (companySuspension.data) {
+    return <AccessSuspendedPage scope="company" />;
   }
 
   if (mfa.needsChallenge && !isDeviceTrusted(user?.id)) {

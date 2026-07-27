@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Shield, Siren, Activity, Fingerprint, RefreshCw, Sparkles, Download } from 'lucide-react';
+import { Shield, Siren, Activity, Fingerprint, RefreshCw, Sparkles, Download, ChevronLeft, ChevronRight, Building2, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,18 +10,41 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { Switch } from '@/components/ui/switch';
 import {
+  useAdminChangeCompanyPlan,
+  useAdminSetCompanyAddonStatus,
+  useActiveSuspensions,
   useAssignPlatformOperatorRole,
+  useBillingCatalog,
+  useCompanyAdminSnapshot,
+  useCompanyBillingContext,
+  useCompanyDirectory,
   useControlPlaneAlerts,
   useControlPlaneEvents,
+  useEntitlementKeyCatalog,
+  useEntitlementOverrides,
   useEntitlementDecisions,
+  useImpersonationSessions,
   usePendingPaymentAttempts,
   usePendingVerificationHealth,
   usePlatformAnalyticsSnapshots,
   usePlatformDriftChecks,
   usePlatformOperatorRoles,
+  useRevokeEntitlementOverride,
+  useRevenueMetrics,
+  useRevokeActivePlatformSessions,
+  useRiskQueue,
+  useRiskQueueTriageActionsPage,
+  useRiskQueueTriageActions,
+  useSessionRevocationHistoryPage,
   useRemovePlatformOperatorRole,
   useRunPlatformPhase10,
+  useSetEntitlementOverride,
+  useSetPrincipalSuspension,
+  useStartImpersonationSession,
+  useStopImpersonationSession,
+  useTriageRiskQueueItem,
   useUpdateGovernanceAlertStatus,
+  useUserDirectory,
   useUsageSnapshots,
 } from '@/hooks/useControlPlane';
 import { useSuperAdminOverride } from '@/hooks/useSuperAdminOverride';
@@ -29,7 +52,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import { useSearchParams } from 'react-router-dom';
-import { downloadCsv, downloadJson, isInTimeRange, matchesSearch, rowsToCsv, type TimeRange } from '@/lib/controlPlane';
+import { downloadCsv, downloadJson, getTimeRangeStartIso, isInTimeRange, matchesSearch, rowsToCsv, type TimeRange } from '@/lib/controlPlane';
 import {
   parseControlPlaneUiState,
   toControlPlaneSearchParams,
@@ -55,6 +78,7 @@ import {
   buildModuleAdoptionRows,
   buildOpsSignals,
 } from '@/lib/controlPlaneAnalytics';
+import { buildSafetyTimelineRows } from '@/lib/controlPlaneSafety';
 import {
   buildCorrelationFilterOptions,
   matchesCompanyFilter,
@@ -62,9 +86,27 @@ import {
   type CompanyDirectoryEntry,
   type UserDirectoryEntry,
 } from '@/lib/controlPlaneFilterHelpers';
+import {
+  getDisplayedRevocationHistoryPage,
+  getNextRevocationHistoryPage,
+  getPrevRevocationHistoryPage,
+  getRevocationHistoryTotalPages,
+  resetRevocationHistoryPage,
+  shouldDisableRevocationNext,
+  shouldDisableRevocationPrev,
+} from '@/lib/controlPlaneRevocationHistory';
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString();
+}
+
+function formatMinor(amountMinor: number, currencyCode: string) {
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: currencyCode,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format((amountMinor || 0) / 100);
 }
 
 function SeverityBadge({ severity }: { severity: string }) {
@@ -95,8 +137,20 @@ export default function SuperAdminControlPlane() {
   const analyticsSnapshots = usePlatformAnalyticsSnapshots(20);
   const driftChecks = usePlatformDriftChecks(50);
   const operatorRoles = usePlatformOperatorRoles(200);
+  const billingCatalog = useBillingCatalog();
+  const entitlementCatalog = useEntitlementKeyCatalog(600);
+  const revenueMetrics = useRevenueMetrics('USD');
   const assignOperatorRole = useAssignPlatformOperatorRole();
   const removeOperatorRole = useRemovePlatformOperatorRole();
+  const adminChangeCompanyPlan = useAdminChangeCompanyPlan();
+  const adminSetCompanyAddonStatus = useAdminSetCompanyAddonStatus();
+  const setEntitlementOverride = useSetEntitlementOverride();
+  const revokeEntitlementOverride = useRevokeEntitlementOverride();
+  const setPrincipalSuspension = useSetPrincipalSuspension();
+  const startImpersonationSession = useStartImpersonationSession();
+  const stopImpersonationSession = useStopImpersonationSession();
+  const triageRiskQueueItem = useTriageRiskQueueItem();
+  const revokeActiveSessions = useRevokeActivePlatformSessions();
   const runPhase10 = useRunPlatformPhase10();
   const updateAlertStatus = useUpdateGovernanceAlertStatus();
 
@@ -112,11 +166,130 @@ export default function SuperAdminControlPlane() {
   const [correlationFilter, setCorrelationFilter] = useState(parsedState.correlationFilter);
   const [operatorUserId, setOperatorUserId] = useState('');
   const [operatorRole, setOperatorRole] = useState<OperatorRole>('security_auditor');
+  const [billingCompanyId, setBillingCompanyId] = useState('');
+  const [billingProductCode, setBillingProductCode] = useState('');
+  const [billingPlanCode, setBillingPlanCode] = useState('');
+  const [billingReason, setBillingReason] = useState('');
+  const [addonNotes, setAddonNotes] = useState('');
+  const [safetyCompanyId, setSafetyCompanyId] = useState('');
+  const [entitlementKey, setEntitlementKey] = useState('');
+  const [overrideDecision, setOverrideDecision] = useState<'allow' | 'deny'>('allow');
+  const [overrideReason, setOverrideReason] = useState('');
+  const [suspendPrincipalType, setSuspendPrincipalType] = useState<'company' | 'user'>('company');
+  const [suspendPrincipalId, setSuspendPrincipalId] = useState('');
+  const [suspensionReason, setSuspensionReason] = useState('');
+  const [impersonationTargetUserId, setImpersonationTargetUserId] = useState('');
+  const [impersonationCompanyId, setImpersonationCompanyId] = useState('');
+  const [impersonationReason, setImpersonationReason] = useState('');
+  const [riskTriageNotes, setRiskTriageNotes] = useState('');
+  const [triageStatusFilter, setTriageStatusFilter] = useState<'all' | 'acknowledged' | 'resolved' | 'escalated' | 'false_positive'>('all');
+  const [revocationPrincipalType, setRevocationPrincipalType] = useState<'all' | 'company' | 'user'>('all');
+  const [companyDirectoryPage, setCompanyDirectoryPage] = useState(1);
+  const [userDirectoryPage, setUserDirectoryPage] = useState(1);
+  const [triageActionsPage, setTriageActionsPage] = useState(1);
+  const [revocationHistoryPageNumber, setRevocationHistoryPageNumber] = useState(1);
   const [companyDirectory, setCompanyDirectory] = useState<Map<string, CompanyDirectoryEntry>>(new Map());
   const [userDirectory, setUserDirectory] = useState<Map<string, UserDirectoryEntry>>(new Map());
   const pendingVerificationScopeCompanyId = isUuidLike(companyFilter) ? companyFilter : null;
+  const effectiveBillingCompanyId = isUuidLike(billingCompanyId) ? billingCompanyId : null;
+  const effectiveSafetyCompanyId = isUuidLike(safetyCompanyId) ? safetyCompanyId : null;
+  const triageCompanyFilterId = isUuidLike(companyFilter) ? companyFilter : effectiveSafetyCompanyId;
+  const triageActorFilterId = isUuidLike(userFilter) ? userFilter : null;
+  const triageCreatedAfter = getTimeRangeStartIso(timeRange);
+  const triageCreatedBefore = null;
+  const revocationCompanyFilterId = isUuidLike(companyFilter) ? companyFilter : effectiveSafetyCompanyId;
+  const revocationActorFilterId = isUuidLike(userFilter) ? userFilter : null;
+  const revocationCreatedAfter = getTimeRangeStartIso(timeRange);
   const pendingAttempts = usePendingPaymentAttempts(150, pendingVerificationScopeCompanyId);
   const pendingHealth = usePendingVerificationHealth(150, pendingVerificationScopeCompanyId);
+  const entitlementOverrides = useEntitlementOverrides(effectiveSafetyCompanyId, true, 200);
+  const activeSuspensions = useActiveSuspensions('all', 200);
+  const impersonationSessions = useImpersonationSessions(true, 100);
+  const riskQueue = useRiskQueue(effectiveSafetyCompanyId, 250);
+  const riskQueueTriageActions = useRiskQueueTriageActions(effectiveSafetyCompanyId, 250);
+  const pagedRiskQueueTriageActions = useRiskQueueTriageActionsPage({
+    companyId: triageCompanyFilterId,
+    actorUserId: triageActorFilterId,
+    triageStatus: triageStatusFilter,
+    createdAfter: triageCreatedAfter,
+    createdBefore: triageCreatedBefore,
+    page: triageActionsPage,
+    pageSize: 20,
+  });
+  const revocationHistoryPage = useSessionRevocationHistoryPage({
+    companyId: revocationCompanyFilterId,
+    actorUserId: revocationActorFilterId,
+    principalType: revocationPrincipalType,
+    createdAfter: revocationCreatedAfter,
+    createdBefore: null,
+    resultStatus: eventResultFilter,
+    severity: severityFilter,
+    correlationId: correlationFilter || null,
+    page: revocationHistoryPageNumber,
+    pageSize: 20,
+  });
+  const revocationTimelineSource = useSessionRevocationHistoryPage({
+    companyId: revocationCompanyFilterId,
+    actorUserId: revocationActorFilterId,
+    principalType: revocationPrincipalType,
+    createdAfter: revocationCreatedAfter,
+    createdBefore: null,
+    resultStatus: eventResultFilter,
+    severity: severityFilter,
+    correlationId: correlationFilter || null,
+    page: 1,
+    pageSize: 200,
+  });
+  const companyAdminSnapshot = useCompanyAdminSnapshot(effectiveBillingCompanyId);
+  const companyBillingContext = useCompanyBillingContext(effectiveBillingCompanyId, 25);
+  const pagedCompanies = useCompanyDirectory(companyDirectoryPage, 20, search);
+  const pagedUsers = useUserDirectory(userDirectoryPage, 20, search);
+
+  useEffect(() => {
+    if (!billingCompanyId && isUuidLike(companyFilter)) {
+      setBillingCompanyId(companyFilter);
+    }
+  }, [billingCompanyId, companyFilter]);
+
+  useEffect(() => {
+    if (!safetyCompanyId && isUuidLike(companyFilter)) {
+      setSafetyCompanyId(companyFilter);
+    }
+  }, [companyFilter, safetyCompanyId]);
+
+  useEffect(() => {
+    if (!entitlementCatalog.data?.length || entitlementKey) return;
+    setEntitlementKey(entitlementCatalog.data[0].key);
+  }, [entitlementCatalog.data, entitlementKey]);
+
+  useEffect(() => {
+    if (!billingCatalog.data?.products?.length || billingProductCode) return;
+    setBillingProductCode(billingCatalog.data.products[0].code);
+  }, [billingCatalog.data?.products, billingProductCode]);
+
+  useEffect(() => {
+    if (!billingCatalog.data?.plans?.length) return;
+    const plansForProduct = billingCatalog.data.plans.filter((item) => item.product_code === billingProductCode);
+    if (!plansForProduct.length) {
+      setBillingPlanCode('');
+      return;
+    }
+    if (!billingPlanCode || !plansForProduct.some((item) => item.code === billingPlanCode)) {
+      setBillingPlanCode(plansForProduct[0].code);
+    }
+  }, [billingCatalog.data?.plans, billingPlanCode, billingProductCode]);
+
+  useEffect(() => {
+    setCompanyDirectoryPage(1);
+    setUserDirectoryPage(1);
+    setTriageActionsPage(1);
+    setRevocationHistoryPageNumber(resetRevocationHistoryPage());
+  }, [search]);
+
+  useEffect(() => {
+    setTriageActionsPage(1);
+    setRevocationHistoryPageNumber(resetRevocationHistoryPage());
+  }, [effectiveSafetyCompanyId, companyFilter, userFilter, timeRange, triageStatusFilter, revocationPrincipalType]);
 
   useEffect(() => {
     const next = toControlPlaneSearchParams({
@@ -150,8 +323,51 @@ export default function SuperAdminControlPlane() {
     userFilter,
   ]);
 
-  const isLoading = events.isLoading || alerts.isLoading || decisions.isLoading || usage.isLoading || analyticsSnapshots.isLoading || driftChecks.isLoading || pendingAttempts.isLoading || pendingHealth.isLoading || operatorRoles.isLoading;
-  const hasError = events.error || alerts.error || decisions.error || usage.error || analyticsSnapshots.error || driftChecks.error || pendingAttempts.error || pendingHealth.error || operatorRoles.error;
+  const isLoading = events.isLoading
+    || alerts.isLoading
+    || decisions.isLoading
+    || usage.isLoading
+    || analyticsSnapshots.isLoading
+    || driftChecks.isLoading
+    || pendingAttempts.isLoading
+    || pendingHealth.isLoading
+    || operatorRoles.isLoading
+    || pagedCompanies.isLoading
+    || pagedUsers.isLoading
+    || billingCatalog.isLoading
+    || revenueMetrics.isLoading
+    || entitlementCatalog.isLoading
+    || entitlementOverrides.isLoading
+    || activeSuspensions.isLoading
+    || impersonationSessions.isLoading
+    || riskQueue.isLoading
+    || riskQueueTriageActions.isLoading
+    || pagedRiskQueueTriageActions.isLoading
+    || revocationHistoryPage.isLoading
+    || revocationTimelineSource.isLoading;
+
+  const hasError = events.error
+    || alerts.error
+    || decisions.error
+    || usage.error
+    || analyticsSnapshots.error
+    || driftChecks.error
+    || pendingAttempts.error
+    || pendingHealth.error
+    || operatorRoles.error
+    || pagedCompanies.error
+    || pagedUsers.error
+    || billingCatalog.error
+    || revenueMetrics.error
+    || entitlementCatalog.error
+    || entitlementOverrides.error
+    || activeSuspensions.error
+    || impersonationSessions.error
+    || riskQueue.error
+    || riskQueueTriageActions.error
+    || pagedRiskQueueTriageActions.error
+    || revocationHistoryPage.error
+    || revocationTimelineSource.error;
 
   useEffect(() => {
     const companyIds = new Set<string>();
@@ -248,6 +464,23 @@ export default function SuperAdminControlPlane() {
     void pendingAttempts.refetch();
     void pendingHealth.refetch();
     void operatorRoles.refetch();
+    void pagedCompanies.refetch();
+    void pagedUsers.refetch();
+    void billingCatalog.refetch();
+    void revenueMetrics.refetch();
+    void entitlementCatalog.refetch();
+    void entitlementOverrides.refetch();
+    void activeSuspensions.refetch();
+    void impersonationSessions.refetch();
+    void riskQueue.refetch();
+    void riskQueueTriageActions.refetch();
+    void pagedRiskQueueTriageActions.refetch();
+    void revocationHistoryPage.refetch();
+    void revocationTimelineSource.refetch();
+    if (effectiveBillingCompanyId) {
+      void companyAdminSnapshot.refetch();
+      void companyBillingContext.refetch();
+    }
   };
 
   const filteredPendingAttempts = useMemo(() => {
@@ -335,6 +568,86 @@ export default function SuperAdminControlPlane() {
     });
   }, [companyDirectory, companyFilter, search, timeRange, usage.data]);
 
+  const filteredRiskQueue = useMemo(() => {
+    return (riskQueue.data || []).filter((item) => {
+      if (!isInTimeRange(item.occurred_at, timeRange)) return false;
+      if (severityFilter !== 'all' && item.severity !== severityFilter && !(severityFilter === 'error' && item.severity === 'critical')) {
+        return false;
+      }
+      if (!matchesCompanyFilter(item.company_id, companyFilter, companyDirectory)) return false;
+      return matchesSearch([
+        item.row_type,
+        item.company_id,
+        item.status,
+        item.title,
+        item.detail,
+      ], search);
+    });
+  }, [companyDirectory, companyFilter, riskQueue.data, search, severityFilter, timeRange]);
+
+  const filteredRiskTriageActions = useMemo(() => {
+    return (riskQueueTriageActions.data || []).filter((item) => {
+      if (!isInTimeRange(item.created_at, timeRange)) return false;
+      if (!matchesCompanyFilter(item.company_id, companyFilter, companyDirectory)) return false;
+      if (!matchesUserFilter(item.actor_user_id, userFilter, userDirectory)) return false;
+      return matchesSearch([
+        item.row_type,
+        item.row_id,
+        item.triage_status,
+        item.company_id,
+        item.actor_user_id,
+        item.notes,
+      ], search);
+    });
+  }, [companyDirectory, companyFilter, riskQueueTriageActions.data, search, timeRange, userDirectory, userFilter]);
+
+  const filteredPagedRiskTriageActions = useMemo(() => {
+    return (pagedRiskQueueTriageActions.data?.rows || []).filter((item) => {
+      if (companyFilter === 'unscoped' && item.company_id) return false;
+      if (userFilter === 'unknown' && item.actor_user_id) return false;
+      return matchesSearch([
+        item.row_type,
+        item.row_id,
+        item.triage_status,
+        item.company_id,
+        item.actor_user_id,
+        item.notes,
+      ], search);
+    });
+  }, [companyFilter, pagedRiskQueueTriageActions.data?.rows, search, userFilter]);
+
+  const filteredSessionRevocations = useMemo(() => {
+    return (revocationTimelineSource.data?.rows || []).filter((item) => {
+      if (companyFilter === 'unscoped' && item.company_id) return false;
+      if (userFilter === 'unknown' && item.actor_user_id) return false;
+
+      return matchesSearch([
+        item.principal_type,
+        item.principal_id,
+        item.reason,
+        item.correlation_id,
+        item.company_id,
+        item.actor_user_id,
+      ], search);
+    });
+  }, [companyFilter, revocationTimelineSource.data?.rows, search, userFilter]);
+
+  const filteredPagedSessionRevocations = useMemo(() => {
+    return (revocationHistoryPage.data?.rows || []).filter((item) => {
+      if (companyFilter === 'unscoped' && item.company_id) return false;
+      if (userFilter === 'unknown' && item.actor_user_id) return false;
+
+      return matchesSearch([
+        item.principal_type,
+        item.principal_id,
+        item.reason,
+        item.correlation_id,
+        item.company_id,
+        item.actor_user_id,
+      ], search);
+    });
+  }, [companyFilter, revocationHistoryPage.data?.rows, search, userFilter]);
+
   const pendingVerificationAlerts = useMemo(() => {
     return filteredAlerts.filter((item) => item.alert_type === 'billing_pending_verification_retry_depth');
   }, [filteredAlerts]);
@@ -404,6 +717,14 @@ export default function SuperAdminControlPlane() {
 
     return options;
   }, [userOptions]);
+
+  const entitlementKeyOptions = useMemo<SearchableSelectOption[]>(() => {
+    return (entitlementCatalog.data || []).map((item) => ({
+      value: item.key,
+      label: `${item.module} · ${item.name}`,
+      description: `${item.key}${item.description ? ` • ${item.description}` : ''}`,
+    }));
+  }, [entitlementCatalog.data]);
 
   const scopedEventsForCorrelationOptions = useMemo(() => {
     return (events.data || []).filter((item) => {
@@ -511,6 +832,101 @@ export default function SuperAdminControlPlane() {
     ];
   }, [analyticsSnapshots.data, companyRiskRows, driftChecks.data, filteredPendingAttempts, filteredPendingHealth, moduleAdoptionRows, opsSignals]);
 
+  const monetizationRows = useMemo(() => {
+    const metrics = revenueMetrics.data;
+    const context = companyBillingContext.data;
+    const snapshot = companyAdminSnapshot.data;
+
+    const rows: Record<string, unknown>[] = [];
+
+    if (metrics) {
+      rows.push({
+        row_type: 'revenue_metrics',
+        currency_code: metrics.currency_code,
+        mrr_minor: metrics.mrr_minor,
+        addon_mrr_minor: metrics.addon_mrr_minor,
+        arr_minor: metrics.arr_minor,
+        open_invoices_minor: metrics.open_invoices_minor,
+        open_invoice_count: metrics.open_invoice_count,
+        failed_attempt_count_30d: metrics.failed_attempt_count_30d,
+        active_companies: metrics.active_companies,
+        dunning_companies: metrics.dunning_companies,
+        quota_pressure_companies_7d: metrics.quota_pressure_companies_7d,
+      });
+
+      metrics.plan_mix.forEach((plan) => {
+        rows.push({
+          row_type: 'plan_mix',
+          ...plan,
+        });
+      });
+    }
+
+    if (snapshot) {
+      rows.push({
+        row_type: 'company_snapshot',
+        company_id: snapshot.company.id,
+        company_name: snapshot.company.name,
+        property_count: snapshot.portfolio.property_count,
+        unit_count: snapshot.portfolio.unit_count,
+        tenant_count: snapshot.portfolio.tenant_count,
+        active_member_count: snapshot.portfolio.active_member_count,
+        open_alert_count: snapshot.operations.open_alert_count,
+        abuse_signal_count: snapshot.operations.abuse_signal_count,
+        risk_decision_count: snapshot.operations.risk_decision_count,
+        active_subscription_count: snapshot.billing.active_subscription_count,
+        active_addon_count: snapshot.billing.active_addon_count,
+      });
+    }
+
+    if (context) {
+      (context.subscriptions || []).forEach((item) => rows.push({ row_type: 'company_subscription', ...item }));
+      (context.invoices || []).forEach((item) => rows.push({ row_type: 'company_invoice', ...item }));
+      (context.payment_attempts || []).forEach((item) => rows.push({ row_type: 'company_payment_attempt', ...item }));
+      (context.addons || []).forEach((item) => rows.push({ row_type: 'company_addon', ...item }));
+    }
+
+    return rows;
+  }, [companyAdminSnapshot.data, companyBillingContext.data, revenueMetrics.data]);
+
+  const safetyTimelineRows = useMemo(() => {
+    return buildSafetyTimelineRows({
+      riskQueue: filteredRiskQueue,
+      triageActions: filteredRiskTriageActions,
+      sessionRevocations: filteredSessionRevocations,
+      events: filteredEvents,
+    });
+  }, [filteredEvents, filteredRiskQueue, filteredRiskTriageActions, filteredSessionRevocations]);
+
+  const safetyRows = useMemo(() => {
+    return [
+      ...filteredRiskQueue.map((row) => ({
+        row_type: 'risk_queue',
+        ...row,
+      })),
+      ...(entitlementOverrides.data || []).map((row) => ({
+        row_type: 'entitlement_override',
+        ...row,
+      })),
+      ...(activeSuspensions.data || []).map((row) => ({
+        row_type: 'active_suspension',
+        ...row,
+      })),
+      ...(impersonationSessions.data || []).map((row) => ({
+        row_type: 'impersonation_session',
+        ...row,
+      })),
+      ...filteredRiskTriageActions.map((row) => ({
+        row_type: 'risk_triage_action',
+        ...row,
+      })),
+      ...safetyTimelineRows.map((row) => ({
+        row_type: 'safety_timeline',
+        ...row,
+      })),
+    ];
+  }, [activeSuspensions.data, entitlementOverrides.data, filteredRiskQueue, filteredRiskTriageActions, impersonationSessions.data, safetyTimelineRows]);
+
   const openAlerts = filteredAlerts.filter((item) => item.status === 'open').length;
   const blockedEvents = filteredEvents.filter((item) => item.result_status === 'blocked' || item.result_status === 'denied').length;
   const highRiskEvents = filteredEvents.filter((item) => item.risk_score >= 80).length;
@@ -530,8 +946,34 @@ export default function SuperAdminControlPlane() {
       analyticsRows,
       operators: operatorRoles.data || [],
       correlationSummary,
+      directoryCompanies: pagedCompanies.data?.rows || [],
+      directoryUsers: pagedUsers.data?.rows || [],
+      monetizationRows,
+      safetyRows,
     });
   };
+
+  const companyDirectoryTotalPages = Math.max(1, Math.ceil((pagedCompanies.data?.totalCount || 0) / (pagedCompanies.data?.pageSize || 20)));
+  const userDirectoryTotalPages = Math.max(1, Math.ceil((pagedUsers.data?.totalCount || 0) / (pagedUsers.data?.pageSize || 20)));
+  const triageActionsTotalPages = Math.max(1, Math.ceil((pagedRiskQueueTriageActions.data?.totalCount || 0) / (pagedRiskQueueTriageActions.data?.pageSize || 20)));
+  const revocationHistoryTotalPages = getRevocationHistoryTotalPages(
+    revocationHistoryPage.data?.totalCount,
+    revocationHistoryPage.data?.pageSize,
+  );
+  const displayedRevocationHistoryPage = getDisplayedRevocationHistoryPage(
+    revocationHistoryPage.data?.page,
+    revocationHistoryPageNumber,
+  );
+  const plansForSelectedProduct = useMemo(() => {
+    return (billingCatalog.data?.plans || []).filter((item) => item.product_code === billingProductCode);
+  }, [billingCatalog.data?.plans, billingProductCode]);
+
+  const revenue = revenueMetrics.data;
+  const revenueCurrency = revenue?.currency_code || 'USD';
+  const planMix = revenue?.plan_mix || [];
+  const companySubscriptions = (companyBillingContext.data?.subscriptions || []) as Array<Record<string, unknown>>;
+  const companyInvoices = (companyBillingContext.data?.invoices || []) as Array<Record<string, unknown>>;
+  const companyAddons = (companyBillingContext.data?.addons || []) as Array<Record<string, unknown>>;
 
   const handleExportCsv = () => {
     const rows = exportRows();
@@ -596,6 +1038,287 @@ export default function SuperAdminControlPlane() {
       toast({
         title: 'Assignment failed',
         description: error instanceof Error ? error.message : 'Could not assign role.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAdminPlanChange = async () => {
+    if (!effectiveBillingCompanyId) {
+      toast({ title: 'Company required', description: 'Enter a valid company UUID first.', variant: 'destructive' });
+      return;
+    }
+    if (!billingProductCode || !billingPlanCode) {
+      toast({ title: 'Missing plan selection', description: 'Choose both product and plan.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      await adminChangeCompanyPlan.mutateAsync({
+        companyId: effectiveBillingCompanyId,
+        productCode: billingProductCode,
+        newPlanCode: billingPlanCode,
+        currencyCode: 'USD',
+        reason: billingReason || 'control_plane_admin_plan_change',
+        correlationId: `cp-plan-change-${Date.now()}`,
+        metadata: {
+          source: 'control_plane_ui',
+        },
+      });
+
+      toast({ title: 'Plan changed', description: `Applied ${billingPlanCode} on ${billingProductCode}.` });
+      void companyAdminSnapshot.refetch();
+      void companyBillingContext.refetch();
+      void revenueMetrics.refetch();
+    } catch (error) {
+      toast({
+        title: 'Plan change failed',
+        description: error instanceof Error ? error.message : 'Unable to change company plan.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSetAddonStatus = async (addonCode: string, enabled: boolean) => {
+    if (!effectiveBillingCompanyId) {
+      toast({ title: 'Company required', description: 'Enter a valid company UUID first.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      await adminSetCompanyAddonStatus.mutateAsync({
+        companyId: effectiveBillingCompanyId,
+        addonCode,
+        enabled,
+        notes: addonNotes || undefined,
+        correlationId: `cp-addon-${addonCode}-${Date.now()}`,
+        metadata: {
+          source: 'control_plane_ui',
+        },
+      });
+
+      toast({
+        title: enabled ? 'Add-on enabled' : 'Add-on disabled',
+        description: `${addonCode} was ${enabled ? 'enabled' : 'disabled'} for company.`,
+      });
+      void companyAdminSnapshot.refetch();
+      void companyBillingContext.refetch();
+      void revenueMetrics.refetch();
+    } catch (error) {
+      toast({
+        title: 'Add-on update failed',
+        description: error instanceof Error ? error.message : 'Unable to update add-on status.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSetEntitlementOverride = async () => {
+    if (!effectiveSafetyCompanyId) {
+      toast({ title: 'Company required', description: 'Enter a valid company UUID for override target.', variant: 'destructive' });
+      return;
+    }
+    if (!entitlementKey.trim()) {
+      toast({ title: 'Entitlement key required', description: 'Choose an entitlement key.', variant: 'destructive' });
+      return;
+    }
+    if (!overrideReason.trim()) {
+      toast({ title: 'Reason required', description: 'Provide a policy reason for the override.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      await setEntitlementOverride.mutateAsync({
+        companyId: effectiveSafetyCompanyId,
+        entitlementKey: entitlementKey.trim(),
+        decision: overrideDecision,
+        reason: overrideReason.trim(),
+        metadata: {
+          source: 'control_plane_ui',
+        },
+      });
+      toast({ title: 'Override applied', description: `${overrideDecision.toUpperCase()} set for ${entitlementKey}.` });
+      setOverrideReason('');
+      void entitlementOverrides.refetch();
+    } catch (error) {
+      toast({
+        title: 'Override failed',
+        description: error instanceof Error ? error.message : 'Unable to set override.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRevokeEntitlementOverride = async (overrideId: string) => {
+    try {
+      await revokeEntitlementOverride.mutateAsync({
+        overrideId,
+        reason: 'control_plane_manual_revoke',
+        metadata: { source: 'control_plane_ui' },
+      });
+      toast({ title: 'Override revoked', description: 'Manual entitlement override removed.' });
+      void entitlementOverrides.refetch();
+    } catch (error) {
+      toast({
+        title: 'Revoke failed',
+        description: error instanceof Error ? error.message : 'Unable to revoke override.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSetPrincipalSuspension = async (suspend: boolean) => {
+    const principalId = suspendPrincipalId.trim();
+    if (!isUuidLike(principalId)) {
+      toast({ title: 'Principal ID required', description: 'Provide a valid UUID for company or user target.', variant: 'destructive' });
+      return;
+    }
+    if (!suspensionReason.trim()) {
+      toast({ title: 'Reason required', description: 'Provide a reason for suspend/unsuspend action.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      await setPrincipalSuspension.mutateAsync({
+        principalType: suspendPrincipalType,
+        principalId,
+        suspend,
+        reason: suspensionReason.trim(),
+        metadata: {
+          source: 'control_plane_ui',
+        },
+      });
+      toast({
+        title: suspend ? 'Suspension applied' : 'Suspension cleared',
+        description: `${suspendPrincipalType} ${principalId.slice(0, 8)}... updated.`,
+      });
+      setSuspensionReason('');
+      void activeSuspensions.refetch();
+    } catch (error) {
+      toast({
+        title: 'Suspension update failed',
+        description: error instanceof Error ? error.message : 'Unable to update suspension.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleStartImpersonation = async () => {
+    const targetUser = impersonationTargetUserId.trim();
+    const companyId = impersonationCompanyId.trim();
+    if (!isUuidLike(targetUser)) {
+      toast({ title: 'Target user required', description: 'Provide a valid target user UUID.', variant: 'destructive' });
+      return;
+    }
+    if (companyId && !isUuidLike(companyId)) {
+      toast({ title: 'Invalid company UUID', description: 'Company UUID must be valid when provided.', variant: 'destructive' });
+      return;
+    }
+    if (!impersonationReason.trim()) {
+      toast({ title: 'Reason required', description: 'Impersonation requires a support reason.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      await startImpersonationSession.mutateAsync({
+        targetUserId: targetUser,
+        companyId: companyId || null,
+        reason: impersonationReason.trim(),
+        metadata: {
+          source: 'control_plane_ui',
+        },
+      });
+      toast({ title: 'Impersonation started', description: `Support session started for ${targetUser.slice(0, 8)}...` });
+      setImpersonationReason('');
+      void impersonationSessions.refetch();
+    } catch (error) {
+      toast({
+        title: 'Impersonation failed',
+        description: error instanceof Error ? error.message : 'Unable to start impersonation.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleStopImpersonation = async (sessionId: string) => {
+    try {
+      await stopImpersonationSession.mutateAsync({
+        impersonationSessionId: sessionId,
+        metadata: { source: 'control_plane_ui' },
+      });
+      toast({ title: 'Impersonation stopped', description: 'Session closed and audited.' });
+      void impersonationSessions.refetch();
+    } catch (error) {
+      toast({
+        title: 'Stop impersonation failed',
+        description: error instanceof Error ? error.message : 'Unable to stop impersonation session.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleTriageRiskRow = async (
+    rowType: 'governance_alert' | 'abuse_signal' | 'risk_decision',
+    rowId: string,
+    triageStatus: 'acknowledged' | 'resolved' | 'escalated' | 'false_positive',
+  ) => {
+    try {
+      await triageRiskQueueItem.mutateAsync({
+        rowType,
+        rowId,
+        triageStatus,
+        notes: riskTriageNotes || undefined,
+        metadata: { source: 'control_plane_ui' },
+      });
+      toast({
+        title: 'Risk item triaged',
+        description: `${rowType} marked as ${triageStatus}.`,
+      });
+      setRiskTriageNotes('');
+      void riskQueue.refetch();
+      void riskQueueTriageActions.refetch();
+      void pagedRiskQueueTriageActions.refetch();
+      void revocationHistoryPage.refetch();
+      void revocationTimelineSource.refetch();
+      void alerts.refetch();
+    } catch (error) {
+      toast({
+        title: 'Risk triage failed',
+        description: error instanceof Error ? error.message : 'Unable to triage risk queue item.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRevokePrincipalSessions = async () => {
+    const principalId = suspendPrincipalId.trim();
+    if (!isUuidLike(principalId)) {
+      toast({ title: 'Principal ID required', description: 'Provide a valid UUID before revoking sessions.', variant: 'destructive' });
+      return;
+    }
+
+    const reason = suspensionReason.trim() || 'control_plane_security_revocation';
+
+    try {
+      const result = await revokeActiveSessions.mutateAsync({
+        principalType: suspendPrincipalType,
+        principalId,
+        reason,
+        metadata: { source: 'control_plane_ui' },
+      });
+
+      toast({
+        title: 'Sessions revoked',
+        description: `${result.revoked_sessions} sessions and ${result.revoked_impersonation_sessions} impersonation sessions closed.`,
+      });
+      void impersonationSessions.refetch();
+      void events.refetch();
+      void revocationHistoryPage.refetch();
+      void revocationTimelineSource.refetch();
+    } catch (error) {
+      toast({
+        title: 'Session revocation failed',
+        description: error instanceof Error ? error.message : 'Unable to revoke active sessions.',
         variant: 'destructive',
       });
     }
@@ -820,6 +1543,9 @@ export default function SuperAdminControlPlane() {
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(normalizeTab(value))} className="w-full">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="directory">Directory</TabsTrigger>
+            <TabsTrigger value="monetization">Monetization</TabsTrigger>
+            <TabsTrigger value="safety">Safety</TabsTrigger>
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
             <TabsTrigger value="events">Events</TabsTrigger>
             <TabsTrigger value="decisions">Entitlements</TabsTrigger>
@@ -838,6 +1564,898 @@ export default function SuperAdminControlPlane() {
             formatDate={formatDate}
             renderSeverity={(severity) => <SeverityBadge severity={severity} />}
           />
+
+          <TabsContent value="directory">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2"><Building2 className="h-4 w-4" /> Company Directory</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(pagedCompanies.data?.rows || []).length === 0 ? (
+                    <EmptyState title="No companies found" description="Adjust search text to find companies by name, email, or UUID." />
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Company ID</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(pagedCompanies.data?.rows || []).map((row) => (
+                          <TableRow
+                            key={row.id}
+                            className="cursor-pointer"
+                            onClick={() => {
+                              setBillingCompanyId(row.id);
+                              setCompanyFilter(row.id);
+                              setActiveTab('monetization');
+                            }}
+                          >
+                            <TableCell>{row.name || 'Unnamed company'}</TableCell>
+                            <TableCell>{row.email || '-'}</TableCell>
+                            <TableCell className="max-w-[240px] truncate" title={row.id}>{row.id}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      Page {pagedCompanies.data?.page || companyDirectoryPage} of {companyDirectoryTotalPages} · {(pagedCompanies.data?.totalCount || 0).toLocaleString()} total companies
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCompanyDirectoryPage((prev) => Math.max(1, prev - 1))}
+                        disabled={(pagedCompanies.data?.page || companyDirectoryPage) <= 1 || pagedCompanies.isFetching}
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prev
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCompanyDirectoryPage((prev) => Math.min(companyDirectoryTotalPages, prev + 1))}
+                        disabled={(pagedCompanies.data?.page || companyDirectoryPage) >= companyDirectoryTotalPages || pagedCompanies.isFetching}
+                      >
+                        Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> User Directory</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(pagedUsers.data?.rows || []).length === 0 ? (
+                    <EmptyState title="No users found" description="Adjust search text to find users by name, email, or UUID." />
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>User ID</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(pagedUsers.data?.rows || []).map((row) => (
+                          <TableRow key={row.user_id}>
+                            <TableCell>{row.name || 'Unknown user'}</TableCell>
+                            <TableCell>{row.email || '-'}</TableCell>
+                            <TableCell className="max-w-[240px] truncate" title={row.user_id}>{row.user_id}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      Page {pagedUsers.data?.page || userDirectoryPage} of {userDirectoryTotalPages} · {(pagedUsers.data?.totalCount || 0).toLocaleString()} total users
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setUserDirectoryPage((prev) => Math.max(1, prev - 1))}
+                        disabled={(pagedUsers.data?.page || userDirectoryPage) <= 1 || pagedUsers.isFetching}
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prev
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setUserDirectoryPage((prev) => Math.min(userDirectoryTotalPages, prev + 1))}
+                        disabled={(pagedUsers.data?.page || userDirectoryPage) >= userDirectoryTotalPages || pagedUsers.isFetching}
+                      >
+                        Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="monetization">
+            <div className="space-y-3">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Revenue Command Center</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-2">
+                    <div className="rounded-md border border-border/60 p-3">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">MRR</p>
+                      <p className="text-lg font-semibold mt-1">{formatMinor(revenue?.mrr_minor || 0, revenueCurrency)}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 p-3">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Addon MRR</p>
+                      <p className="text-lg font-semibold mt-1">{formatMinor(revenue?.addon_mrr_minor || 0, revenueCurrency)}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 p-3">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">ARR</p>
+                      <p className="text-lg font-semibold mt-1">{formatMinor(revenue?.arr_minor || 0, revenueCurrency)}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 p-3">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Open Invoices</p>
+                      <p className="text-lg font-semibold mt-1">{revenue?.open_invoice_count || 0}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 p-3">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Dunning Companies</p>
+                      <p className="text-lg font-semibold mt-1">{revenue?.dunning_companies || 0}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 p-3">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Quota Pressure (7d)</p>
+                      <p className="text-lg font-semibold mt-1">{revenue?.quota_pressure_companies_7d || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+                <Card className="xl:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="text-base">Company Billing Operations</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2">
+                      <Input
+                        value={billingCompanyId}
+                        onChange={(e) => setBillingCompanyId(e.target.value)}
+                        placeholder="Company UUID"
+                        className="xl:col-span-2"
+                      />
+                      <Select value={billingProductCode} onValueChange={setBillingProductCode}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Product" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(billingCatalog.data?.products || []).map((product) => (
+                            <SelectItem key={product.code} value={product.code}>{product.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={billingPlanCode} onValueChange={setBillingPlanCode}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Plan" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {plansForSelectedProduct.map((plan) => (
+                            <SelectItem key={plan.code} value={plan.code}>
+                              {plan.name} ({plan.tier})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button onClick={() => void handleAdminPlanChange()} disabled={adminChangeCompanyPlan.isPending || !effectiveBillingCompanyId || !billingPlanCode}>
+                        {adminChangeCompanyPlan.isPending ? 'Applying...' : 'Apply Plan'}
+                      </Button>
+                    </div>
+
+                    <Input
+                      value={billingReason}
+                      onChange={(e) => setBillingReason(e.target.value)}
+                      placeholder="Operational reason (required by policy and audit)"
+                    />
+
+                    {companyAdminSnapshot.data ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
+                        <div className="rounded-md border border-border/60 p-3">
+                          <p className="text-xs text-muted-foreground">Properties</p>
+                          <p className="text-lg font-semibold mt-1">{companyAdminSnapshot.data.portfolio.property_count}</p>
+                        </div>
+                        <div className="rounded-md border border-border/60 p-3">
+                          <p className="text-xs text-muted-foreground">Units</p>
+                          <p className="text-lg font-semibold mt-1">{companyAdminSnapshot.data.portfolio.unit_count}</p>
+                        </div>
+                        <div className="rounded-md border border-border/60 p-3">
+                          <p className="text-xs text-muted-foreground">Tenants</p>
+                          <p className="text-lg font-semibold mt-1">{companyAdminSnapshot.data.portfolio.tenant_count}</p>
+                        </div>
+                        <div className="rounded-md border border-border/60 p-3">
+                          <p className="text-xs text-muted-foreground">Open Alerts</p>
+                          <p className="text-lg font-semibold mt-1">{companyAdminSnapshot.data.operations.open_alert_count}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Enter a valid company UUID to load portfolio and billing context.</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Plan Mix</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {planMix.length === 0 ? (
+                      <EmptyState title="No plan mix data" description="Plan distribution appears once active subscriptions exist." />
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Plan</TableHead>
+                            <TableHead>Tier</TableHead>
+                            <TableHead className="text-right">Count</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {planMix.map((item) => (
+                            <TableRow key={`${item.plan_code}-${item.plan_tier}`}>
+                              <TableCell>{item.plan_name}</TableCell>
+                              <TableCell>{item.plan_tier}</TableCell>
+                              <TableCell className="text-right">{item.active_subscriptions}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Company Subscriptions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {companySubscriptions.length === 0 ? (
+                      <EmptyState title="No subscriptions" description="No subscription rows found for this company." />
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Product</TableHead>
+                            <TableHead>Plan</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Payment</TableHead>
+                            <TableHead>Amount</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {companySubscriptions.slice(0, 12).map((item, index) => (
+                            <TableRow key={`${String(item.id || index)}`}>
+                              <TableCell>{String(item.product_name || item.product_code || '-')}</TableCell>
+                              <TableCell>{String(item.plan_name || item.plan_code || '-')}</TableCell>
+                              <TableCell>{String(item.status || '-')}</TableCell>
+                              <TableCell>{String(item.payment_state || '-')}</TableCell>
+                              <TableCell>{formatMinor(Number(item.amount_minor || 0), String(item.price_currency || 'USD'))}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Add-on Management</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Input
+                      value={addonNotes}
+                      onChange={(e) => setAddonNotes(e.target.value)}
+                      placeholder="Optional change note (recorded in audit metadata)"
+                    />
+                    {companyAddons.length === 0 ? (
+                      <EmptyState title="No add-ons" description="No add-on catalog rows are available for this company." />
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Add-on</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Price</TableHead>
+                            <TableHead>Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {companyAddons.slice(0, 20).map((item, index) => {
+                            const addonCode = String(item.addon_code || '');
+                            const enabled = Boolean(item.enabled);
+
+                            return (
+                              <TableRow key={`${addonCode || 'addon'}-${index}`}>
+                                <TableCell>{String(item.addon_name || addonCode || '-')}</TableCell>
+                                <TableCell>{String(item.status || (enabled ? 'active' : 'inactive'))}</TableCell>
+                                <TableCell>{formatMinor(Number(item.amount_minor || 0), String(item.currency_code || 'USD'))}</TableCell>
+                                <TableCell>
+                                  <Button
+                                    size="sm"
+                                    variant={enabled ? 'outline' : 'default'}
+                                    disabled={adminSetCompanyAddonStatus.isPending || !effectiveBillingCompanyId || !addonCode}
+                                    onClick={() => void handleSetAddonStatus(addonCode, !enabled)}
+                                  >
+                                    {enabled ? 'Disable' : 'Enable'}
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Recent Company Invoices</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {companyInvoices.length === 0 ? (
+                    <EmptyState title="No invoices" description="No subscription invoices found for selected company." />
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Created</TableHead>
+                          <TableHead>Kind</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Due</TableHead>
+                          <TableHead>Paid</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {companyInvoices.slice(0, 12).map((item, index) => (
+                          <TableRow key={`${String(item.id || index)}`}>
+                            <TableCell>{item.created_at ? formatDate(String(item.created_at)) : '-'}</TableCell>
+                            <TableCell>{String(item.invoice_kind || '-')}</TableCell>
+                            <TableCell>{String(item.invoice_status || '-')}</TableCell>
+                            <TableCell>{formatMinor(Number(item.amount_minor || 0), String(item.currency_code || 'USD'))}</TableCell>
+                            <TableCell>{item.due_at ? formatDate(String(item.due_at)) : '-'}</TableCell>
+                            <TableCell>{item.paid_at ? formatDate(String(item.paid_at)) : '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="safety">
+            <div className="space-y-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Safety Scope</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <Input
+                      value={safetyCompanyId}
+                      onChange={(e) => setSafetyCompanyId(e.target.value)}
+                      placeholder="Company UUID (optional for global view)"
+                    />
+                    <Input
+                      value={suspendPrincipalId}
+                      onChange={(e) => setSuspendPrincipalId(e.target.value)}
+                      placeholder="Principal UUID for suspension"
+                    />
+                    <Input
+                      value={impersonationTargetUserId}
+                      onChange={(e) => setImpersonationTargetUserId(e.target.value)}
+                      placeholder="Target user UUID for impersonation"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Safety actions are audited with critical severity and should only be used for verified incidents and support operations.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Entitlement Override Console</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <SearchableSelect
+                        options={entitlementKeyOptions}
+                        value={entitlementKey}
+                        onValueChange={setEntitlementKey}
+                        placeholder="Entitlement key"
+                        searchPlaceholder="Search entitlement key..."
+                        emptyMessage="No entitlement keys found"
+                      />
+                      <Select value={overrideDecision} onValueChange={(value) => setOverrideDecision(value as 'allow' | 'deny')}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Decision" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="allow">ALLOW</SelectItem>
+                          <SelectItem value="deny">DENY</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        onClick={() => void handleSetEntitlementOverride()}
+                        disabled={setEntitlementOverride.isPending || !effectiveSafetyCompanyId || !entitlementKey}
+                      >
+                        {setEntitlementOverride.isPending ? 'Applying...' : 'Apply Override'}
+                      </Button>
+                    </div>
+                    <Input
+                      value={overrideReason}
+                      onChange={(e) => setOverrideReason(e.target.value)}
+                      placeholder="Policy reason for override"
+                    />
+                    {(entitlementOverrides.data || []).length === 0 ? (
+                      <EmptyState title="No active overrides" description="Apply a temporary allow/deny override to manage urgent access anomalies." />
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Entitlement</TableHead>
+                            <TableHead>Decision</TableHead>
+                            <TableHead>Reason</TableHead>
+                            <TableHead>Created</TableHead>
+                            <TableHead>Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(entitlementOverrides.data || []).slice(0, 20).map((row) => (
+                            <TableRow key={row.id}>
+                              <TableCell>{row.entitlement_key}</TableCell>
+                              <TableCell>
+                                <Badge variant={row.decision === 'deny' ? 'destructive' : 'outline'}>{row.decision}</Badge>
+                              </TableCell>
+                              <TableCell>{row.reason}</TableCell>
+                              <TableCell>{formatDate(row.created_at)}</TableCell>
+                              <TableCell>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={revokeEntitlementOverride.isPending}
+                                  onClick={() => void handleRevokeEntitlementOverride(row.id)}
+                                >
+                                  Revoke
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Suspend / Unsuspend Principals</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <Select value={suspendPrincipalType} onValueChange={(value) => setSuspendPrincipalType(value as 'company' | 'user')}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Principal type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="company">Company</SelectItem>
+                          <SelectItem value="user">User</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={suspensionReason}
+                        onChange={(e) => setSuspensionReason(e.target.value)}
+                        placeholder="Suspension reason"
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="destructive"
+                          className="flex-1"
+                          disabled={setPrincipalSuspension.isPending}
+                          onClick={() => void handleSetPrincipalSuspension(true)}
+                        >
+                          Suspend
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          disabled={setPrincipalSuspension.isPending}
+                          onClick={() => void handleSetPrincipalSuspension(false)}
+                        >
+                          Unsuspend
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="secondary"
+                      disabled={revokeActiveSessions.isPending}
+                      onClick={() => void handleRevokePrincipalSessions()}
+                    >
+                      {revokeActiveSessions.isPending ? 'Revoking Sessions...' : 'Revoke Active Sessions'}
+                    </Button>
+
+                    {(activeSuspensions.data || []).length === 0 ? (
+                      <EmptyState title="No active suspensions" description="Suspended principals appear here until cleared." />
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Principal</TableHead>
+                            <TableHead>Reason</TableHead>
+                            <TableHead>Created</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(activeSuspensions.data || []).slice(0, 20).map((row) => (
+                            <TableRow key={row.id}>
+                              <TableCell>{row.principal_type}</TableCell>
+                              <TableCell className="max-w-[220px] truncate" title={row.principal_id}>{row.principal_id}</TableCell>
+                              <TableCell>{row.reason}</TableCell>
+                              <TableCell>{formatDate(row.created_at)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Impersonation Sessions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <Input
+                        value={impersonationCompanyId}
+                        onChange={(e) => setImpersonationCompanyId(e.target.value)}
+                        placeholder="Optional company UUID"
+                      />
+                      <Input
+                        value={impersonationReason}
+                        onChange={(e) => setImpersonationReason(e.target.value)}
+                        placeholder="Support reason"
+                      />
+                      <Button
+                        onClick={() => void handleStartImpersonation()}
+                        disabled={startImpersonationSession.isPending}
+                      >
+                        {startImpersonationSession.isPending ? 'Starting...' : 'Start Session'}
+                      </Button>
+                    </div>
+
+                    {(impersonationSessions.data || []).length === 0 ? (
+                      <EmptyState title="No active impersonation" description="Start a support session to inspect tenant experience safely." />
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Actor</TableHead>
+                            <TableHead>Target</TableHead>
+                            <TableHead>Reason</TableHead>
+                            <TableHead>Started</TableHead>
+                            <TableHead>Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(impersonationSessions.data || []).slice(0, 20).map((row) => (
+                            <TableRow key={row.id}>
+                              <TableCell className="max-w-[200px] truncate" title={row.actor_user_id}>{row.actor_user_id}</TableCell>
+                              <TableCell className="max-w-[200px] truncate" title={row.target_user_id}>{row.target_user_id}</TableCell>
+                              <TableCell>{row.reason}</TableCell>
+                              <TableCell>{formatDate(row.started_at)}</TableCell>
+                              <TableCell>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={stopImpersonationSession.isPending}
+                                  onClick={() => void handleStopImpersonation(row.id)}
+                                >
+                                  Stop
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Risk Queue</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Input
+                      value={riskTriageNotes}
+                      onChange={(e) => setRiskTriageNotes(e.target.value)}
+                      placeholder="Optional triage notes (applies to action buttons)"
+                    />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <Select value={triageStatusFilter} onValueChange={(value) => setTriageStatusFilter(value as 'all' | 'acknowledged' | 'resolved' | 'escalated' | 'false_positive')}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Triage status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All statuses</SelectItem>
+                          <SelectItem value="acknowledged">Acknowledged</SelectItem>
+                          <SelectItem value="resolved">Resolved</SelectItem>
+                          <SelectItem value="escalated">Escalated</SelectItem>
+                          <SelectItem value="false_positive">False Positive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {filteredRiskQueue.length === 0 ? (
+                      <EmptyState title="No risk items" description="No governance alerts, abuse signals, or risk decisions matched current filters." />
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Occurred</TableHead>
+                            <TableHead>Severity</TableHead>
+                            <TableHead>Source</TableHead>
+                            <TableHead>Title</TableHead>
+                            <TableHead>Score</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredRiskQueue.slice(0, 30).map((row) => (
+                            <TableRow key={`${row.row_type}:${row.row_id}`}>
+                              <TableCell>{formatDate(row.occurred_at)}</TableCell>
+                              <TableCell><SeverityBadge severity={row.severity} /></TableCell>
+                              <TableCell>{row.row_type}</TableCell>
+                              <TableCell>{row.title}</TableCell>
+                              <TableCell>{row.score}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={triageRiskQueueItem.isPending}
+                                    onClick={() => void handleTriageRiskRow(row.row_type, row.row_id, 'acknowledged')}
+                                  >
+                                    Ack
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    disabled={triageRiskQueueItem.isPending}
+                                    onClick={() => void handleTriageRiskRow(row.row_type, row.row_id, 'resolved')}
+                                  >
+                                    Resolve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    disabled={triageRiskQueueItem.isPending}
+                                    onClick={() => void handleTriageRiskRow(row.row_type, row.row_id, 'escalated')}
+                                  >
+                                    Escalate
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={triageRiskQueueItem.isPending}
+                                    onClick={() => void handleTriageRiskRow(row.row_type, row.row_id, 'false_positive')}
+                                  >
+                                    False Positive
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+
+                    <div className="pt-2">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground mb-2">Recent Triage Actions</p>
+                      {filteredPagedRiskTriageActions.length === 0 ? (
+                        <EmptyState title="No triage history" description="Triage actions appear here after Ack/Resolve/Escalate decisions." />
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Created</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Source</TableHead>
+                              <TableHead>Row ID</TableHead>
+                              <TableHead>Actor</TableHead>
+                              <TableHead>Notes</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredPagedRiskTriageActions.map((item) => (
+                              <TableRow key={item.id}>
+                                <TableCell>{formatDate(item.created_at)}</TableCell>
+                                <TableCell>{item.triage_status}</TableCell>
+                                <TableCell>{item.row_type}</TableCell>
+                                <TableCell className="max-w-[200px] truncate" title={item.row_id}>{item.row_id}</TableCell>
+                                <TableCell className="max-w-[200px] truncate" title={item.actor_user_id || ''}>{item.actor_user_id || '-'}</TableCell>
+                                <TableCell>{item.notes || '-'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                        <span>
+                          Page {pagedRiskQueueTriageActions.data?.page || triageActionsPage} of {triageActionsTotalPages} · {(pagedRiskQueueTriageActions.data?.totalCount || 0).toLocaleString()} total actions
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setTriageActionsPage((prev) => Math.max(1, prev - 1))}
+                            disabled={(pagedRiskQueueTriageActions.data?.page || triageActionsPage) <= 1 || pagedRiskQueueTriageActions.isFetching}
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prev
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setTriageActionsPage((prev) => Math.min(triageActionsTotalPages, prev + 1))}
+                            disabled={(pagedRiskQueueTriageActions.data?.page || triageActionsPage) >= triageActionsTotalPages || pagedRiskQueueTriageActions.isFetching}
+                          >
+                            Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Safety Timeline</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {safetyTimelineRows.length === 0 ? (
+                    <EmptyState title="No safety timeline activity" description="Risk detections, triage actions, and session revocations will appear here." />
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Occurred</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Severity</TableHead>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Detail</TableHead>
+                          <TableHead>Company</TableHead>
+                          <TableHead>Actor</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {safetyTimelineRows.slice(0, 40).map((item, index) => (
+                          <TableRow key={`${item.timeline_type}:${item.occurred_at}:${index}`}>
+                            <TableCell>{formatDate(item.occurred_at)}</TableCell>
+                            <TableCell>{item.timeline_type}</TableCell>
+                            <TableCell>{item.status}</TableCell>
+                            <TableCell><SeverityBadge severity={item.severity} /></TableCell>
+                            <TableCell>{item.title}</TableCell>
+                            <TableCell className="max-w-[360px] truncate" title={item.detail}>{item.detail}</TableCell>
+                            <TableCell className="max-w-[220px] truncate" title={item.company_id || ''}>{item.company_id || '-'}</TableCell>
+                            <TableCell className="max-w-[220px] truncate" title={item.actor_user_id || ''}>{item.actor_user_id || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Session Revocation History</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <Select value={revocationPrincipalType} onValueChange={(value) => setRevocationPrincipalType(value as 'all' | 'company' | 'user')}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Principal type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All principals</SelectItem>
+                        <SelectItem value="company">Company principals</SelectItem>
+                        <SelectItem value="user">User principals</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {filteredPagedSessionRevocations.length === 0 ? (
+                    <EmptyState title="No session revocations" description="Session revocations matching current filters will appear here." />
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Created</TableHead>
+                          <TableHead>Principal</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Severity</TableHead>
+                          <TableHead>Sessions</TableHead>
+                          <TableHead>Impersonation</TableHead>
+                          <TableHead>Reason</TableHead>
+                          <TableHead>Actor</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredPagedSessionRevocations.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>{formatDate(item.created_at)}</TableCell>
+                            <TableCell className="max-w-[220px] truncate" title={item.principal_id || ''}>
+                              {(item.principal_type || 'unknown')}:{item.principal_id || '-'}
+                            </TableCell>
+                            <TableCell>{item.result_status}</TableCell>
+                            <TableCell><SeverityBadge severity={item.severity} /></TableCell>
+                            <TableCell>{item.revoked_sessions}</TableCell>
+                            <TableCell>{item.revoked_impersonation_sessions}</TableCell>
+                            <TableCell className="max-w-[240px] truncate" title={item.reason || ''}>{item.reason || '-'}</TableCell>
+                            <TableCell className="max-w-[220px] truncate" title={item.actor_user_id || ''}>{item.actor_user_id || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+
+                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      Page {displayedRevocationHistoryPage} of {revocationHistoryTotalPages} · {(revocationHistoryPage.data?.totalCount || 0).toLocaleString()} total revocations
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setRevocationHistoryPageNumber((prev) => getPrevRevocationHistoryPage(prev))}
+                        disabled={shouldDisableRevocationPrev(displayedRevocationHistoryPage, revocationHistoryPage.isFetching)}
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prev
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setRevocationHistoryPageNumber((prev) => getNextRevocationHistoryPage(prev, revocationHistoryTotalPages))}
+                        disabled={shouldDisableRevocationNext(displayedRevocationHistoryPage, revocationHistoryTotalPages, revocationHistoryPage.isFetching)}
+                      >
+                        Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
 
           <TabsContent value="alerts">
             <Card>

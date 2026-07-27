@@ -6,6 +6,16 @@ import {
 } from '../../src/lib/controlPlaneState';
 
 describe('controlPlaneState utils', () => {
+  it('accepts newly added tabs in URL state', () => {
+    const directoryState = parseControlPlaneUiState(new URLSearchParams('cp_tab=directory'));
+    const monetizationState = parseControlPlaneUiState(new URLSearchParams('cp_tab=monetization'));
+    const safetyState = parseControlPlaneUiState(new URLSearchParams('cp_tab=safety'));
+
+    expect(directoryState.tab).toBe('directory');
+    expect(monetizationState.tab).toBe('monetization');
+    expect(safetyState.tab).toBe('safety');
+  });
+
   it('parses defaults when params are missing', () => {
     const state = parseControlPlaneUiState(new URLSearchParams());
     expect(state).toEqual(DEFAULT_CONTROL_PLANE_STATE);

@@ -99,6 +99,26 @@ const baseInput: ControlPlaneExportRowsInput = {
     role: 'security_auditor',
     created_at: '2026-07-22T00:00:00.000Z',
   }],
+  directoryCompanies: [{
+    id: 'company-1',
+    name: 'Acme Property',
+    email: 'ops@acme.test',
+  }],
+  directoryUsers: [{
+    user_id: 'user-1',
+    name: 'Ari Admin',
+    email: 'ari@acme.test',
+  }],
+  monetizationRows: [{
+    row_type: 'revenue_metrics',
+    currency_code: 'USD',
+    mrr_minor: 10000,
+  }],
+  safetyRows: [{
+    row_type: 'risk_queue',
+    row_id: 'risk-1',
+    severity: 'critical',
+  }],
   correlationSummary: [{
     correlation_id: 'corr-1',
     events: 1,
@@ -120,6 +140,22 @@ describe('controlPlane export rows', () => {
     expect(getControlPlaneExportRows('incidents', baseInput)).toEqual(baseInput.incidents);
     expect(getControlPlaneExportRows('company360', baseInput)).toEqual(baseInput.companyRows);
     expect(getControlPlaneExportRows('user360', baseInput)).toEqual(baseInput.userRows);
+    expect(getControlPlaneExportRows('directory', baseInput)).toEqual([
+      {
+        row_type: 'company_directory',
+        id: 'company-1',
+        name: 'Acme Property',
+        email: 'ops@acme.test',
+      },
+      {
+        row_type: 'user_directory',
+        user_id: 'user-1',
+        name: 'Ari Admin',
+        email: 'ari@acme.test',
+      },
+    ]);
+    expect(getControlPlaneExportRows('monetization', baseInput)).toEqual(baseInput.monetizationRows);
+    expect(getControlPlaneExportRows('safety', baseInput)).toEqual(baseInput.safetyRows);
     expect(getControlPlaneExportRows('analytics', baseInput)).toEqual(baseInput.analyticsRows);
     expect(getControlPlaneExportRows('operators', baseInput)).toEqual(baseInput.operators);
   });

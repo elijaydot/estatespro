@@ -1,8 +1,10 @@
 import type {
+  CompanyDirectoryRecord,
   ControlPlaneEvent,
   EntitlementDecision,
   GovernanceAlert,
   PlatformOperatorRole,
+  UserDirectoryRecord,
   UsageSnapshot,
 } from '@/hooks/useControlPlane';
 import type { ControlPlaneTab } from '@/lib/controlPlaneState';
@@ -27,6 +29,10 @@ export type ControlPlaneExportRowsInput = {
   analyticsRows: Record<string, unknown>[];
   operators: PlatformOperatorRole[];
   correlationSummary: CorrelationSummaryRow[];
+  directoryCompanies: CompanyDirectoryRecord[];
+  directoryUsers: UserDirectoryRecord[];
+  monetizationRows: Record<string, unknown>[];
+  safetyRows: Record<string, unknown>[];
 };
 
 export function getControlPlaneExportRows(
@@ -41,6 +47,25 @@ export function getControlPlaneExportRows(
         highRiskEvents: input.highRiskEvents,
         usageSnapshots: input.usage.length,
       }];
+    case 'directory':
+      return [
+        ...input.directoryCompanies.map((row) => ({
+          row_type: 'company_directory',
+          id: row.id,
+          name: row.name,
+          email: row.email,
+        })),
+        ...input.directoryUsers.map((row) => ({
+          row_type: 'user_directory',
+          user_id: row.user_id,
+          name: row.name,
+          email: row.email,
+        })),
+      ];
+    case 'monetization':
+      return input.monetizationRows;
+    case 'safety':
+      return input.safetyRows;
     case 'alerts':
       return input.alerts;
     case 'events':
