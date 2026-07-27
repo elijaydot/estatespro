@@ -323,20 +323,27 @@ export default function SuperAdminControlPlane() {
     userFilter,
   ]);
 
-  const isLoading = events.isLoading
+  const baseIsLoading = events.isLoading
     || alerts.isLoading
     || decisions.isLoading
     || usage.isLoading
     || analyticsSnapshots.isLoading
     || driftChecks.isLoading
     || pendingAttempts.isLoading
-    || pendingHealth.isLoading
-    || operatorRoles.isLoading
-    || pagedCompanies.isLoading
-    || pagedUsers.isLoading
-    || billingCatalog.isLoading
-    || revenueMetrics.isLoading
-    || entitlementCatalog.isLoading
+    || pendingHealth.isLoading;
+
+  const baseError = events.error
+    || alerts.error
+    || decisions.error
+    || usage.error
+    || analyticsSnapshots.error
+    || driftChecks.error
+    || pendingAttempts.error
+    || pendingHealth.error;
+
+  const directoryLoading = pagedCompanies.isLoading || pagedUsers.isLoading;
+  const monetizationLoading = billingCatalog.isLoading || revenueMetrics.isLoading || companyAdminSnapshot.isLoading || companyBillingContext.isLoading;
+  const safetyLoading = entitlementCatalog.isLoading
     || entitlementOverrides.isLoading
     || activeSuspensions.isLoading
     || impersonationSessions.isLoading
@@ -345,21 +352,19 @@ export default function SuperAdminControlPlane() {
     || pagedRiskQueueTriageActions.isLoading
     || revocationHistoryPage.isLoading
     || revocationTimelineSource.isLoading;
+  const operatorsLoading = operatorRoles.isLoading;
 
-  const hasError = events.error
-    || alerts.error
-    || decisions.error
-    || usage.error
-    || analyticsSnapshots.error
-    || driftChecks.error
-    || pendingAttempts.error
-    || pendingHealth.error
-    || operatorRoles.error
-    || pagedCompanies.error
-    || pagedUsers.error
-    || billingCatalog.error
-    || revenueMetrics.error
-    || entitlementCatalog.error
+  const activeTabLoading =
+    (activeTab === 'directory' && directoryLoading)
+    || (activeTab === 'monetization' && monetizationLoading)
+    || (activeTab === 'safety' && safetyLoading)
+    || (activeTab === 'operators' && operatorsLoading);
+
+  const isLoading = baseIsLoading || activeTabLoading;
+
+  const directoryError = pagedCompanies.error || pagedUsers.error;
+  const monetizationError = billingCatalog.error || revenueMetrics.error || companyAdminSnapshot.error || companyBillingContext.error;
+  const safetyError = entitlementCatalog.error
     || entitlementOverrides.error
     || activeSuspensions.error
     || impersonationSessions.error
@@ -368,6 +373,15 @@ export default function SuperAdminControlPlane() {
     || pagedRiskQueueTriageActions.error
     || revocationHistoryPage.error
     || revocationTimelineSource.error;
+  const operatorsError = operatorRoles.error;
+
+  const activeTabError =
+    (activeTab === 'directory' && directoryError)
+    || (activeTab === 'monetization' && monetizationError)
+    || (activeTab === 'safety' && safetyError)
+    || (activeTab === 'operators' && operatorsError);
+
+  const hasError = Boolean(baseError || activeTabError);
 
   useEffect(() => {
     const companyIds = new Set<string>();
@@ -1534,7 +1548,7 @@ export default function SuperAdminControlPlane() {
       {hasError && (
         <Card className="border-destructive/40">
           <CardContent className="p-6 text-sm text-destructive">
-            One or more control plane datasets failed to load. Check permissions and Phase 7 migration status.
+            One or more control plane datasets failed to load for this view. Check permissions and required control-plane migrations.
           </CardContent>
         </Card>
       )}
