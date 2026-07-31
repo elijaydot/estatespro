@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useConfirmAction } from '@/components/ui/use-confirm-action';
 import { useLeaseAttachments, useUploadLeaseAttachment, useDeleteLeaseAttachment } from '@/hooks/useLeaseAttachments';
 import { Upload, FileText, Trash2, Download, Loader2, Paperclip } from 'lucide-react';
 import { format } from 'date-fns';
@@ -22,6 +23,7 @@ export function LeaseAttachments({ leaseId, readOnly = false }: LeaseAttachments
   const { data: attachments = [], isLoading } = useLeaseAttachments(leaseId);
   const uploadMutation = useUploadLeaseAttachment();
   const deleteMutation = useDeleteLeaseAttachment();
+  const confirmAction = useConfirmAction();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -47,10 +49,15 @@ export function LeaseAttachments({ leaseId, readOnly = false }: LeaseAttachments
     }
   };
 
-  const handleDelete = async (id: string, fileUrl: string) => {
-    if (confirm('Are you sure you want to delete this attachment?')) {
-      await deleteMutation.mutateAsync({ id, leaseId, fileUrl });
-    }
+  const handleDelete = async (id: string, fileUrl: string, fileName: string) => {
+    const confirmed = await confirmAction({
+      title: 'Delete attachment?',
+      description: `Delete "${fileName}" from this lease? This action cannot be undone.`,
+      confirmLabel: 'Delete attachment',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await deleteMutation.mutateAsync({ id, leaseId, fileUrl });
   };
 
   const formatFileSize = (bytes: number) => {
@@ -182,7 +189,7 @@ export function LeaseAttachments({ leaseId, readOnly = false }: LeaseAttachments
                       size="icon"
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(attachment.id, attachment.file_url)}
+                      onClick={() => handleDelete(attachment.id, attachment.file_url, attachment.file_name)}
                       disabled={deleteMutation.isPending}
                     >
                       <Trash2 className="h-4 w-4" />

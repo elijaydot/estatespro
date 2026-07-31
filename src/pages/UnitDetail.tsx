@@ -51,6 +51,7 @@ import { useSettings } from '@/contexts/useSettings';
 import { useTenants, type Tenant } from '@/hooks/useTenants';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { GenerateDescriptionButton } from '@/components/ai/GenerateDescriptionButton';
+import { useConfirmAction } from '@/components/ui/use-confirm-action';
 
 type UnitWithRelations = Unit & {
   properties?: {
@@ -103,6 +104,7 @@ export default function UnitDetail() {
   const { data: tenants = [] } = useTenants();
   const updateUnit = useUpdateUnit();
   const deleteUnit = useDeleteUnit();
+  const confirmAction = useConfirmAction();
   const unitData = unit as UnitWithRelations | undefined;
   const maintenanceRows = maintenanceRequests as MaintenanceRequest[];
   const tenantRows = tenants as Tenant[];
@@ -175,10 +177,15 @@ export default function UnitDetail() {
 
   const handleDelete = async () => {
     if (!id) return;
-    if (confirm('Are you sure you want to delete this unit?')) {
-      await deleteUnit.mutateAsync(id);
-      navigate('/units');
-    }
+    const confirmed = await confirmAction({
+      title: 'Delete unit?',
+      description: `Delete Unit ${unitData?.unit_number || ''}${unitData?.properties?.name ? ` at ${unitData.properties.name}` : ''}? This action cannot be undone.`,
+      confirmLabel: 'Delete unit',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await deleteUnit.mutateAsync(id);
+    navigate('/units');
   };
 
   // Filter maintenance for this unit

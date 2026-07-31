@@ -5,9 +5,11 @@ import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { createCorrelationId, emitAuditEvent } from '@/lib/auditEvents';
 
 export interface MaintenanceRequest {
+  actual_cost: number | null;
   id: string;
   title: string;
   description: string;
+  estimated_cost: number | null;
   unit_id: string;
   property_id: string | null;
   tenant_id: string | null;

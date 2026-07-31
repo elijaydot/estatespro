@@ -41,6 +41,7 @@ import { toast } from '@/components/ui/use-toast';
 import { useProperties, useCreateProperty, useDeleteProperty, type Property } from '@/hooks/useProperties';
 import { useSettings } from '@/contexts/useSettings';
 import { PropertyPreviewCard } from '@/components/forms/PropertyPreviewCard';
+import { useConfirmAction } from '@/components/ui/use-confirm-action';
 
 const propertyTypeOptions = [
   { value: 'apartment', label: 'Apartment', description: 'Multi-unit residential building' },
@@ -102,6 +103,7 @@ export default function Properties() {
   const { data: properties = [], isLoading } = useProperties();
   const createProperty = useCreateProperty();
   const deleteProperty = useDeleteProperty();
+  const confirmAction = useConfirmAction();
 
   const filteredProperties = properties.filter((property) => {
     const q = searchQuery.toLowerCase();
@@ -144,10 +146,15 @@ export default function Properties() {
     });
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this property?')) {
-      await deleteProperty.mutateAsync(id);
-    }
+  const handleDelete = async (property: Property) => {
+    const confirmed = await confirmAction({
+      title: 'Delete property?',
+      description: `Delete "${property.name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete property',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await deleteProperty.mutateAsync(property.id);
   };
 
   return (
@@ -251,7 +258,7 @@ export default function Properties() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive"
-                        onSelect={() => handleDelete(property.id)}
+                        onSelect={() => handleDelete(property)}
                       >
                         <Trash2 className="h-4 w-4 mr-2" /> Delete
                       </DropdownMenuItem>

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/useAuth";
@@ -17,10 +17,12 @@ import { useSaasAccess, type SaasEntitlementKey } from "@/hooks/useSaasAccess";
 import { useActiveCompany } from "@/contexts/useActiveCompany";
 import { useSuperAdminOverride } from "@/hooks/useSuperAdminOverride";
 import { usePrincipalSuspension } from "@/hooks/usePrincipalSuspension";
+import { useIsInternalMarketplaceReviewer } from "@/hooks/useMarketplace";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ConfirmActionProvider } from "@/components/ui/confirm-action";
 import { Link } from "react-router-dom";
-import { Lock } from "lucide-react";
+import { LoaderCircle, Lock, RefreshCw, ShieldX } from "lucide-react";
 
 import PendingApproval from "./pages/PendingApproval";
 
@@ -102,8 +104,54 @@ function withSuspense(node: ReactNode) {
 
 function FullPageLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background text-sm text-muted-foreground">
-      Loading...
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background text-sm text-muted-foreground" role="status">
+      <LoaderCircle className="h-6 w-6 animate-spin text-primary" />
+      <span>Preparing your secure workspace...</span>
+    </div>
+  );
+}
+
+function useLoadingTimeout(isLoading: boolean, timeoutMs = 12_000) {
+  const [timedOut, setTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setTimedOut(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setTimedOut(true), timeoutMs);
+    return () => window.clearTimeout(timeoutId);
+  }, [isLoading, timeoutMs]);
+
+  return timedOut;
+}
+
+function AccessCheckUnavailable() {
+  const { logout } = useAuth();
+
+  return (
+    <div className="min-h-screen bg-background px-4 py-10 flex items-center justify-center">
+      <Card className="w-full max-w-lg border-border/70">
+        <CardContent className="py-10 text-center space-y-4">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-warning/10 text-warning">
+            <ShieldX className="h-5 w-5" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-xl font-semibold text-foreground">We could not verify access</h1>
+            <p className="text-sm text-muted-foreground">
+              The security check is taking longer than expected. Your access has not been changed.
+            </p>
+          </div>
+          <div className="flex flex-col-reverse justify-center gap-2 sm:flex-row">
+            <Button variant="outline" onClick={() => void logout()}>Sign out</Button>
+            <Button onClick={() => window.location.reload()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry access check
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -163,17 +211,15 @@ function FeatureRoute({
   const { activeCompanyId } = useActiveCompany();
   const { isOverrideActive, isLoadingRole } = useSuperAdminOverride();
   const { entitlements, isLoading } = useSaasAccess();
+  const accessLoading = isLoadingRole || isLoading;
+  const loadingTimedOut = useLoadingTimeout(accessLoading);
 
-  if (isLoadingRole) {
-    return <FullPageLoading />;
+  if (accessLoading) {
+    return loadingTimedOut ? <AccessCheckUnavailable /> : <FullPageLoading />;
   }
 
   if (isOverrideActive) {
     return <>{children}</>;
-  }
-
-  if (isLoading) {
-    return <FullPageLoading />;
   }
 
   if (!activeCompanyId) {
@@ -187,6 +233,39 @@ function FeatureRoute({
   return <>{children}</>;
 }
 
+function MarketplaceReviewerRoute({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const { role } = useUserRole();
+  const reviewerAccess = useIsInternalMarketplaceReviewer(user?.id);
+  const isLoading = role !== 'super_admin' && reviewerAccess.isLoading;
+  const loadingTimedOut = useLoadingTimeout(isLoading);
+
+  if (isLoading) {
+    return loadingTimedOut ? <AccessCheckUnavailable /> : <FullPageLoading />;
+  }
+
+  if (role !== 'super_admin' && !reviewerAccess.data) {
+    return (
+      <div className="p-4 sm:p-6 max-w-3xl">
+        <Card className="border-border/70">
+          <CardContent className="py-10 text-center space-y-3">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <ShieldX className="h-5 w-5" />
+            </div>
+            <p className="text-lg font-semibold text-foreground">Reviewer access required</p>
+            <p className="text-sm text-muted-foreground">
+              Marketplace governance is limited to assigned reviewers and platform administrators.
+            </p>
+            <Button asChild variant="outline"><Link to="/dashboard">Return to dashboard</Link></Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading, mfa, user } = useAuth();
   const { role, isLoading: roleLoading, isPropertyManager, isTenant } = useUserRole();
@@ -195,9 +274,11 @@ function PrivateRoute({ children }: { children: ReactNode }) {
   const userSuspension = usePrincipalSuspension('user', user?.id, Boolean(user?.id));
   const companySuspension = usePrincipalSuspension('company', activeCompanyId, Boolean(activeCompanyId));
   const location = useLocation();
+  const accessLoading = authLoading || roleLoading || membershipLoading || mfa.isLoading || userSuspension.isLoading || companySuspension.isLoading;
+  const loadingTimedOut = useLoadingTimeout(accessLoading);
 
-  if (authLoading || roleLoading || membershipLoading || mfa.isLoading || userSuspension.isLoading || companySuspension.isLoading) {
-    return <FullPageLoading />;
+  if (accessLoading) {
+    return loadingTimedOut ? <AccessCheckUnavailable /> : <FullPageLoading />;
   }
 
   if (!isAuthenticated) {
@@ -244,9 +325,11 @@ function TenantPortalRoute({ children }: { children: ReactNode }) {
   const { activeCompanyId } = useActiveCompany();
   const userSuspension = usePrincipalSuspension('user', user?.id, Boolean(user?.id));
   const companySuspension = usePrincipalSuspension('company', activeCompanyId, Boolean(activeCompanyId));
+  const accessLoading = authLoading || roleLoading || mfa.isLoading || userSuspension.isLoading || companySuspension.isLoading;
+  const loadingTimedOut = useLoadingTimeout(accessLoading);
 
-  if (authLoading || roleLoading || mfa.isLoading || userSuspension.isLoading || companySuspension.isLoading) {
-    return <FullPageLoading />;
+  if (accessLoading) {
+    return loadingTimedOut ? <AccessCheckUnavailable /> : <FullPageLoading />;
   }
 
   if (!isAuthenticated) {
@@ -275,9 +358,11 @@ function TenantPortalRoute({ children }: { children: ReactNode }) {
 function SuperAdminRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { role, isLoading: roleLoading } = useUserRole();
+  const accessLoading = authLoading || roleLoading;
+  const loadingTimedOut = useLoadingTimeout(accessLoading);
 
-  if (authLoading || roleLoading) {
-    return <FullPageLoading />;
+  if (accessLoading) {
+    return loadingTimedOut ? <AccessCheckUnavailable /> : <FullPageLoading />;
   }
 
   if (!isAuthenticated) {
@@ -294,9 +379,11 @@ function SuperAdminRoute({ children }: { children: ReactNode }) {
 function AuthenticatedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { role, isLoading: roleLoading } = useUserRole();
+  const accessLoading = authLoading || roleLoading;
+  const loadingTimedOut = useLoadingTimeout(accessLoading);
 
-  if (authLoading || roleLoading) {
-    return <FullPageLoading />;
+  if (accessLoading) {
+    return loadingTimedOut ? <AccessCheckUnavailable /> : <FullPageLoading />;
   }
 
   if (!isAuthenticated) {
@@ -389,15 +476,15 @@ function AppRoutes() {
       />
       <Route
         path="/marketplace/moderation"
-        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.moderation.view" featureName="Marketplace Moderation">{withSuspense(<MarketplaceModeration />)}</FeatureRoute></PrivateRoute>}
+        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.moderation.view" featureName="Marketplace Moderation"><MarketplaceReviewerRoute>{withSuspense(<MarketplaceModeration />)}</MarketplaceReviewerRoute></FeatureRoute></PrivateRoute>}
       />
       <Route
         path="/marketplace/verification"
-        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.moderation.view" featureName="Marketplace Verification">{withSuspense(<MarketplaceVerification />)}</FeatureRoute></PrivateRoute>}
+        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.moderation.view" featureName="Marketplace Verification"><MarketplaceReviewerRoute>{withSuspense(<MarketplaceVerification />)}</MarketplaceReviewerRoute></FeatureRoute></PrivateRoute>}
       />
       <Route
         path="/marketplace/reviewer"
-        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.moderation.view" featureName="Marketplace Reviewer Queue">{withSuspense(<MarketplaceReviewerQueue />)}</FeatureRoute></PrivateRoute>}
+        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.moderation.view" featureName="Marketplace Reviewer Queue"><MarketplaceReviewerRoute>{withSuspense(<MarketplaceReviewerQueue />)}</MarketplaceReviewerRoute></FeatureRoute></PrivateRoute>}
       />
       <Route
         path="/marketplace/crm"
@@ -499,11 +586,13 @@ const App = () => (
       <AuthProvider>
         <SettingsProvider>
           <ActiveCompanyProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
+            <ConfirmActionProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </ConfirmActionProvider>
           </ActiveCompanyProvider>
         </SettingsProvider>
       </AuthProvider>

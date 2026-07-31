@@ -83,8 +83,8 @@ export default function MarketplaceCrmAccountsPage() {
     <CrmWorkspace title="Accounts" subtitle="Business account records for partners, firms, and corporate tenants.">
       <CrmDataCard title="Create Account" description="Quick add for new account records.">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-          <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Account name" value={name} onChange={(event) => setName(event.target.value)} />
-          <input className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Website" value={website} onChange={(event) => setWebsite(event.target.value)} />
+          <input aria-label="Account name" className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Account name" value={name} onChange={(event) => setName(event.target.value)} />
+          <input aria-label="Website" className="h-9 rounded-md border border-input px-3 text-sm" inputMode="url" placeholder="Website" value={website} onChange={(event) => setWebsite(event.target.value)} />
           <AssigneePicker
             users={assignableUsersQuery.data || []}
             value={ownerUserId || null}

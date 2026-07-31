@@ -10,6 +10,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { Switch } from '@/components/ui/switch';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import {
   useAdminChangeCompanyPlan,
   useAdminSetCompanyAddonStatus,
   useActiveSuspensions,
@@ -80,6 +98,7 @@ import {
   buildOpsSignals,
 } from '@/lib/controlPlaneAnalytics';
 import { buildSafetyTimelineRows } from '@/lib/controlPlaneSafety';
+import { formatControlPlaneLabel, shortReference } from '@/lib/controlPlanePresentation';
 import {
   buildCorrelationFilterOptions,
   matchesCompanyFilter,
@@ -128,6 +147,45 @@ function SeverityBadge({ severity }: { severity: string }) {
 function normalizeTab(value: string | null): ControlPlaneTab {
   return parseControlPlaneUiState(new URLSearchParams(value ? `cp_tab=${value}` : '')).tab;
 }
+
+const CONTROL_PLANE_TAB_GROUPS: Array<{
+  title: string;
+  tabs: Array<{ value: ControlPlaneTab; label: string }>;
+}> = [
+  {
+    title: 'Monitor',
+    tabs: [
+      { value: 'overview', label: 'Overview' },
+      { value: 'alerts', label: 'Alerts' },
+      { value: 'incidents', label: 'Incidents' },
+    ],
+  },
+  {
+    title: 'Directory',
+    tabs: [
+      { value: 'directory', label: 'Directory' },
+      { value: 'company360', label: 'Company 360' },
+      { value: 'user360', label: 'User 360' },
+    ],
+  },
+  {
+    title: 'Governance',
+    tabs: [
+      { value: 'safety', label: 'Safety' },
+      { value: 'events', label: 'Events' },
+      { value: 'decisions', label: 'Entitlements' },
+      { value: 'operators', label: 'Operators' },
+    ],
+  },
+  {
+    title: 'Business',
+    tabs: [
+      { value: 'monetization', label: 'Monetization' },
+      { value: 'usage', label: 'Usage' },
+      { value: 'analytics', label: 'Analytics/Ops' },
+    ],
+  },
+];
 
 function isUuidLike(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
@@ -198,6 +256,13 @@ export default function SuperAdminControlPlane() {
   const [userDirectoryPage, setUserDirectoryPage] = useState(1);
   const [triageActionsPage, setTriageActionsPage] = useState(1);
   const [revocationHistoryPageNumber, setRevocationHistoryPageNumber] = useState(1);
+  const [confirmation, setConfirmation] = useState<{
+    title: string;
+    description: string;
+    confirmLabel: string;
+    destructive?: boolean;
+    action: () => void | Promise<void>;
+  } | null>(null);
   const [companyDirectory, setCompanyDirectory] = useState<Map<string, CompanyDirectoryEntry>>(new Map());
   const [userDirectory, setUserDirectory] = useState<Map<string, UserDirectoryEntry>>(new Map());
   const pendingVerificationScopeCompanyId = isUuidLike(companyFilter) ? companyFilter : null;
@@ -707,7 +772,7 @@ export default function SuperAdminControlPlane() {
       options.push({
         value: item.id,
         label: `${name}${email}`,
-        description: `UUID: ${item.id}`,
+        description: `Reference: ${shortReference(item.id)}`,
       });
     });
 
@@ -734,7 +799,7 @@ export default function SuperAdminControlPlane() {
       options.push({
         value: item.user_id,
         label: `${name}${email}`,
-        description: `UUID: ${item.user_id}`,
+        description: `Reference: ${shortReference(item.user_id)}`,
       });
     });
 
@@ -1067,7 +1132,7 @@ export default function SuperAdminControlPlane() {
       p_ip_address: null,
       p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
       p_device_info: { source: 'super-admin-control-plane' },
-      p_metadata: { note: 'seeded from super admin ui' },
+      p_metadata: { event_type: 'synthetic_governance_event', source: 'control_plane' },
     } as never);
 
     if (error) {
@@ -1434,6 +1499,28 @@ export default function SuperAdminControlPlane() {
     }
   };
 
+  const requestConfirmation = (
+    title: string,
+    description: string,
+    confirmLabel: string,
+    action: () => void | Promise<void>,
+    destructive = false,
+  ) => setConfirmation({ title, description, confirmLabel, action, destructive });
+
+  const activeTabGroup = CONTROL_PLANE_TAB_GROUPS.find((group) =>
+    group.tabs.some((tab) => tab.value === activeTab)
+  ) || CONTROL_PLANE_TAB_GROUPS[0];
+  const activeTabLabel = activeTabGroup.tabs.find((tab) => tab.value === activeTab)?.label || 'Overview';
+  const resolveCompanyLabel = (companyId: string | null | undefined) => {
+    if (!companyId) return 'Unscoped';
+    return companyDirectory.get(companyId)?.name || `Company ${shortReference(companyId)}`;
+  };
+  const resolveUserLabel = (userId: string | null | undefined) => {
+    if (!userId) return 'System';
+    const userEntry = userDirectory.get(userId);
+    return userEntry?.name || userEntry?.email || `User ${shortReference(userId)}`;
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -1597,20 +1684,46 @@ export default function SuperAdminControlPlane() {
 
       {!isLoading && (
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(normalizeTab(value))} className="w-full">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="directory">Directory</TabsTrigger>
-            <TabsTrigger value="monetization">Monetization</TabsTrigger>
-            <TabsTrigger value="safety">Safety</TabsTrigger>
-            <TabsTrigger value="alerts">Alerts</TabsTrigger>
-            <TabsTrigger value="events">Events</TabsTrigger>
-            <TabsTrigger value="decisions">Entitlements</TabsTrigger>
-            <TabsTrigger value="usage">Usage</TabsTrigger>
-            <TabsTrigger value="incidents">Incidents</TabsTrigger>
-            <TabsTrigger value="company360">Company 360</TabsTrigger>
-            <TabsTrigger value="user360">User 360</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics/Ops</TabsTrigger>
-            <TabsTrigger value="operators">Operators</TabsTrigger>
+          <Breadcrumb className="mb-3">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <button type="button" onClick={() => setActiveTab('overview')}>Control Plane</button>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <span>{activeTabGroup.title}</span>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>
+                  {activeTabLabel}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg border border-border/70 bg-card p-2 sm:grid-cols-4" aria-label="Control Plane workspaces">
+            {CONTROL_PLANE_TAB_GROUPS.map((group) => (
+              <Button
+                key={group.title}
+                type="button"
+                variant={activeTabGroup.title === group.title ? 'default' : 'ghost'}
+                className="h-auto min-h-10 justify-start px-3"
+                onClick={() => setActiveTab(group.tabs[0].value)}
+              >
+                {group.title}
+              </Button>
+            ))}
+          </div>
+
+          <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 p-1">
+            {activeTabGroup.tabs.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value} className="min-h-9 flex-1 px-3 text-xs sm:flex-none">
+                {tab.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           <OverviewTab
@@ -1652,7 +1765,7 @@ export default function SuperAdminControlPlane() {
                           >
                             <TableCell>{row.name || 'Unnamed company'}</TableCell>
                             <TableCell>{row.email || '-'}</TableCell>
-                            <TableCell className="max-w-[240px] truncate" title={row.id}>{row.id}</TableCell>
+                            <TableCell className="font-mono text-xs" title={row.id}>{shortReference(row.id)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -1712,7 +1825,7 @@ export default function SuperAdminControlPlane() {
                           >
                             <TableCell>{row.name || 'Unknown user'}</TableCell>
                             <TableCell>{row.email || '-'}</TableCell>
-                            <TableCell className="max-w-[240px] truncate" title={row.user_id}>{row.user_id}</TableCell>
+                            <TableCell className="font-mono text-xs" title={row.user_id}>{shortReference(row.user_id)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -1832,7 +1945,15 @@ export default function SuperAdminControlPlane() {
                             ))}
                         </SelectContent>
                       </Select>
-                      <Button onClick={() => void handleAdminPlanChange()} disabled={adminChangeCompanyPlan.isPending || !effectiveBillingCompanyId || !billingPlanCode}>
+                      <Button
+                        onClick={() => requestConfirmation(
+                          'Confirm company plan change',
+                          `Change ${resolveCompanyLabel(effectiveBillingCompanyId)} to plan ${billingPlanCode}. Reason: ${billingReason || 'No reason provided'}.`,
+                          'Apply plan change',
+                          handleAdminPlanChange,
+                        )}
+                        disabled={adminChangeCompanyPlan.isPending || !effectiveBillingCompanyId || !billingPlanCode}
+                      >
                         {adminChangeCompanyPlan.isPending ? 'Applying...' : 'Apply Plan'}
                       </Button>
                     </div>
@@ -1971,7 +2092,13 @@ export default function SuperAdminControlPlane() {
                                     size="sm"
                                     variant={enabled ? 'outline' : 'default'}
                                     disabled={adminSetCompanyAddonStatus.isPending || !effectiveBillingCompanyId || !addonCode}
-                                    onClick={() => void handleSetAddonStatus(addonCode, !enabled)}
+                                    onClick={() => requestConfirmation(
+                                      `${enabled ? 'Disable' : 'Enable'} add-on`,
+                                      `${enabled ? 'Disable' : 'Enable'} ${String(item.addon_name || addonCode)} for ${resolveCompanyLabel(effectiveBillingCompanyId)}.`,
+                                      `${enabled ? 'Disable' : 'Enable'} add-on`,
+                                      () => handleSetAddonStatus(addonCode, !enabled),
+                                      enabled,
+                                    )}
                                   >
                                     {enabled ? 'Disable' : 'Enable'}
                                   </Button>
@@ -2079,7 +2206,13 @@ export default function SuperAdminControlPlane() {
                         </SelectContent>
                       </Select>
                       <Button
-                        onClick={() => void handleSetEntitlementOverride()}
+                        onClick={() => requestConfirmation(
+                          'Confirm entitlement override',
+                          `${formatControlPlaneLabel(overrideDecision)} ${entitlementKey} for ${resolveCompanyLabel(effectiveSafetyCompanyId)}. Reason: ${overrideReason || 'No reason provided'}.`,
+                          'Apply override',
+                          handleSetEntitlementOverride,
+                          overrideDecision === 'deny',
+                        )}
                         disabled={setEntitlementOverride.isPending || !effectiveSafetyCompanyId || !entitlementKey}
                       >
                         {setEntitlementOverride.isPending ? 'Applying...' : 'Apply Override'}
@@ -2155,7 +2288,13 @@ export default function SuperAdminControlPlane() {
                           variant="destructive"
                           className="flex-1"
                           disabled={setPrincipalSuspension.isPending}
-                          onClick={() => void handleSetPrincipalSuspension(true)}
+                          onClick={() => requestConfirmation(
+                            'Suspend principal',
+                            `Suspend ${suspendPrincipalType === 'company' ? resolveCompanyLabel(suspendPrincipalId) : resolveUserLabel(suspendPrincipalId)}. Active access may be interrupted immediately.`,
+                            'Suspend access',
+                            () => handleSetPrincipalSuspension(true),
+                            true,
+                          )}
                         >
                           Suspend
                         </Button>
@@ -2163,7 +2302,12 @@ export default function SuperAdminControlPlane() {
                           variant="outline"
                           className="flex-1"
                           disabled={setPrincipalSuspension.isPending}
-                          onClick={() => void handleSetPrincipalSuspension(false)}
+                          onClick={() => requestConfirmation(
+                            'Restore principal access',
+                            `Remove the active suspension for ${suspendPrincipalType === 'company' ? resolveCompanyLabel(suspendPrincipalId) : resolveUserLabel(suspendPrincipalId)}.`,
+                            'Restore access',
+                            () => handleSetPrincipalSuspension(false),
+                          )}
                         >
                           Unsuspend
                         </Button>
@@ -2173,7 +2317,13 @@ export default function SuperAdminControlPlane() {
                     <Button
                       variant="secondary"
                       disabled={revokeActiveSessions.isPending}
-                      onClick={() => void handleRevokePrincipalSessions()}
+                      onClick={() => requestConfirmation(
+                        'Revoke active sessions',
+                        `Sign out all active sessions for ${suspendPrincipalType === 'company' ? resolveCompanyLabel(suspendPrincipalId) : resolveUserLabel(suspendPrincipalId)}. This cannot be undone.`,
+                        'Revoke sessions',
+                        handleRevokePrincipalSessions,
+                        true,
+                      )}
                     >
                       {revokeActiveSessions.isPending ? 'Revoking Sessions...' : 'Revoke Active Sessions'}
                     </Button>
@@ -2193,8 +2343,13 @@ export default function SuperAdminControlPlane() {
                         <TableBody>
                           {(activeSuspensions.data || []).slice(0, 20).map((row) => (
                             <TableRow key={row.id}>
-                              <TableCell>{row.principal_type}</TableCell>
-                              <TableCell className="max-w-[220px] truncate" title={row.principal_id}>{row.principal_id}</TableCell>
+                              <TableCell>{formatControlPlaneLabel(row.principal_type)}</TableCell>
+                              <TableCell title={row.principal_id}>
+                                <p className="font-medium text-foreground">
+                                  {row.principal_type === 'company' ? resolveCompanyLabel(row.principal_id) : resolveUserLabel(row.principal_id)}
+                                </p>
+                                <p className="font-mono text-xs text-muted-foreground">{shortReference(row.principal_id)}</p>
+                              </TableCell>
                               <TableCell>{row.reason}</TableCell>
                               <TableCell>{formatDate(row.created_at)}</TableCell>
                             </TableRow>
@@ -2224,7 +2379,12 @@ export default function SuperAdminControlPlane() {
                         placeholder="Support reason"
                       />
                       <Button
-                        onClick={() => void handleStartImpersonation()}
+                        onClick={() => requestConfirmation(
+                          'Start audited impersonation',
+                          `Open a scoped support session as ${resolveUserLabel(impersonationTargetUserId)}. Every action remains attributed and audited.`,
+                          'Start session',
+                          handleStartImpersonation,
+                        )}
                         disabled={startImpersonationSession.isPending}
                       >
                         {startImpersonationSession.isPending ? 'Starting...' : 'Start Session'}
@@ -2247,8 +2407,14 @@ export default function SuperAdminControlPlane() {
                         <TableBody>
                           {(impersonationSessions.data || []).slice(0, 20).map((row) => (
                             <TableRow key={row.id}>
-                              <TableCell className="max-w-[200px] truncate" title={row.actor_user_id}>{row.actor_user_id}</TableCell>
-                              <TableCell className="max-w-[200px] truncate" title={row.target_user_id}>{row.target_user_id}</TableCell>
+                              <TableCell title={row.actor_user_id}>
+                                <p className="font-medium text-foreground">{resolveUserLabel(row.actor_user_id)}</p>
+                                <p className="font-mono text-xs text-muted-foreground">{shortReference(row.actor_user_id)}</p>
+                              </TableCell>
+                              <TableCell title={row.target_user_id}>
+                                <p className="font-medium text-foreground">{resolveUserLabel(row.target_user_id)}</p>
+                                <p className="font-mono text-xs text-muted-foreground">{shortReference(row.target_user_id)}</p>
+                              </TableCell>
                               <TableCell>{row.reason}</TableCell>
                               <TableCell>{formatDate(row.started_at)}</TableCell>
                               <TableCell>
@@ -2321,14 +2487,14 @@ export default function SuperAdminControlPlane() {
                                     size="sm"
                                     variant="outline"
                                     disabled={triageRiskQueueItem.isPending}
-                                    onClick={() => void handleTriageRiskRow(row.row_type, row.row_id, 'acknowledged')}
+                                    onClick={() => requestConfirmation('Acknowledge risk item', `Mark “${row.title}” as acknowledged.`, 'Acknowledge', () => handleTriageRiskRow(row.row_type, row.row_id, 'acknowledged'))}
                                   >
                                     Ack
                                   </Button>
                                   <Button
                                     size="sm"
                                     disabled={triageRiskQueueItem.isPending}
-                                    onClick={() => void handleTriageRiskRow(row.row_type, row.row_id, 'resolved')}
+                                    onClick={() => requestConfirmation('Resolve risk item', `Mark “${row.title}” as resolved.`, 'Resolve item', () => handleTriageRiskRow(row.row_type, row.row_id, 'resolved'))}
                                   >
                                     Resolve
                                   </Button>
@@ -2336,7 +2502,7 @@ export default function SuperAdminControlPlane() {
                                     size="sm"
                                     variant="secondary"
                                     disabled={triageRiskQueueItem.isPending}
-                                    onClick={() => void handleTriageRiskRow(row.row_type, row.row_id, 'escalated')}
+                                    onClick={() => requestConfirmation('Escalate risk item', `Escalate “${row.title}” for further investigation.`, 'Escalate item', () => handleTriageRiskRow(row.row_type, row.row_id, 'escalated'), true)}
                                   >
                                     Escalate
                                   </Button>
@@ -2344,7 +2510,7 @@ export default function SuperAdminControlPlane() {
                                     size="sm"
                                     variant="ghost"
                                     disabled={triageRiskQueueItem.isPending}
-                                    onClick={() => void handleTriageRiskRow(row.row_type, row.row_id, 'false_positive')}
+                                    onClick={() => requestConfirmation('Mark as false positive', `Close “${row.title}” as a false positive.`, 'Mark false positive', () => handleTriageRiskRow(row.row_type, row.row_id, 'false_positive'))}
                                   >
                                     False Positive
                                   </Button>
@@ -2376,10 +2542,10 @@ export default function SuperAdminControlPlane() {
                             {filteredPagedRiskTriageActions.map((item) => (
                               <TableRow key={item.id}>
                                 <TableCell>{formatDate(item.created_at)}</TableCell>
-                                <TableCell>{item.triage_status}</TableCell>
-                                <TableCell>{item.row_type}</TableCell>
-                                <TableCell className="max-w-[200px] truncate" title={item.row_id}>{item.row_id}</TableCell>
-                                <TableCell className="max-w-[200px] truncate" title={item.actor_user_id || ''}>{item.actor_user_id || '-'}</TableCell>
+                                <TableCell>{formatControlPlaneLabel(item.triage_status)}</TableCell>
+                                <TableCell>{formatControlPlaneLabel(item.row_type)}</TableCell>
+                                <TableCell className="font-mono text-xs" title={item.row_id}>{shortReference(item.row_id)}</TableCell>
+                                <TableCell title={item.actor_user_id || ''}>{resolveUserLabel(item.actor_user_id)}</TableCell>
                                 <TableCell>{item.notes || '-'}</TableCell>
                               </TableRow>
                             ))}
@@ -2439,13 +2605,13 @@ export default function SuperAdminControlPlane() {
                         {safetyTimelineRows.slice(0, 40).map((item, index) => (
                           <TableRow key={`${item.timeline_type}:${item.occurred_at}:${index}`}>
                             <TableCell>{formatDate(item.occurred_at)}</TableCell>
-                            <TableCell>{item.timeline_type}</TableCell>
-                            <TableCell>{item.status}</TableCell>
+                            <TableCell>{formatControlPlaneLabel(item.timeline_type)}</TableCell>
+                            <TableCell>{formatControlPlaneLabel(item.status)}</TableCell>
                             <TableCell><SeverityBadge severity={item.severity} /></TableCell>
                             <TableCell>{item.title}</TableCell>
                             <TableCell className="max-w-[360px] truncate" title={item.detail}>{item.detail}</TableCell>
-                            <TableCell className="max-w-[220px] truncate" title={item.company_id || ''}>{item.company_id || '-'}</TableCell>
-                            <TableCell className="max-w-[220px] truncate" title={item.actor_user_id || ''}>{item.actor_user_id || '-'}</TableCell>
+                            <TableCell title={item.company_id || ''}>{resolveCompanyLabel(item.company_id)}</TableCell>
+                            <TableCell title={item.actor_user_id || ''}>{resolveUserLabel(item.actor_user_id)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -2492,15 +2658,18 @@ export default function SuperAdminControlPlane() {
                         {filteredPagedSessionRevocations.map((item) => (
                           <TableRow key={item.id}>
                             <TableCell>{formatDate(item.created_at)}</TableCell>
-                            <TableCell className="max-w-[220px] truncate" title={item.principal_id || ''}>
-                              {(item.principal_type || 'unknown')}:{item.principal_id || '-'}
+                            <TableCell title={item.principal_id || ''}>
+                              <p className="font-medium text-foreground">
+                                {item.principal_type === 'company' ? resolveCompanyLabel(item.principal_id) : resolveUserLabel(item.principal_id)}
+                              </p>
+                              <p className="font-mono text-xs text-muted-foreground">{shortReference(item.principal_id)}</p>
                             </TableCell>
-                            <TableCell>{item.result_status}</TableCell>
+                            <TableCell>{formatControlPlaneLabel(item.result_status)}</TableCell>
                             <TableCell><SeverityBadge severity={item.severity} /></TableCell>
                             <TableCell>{item.revoked_sessions}</TableCell>
                             <TableCell>{item.revoked_impersonation_sessions}</TableCell>
                             <TableCell className="max-w-[240px] truncate" title={item.reason || ''}>{item.reason || '-'}</TableCell>
-                            <TableCell className="max-w-[220px] truncate" title={item.actor_user_id || ''}>{item.actor_user_id || '-'}</TableCell>
+                            <TableCell title={item.actor_user_id || ''}>{resolveUserLabel(item.actor_user_id)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -2545,7 +2714,7 @@ export default function SuperAdminControlPlane() {
                   <EmptyState
                     title="No alerts matched your current filters"
                     description="Adjust filters or generate a synthetic governance event to validate alerting."
-                    action={<Button size="sm" onClick={() => void handleSeedEvent()}>Generate Test Event</Button>}
+                    action={<Button size="sm" onClick={() => void handleSeedEvent()}>Create Synthetic Event</Button>}
                   />
                 ) : (
                   <Table>
@@ -2609,7 +2778,7 @@ export default function SuperAdminControlPlane() {
                   <EmptyState
                     title="No events matched your current filters"
                     description="Try broadening your filters or generate a synthetic event."
-                    action={<Button size="sm" onClick={() => void handleSeedEvent()}>Generate Test Event</Button>}
+                    action={<Button size="sm" onClick={() => void handleSeedEvent()}>Create Synthetic Event</Button>}
                   />
                 ) : (
                   <Table>
@@ -2629,7 +2798,7 @@ export default function SuperAdminControlPlane() {
                           <TableCell>{formatDate(item.created_at)}</TableCell>
                           <TableCell>{item.module}</TableCell>
                           <TableCell>{item.action}</TableCell>
-                          <TableCell>{item.result_status}</TableCell>
+                          <TableCell>{formatControlPlaneLabel(item.result_status)}</TableCell>
                           <TableCell>{item.risk_score}</TableCell>
                           <TableCell className="max-w-[220px] truncate" title={item.correlation_id}>{item.correlation_id}</TableCell>
                         </TableRow>
@@ -2747,7 +2916,7 @@ export default function SuperAdminControlPlane() {
               </CardHeader>
               <CardContent>
                 {incidentTimeline.length === 0 ? (
-                  <EmptyState title="No incident timeline entries" description="Use a correlation filter or generate test events." />
+                  <EmptyState title="No incident timeline entries" description="Use a correlation filter or create a synthetic governance event." />
                 ) : (
                   <Table>
                     <TableHeader>
@@ -2802,7 +2971,10 @@ export default function SuperAdminControlPlane() {
                     <TableBody>
                       {companyRows.map((row) => (
                         <TableRow key={row.company_id}>
-                          <TableCell className="max-w-[220px] truncate" title={row.company_id}>{row.company_id}</TableCell>
+                          <TableCell title={row.company_id}>
+                            <p className="font-medium text-foreground">{resolveCompanyLabel(row.company_id)}</p>
+                            <p className="font-mono text-xs text-muted-foreground">{shortReference(row.company_id)}</p>
+                          </TableCell>
                           <TableCell>{row.events}</TableCell>
                           <TableCell>{row.alerts}</TableCell>
                           <TableCell>{row.decisions}</TableCell>
@@ -2829,7 +3001,7 @@ export default function SuperAdminControlPlane() {
                     title="No user activity in current filters"
                     description={isUuidLike(userFilter)
                       ? 'Selected user currently has no control-plane events or decisions in this time window.'
-                      : 'Use broader filters or seed events.'}
+                      : 'Use broader filters or create a synthetic governance event.'}
                   />
                 ) : (
                   <Table>
@@ -2846,7 +3018,10 @@ export default function SuperAdminControlPlane() {
                     <TableBody>
                       {userRows.map((row) => (
                         <TableRow key={row.user_id}>
-                          <TableCell className="max-w-[260px] truncate" title={row.user_id}>{row.user_id}</TableCell>
+                          <TableCell title={row.user_id}>
+                            <p className="font-medium text-foreground">{resolveUserLabel(row.user_id)}</p>
+                            <p className="font-mono text-xs text-muted-foreground">{shortReference(row.user_id)}</p>
+                          </TableCell>
                           <TableCell>{row.event_count}</TableCell>
                           <TableCell>{row.decision_count}</TableCell>
                           <TableCell>{row.high_risk_events}</TableCell>
@@ -2904,7 +3079,30 @@ export default function SuperAdminControlPlane() {
               })();
             }}
             formatDate={formatDate}
+            resolveUserLabel={resolveUserLabel}
           />
+
+          <AlertDialog open={Boolean(confirmation)} onOpenChange={(open) => !open && setConfirmation(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{confirmation?.title}</AlertDialogTitle>
+                <AlertDialogDescription>{confirmation?.description}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className={confirmation?.destructive ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : undefined}
+                  onClick={() => {
+                    const action = confirmation?.action;
+                    setConfirmation(null);
+                    if (action) void action();
+                  }}
+                >
+                  {confirmation?.confirmLabel}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </Tabs>
       )}
     </div>

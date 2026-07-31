@@ -28,17 +28,43 @@ import { TenantChatbot } from '@/components/ai/TenantChatbot';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { MfaReminderBanner } from '@/components/security/MfaReminderBanner';
 
-const navItems = [
-  { label: 'Dashboard', icon: LayoutDashboard, href: '/tenant' },
-  { label: 'Payments', icon: DollarSign, href: '/tenant/payments' },
-  { label: 'Invoices', icon: Receipt, href: '/tenant/invoices' },
-  { label: 'Recurring Bills', icon: RefreshCw, href: '/tenant/recurring-bills' },
-  { label: 'Maintenance', icon: Wrench, href: '/tenant/maintenance' },
-  { label: 'Lease', icon: FileText, href: '/tenant/lease' },
-  { label: 'Exit Status', icon: LogOut, href: '/tenant/exit' },
-  { label: 'Messages', icon: MessageSquare, href: '/tenant/messages' },
-  { label: 'Notifications', icon: Bell, href: '/tenant/notifications' },
-  { label: 'Settings', icon: Shield, href: '/tenant/settings' },
+const navGroups = [
+  {
+    title: 'Home',
+    items: [
+      { label: 'Dashboard', icon: LayoutDashboard, href: '/tenant' },
+    ],
+  },
+  {
+    title: 'Money',
+    items: [
+      { label: 'Payments', icon: DollarSign, href: '/tenant/payments' },
+      { label: 'Invoices', icon: Receipt, href: '/tenant/invoices' },
+      { label: 'Recurring Bills', icon: RefreshCw, href: '/tenant/recurring-bills' },
+    ],
+  },
+  {
+    title: 'Tenancy',
+    items: [
+      { label: 'Lease', icon: FileText, href: '/tenant/lease' },
+      { label: 'Maintenance', icon: Wrench, href: '/tenant/maintenance' },
+      { label: 'Exit Status', icon: LogOut, href: '/tenant/exit' },
+    ],
+  },
+  {
+    title: 'Communication',
+    items: [
+      { label: 'Messages', icon: MessageSquare, href: '/tenant/messages' },
+      { label: 'Notifications', icon: Bell, href: '/tenant/notifications' },
+    ],
+  },
+  {
+    title: 'Account',
+    items: [
+      { label: 'Settings', icon: Shield, href: '/tenant/settings' },
+      { label: 'Support', icon: CircleHelp, href: '/tenant/support' },
+    ],
+  },
 ];
 
 interface TenantPortalLayoutProps {
@@ -49,26 +75,36 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
 
   return (
-    <nav className="space-y-1">
-      {navItems.map((item) => {
-        const isActive = location.pathname === item.href;
-        return (
-          <Link
-            key={item.href}
-            to={item.href}
-            onClick={onNavigate}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-            )}
-          >
-            <item.icon className="h-5 w-5" />
-            {item.label}
-          </Link>
-        );
-      })}
+    <nav className="space-y-4">
+      {navGroups.map((group) => (
+        <div key={group.title}>
+          <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/75">
+            {group.title}
+          </p>
+          <div className="space-y-1">
+            {group.items.map((item) => {
+              const isActive = location.pathname === item.href
+                || (item.href !== '/tenant' && location.pathname.startsWith(`${item.href}/`));
+              return (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  onClick={onNavigate}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  )}
+                >
+                  <item.icon className="h-5 w-5 shrink-0" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </nav>
   );
 }

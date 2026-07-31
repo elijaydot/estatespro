@@ -115,24 +115,24 @@ export default function MarketplaceCrmCallsPage() {
           Track result quality so your follow-up queue reflects real call outcomes.
         </div>
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Call subject" value={subject} onChange={(event) => setSubject(event.target.value)} />
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={callType} onChange={(event) => setCallType(event.target.value as 'inbound' | 'outbound')}>
+          <input aria-label="Call subject" className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Call subject" value={subject} onChange={(event) => setSubject(event.target.value)} />
+          <select aria-label="Call direction" className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={callType} onChange={(event) => setCallType(event.target.value as 'inbound' | 'outbound')}>
             <option value="outbound">Outbound</option>
             <option value="inbound">Inbound</option>
           </select>
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" placeholder="Duration (min)" value={durationMinutes} onChange={(event) => setDurationMinutes(event.target.value)} />
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={leadId} onChange={(event) => setLeadId(event.target.value)}>
+          <input aria-label="Call duration in minutes" className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" inputMode="numeric" placeholder="Duration (min)" value={durationMinutes} onChange={(event) => setDurationMinutes(event.target.value)} />
+          <select aria-label="Related lead" className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={leadId} onChange={(event) => setLeadId(event.target.value)}>
             <option value="">Select lead</option>
             {(leadsQuery.data || []).map((lead) => (
-              <option key={lead.id} value={lead.id}>{lead.contact_name || lead.id}</option>
+              <option key={lead.id} value={lead.id}>{lead.contact_name || lead.contact_email || 'Unnamed lead'}</option>
             ))}
           </select>
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={result} onChange={(event) => setResult(event.target.value)}>
+          <select aria-label="Call result" className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={result} onChange={(event) => setResult(event.target.value)}>
             {CALL_RESULTS.map((item) => (
               <option key={item} value={item}>{item.replace(/_/g, ' ')}</option>
             ))}
           </select>
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-3" type="datetime-local" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} />
+          <input aria-label="Call start time" className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-3" type="datetime-local" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} />
           <div className="lg:col-span-3">
             <AssigneePicker
               users={assignableUsersQuery.data || []}

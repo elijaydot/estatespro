@@ -57,6 +57,7 @@ export function MaintenanceTriageBadge({ title, description, category, onPriorit
       const result = await response.json();
       setTriage(result.triage);
       if (result.triage?.suggested_priority) {
+        // Advisory only: the parent updates form state; persistence occurs on form submission.
         onPrioritySelect(result.triage.suggested_priority);
       }
     } catch (error) {

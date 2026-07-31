@@ -168,12 +168,13 @@ export default function MarketplaceCrmAutomationPage() {
       <CrmDataCard title="Create Automation Rule" description="Build event-triggered automation without hand-writing JSON.">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <input
+            aria-label="Rule name"
             className="h-9 rounded-md border border-input px-3 text-sm"
             placeholder="Rule name"
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
-          <select className="h-9 rounded-md border border-input px-3 text-sm" value={eventType} onChange={(event) => onChangeEventType(event.target.value)}>
+          <select aria-label="Trigger event" className="h-9 rounded-md border border-input px-3 text-sm" value={eventType} onChange={(event) => onChangeEventType(event.target.value)}>
             {CRM_AUTOMATION_EVENT_DEFINITIONS.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
@@ -190,12 +191,14 @@ export default function MarketplaceCrmAutomationPage() {
               {conditionRows.map((row) => (
                 <div key={row.id} className="grid grid-cols-1 gap-2 md:grid-cols-12">
                   <input
+                    aria-label="Payload field"
                     className="h-9 rounded-md border border-input px-2 text-sm md:col-span-4"
                     placeholder="Payload field"
                     value={row.field}
                     onChange={(event) => setConditionRows((current) => current.map((item) => item.id === row.id ? { ...item, field: event.target.value } : item))}
                   />
                   <select
+                    aria-label="Condition operator"
                     className="h-9 rounded-md border border-input px-2 text-sm md:col-span-3"
                     value={row.operator}
                     onChange={(event) => setConditionRows((current) => current.map((item) => item.id === row.id ? { ...item, operator: event.target.value as 'equals' | 'required' } : item))}
@@ -204,6 +207,7 @@ export default function MarketplaceCrmAutomationPage() {
                     <option value="required">required</option>
                   </select>
                   <input
+                    aria-label="Expected value"
                     className="h-9 rounded-md border border-input px-2 text-sm md:col-span-4"
                     placeholder="Expected value"
                     value={row.value}

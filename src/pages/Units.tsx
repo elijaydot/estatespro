@@ -43,6 +43,7 @@ import { useUnits, useCreateUnit, useDeleteUnit, type Unit } from '@/hooks/useUn
 import { useProperties, type Property } from '@/hooks/useProperties';
 import { useSettings } from '@/contexts/useSettings';
 import { UnitPreviewCard } from '@/components/forms/UnitPreviewCard';
+import { useConfirmAction } from '@/components/ui/use-confirm-action';
 
 type UnitTenant = {
   id: string;
@@ -106,6 +107,7 @@ export default function Units() {
   const { data: properties = [] } = useProperties();
   const createUnit = useCreateUnit();
   const deleteUnit = useDeleteUnit();
+  const confirmAction = useConfirmAction();
 
   const propertyOptions = properties.map((property) => ({
     value: property.id,
@@ -155,10 +157,15 @@ export default function Units() {
     });
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this unit?')) {
-      await deleteUnit.mutateAsync(id);
-    }
+  const handleDelete = async (unit: UnitRow) => {
+    const confirmed = await confirmAction({
+      title: 'Delete unit?',
+      description: `Delete Unit ${unit.unit_number}${unit.properties?.name ? ` at ${unit.properties.name}` : ''}? This action cannot be undone.`,
+      confirmLabel: 'Delete unit',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await deleteUnit.mutateAsync(unit.id);
   };
 
   return (
@@ -246,7 +253,7 @@ export default function Units() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive"
-                      onSelect={() => handleDelete(unit.id)}
+                      onSelect={() => handleDelete(unit)}
                     >
                       <Trash2 className="h-4 w-4 mr-2" /> Delete
                     </DropdownMenuItem>

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
+import { isAbortLikeError } from '@/lib/errors';
 
 export type AppRole = 'super_admin' | 'landlord' | 'property_manager' | 'tenant';
 
@@ -20,7 +21,9 @@ export function useUserRole() {
         .maybeSingle();
 
       if (profileError) {
-        console.error('Error fetching user role from profiles:', profileError);
+        if (!isAbortLikeError(profileError)) {
+          console.error('Error fetching user role from profiles:', profileError);
+        }
       }
 
       const profileRole = (profileData?.role as AppRole | null) ?? null;
@@ -35,7 +38,9 @@ export function useUserRole() {
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching user role from user_roles:', error);
+        if (!isAbortLikeError(error)) {
+          console.error('Error fetching user role from user_roles:', error);
+        }
       }
 
       return (data?.role as AppRole | null) ?? null;

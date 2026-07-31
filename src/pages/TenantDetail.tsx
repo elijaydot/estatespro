@@ -72,6 +72,7 @@ import { format, differenceInDays, isPast } from 'date-fns';
 import { PortalStatusBadge } from '@/components/tenants/PortalStatusBadge';
 import { useSendMessage } from '@/hooks/useMessages';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useConfirmAction } from '@/components/ui/use-confirm-action';
 
 type TenantRow = Tenant & {
   units?: {
@@ -144,6 +145,7 @@ export default function TenantDetail() {
   const { data: invites = [] } = useTenantInvites();
   const updateTenant = useUpdateTenant();
   const deleteTenant = useDeleteTenant();
+  const confirmAction = useConfirmAction();
   const sendMessage = useSendMessage();
   const createExit = useCreateTenantExit();
   const { data: tenantExits = [] } = useTenantExitsByTenant(id);
@@ -258,10 +260,15 @@ export default function TenantDetail() {
 
   const handleDelete = async () => {
     if (!id) return;
-    if (confirm('Are you sure you want to delete this tenant?')) {
-      await deleteTenant.mutateAsync(id);
-      navigate('/tenants');
-    }
+    const confirmed = await confirmAction({
+      title: 'Remove tenant?',
+      description: `Remove ${tenant?.name || 'this tenant'} and their tenant record? This action cannot be undone.`,
+      confirmLabel: 'Remove tenant',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await deleteTenant.mutateAsync(id);
+    navigate('/tenants');
   };
 
   const handleSendInvite = async () => {

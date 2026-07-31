@@ -47,6 +47,7 @@ import { useUnits, type Unit } from '@/hooks/useUnits';
 import { useSettings } from '@/contexts/useSettings';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { GenerateDescriptionButton } from '@/components/ai/GenerateDescriptionButton';
+import { useConfirmAction } from '@/components/ui/use-confirm-action';
 
 type PropertyWithImages = Property & {
   image_urls?: string[] | null;
@@ -96,6 +97,7 @@ export default function PropertyDetail() {
   const { data: allUnits = [] } = useUnits(id);
   const updateProperty = useUpdateProperty();
   const deleteProperty = useDeleteProperty();
+  const confirmAction = useConfirmAction();
   const propertyWithImages = property as PropertyWithImages | undefined;
   const unitRows = allUnits as UnitRow[];
 
@@ -170,10 +172,15 @@ export default function PropertyDetail() {
 
   const handleDelete = async () => {
     if (!id) return;
-    if (confirm('Are you sure you want to delete this property?')) {
-      await deleteProperty.mutateAsync(id);
-      navigate('/properties');
-    }
+    const confirmed = await confirmAction({
+      title: 'Delete property?',
+      description: `Delete "${property?.name || 'this property'}"? This action cannot be undone.`,
+      confirmLabel: 'Delete property',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await deleteProperty.mutateAsync(id);
+    navigate('/properties');
   };
 
   if (isLoading) {

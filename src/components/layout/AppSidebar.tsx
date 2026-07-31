@@ -32,8 +32,10 @@ import {
   Wallet,
   Lock,
   Radar,
+  CircleHelp,
+  BriefcaseBusiness,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -42,6 +44,7 @@ import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useSaasAccess, type SaasEntitlementKey } from '@/hooks/useSaasAccess';
 import { useSuperAdminOverride } from '@/hooks/useSuperAdminOverride';
 import { Switch } from '@/components/ui/switch';
+import { useIsInternalMarketplaceReviewer } from '@/hooks/useMarketplace';
 
 interface AppSidebarProps {
   mobile?: boolean;
@@ -53,6 +56,7 @@ type NavItem = {
   label: string;
   href: string;
   entitlementKey?: SaasEntitlementKey;
+  reviewerOnly?: boolean;
 };
 
 type NavSection = {
@@ -62,30 +66,50 @@ type NavSection = {
 
 const sharedSections: NavSection[] = [
   {
-    title: 'Operations',
+    title: 'Home',
     items: [
       { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+    ],
+  },
+  {
+    title: 'Portfolio',
+    items: [
       { icon: Building2, label: 'Properties', href: '/properties' },
       { icon: Home, label: 'Units', href: '/units' },
       { icon: Users, label: 'Tenants', href: '/tenants' },
       { icon: FileText, label: 'Leases', href: '/leases' },
       { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
-      { icon: CalendarCheck, label: 'Bookings', href: '/bookings' },
-      { icon: Store, label: 'Marketplace CRM', href: '/marketplace/crm', entitlementKey: 'crm.leads.manage' },
-      { icon: Store, label: 'Marketplace', href: '/marketplace/manage', entitlementKey: 'marketplace.listings.manage' },
-      { icon: ShieldAlert, label: 'Moderation', href: '/marketplace/moderation', entitlementKey: 'marketplace.moderation.view' },
-      { icon: ShieldCheck, label: 'Verification', href: '/marketplace/verification', entitlementKey: 'marketplace.moderation.view' },
-      { icon: ShieldCheck, label: 'Reviewer Queue', href: '/marketplace/reviewer', entitlementKey: 'marketplace.moderation.view' },
-      { icon: Link2, label: 'Guest Booking Portal', href: '/guest-booking-portal' },
     ],
   },
   {
-    title: 'Financials',
+    title: 'Finance',
     items: [
       { icon: Receipt, label: 'Invoices', href: '/invoices' },
       { icon: CreditCard, label: 'Payments', href: '/payments' },
       { icon: RefreshCw, label: 'Recurring Bills', href: '/recurring-bills' },
       { icon: BarChart3, label: 'Reports', href: '/reports' },
+    ],
+  },
+  {
+    title: 'Guest Operations',
+    items: [
+      { icon: CalendarCheck, label: 'Bookings', href: '/bookings' },
+      { icon: Link2, label: 'Booking Links', href: '/guest-booking-portal' },
+    ],
+  },
+  {
+    title: 'Marketplace',
+    items: [
+      { icon: Store, label: 'Listings', href: '/marketplace/manage', entitlementKey: 'marketplace.listings.manage' },
+      { icon: ShieldAlert, label: 'Moderation', href: '/marketplace/moderation', entitlementKey: 'marketplace.moderation.view', reviewerOnly: true },
+      { icon: ShieldCheck, label: 'Verification', href: '/marketplace/verification', entitlementKey: 'marketplace.moderation.view', reviewerOnly: true },
+      { icon: ShieldCheck, label: 'Reviewer Queue', href: '/marketplace/reviewer', entitlementKey: 'marketplace.moderation.view', reviewerOnly: true },
+    ],
+  },
+  {
+    title: 'CRM',
+    items: [
+      { icon: BriefcaseBusiness, label: 'CRM Workspace', href: '/marketplace/crm', entitlementKey: 'crm.leads.manage' },
     ],
   },
   {
@@ -100,42 +124,90 @@ const sharedSections: NavSection[] = [
 const managerCommunicationItem: NavItem = { icon: Megaphone, label: 'Broadcasts', href: '/broadcasts' };
 
 const landlordOnlySection: NavSection = {
-  title: 'Admin',
+  title: 'Organization',
   items: [{ icon: UserCog, label: 'Team', href: '/team' }],
 };
 
 const superAdminSection: NavSection = {
-  title: 'Control Plane',
-  items: [{ icon: Radar, label: 'Super Admin', href: '/super-admin/control-plane' }],
+  title: 'Platform',
+  items: [{ icon: Radar, label: 'Control Plane', href: '/super-admin/control-plane' }],
 };
 
 const bottomNavItems = [
+  { icon: CircleHelp, label: 'Support', href: '/support' },
   { icon: Settings, label: 'Settings', href: '/settings' },
 ];
+
+const SIDEBAR_SECTIONS_STORAGE_KEY = 'fishgate_sidebar_sections';
+
+function getInitialExpandedSections() {
+  try {
+    const saved = window.localStorage.getItem(SIDEBAR_SECTIONS_STORAGE_KEY);
+    if (saved) return new Set<string>(JSON.parse(saved) as string[]);
+  } catch {
+    // Use the focused default when stored navigation preferences are unavailable.
+  }
+
+  return new Set(['Home', 'Portfolio']);
+}
+
+function isHrefActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [showCompanies, setShowCompanies] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(getInitialExpandedSections);
   const location = useLocation();
   const { user, profile, logout } = useAuth();
   const { isLandlord, role } = useUserRole();
   const { companies, activeCompanyId, setActiveCompanyId } = useActiveCompany();
   const { entitlements, isLoading: saasLoading } = useSaasAccess();
   const { canOverride, overrideEnabled, isOverrideActive, setOverrideEnabled } = useSuperAdminOverride();
+  const reviewerAccess = useIsInternalMarketplaceReviewer(user?.id);
   const collapsedView = !mobile && collapsed;
+  const canReviewMarketplace = role === 'super_admin' || reviewerAccess.data === true;
 
   const navSectionsBase = role === 'super_admin'
-    ? [superAdminSection, landlordOnlySection, ...sharedSections]
+    ? [...sharedSections, landlordOnlySection, superAdminSection]
     : isLandlord
-      ? [landlordOnlySection, ...sharedSections]
+      ? [...sharedSections, landlordOnlySection]
       : sharedSections;
-  const navSections = navSectionsBase.map((section) => {
-    if (section.title !== 'Communication') return section;
-    if (role === 'landlord' || role === 'property_manager' || role === 'super_admin') {
-      return { ...section, items: [...section.items.slice(0, 1), managerCommunicationItem, ...section.items.slice(1)] };
-    }
-    return section;
-  });
+  const navSections = navSectionsBase
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => !item.reviewerOnly || canReviewMarketplace),
+    }))
+    .map((section) => {
+      if (section.title !== 'Communication') return section;
+      if (role === 'landlord' || role === 'property_manager' || role === 'super_admin') {
+        return { ...section, items: [...section.items.slice(0, 1), managerCommunicationItem, ...section.items.slice(1)] };
+      }
+      return section;
+    })
+    .filter((section) => section.items.length > 0);
+  const activeSectionTitle = navSections.find((section) =>
+    section.items.some((item) => isHrefActive(location.pathname, item.href))
+  )?.title;
+
+  useEffect(() => {
+    if (!activeSectionTitle) return;
+    setExpandedSections((current) => {
+      if (current.has(activeSectionTitle)) return current;
+      return new Set([...current, activeSectionTitle]);
+    });
+  }, [activeSectionTitle]);
+
+  const toggleSection = (title: string) => {
+    setExpandedSections((current) => {
+      const next = new Set(current);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      window.localStorage.setItem(SIDEBAR_SECTIONS_STORAGE_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -157,10 +229,6 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
       case 'property_manager': return 'Property Manager';
       default: return role || 'User';
     }
-  };
-
-  const isItemActive = (href: string) => {
-    return location.pathname === href || location.pathname.startsWith(`${href}/`);
   };
 
   const visibleCompanies = companies;
@@ -291,13 +359,21 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
             {navSections.map((section) => (
               <div key={section.title}>
                 {!collapsedView && (
-                  <p className="px-3 mb-1.5 text-[11px] font-display uppercase tracking-[0.14em] text-sidebar-foreground/45">
-                    {section.title}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.title)}
+                    aria-expanded={expandedSections.has(section.title)}
+                    className="mb-1.5 flex w-full items-center justify-between rounded-md px-3 py-1 text-left text-[11px] font-display uppercase tracking-[0.14em] text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  >
+                    <span>{section.title}</span>
+                    {expandedSections.has(section.title)
+                      ? <ChevronUp className="h-3.5 w-3.5" />
+                      : <ChevronDown className="h-3.5 w-3.5" />}
+                  </button>
                 )}
-                <ul className="space-y-1">
+                <ul className={cn('space-y-1', !collapsedView && !expandedSections.has(section.title) && 'hidden')}>
                   {section.items.map((item) => {
-                    const isActive = isItemActive(item.href);
+                    const isActive = isHrefActive(location.pathname, item.href);
                     const isLocked = Boolean(item.entitlementKey) && !isOverrideActive && !saasLoading && !entitlements[item.entitlementKey as SaasEntitlementKey];
                     const targetHref = isLocked ? '/settings?tab=billing' : item.href;
                     const linkLabel = isLocked ? `${item.label} (Upgrade)` : item.label;
@@ -343,7 +419,7 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
         <div className="border-t border-sidebar-border p-3">
           <ul className="space-y-1 mb-3">
             {bottomNavItems.map(item => {
-              const isActive = isItemActive(item.href);
+              const isActive = isHrefActive(location.pathname, item.href);
               return (
                 <li key={item.href}>
                   <Link

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { clearMfaSession } from '@/hooks/useMfa';
+import { isAbortLikeError } from '@/lib/errors';
 import { AuthContext, Profile, MfaFactor, MfaEnrollmentData, MfaState } from './auth-context-shared';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -20,11 +21,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const getMfaApi = () => supabase.auth.mfa;
-
-  const isAbortLikeError = (error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error || '');
-    return /abort|aborted|AbortError|signal is aborted/i.test(message);
-  };
 
   const logMfaClient = (step: string, details?: Record<string, unknown>) => {
     console.info('[MFA][Client]', step, details ?? {});
@@ -112,7 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         factors,
       });
     } catch (error) {
-      console.error('Error refreshing MFA state:', error);
+      if (!isAbortLikeError(error)) {
+        console.error('Error refreshing MFA state:', error);
+      }
       setMfaState((prev) => ({ ...prev, isLoading: false }));
     }
   }, [listMfaFactors]);
@@ -133,7 +131,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(data);
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      if (!isAbortLikeError(error)) {
+        console.error('Error fetching profile:', error);
+      }
     }
   }, []);
 
@@ -163,24 +163,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }));
         }
 
-        // Keep MFA status aligned with auth transitions (login/logout/token refresh)
-        // without blocking route rendering.
-        setTimeout(() => {
-          void refreshMfaState();
-        }, 0);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      
-      setIsLoading(false);
-    });
+    void supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          void fetchProfile(session.user.id);
+        }
+      })
+      .catch((error) => {
+        if (!isAbortLikeError(error)) {
+          console.error('Error initializing authentication:', error);
+        }
+        setSession(null);
+        setUser(null);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
 
     return () => subscription.unsubscribe();
   }, [fetchProfile, refreshMfaState]);
@@ -253,7 +257,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(newSession.user);
       }
     } catch (error) {
-      console.error('Error in refreshSession:', error);
+      if (!isAbortLikeError(error)) {
+        console.error('Error in refreshSession:', error);
+      }
     }
   }, [logout]);
 

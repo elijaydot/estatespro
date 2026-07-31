@@ -340,13 +340,13 @@ export default function MarketplaceCrmDealsPage() {
                               {handoffByDealId.get(deal.id)?.status !== 'completed' ? (
                                 completingHandoffId === handoffByDealId.get(deal.id)!.id ? (
                                   <div className="space-y-2">
-                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Tenant full name" value={tenantName} onChange={(event) => setTenantName(event.target.value)} />
-                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Tenant email" value={tenantEmail} onChange={(event) => setTenantEmail(event.target.value)} />
-                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Tenant phone" value={tenantPhone} onChange={(event) => setTenantPhone(event.target.value)} />
-                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" type="date" value={leaseStart} onChange={(event) => setLeaseStart(event.target.value)} />
-                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" type="date" value={leaseEnd} onChange={(event) => setLeaseEnd(event.target.value)} />
-                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Monthly rent" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} />
-                                    <input className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Security deposit" value={securityDeposit} onChange={(event) => setSecurityDeposit(event.target.value)} />
+                                    <input aria-label="Tenant full name" className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Tenant full name" value={tenantName} onChange={(event) => setTenantName(event.target.value)} />
+                                    <input aria-label="Tenant email" className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Tenant email" value={tenantEmail} onChange={(event) => setTenantEmail(event.target.value)} />
+                                    <input aria-label="Tenant phone" className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Tenant phone" value={tenantPhone} onChange={(event) => setTenantPhone(event.target.value)} />
+                                    <input aria-label="Lease start date" className="h-8 w-full rounded-md border border-input px-2 text-xs" type="date" value={leaseStart} onChange={(event) => setLeaseStart(event.target.value)} />
+                                    <input aria-label="Lease end date" className="h-8 w-full rounded-md border border-input px-2 text-xs" type="date" value={leaseEnd} onChange={(event) => setLeaseEnd(event.target.value)} />
+                                    <input aria-label="Monthly rent" className="h-8 w-full rounded-md border border-input px-2 text-xs" inputMode="decimal" placeholder="Monthly rent" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} />
+                                    <input aria-label="Security deposit" className="h-8 w-full rounded-md border border-input px-2 text-xs" inputMode="decimal" placeholder="Security deposit" value={securityDeposit} onChange={(event) => setSecurityDeposit(event.target.value)} />
                                     <div className="flex gap-2">
                                       <button
                                         className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground"

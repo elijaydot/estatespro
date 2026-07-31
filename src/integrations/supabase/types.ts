@@ -2553,10 +2553,12 @@ export type Database = {
       }
       maintenance_requests: {
         Row: {
+          actual_cost: number | null
           assigned_to: string | null
           completed_at: string | null
           created_at: string
           description: string
+          estimated_cost: number | null
           id: string
           image_url: string | null
           priority: string
@@ -2569,10 +2571,12 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          actual_cost?: number | null
           assigned_to?: string | null
           completed_at?: string | null
           created_at?: string
           description: string
+          estimated_cost?: number | null
           id?: string
           image_url?: string | null
           priority?: string
@@ -2585,10 +2589,12 @@ export type Database = {
           user_id: string
         }
         Update: {
+          actual_cost?: number | null
           assigned_to?: string | null
           completed_at?: string | null
           created_at?: string
           description?: string
+          estimated_cost?: number | null
           id?: string
           image_url?: string | null
           priority?: string

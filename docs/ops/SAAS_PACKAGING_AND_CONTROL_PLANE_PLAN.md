@@ -8,7 +8,7 @@
 - Phase 5: Complete (subscription lifecycle migration authored)
 - Phase 6: Complete (route/sidebar/dashboard gating, quota enforcement, metering triggers, and billing plan-change UI action implemented)
 - Phase 7: Complete (governance schema/RLS, super-admin control plane UI, platform override mode, filtering, and operator-role management implemented)
-- Phase 8: Complete (global overview, company 360, user 360, incident timeline, and drillable filtered surfaces implemented)
+- Phase 8: Complete (Company/User 360 directories plus admin-side plan changes, manual entitlement overrides, company/user suspend and reinstate actions, session revocation, and scoped audited impersonation are operational in the Control Plane UI)
 - Phase 9: Complete (URL state persistence, export workflows, modularized tabs/helpers, and expanded regression suite delivered)
 - Phase 10: Complete (analytics and ops controls tab, persisted analytics snapshots, scheduled drift checks, and governance alert records)
 

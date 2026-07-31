@@ -1,5 +1,6 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isAbortLikeError } from '@/lib/errors';
 import { useAuth } from './useAuth';
 import { SettingsContext, SettingsContextType } from './settings-context-shared';
 
@@ -93,7 +94,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         });
       }
     } catch (error) {
-      console.error('Error fetching settings:', error);
+      if (!isAbortLikeError(error)) {
+        console.error('Error fetching settings:', error);
+      }
     } finally {
       setIsLoading(false);
     }

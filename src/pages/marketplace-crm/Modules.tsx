@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom';
-import { CrmWorkspace, CRM_NAV_ITEMS } from '@/components/marketplace-crm/CrmWorkspace';
+import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
+import { CRM_NAV_ITEMS } from '@/components/marketplace-crm/crmNavigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function MarketplaceCrmModulesPage() {
   return (
-    <CrmWorkspace title="Modules" subtitle="All CRM modules in FishGate sequence for unified execution.">
+    <CrmWorkspace title="Module Directory" subtitle="All CRM workspaces in one place for quick access.">
       <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {CRM_NAV_ITEMS.filter((item) => item.label !== 'Overview' && item.label !== 'Modules').map((module) => (
+        {CRM_NAV_ITEMS.filter((item) => item.href !== '/marketplace/crm' && item.href !== '/marketplace/crm/modules').map((module) => (
           <Card key={module.href} className="border-border/70">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">

@@ -68,6 +68,7 @@ import { ImageUpload } from '@/components/ui/image-upload';
 import { useTenantExits, type TenantExit } from '@/hooks/useTenantExits';
 import { Card, CardContent } from '@/components/ui/card';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useConfirmAction } from '@/components/ui/use-confirm-action';
 
 type TenantRow = Tenant & {
   units?: {
@@ -155,6 +156,7 @@ export default function Tenants() {
   const { data: invites = [] } = useTenantInvites();
   const createTenant = useCreateTenant();
   const deleteTenant = useDeleteTenant();
+  const confirmAction = useConfirmAction();
   const { data: tenantExits = [], isLoading: loadingExits } = useTenantExits();
   const [activeTab, setActiveTab] = useState('tenants');
   const tenantRows = tenants as TenantRow[];
@@ -232,10 +234,15 @@ export default function Tenants() {
     });
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this tenant?')) {
-      await deleteTenant.mutateAsync(id);
-    }
+  const handleDelete = async (tenant: TenantRow) => {
+    const confirmed = await confirmAction({
+      title: 'Remove tenant?',
+      description: `Remove ${tenant.name} and their tenant record? This action cannot be undone.`,
+      confirmLabel: 'Remove tenant',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await deleteTenant.mutateAsync(tenant.id);
   };
 
   const handleSendInvite = async () => {
@@ -506,7 +513,7 @@ export default function Tenants() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
-                          onSelect={() => handleDelete(tenant.id)}
+                          onSelect={() => handleDelete(tenant)}
                         >
                           <Trash2 className="h-4 w-4 mr-2" /> Remove
                         </DropdownMenuItem>

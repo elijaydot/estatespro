@@ -1,0 +1,53 @@
+name: Cross-tenant RLS isolation
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'tests/week4/cross-tenant-rls.integration.test.ts'
+      - '.github/workflows/rls-isolation.yml'
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+      - 'feat/**'
+
+jobs:
+  cross-tenant-rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Week 4 security and reporting tests
+        run: npm run test:week4
+
+      - name: Start local Supabase and apply migrations
+        run: supabase start
+
+      - name: Run cross-tenant RLS attacks
+        shell: bash
+        run: |
+          eval "$(supabase status -o env)"
+          SUPABASE_TEST_URL="$API_URL" \
+          SUPABASE_TEST_ANON_KEY="$ANON_KEY" \
+          SUPABASE_TEST_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+          RLS_TEST_REQUIRED=true \
+          npm run test:rls

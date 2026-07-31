@@ -44,12 +44,21 @@ import { useInvoices } from '@/hooks/useInvoices';
 import { usePayments } from '@/hooks/usePayments';
 import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { useLeases } from '@/hooks/useLeases';
+import {
+  computeAgingRows,
+  computeMaintenanceCostRows,
+  computeOccupancyTrend,
+  computeRentRollRows,
+  rowsToCsv,
+} from '@/lib/pmReports';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--info))'];
 
 export default function Reports() {
   const { formatCurrency } = useSettings();
   const [dateRange, setDateRange] = useState('6m');
+  const [activeReport, setActiveReport] = useState('revenue');
 
   const { data: properties = [] } = useProperties();
   const { data: units = [] } = useUnits();
@@ -57,6 +66,7 @@ export default function Reports() {
   const { data: invoices = [] } = useInvoices();
   const { data: payments = [] } = usePayments();
   const { data: maintenanceRequests = [] } = useMaintenanceRequests();
+  const { data: leases = [] } = useLeases();
   const { data: dashboardStats } = useDashboardStats();
 
   // Calculate statistics
@@ -104,6 +114,11 @@ export default function Reports() {
   };
 
   const revenueData = generateMonthlyData();
+  const reportMonths = dateRange === '12m' ? 12 : dateRange === '6m' ? 6 : 3;
+  const rentRollRows = computeRentRollRows(leases);
+  const agingRows = computeAgingRows(invoices);
+  const occupancyTrendRows = computeOccupancyTrend(leases, units.length, reportMonths);
+  const maintenanceCostRows = computeMaintenanceCostRows(maintenanceRequests);
 
   // Occupancy by property
   const occupancyByProperty = properties.map(p => ({
@@ -122,7 +137,7 @@ export default function Reports() {
 
   // Maintenance by status
   const maintenanceStatusData = [
-    { name: 'Open', value: maintenanceRequests.filter(m => m.status === 'open').length, color: COLORS[2] },
+    { name: 'Submitted', value: maintenanceRequests.filter(m => m.status === 'submitted').length, color: COLORS[2] },
     { name: 'In Progress', value: maintenanceRequests.filter(m => m.status === 'in_progress').length, color: COLORS[4] },
     { name: 'Completed', value: maintenanceRequests.filter(m => m.status === 'completed').length, color: COLORS[1] },
   ].filter(d => d.value > 0);
@@ -135,9 +150,8 @@ export default function Reports() {
   ].filter(d => d.value > 0);
 
   const handleExportReport = () => {
-    // Generate CSV content
-    const headers = ['Metric', 'Value'];
-    const rows = [
+    let fileName = 'portfolio-summary';
+    let csvContent = rowsToCsv(['Metric', 'Value'], [
       ['Total Revenue', formatCurrency(totalRevenue)],
       ['Outstanding Balance', formatCurrency(outstandingBalance)],
       ['Total Properties', properties.length.toString()],
@@ -149,14 +163,39 @@ export default function Reports() {
       ['Shortlet Conversion Rate', `${dashboardStats?.shortletConversionRate ?? 0}%`],
       ['Shortlet Acceptance Rate', `${dashboardStats?.shortletAcceptanceRate ?? 0}%`],
       ['Shortlet Avg Time To Pay (hours)', `${dashboardStats?.shortletAvgTimeToPayHours ?? 0}`],
-    ];
+    ]);
 
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    if (activeReport === 'rent-roll') {
+      fileName = 'rent-roll';
+      csvContent = rowsToCsv(
+        ['Property', 'Unit', 'Tenant', 'Lease', 'Start', 'End', 'Monthly Rent', 'Status'],
+        rentRollRows.map((row) => [row.property, row.unit, row.tenant, row.leaseNumber, row.startDate, row.endDate, row.monthlyRent, row.status]),
+      );
+    } else if (activeReport === 'aging') {
+      fileName = 'aging-collections';
+      csvContent = rowsToCsv(
+        ['Invoice', 'Tenant', 'Due Date', 'Days Overdue', 'Bucket', 'Balance', 'Status'],
+        agingRows.map((row) => [row.invoiceNumber, row.tenant, row.dueDate, row.daysOverdue, row.bucket, row.balance, row.status]),
+      );
+    } else if (activeReport === 'occupancy-trend') {
+      fileName = 'occupancy-trend';
+      csvContent = rowsToCsv(
+        ['Month', 'Occupied', 'Vacant', 'Occupancy Rate'],
+        occupancyTrendRows.map((row) => [row.month, row.occupied, row.vacant, `${row.occupancyRate}%`]),
+      );
+    } else if (activeReport === 'maintenance-cost') {
+      fileName = 'maintenance-cost';
+      csvContent = rowsToCsv(
+        ['Property', 'Request', 'Priority', 'Status', 'Estimated Cost', 'Actual Cost', 'Variance'],
+        maintenanceCostRows.map((row) => [row.property, row.request, row.priority, row.status, row.estimatedCost, row.actualCost, row.variance]),
+      );
+    }
+
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `property-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.download = `${fileName}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -310,8 +349,8 @@ export default function Reports() {
       </div>
 
       {/* Charts */}
-      <Tabs defaultValue="revenue" className="space-y-4">
-        <TabsList>
+      <Tabs value={activeReport} onValueChange={setActiveReport} className="space-y-4">
+        <TabsList className="h-auto flex flex-wrap justify-start">
           <TabsTrigger value="revenue" className="gap-2">
             <LineChart className="h-4 w-4" />
             Revenue
@@ -328,6 +367,10 @@ export default function Reports() {
             <Wrench className="h-4 w-4" />
             Maintenance
           </TabsTrigger>
+          <TabsTrigger value="rent-roll">Rent Roll</TabsTrigger>
+          <TabsTrigger value="aging">Aging</TabsTrigger>
+          <TabsTrigger value="occupancy-trend">Occupancy Trend</TabsTrigger>
+          <TabsTrigger value="maintenance-cost">Maintenance Cost</TabsTrigger>
         </TabsList>
 
         <TabsContent value="revenue">
@@ -513,7 +556,7 @@ export default function Reports() {
                     <span className="font-medium">Open Requests</span>
                   </div>
                   <Badge className="bg-warning/20 text-warning border-warning/30">
-                    {maintenanceRequests.filter(m => m.status === 'open').length}
+                    {maintenanceRequests.filter(m => m.status === 'submitted').length}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between p-4 rounded-lg bg-info/10">
@@ -546,6 +589,61 @@ export default function Reports() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="rent-roll">
+          <Card className="card-shadow-md">
+            <CardHeader><CardTitle>Rent Roll</CardTitle></CardHeader>
+            <CardContent className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3">Property / Unit</th><th>Tenant</th><th>Lease</th><th>Term</th><th className="text-right">Monthly Rent</th><th>Status</th></tr></thead>
+                <tbody>{rentRollRows.map((row) => <tr key={row.leaseNumber} className="border-b last:border-0"><td className="py-3">{row.property} / {row.unit}</td><td>{row.tenant}</td><td>{row.leaseNumber}</td><td>{row.startDate} to {row.endDate}</td><td className="text-right">{formatCurrency(row.monthlyRent)}</td><td><Badge variant="outline">{row.status}</Badge></td></tr>)}</tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="aging">
+          <Card className="card-shadow-md">
+            <CardHeader><CardTitle>Aging & Collections</CardTitle></CardHeader>
+            <CardContent className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3">Invoice</th><th>Tenant</th><th>Due</th><th>Age</th><th>Bucket</th><th className="text-right">Balance</th></tr></thead>
+                <tbody>{agingRows.map((row) => <tr key={row.invoiceNumber} className="border-b last:border-0"><td className="py-3">{row.invoiceNumber}</td><td>{row.tenant}</td><td>{row.dueDate}</td><td>{row.daysOverdue} days</td><td><Badge variant="outline">{row.bucket}</Badge></td><td className="text-right">{formatCurrency(row.balance)}</td></tr>)}</tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="occupancy-trend">
+          <Card className="card-shadow-md">
+            <CardHeader><CardTitle>Occupancy Trend</CardTitle></CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsLineChart data={occupancyTrendRows}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <Tooltip formatter={(value: number) => [`${value}%`, 'Occupancy']} />
+                    <Line type="monotone" dataKey="occupancyRate" stroke="hsl(var(--primary))" strokeWidth={2} />
+                  </RechartsLineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="maintenance-cost">
+          <Card className="card-shadow-md">
+            <CardHeader><CardTitle>Maintenance Cost</CardTitle></CardHeader>
+            <CardContent className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3">Property</th><th>Request</th><th>Priority</th><th>Status</th><th className="text-right">Estimated</th><th className="text-right">Actual</th><th className="text-right">Variance</th></tr></thead>
+                <tbody>{maintenanceCostRows.map((row, index) => <tr key={`${row.request}-${index}`} className="border-b last:border-0"><td className="py-3">{row.property}</td><td>{row.request}</td><td>{row.priority}</td><td>{row.status}</td><td className="text-right">{formatCurrency(row.estimatedCost)}</td><td className="text-right">{formatCurrency(row.actualCost)}</td><td className="text-right">{formatCurrency(row.variance)}</td></tr>)}</tbody>
+              </table>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

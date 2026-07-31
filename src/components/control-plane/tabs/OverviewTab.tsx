@@ -5,6 +5,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import type { GovernanceAlert } from '@/hooks/useControlPlane';
 import type { CorrelationSummaryRow } from '@/lib/controlPlaneViews';
 import { EmptyState } from '@/components/control-plane/EmptyState';
+import { shortReference } from '@/lib/controlPlanePresentation';
 
 type OverviewTabProps = {
   eventsCount: number;
@@ -30,7 +31,7 @@ export function OverviewTab({
           </CardHeader>
           <CardContent>
             {eventsCount === 0 ? (
-              <EmptyState title="No events yet" description="Generate a test event or expand filters." />
+              <EmptyState title="No events yet" description="Create a synthetic governance event or expand the current filters." />
             ) : (
               <Table>
                 <TableHeader>
@@ -43,7 +44,7 @@ export function OverviewTab({
                 <TableBody>
                   {correlations.map((row) => (
                     <TableRow key={row.correlation_id}>
-                      <TableCell className="max-w-[300px] truncate" title={row.correlation_id}>{row.correlation_id}</TableCell>
+                      <TableCell className="font-mono" title={row.correlation_id}>{shortReference(row.correlation_id)}</TableCell>
                       <TableCell>{row.events}</TableCell>
                       <TableCell>{row.high_risk}</TableCell>
                     </TableRow>

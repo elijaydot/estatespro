@@ -13,6 +13,8 @@
     "check:contracts": "node scripts/check-contract-inventory.js",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:rls": "vitest run tests/week4/cross-tenant-rls.integration.test.ts --reporter=verbose",
+    "test:week4": "vitest run tests/week4 --exclude tests/week4/cross-tenant-rls.integration.test.ts --reporter=verbose",
     "test:week2": "vitest run tests/week2 --reporter=verbose"
   },
   "dependencies": {

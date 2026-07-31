@@ -26,6 +26,13 @@ const tabs = [
   { id: "inspections", label: "Inspections", icon: ClipboardCheck, description: "Checklists" },
 ];
 
+const tabGroups = [
+  { title: "Account", tabIds: ["profile", "security", "appearance"] },
+  { title: "Organization", tabIds: ["general", "company"] },
+  { title: "Operations", tabIds: ["lease", "payments", "notifications", "inspections"] },
+  { title: "Subscription", tabIds: ["billing"] },
+];
+
 export default function Settings() {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("profile");
@@ -56,36 +63,48 @@ export default function Settings() {
 
       <div className="flex flex-col lg:flex-row gap-6">
         <nav className="lg:w-64 shrink-0">
-          <div className="lg:sticky lg:top-4 space-y-1">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <div className="min-w-0">
-                    <p className={cn("text-sm font-medium truncate", isActive && "text-primary-foreground")}>
-                      {tab.label}
-                    </p>
-                    <p className={cn(
-                      "text-xs truncate hidden lg:block",
-                      isActive ? "text-primary-foreground/70" : "text-muted-foreground"
-                    )}>
-                      {tab.description}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+          <div className="grid grid-cols-2 gap-x-2 gap-y-4 sm:grid-cols-4 lg:sticky lg:top-4 lg:grid-cols-1">
+            {tabGroups.map((group) => (
+              <div key={group.title}>
+                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/75">
+                  {group.title}
+                </p>
+                <div className="space-y-1">
+                  {group.tabIds.map((tabId) => {
+                    const tab = tabs.find((candidate) => candidate.id === tabId);
+                    if (!tab) return null;
+
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={cn(
+                          "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+                          isActive
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <div className="min-w-0">
+                          <p className={cn("text-sm font-medium break-words", isActive && "text-primary-foreground")}>
+                            {tab.label}
+                          </p>
+                          <p className={cn(
+                            "text-xs hidden lg:block",
+                            isActive ? "text-primary-foreground/70" : "text-muted-foreground"
+                          )}>
+                            {tab.description}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </nav>
 

@@ -34,6 +34,7 @@ import { useProperties, type Property } from '@/hooks/useProperties';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useStepUpGuard } from '@/hooks/useStepUpGuard';
 import { logSecurityEvent } from '@/lib/security';
+import { useConfirmAction } from '@/components/ui/use-confirm-action';
 
 type PropertyRow = Property & { company_id?: string | null };
 
@@ -74,6 +75,7 @@ export default function TeamManagement() {
   const deleteCompany = useDeleteCompany();
   const removeMember = useRemoveCompanyMember();
   const { ensureAal2 } = useStepUpGuard();
+  const confirmAction = useConfirmAction();
 
   const approvedMembers = members?.filter(m => m.status === 'approved') || [];
   const pendingMembers = members?.filter(m => m.status === 'pending') || [];
@@ -165,7 +167,13 @@ export default function TeamManagement() {
     const canProceed = await ensureAal2('team.delete_company');
     if (!canProceed) return;
 
-    if (!confirm(`Are you sure you want to delete "${company.name}"? This will also remove all associated members and assignments. This action cannot be undone.`)) return;
+    const confirmed = await confirmAction({
+      title: 'Delete company?',
+      description: `Delete "${company.name}" and remove its members and assignments? This action cannot be undone.`,
+      confirmLabel: 'Delete company',
+      destructive: true,
+    });
+    if (!confirmed) return;
     await deleteCompany.mutateAsync(company.id);
     await logSecurityEvent('company_deleted', { companyId: company.id, name: company.name });
     if (resolvedCompanyId === company.id) {
@@ -185,7 +193,13 @@ export default function TeamManagement() {
     const canProceed = await ensureAal2('team.remove_member');
     if (!canProceed) return;
 
-    if (!confirm(`Are you sure you want to remove ${memberName || 'this manager'}? This action cannot be undone.`)) return;
+    const confirmed = await confirmAction({
+      title: 'Remove team member?',
+      description: `Remove ${memberName || 'this manager'} from the company? This action cannot be undone.`,
+      confirmLabel: 'Remove member',
+      destructive: true,
+    });
+    if (!confirmed) return;
     await removeMember.mutateAsync(memberId);
     await logSecurityEvent('team_member_removed', { memberId, memberName });
   };

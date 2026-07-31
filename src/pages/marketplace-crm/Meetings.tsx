@@ -93,11 +93,11 @@ export default function MarketplaceCrmMeetingsPage() {
           Capture meeting context before the call so outcomes and follow-up are easier to execute.
         </div>
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Meeting title" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-3" value={relatedLeadId} onChange={(event) => setRelatedLeadId(event.target.value)}>
+          <input aria-label="Meeting title" className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Meeting title" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <select aria-label="Related lead" className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-3" value={relatedLeadId} onChange={(event) => setRelatedLeadId(event.target.value)}>
             <option value="">Related lead (optional)</option>
             {(leadsQuery.data || []).map((lead) => (
-              <option key={lead.id} value={lead.id}>{lead.contact_name || lead.contact_email || lead.id}</option>
+              <option key={lead.id} value={lead.id}>{lead.contact_name || lead.contact_email || 'Unnamed lead'}</option>
             ))}
           </select>
           <div className="lg:col-span-3">
@@ -111,9 +111,9 @@ export default function MarketplaceCrmMeetingsPage() {
           </div>
           <button className="h-10 rounded-md bg-primary px-3 text-sm text-primary-foreground lg:col-span-2" onClick={create} disabled={createMeeting.isPending}>Create</button>
 
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-3" type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} />
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-3" type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} />
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-6" placeholder="Agenda and notes" value={notes} onChange={(event) => setNotes(event.target.value)} />
+          <input aria-label="Meeting start time" className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-3" type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} />
+          <input aria-label="Meeting end time" className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-3" type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} />
+          <input aria-label="Agenda and notes" className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-6" placeholder="Agenda and notes" value={notes} onChange={(event) => setNotes(event.target.value)} />
         </div>
       </CrmDataCard>
 
