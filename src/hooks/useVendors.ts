@@ -48,6 +48,12 @@ export type VendorInput = Pick<Vendor, 'name' | 'vendor_type' | 'contact_name' |
 const vendorsKey = (companyId: string | null) => ['vendors', companyId] as const;
 const vendorKey = (companyId: string | null, vendorId: string) => ['vendors', companyId, vendorId] as const;
 
+function validateVendorRating(rating: number | null | undefined) {
+  if (rating != null && (!Number.isFinite(rating) || rating < 0 || rating > 5)) {
+    throw new Error('Rating must be between 0 and 5');
+  }
+}
+
 export function useVendors(status?: Vendor['status']) {
   const { activeCompanyId } = useActiveCompany();
 
@@ -94,6 +100,7 @@ export function useCreateVendor() {
   return useMutation({
     mutationFn: async (input: VendorInput) => {
       if (!activeCompanyId) throw new Error('Select a company first');
+      validateVendorRating(input.rating);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
       const { data, error } = await supabase
@@ -118,6 +125,7 @@ export function useUpdateVendor() {
 
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<VendorInput> & { id: string }) => {
+      validateVendorRating(input.rating);
       const { data, error } = await supabase
         .from('vendors' as never)
         .update(input as never)

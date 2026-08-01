@@ -95,14 +95,17 @@ describe('operational alerts and vendor management foundation', () => {
     expect(vendorDetail).toContain("changePaymentStatus(payment.id, 'paid')");
     expect(vendorDetail).toContain("changePaymentStatus(payment.id, 'cancelled')");
     expect(vendorDetail).toContain('confirmAction({');
+    expect(vendorDetail).toContain('Expiry dates generate operational alerts.');
     expect(vendorHooks).toContain("storage.from('vendor-documents').remove([input.storage_path])");
+    expect(vendorHooks).toContain("throw new Error('Rating must be between 0 and 5')");
   });
 
   it('makes the vendor directory measurable, filterable, and deep-linkable', () => {
     expect(vendors).toContain("searchParams.get('add') === 'true'");
     expect(vendors).toContain('All vendors');
     expect(vendors).toContain('Needs review');
-    expect(vendors).toContain('Initial rating');
+    expect(vendors).toContain('Initial rating (0-5)');
+    expect(vendors).toContain('ratingInvalid');
     expect(vendors).toContain("status === 'all' || vendor.status === status");
   });
 

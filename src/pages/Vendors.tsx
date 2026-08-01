@@ -23,6 +23,7 @@ export default function Vendors() {
   const [form, setForm] = useState<VendorInput>(emptyVendor);
   const { data: vendors = [], isLoading, error, refetch } = useVendors();
   const createVendor = useCreateVendor();
+  const ratingInvalid = form.rating != null && (form.rating < 0 || form.rating > 5);
 
   useEffect(() => {
     if (searchParams.get('add') === 'true') setIsCreateOpen(true);
@@ -46,7 +47,7 @@ export default function Vendors() {
   };
 
   const submit = async () => {
-    if (!form.name.trim()) return;
+    if (!form.name.trim() || ratingInvalid) return;
     await createVendor.mutateAsync({ ...form, name: form.name.trim() });
     setForm(emptyVendor);
     closeCreateDialog();
@@ -124,10 +125,14 @@ export default function Vendors() {
             <div className="space-y-2"><Label htmlFor="vendor-phone">Phone</Label><Input id="vendor-phone" value={form.phone ?? ''} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></div>
             <div className="space-y-2 sm:col-span-2"><Label htmlFor="vendor-address">Address</Label><Input id="vendor-address" value={form.address ?? ''} onChange={(event) => setForm({ ...form, address: event.target.value })} /></div>
             <div className="space-y-2"><Label>Status</Label><Select value={form.status} onValueChange={(value) => setForm({ ...form, status: value as Vendor['status'] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem><SelectItem value="suspended">Suspended</SelectItem></SelectContent></Select></div>
-            <div className="space-y-2"><Label htmlFor="vendor-rating">Initial rating</Label><Input id="vendor-rating" type="number" min="0" max="5" step="0.5" value={form.rating ?? ''} onChange={(event) => setForm({ ...form, rating: event.target.value ? Number(event.target.value) : null })} /></div>
+            <div className="space-y-2">
+              <Label htmlFor="vendor-rating">Initial rating (0-5)</Label>
+              <Input id="vendor-rating" type="number" min="0" max="5" step="0.5" value={form.rating ?? ''} aria-invalid={ratingInvalid} onChange={(event) => setForm({ ...form, rating: event.target.value ? Number(event.target.value) : null })} />
+              <p className={ratingInvalid ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>{ratingInvalid ? 'Enter a rating between 0 and 5.' : 'Optional. Use 5 for the highest rating.'}</p>
+            </div>
             <div className="space-y-2 sm:col-span-2"><Label htmlFor="vendor-notes">Notes</Label><Textarea id="vendor-notes" value={form.notes ?? ''} onChange={(event) => setForm({ ...form, notes: event.target.value })} /></div>
           </div>
-          <DialogFooter><Button variant="outline" onClick={closeCreateDialog}>Cancel</Button><Button onClick={() => void submit()} disabled={!form.name.trim() || createVendor.isPending}>Create vendor</Button></DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={closeCreateDialog}>Cancel</Button><Button onClick={() => void submit()} disabled={!form.name.trim() || ratingInvalid || createVendor.isPending}>Create vendor</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
