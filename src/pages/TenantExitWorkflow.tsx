@@ -139,7 +139,7 @@ export default function TenantExitWorkflow() {
       },
     });
     await syncCheckoutSnapshot.mutateAsync(exitId!);
-    toast({ title: 'Inspection Complete', description: 'Moving to deposit decision phase.' });
+    toast({ title: 'Inspection complete', description: 'The deposit is ready for review.' });
     setActiveStep('deposit');
   };
 

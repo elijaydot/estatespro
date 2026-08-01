@@ -110,7 +110,7 @@ export default function MarketplaceCrmCallsPage() {
 
   return (
     <CrmWorkspace title="Calls" subtitle="Inbound and outbound interaction logging with outcomes.">
-      <CrmDataCard title="Log Call" description="Quick log for a phone interaction.">
+      <CrmDataCard title="Log Call" description="Record call details and outcomes.">
         <div className="mb-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
           Track result quality so your follow-up queue reflects real call outcomes.
         </div>
@@ -124,7 +124,7 @@ export default function MarketplaceCrmCallsPage() {
           <select aria-label="Related lead" className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={leadId} onChange={(event) => setLeadId(event.target.value)}>
             <option value="">Select lead</option>
             {(leadsQuery.data || []).map((lead) => (
-              <option key={lead.id} value={lead.id}>{lead.contact_name || lead.contact_email || 'Unnamed lead'}</option>
+              <option key={lead.id} value={lead.id}>{lead.contact_name || lead.contact_email || 'Lead'}</option>
             ))}
           </select>
           <select aria-label="Call result" className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={result} onChange={(event) => setResult(event.target.value)}>
@@ -147,7 +147,7 @@ export default function MarketplaceCrmCallsPage() {
         </div>
       </CrmDataCard>
 
-      <CrmDataCard title="Calls" description="Calls module table in FishGate CRM sequence.">
+      <CrmDataCard title="Calls" description="All calls recorded for this organization.">
         <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">

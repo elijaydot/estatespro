@@ -84,8 +84,8 @@ export function AppHeader() {
           )
           .slice(0, 5)
           .map((property) => ({
-            label: property.name || 'Unnamed property',
-            sublabel: property.address || 'No address',
+            label: property.name || 'Property',
+            sublabel: property.address || 'Address not provided',
             path: `/properties/${property.id}`,
             type: 'Property' as const,
           })),
@@ -96,8 +96,8 @@ export function AppHeader() {
           )
           .slice(0, 5)
           .map((tenant) => ({
-            label: tenant.name || 'Unnamed tenant',
-            sublabel: tenant.email || 'No email',
+            label: tenant.name || 'Tenant',
+            sublabel: tenant.email || 'Email not provided',
             path: `/tenants/${tenant.id}`,
             type: 'Tenant' as const,
           })),

@@ -12,6 +12,7 @@ import { InspectionChecklistSettings } from "@/components/settings/InspectionChe
 import { PaymentSettings } from "@/components/settings/PaymentSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { BillingPlansSettings } from "@/components/settings/BillingPlansSettings";
+import { AlertSettings } from "@/components/settings/AlertSettings";
 
 const tabs = [
   { id: "profile", label: "Profile", icon: User, description: "Account details" },
@@ -23,13 +24,14 @@ const tabs = [
   { id: "payments", label: "Payments", icon: CreditCard, description: "Gateway & manual" },
   { id: "billing", label: "Billing & Plans", icon: CreditCard, description: "Pricing, access, upgrades" },
   { id: "notifications", label: "Notifications", icon: Bell, description: "Alerts & emails" },
+  { id: "alerts", label: "Operational Alerts", icon: Bell, description: "Detection thresholds" },
   { id: "inspections", label: "Inspections", icon: ClipboardCheck, description: "Checklists" },
 ];
 
 const tabGroups = [
   { title: "Account", tabIds: ["profile", "security", "appearance"] },
   { title: "Organization", tabIds: ["general", "company"] },
-  { title: "Operations", tabIds: ["lease", "payments", "notifications", "inspections"] },
+  { title: "Operations", tabIds: ["lease", "payments", "notifications", "alerts", "inspections"] },
   { title: "Subscription", tabIds: ["billing"] },
 ];
 
@@ -118,6 +120,7 @@ export default function Settings() {
           {activeTab === "payments" && <PaymentSettingsWrapper />}
           {activeTab === "billing" && <BillingPlansSettingsWrapper />}
           {activeTab === "notifications" && <NotificationSettings />}
+          {activeTab === "alerts" && <AlertSettings />}
           {activeTab === "inspections" && <InspectionChecklistWrapper />}
         </div>
       </div>

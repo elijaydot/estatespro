@@ -35,8 +35,10 @@ describe('control plane pending verification operations visibility', () => {
 
     expect(source).toContain('usePendingPaymentAttempts');
     expect(source).toContain('usePendingVerificationHealth');
-    expect(source).toContain('pendingAttempts.isLoading');
-    expect(source).toContain('pendingHealth.isLoading');
+    expect(source).toContain("dataset('Pending payment attempts', pendingAttempts)");
+    expect(source).toContain("dataset('Pending verification health', pendingHealth)");
+    expect(source).toContain('activeDatasets.some((item) => item.isLoading)');
+    expect(source).toContain('failedDatasets.forEach((item) => void item.refetch())');
     expect(source).toContain('void pendingAttempts.refetch()');
     expect(source).toContain('void pendingHealth.refetch()');
     expect(source).toContain("row_type: 'pending_verification_health'");

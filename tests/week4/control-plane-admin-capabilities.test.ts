@@ -34,4 +34,13 @@ describe('control-plane admin capabilities', () => {
     expect(ui).toContain('handleStartImpersonation');
     expect(ui).toContain('handleStopImpersonation');
   });
+
+  it('keeps Control Plane navigation and recovery actions available when a dataset fails', () => {
+    expect(ui).not.toContain('{!isLoading && (');
+    expect(ui).toContain("case 'monetization':");
+    expect(ui).toContain("dataset('Billing catalog', billingCatalog)");
+    expect(ui).toContain('failedDatasets.map');
+    expect(ui).toContain('Retry this view');
+    expect(ui).toContain('Back to Overview');
+  });
 });

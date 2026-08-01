@@ -201,8 +201,8 @@ export default function MarketplaceCrmDealsPage() {
   };
 
   return (
-    <CrmWorkspace title="Deals" subtitle="Kanban-style opportunity tracking for lease and revenue conversion.">
-      <CrmDataCard title="Create Deal" description="Quick-add deal opportunity.">
+    <CrmWorkspace title="Deals" subtitle="Track opportunities from qualification through close.">
+      <CrmDataCard title="Create Deal" description="Add a new sales opportunity.">
         <div className="mb-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
           Add a focused opportunity with ownership, confidence, and close-date context in one step.
         </div>
@@ -243,7 +243,7 @@ export default function MarketplaceCrmDealsPage() {
         </div>
       </CrmDataCard>
 
-      <CrmDataCard title="Pipeline Board" description="Stage-view inspired by FishGate opportunity board.">
+      <CrmDataCard title="Pipeline Board" description="Review and update opportunities by stage.">
         <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto">
           <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">

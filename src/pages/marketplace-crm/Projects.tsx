@@ -81,13 +81,13 @@ export default function MarketplaceCrmProjectsPage() {
   };
 
   return (
-    <CrmWorkspace title="Projects" subtitle="Operational projects for launch plans and occupancy initiatives.">
+    <CrmWorkspace title="Projects" subtitle="Plan and track CRM and marketplace projects.">
       <section className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <MetricCard label="Overdue Projects" value={slaSummary.overdue} helper="Past due and not completed" />
         <MetricCard label="Due in 7 Days" value={slaSummary.dueSoon} helper="Active lifecycle pressure" />
       </section>
 
-      <CrmDataCard title="Create Project" description="Track strategic CRM and marketplace initiatives.">
+      <CrmDataCard title="Create Project" description="Add a project and assign an owner.">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
           <input className="h-9 flex-1 rounded-md border border-input px-3 text-sm" placeholder="Project name" value={name} onChange={(event) => setName(event.target.value)} />
           <AssigneePicker

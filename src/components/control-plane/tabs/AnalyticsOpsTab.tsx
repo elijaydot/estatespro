@@ -110,28 +110,28 @@ export function AnalyticsOpsTab({
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Backend Phase 10 Controls</CardTitle>
+            <CardTitle className="text-base">Analytics Controls</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Trigger persisted analytics snapshots and drift checks from the control plane backend.
+              Generate analytics snapshots and check for configuration drift.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button onClick={onRunPhase10} disabled={isRunPending}>
-                {isRunPending ? 'Running...' : 'Run Phase 10 Backend Check'}
+                {isRunPending ? 'Running...' : 'Run Analytics Check'}
               </Button>
-              <Button variant="outline" onClick={onRefreshPhase10}>Refresh Backend Data</Button>
+              <Button variant="outline" onClick={onRefreshPhase10}>Refresh Analytics</Button>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Ops Signal Thresholds</CardTitle>
+            <CardTitle className="text-base">Operational Signal Thresholds</CardTitle>
           </CardHeader>
           <CardContent>
             {opsSignals.length === 0 ? (
-              <EmptyState title="No ops signals" description="Signals appear when event and decision telemetry is available." />
+              <EmptyState title="No operational signals" description="Signals will appear when access and governance activity is recorded." />
             ) : (
               <Table>
                 <TableHeader>
@@ -407,7 +407,7 @@ export function AnalyticsOpsTab({
           </CardHeader>
           <CardContent>
             {snapshots.length === 0 ? (
-              <EmptyState title="No snapshots yet" description="Run Phase 10 backend check to persist analytics snapshots." />
+              <EmptyState title="No analytics snapshots" description="Snapshots will appear after the next analytics run." />
             ) : (
               <Table>
                 <TableHeader>
@@ -444,7 +444,7 @@ export function AnalyticsOpsTab({
               Highest pending verification retry depth in scope: <span className="font-medium text-foreground">{maxPendingRetries}</span>
             </div>
             {driftChecks.length === 0 ? (
-              <EmptyState title="No drift checks yet" description="Drift checks appear after the backend Phase 10 run executes." />
+              <EmptyState title="No drift checks" description="Results will appear after the next scheduled check." />
             ) : (
               <Table>
                 <TableHeader>

@@ -40,7 +40,7 @@ export default function MarketplaceCrmContactsPage() {
 
   return (
     <CrmWorkspace title="Contacts" subtitle="People records linked to leads and account relationships.">
-      <CrmDataCard title="Duplicate Candidates" description="Match buckets based on normalized email and phone for merge cleanup.">
+      <CrmDataCard title="Possible Duplicates" description="Contacts with matching email addresses or phone numbers.">
         <div className="space-y-3">
           {duplicateGroups.map((group) => {
             const [primary, ...duplicates] = group.contacts;
@@ -75,7 +75,7 @@ export default function MarketplaceCrmContactsPage() {
         </div>
       </CrmDataCard>
 
-      <CrmDataCard title="All Contacts" description="Contacts currently generated from active lead contacts.">
+      <CrmDataCard title="All Contacts" description="People associated with active leads and accounts.">
         <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">

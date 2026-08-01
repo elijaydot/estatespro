@@ -398,64 +398,74 @@ export default function SuperAdminControlPlane() {
     userFilter,
   ]);
 
-  const baseIsLoading = events.isLoading
-    || alerts.isLoading
-    || decisions.isLoading
-    || usage.isLoading
-    || analyticsSnapshots.isLoading
-    || driftChecks.isLoading
-    || pendingAttempts.isLoading
-    || pendingHealth.isLoading;
-
-  const baseError = events.error
-    || alerts.error
-    || decisions.error
-    || usage.error
-    || analyticsSnapshots.error
-    || driftChecks.error
-    || pendingAttempts.error
-    || pendingHealth.error;
-
-  const directoryLoading = pagedCompanies.isLoading || pagedUsers.isLoading;
-  const monetizationLoading = billingCatalog.isLoading || revenueMetrics.isLoading || companyAdminSnapshot.isLoading || companyBillingContext.isLoading;
-  const safetyLoading = entitlementCatalog.isLoading
-    || entitlementOverrides.isLoading
-    || activeSuspensions.isLoading
-    || impersonationSessions.isLoading
-    || riskQueue.isLoading
-    || riskQueueTriageActions.isLoading
-    || pagedRiskQueueTriageActions.isLoading
-    || revocationHistoryPage.isLoading
-    || revocationTimelineSource.isLoading;
-  const operatorsLoading = operatorRoles.isLoading;
-
-  const activeTabLoading =
-    (activeTab === 'directory' && directoryLoading)
-    || (activeTab === 'monetization' && monetizationLoading)
-    || (activeTab === 'safety' && safetyLoading)
-    || (activeTab === 'operators' && operatorsLoading);
-
-  const isLoading = baseIsLoading || activeTabLoading;
-
-  const directoryError = pagedCompanies.error || pagedUsers.error;
-  const monetizationError = billingCatalog.error || revenueMetrics.error || companyAdminSnapshot.error || companyBillingContext.error;
-  const safetyError = entitlementCatalog.error
-    || entitlementOverrides.error
-    || activeSuspensions.error
-    || impersonationSessions.error
-    || riskQueue.error
-    || riskQueueTriageActions.error
-    || pagedRiskQueueTriageActions.error
-    || revocationHistoryPage.error
-    || revocationTimelineSource.error;
-  const operatorsError = operatorRoles.error;
-
-  const activeTabError =
-    (activeTab === 'directory' && directoryError)
-    || (activeTab === 'safety' && safetyError)
-    || (activeTab === 'operators' && operatorsError);
-
-  const hasError = Boolean(baseError || activeTabError);
+  const dataset = (
+    label: string,
+    query: { isLoading: boolean; error: unknown; refetch: () => unknown },
+  ) => ({ label, ...query });
+  const activeDatasets = (() => {
+    switch (activeTab) {
+      case 'overview':
+        return [dataset('Audit events', events), dataset('Governance alerts', alerts)];
+      case 'directory':
+        return [dataset('Company directory', pagedCompanies), dataset('User directory', pagedUsers)];
+      case 'monetization':
+        return [
+          dataset('Billing catalog', billingCatalog),
+          dataset('Revenue metrics', revenueMetrics),
+          dataset('Company billing summary', companyAdminSnapshot),
+          dataset('Company billing history', companyBillingContext),
+        ];
+      case 'safety':
+        return [
+          dataset('Entitlement catalog', entitlementCatalog),
+          dataset('Entitlement overrides', entitlementOverrides),
+          dataset('Principal suspensions', activeSuspensions),
+          dataset('Impersonation sessions', impersonationSessions),
+          dataset('Risk queue', riskQueue),
+          dataset('Risk triage history', riskQueueTriageActions),
+          dataset('Filtered risk triage history', pagedRiskQueueTriageActions),
+          dataset('Session revocation history', revocationHistoryPage),
+          dataset('Session revocation timeline', revocationTimelineSource),
+        ];
+      case 'alerts':
+        return [dataset('Governance alerts', alerts)];
+      case 'events':
+      case 'incidents':
+        return [dataset('Audit events', events)];
+      case 'decisions':
+        return [dataset('Entitlement decisions', decisions)];
+      case 'usage':
+        return [dataset('Usage snapshots', usage)];
+      case 'company360':
+        return [
+          dataset('Audit events', events),
+          dataset('Governance alerts', alerts),
+          dataset('Entitlement decisions', decisions),
+          dataset('Usage snapshots', usage),
+        ];
+      case 'user360':
+        return [dataset('Audit events', events), dataset('Entitlement decisions', decisions)];
+      case 'analytics':
+        return [
+          dataset('Audit events', events),
+          dataset('Governance alerts', alerts),
+          dataset('Entitlement decisions', decisions),
+          dataset('Usage snapshots', usage),
+          dataset('Analytics snapshots', analyticsSnapshots),
+          dataset('Drift checks', driftChecks),
+          dataset('Pending payment attempts', pendingAttempts),
+          dataset('Pending verification health', pendingHealth),
+        ];
+      case 'operators':
+        return [dataset('Operator roles', operatorRoles)];
+    }
+  })();
+  const isLoading = activeDatasets.some((item) => item.isLoading);
+  const failedDatasets = activeDatasets.filter((item) => Boolean(item.error));
+  const hasError = failedDatasets.length > 0;
+  const retryActiveView = () => {
+    failedDatasets.forEach((item) => void item.refetch());
+  };
 
   useEffect(() => {
     const companyIds = new Set<string>();
@@ -1081,21 +1091,6 @@ export default function SuperAdminControlPlane() {
   const companySubscriptions = (companyBillingContext.data?.subscriptions || []) as Array<Record<string, unknown>>;
   const companyInvoices = (companyBillingContext.data?.invoices || []) as Array<Record<string, unknown>>;
   const companyAddons = (companyBillingContext.data?.addons || []) as Array<Record<string, unknown>>;
-  const monetizationErrorMessages = useMemo(() => {
-    const messages = [
-      formatQueryErrorMessage(billingCatalog.error),
-      formatQueryErrorMessage(revenueMetrics.error),
-      formatQueryErrorMessage(companyAdminSnapshot.error),
-      formatQueryErrorMessage(companyBillingContext.error),
-    ].filter((item): item is string => Boolean(item));
-    return Array.from(new Set(messages));
-  }, [
-    billingCatalog.error,
-    companyAdminSnapshot.error,
-    companyBillingContext.error,
-    revenueMetrics.error,
-  ]);
-
   const handleExportCsv = () => {
     const rows = exportRows();
     if (!rows.length) {
@@ -1136,18 +1131,18 @@ export default function SuperAdminControlPlane() {
     } as never);
 
     if (error) {
-      toast({ title: 'Seed event failed', description: error.message, variant: 'destructive' });
+      toast({ title: 'Test event failed', description: error.message, variant: 'destructive' });
       return;
     }
 
-    toast({ title: 'Seed event created', description: 'A synthetic governance event was added.' });
+    toast({ title: 'Test event created', description: 'A test governance event was added.' });
     refreshAll();
   };
 
   const handleAssignRole = async () => {
     const trimmed = operatorUserId.trim();
     if (!isUuidLike(trimmed)) {
-      toast({ title: 'Invalid user ID', description: 'Enter a valid user UUID.', variant: 'destructive' });
+      toast({ title: 'Invalid user reference', description: 'Enter a valid user reference ID.', variant: 'destructive' });
       return;
     }
 
@@ -1166,7 +1161,7 @@ export default function SuperAdminControlPlane() {
 
   const handleAdminPlanChange = async () => {
     if (!effectiveBillingCompanyId) {
-      toast({ title: 'Company required', description: 'Enter a valid company UUID first.', variant: 'destructive' });
+      toast({ title: 'Company required', description: 'Enter a valid company reference ID first.', variant: 'destructive' });
       return;
     }
     if (!billingProductCode || !billingPlanCode) {
@@ -1202,7 +1197,7 @@ export default function SuperAdminControlPlane() {
 
   const handleSetAddonStatus = async (addonCode: string, enabled: boolean) => {
     if (!effectiveBillingCompanyId) {
-      toast({ title: 'Company required', description: 'Enter a valid company UUID first.', variant: 'destructive' });
+      toast({ title: 'Company required', description: 'Enter a valid company reference ID first.', variant: 'destructive' });
       return;
     }
 
@@ -1236,7 +1231,7 @@ export default function SuperAdminControlPlane() {
 
   const handleSetEntitlementOverride = async () => {
     if (!effectiveSafetyCompanyId) {
-      toast({ title: 'Company required', description: 'Enter a valid company UUID for override target.', variant: 'destructive' });
+      toast({ title: 'Company required', description: 'Enter a valid company reference ID for the override.', variant: 'destructive' });
       return;
     }
     if (!entitlementKey.trim()) {
@@ -1291,7 +1286,7 @@ export default function SuperAdminControlPlane() {
   const handleSetPrincipalSuspension = async (suspend: boolean) => {
     const principalId = suspendPrincipalId.trim();
     if (!isUuidLike(principalId)) {
-      toast({ title: 'Principal ID required', description: 'Provide a valid UUID for company or user target.', variant: 'destructive' });
+      toast({ title: 'Target required', description: 'Enter a valid company or user reference ID.', variant: 'destructive' });
       return;
     }
     if (!suspensionReason.trim()) {
@@ -1328,11 +1323,11 @@ export default function SuperAdminControlPlane() {
     const targetUser = impersonationTargetUserId.trim();
     const companyId = impersonationCompanyId.trim();
     if (!isUuidLike(targetUser)) {
-      toast({ title: 'Target user required', description: 'Provide a valid target user UUID.', variant: 'destructive' });
+      toast({ title: 'Target user required', description: 'Enter a valid user reference ID.', variant: 'destructive' });
       return;
     }
     if (companyId && !isUuidLike(companyId)) {
-      toast({ title: 'Invalid company UUID', description: 'Company UUID must be valid when provided.', variant: 'destructive' });
+      toast({ title: 'Invalid company reference', description: 'Enter a valid company reference ID.', variant: 'destructive' });
       return;
     }
     if (!impersonationReason.trim()) {
@@ -1414,7 +1409,7 @@ export default function SuperAdminControlPlane() {
   const handleRevokePrincipalSessions = async () => {
     const principalId = suspendPrincipalId.trim();
     if (!isUuidLike(principalId)) {
-      toast({ title: 'Principal ID required', description: 'Provide a valid UUID before revoking sessions.', variant: 'destructive' });
+      toast({ title: 'Target required', description: 'Enter a valid reference ID before revoking sessions.', variant: 'destructive' });
       return;
     }
 
@@ -1447,7 +1442,7 @@ export default function SuperAdminControlPlane() {
 
   const handleUsageSnapshotRefresh = async () => {
     if (!isUuidLike(companyFilter)) {
-      toast({ title: 'Company ID required', description: 'Enter a valid company UUID filter first.', variant: 'destructive' });
+      toast({ title: 'Company required', description: 'Select a company or enter a valid company reference ID first.', variant: 'destructive' });
       return;
     }
 
@@ -1469,13 +1464,13 @@ export default function SuperAdminControlPlane() {
     try {
       const result = await runPhase10.mutateAsync();
       toast({
-        title: 'Phase 10 backend run complete',
+        title: 'Analytics check complete',
         description: `Snapshot ${result.snapshot_id.slice(0, 8)}... captured with ${result.total_events} events.`,
       });
       refreshAll();
     } catch (error) {
       toast({
-        title: 'Phase 10 backend run failed',
+        title: 'Analytics check failed',
         description: error instanceof Error ? error.message : 'Could not execute backend analytics run.',
         variant: 'destructive',
       });
@@ -1525,9 +1520,9 @@ export default function SuperAdminControlPlane() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Super Admin Domain</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Platform Administration</p>
           <h1 className="text-2xl font-bold text-foreground mt-1">Control Plane</h1>
-          <p className="text-sm text-muted-foreground mt-1">Cross-tenant governance, risk visibility, and entitlement decision telemetry.</p>
+          <p className="text-sm text-muted-foreground mt-1">Monitor platform risk, access decisions, usage, and billing across organizations.</p>
         </div>
         <div className="flex items-center gap-2">
           {canOverride && (
@@ -1556,16 +1551,16 @@ export default function SuperAdminControlPlane() {
             options={companyFilterOptions}
             value={companyFilter}
             onValueChange={setCompanyFilter}
-            placeholder="Company filter (name, email, UUID)"
-            searchPlaceholder="Search company by name, email, UUID..."
+            placeholder="Filter by company"
+            searchPlaceholder="Search by company name, email, or reference..."
             emptyMessage="No company options found"
           />
           <SearchableSelect
             options={userFilterOptions}
             value={userFilter}
             onValueChange={setUserFilter}
-            placeholder="User filter (name, email, UUID)"
-            searchPlaceholder="Search user by name, email, UUID..."
+            placeholder="Filter by user"
+            searchPlaceholder="Search by user name, email, or reference..."
             emptyMessage="No user options found"
           />
           <SearchableSelect
@@ -1573,7 +1568,7 @@ export default function SuperAdminControlPlane() {
             value={correlationFilter}
             onValueChange={setCorrelationFilter}
             placeholder="Correlation filter"
-            searchPlaceholder="Search correlation id..."
+            searchPlaceholder="Search event reference..."
             emptyMessage="No correlation options found"
           />
           <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRange)}>
@@ -1668,22 +1663,7 @@ export default function SuperAdminControlPlane() {
         </Card>
       </div>
 
-      {isLoading && (
-        <Card>
-          <CardContent className="p-6 text-sm text-muted-foreground">Loading control plane data...</CardContent>
-        </Card>
-      )}
-
-      {hasError && (
-        <Card className="border-destructive/40">
-          <CardContent className="p-6 text-sm text-destructive">
-            One or more control plane datasets failed to load for this view. Check permissions and required control-plane migrations.
-          </CardContent>
-        </Card>
-      )}
-
-      {!isLoading && (
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(normalizeTab(value))} className="w-full">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(normalizeTab(value))} className="w-full">
           <Breadcrumb className="mb-3">
             <BreadcrumbList>
               <BreadcrumbItem>
@@ -1726,6 +1706,42 @@ export default function SuperAdminControlPlane() {
             ))}
           </TabsList>
 
+          {isLoading && (
+            <Card className="mb-4">
+              <CardContent className="p-4 text-sm text-muted-foreground">Loading {activeTabLabel.toLowerCase()} data...</CardContent>
+            </Card>
+          )}
+
+          {hasError && (
+            <Card className="mb-4 border-destructive/40" role="alert">
+              <CardContent className="space-y-3 p-4">
+                <div>
+                  <p className="text-sm font-medium text-destructive">Some {activeTabLabel.toLowerCase()} data is unavailable.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    You can retry this view or continue to another Control Plane workspace.
+                  </p>
+                </div>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {failedDatasets.map((item) => (
+                    <li key={item.label}>
+                      <span className="font-medium text-foreground">{item.label}:</span> {formatQueryErrorMessage(item.error)}
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={retryActiveView}>
+                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Retry this view
+                  </Button>
+                  {activeTab !== 'overview' && (
+                    <Button size="sm" variant="ghost" onClick={() => setActiveTab('overview')}>
+                      Back to Overview
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <OverviewTab
             eventsCount={filteredEvents.length}
             alerts={filteredAlerts}
@@ -1742,7 +1758,7 @@ export default function SuperAdminControlPlane() {
                 </CardHeader>
                 <CardContent>
                   {(pagedCompanies.data?.rows || []).length === 0 ? (
-                    <EmptyState title="No companies found" description="Adjust search text to find companies by name, email, or UUID." />
+                    <EmptyState title="No companies found" description="Search by company name, email, or reference ID." />
                   ) : (
                     <Table>
                       <TableHeader>
@@ -1803,7 +1819,7 @@ export default function SuperAdminControlPlane() {
                 </CardHeader>
                 <CardContent>
                   {(pagedUsers.data?.rows || []).length === 0 ? (
-                    <EmptyState title="No users found" description="Adjust search text to find users by name, email, or UUID." />
+                    <EmptyState title="No users found" description="Search by user name, email, or reference ID." />
                   ) : (
                     <Table>
                       <TableHeader>
@@ -1861,20 +1877,9 @@ export default function SuperAdminControlPlane() {
 
           <TabsContent value="monetization">
             <div className="space-y-3">
-              {monetizationError && monetizationErrorMessages.length > 0 && (
-                <Card className="border-destructive/40">
-                  <CardContent className="p-4 text-sm text-destructive space-y-1">
-                    <p>Some monetization data sources could not be loaded.</p>
-                    {monetizationErrorMessages.map((message) => (
-                      <p key={message} className="text-xs">- {message}</p>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
-
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Revenue Command Center</CardTitle>
+                  <CardTitle className="text-base">Revenue Overview</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-2">
@@ -1916,7 +1921,7 @@ export default function SuperAdminControlPlane() {
                       <Input
                         value={billingCompanyId}
                         onChange={(e) => setBillingCompanyId(e.target.value)}
-                        placeholder="Company UUID"
+                        placeholder="Company reference ID"
                         className="xl:col-span-2"
                       />
                       <Select value={billingProductCode} onValueChange={setBillingProductCode}>
@@ -1961,7 +1966,7 @@ export default function SuperAdminControlPlane() {
                     <Input
                       value={billingReason}
                       onChange={(e) => setBillingReason(e.target.value)}
-                      placeholder="Operational reason (required by policy and audit)"
+                      placeholder="Reason for change (required)"
                     />
 
                     {companyAdminSnapshot.data ? (
@@ -1984,7 +1989,7 @@ export default function SuperAdminControlPlane() {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Enter a valid company UUID to load portfolio and billing context.</p>
+                      <p className="text-sm text-muted-foreground">Enter a valid company reference ID to load billing details.</p>
                     )}
                   </CardContent>
                 </Card>
@@ -2162,17 +2167,17 @@ export default function SuperAdminControlPlane() {
                     <Input
                       value={safetyCompanyId}
                       onChange={(e) => setSafetyCompanyId(e.target.value)}
-                      placeholder="Company UUID (optional for global view)"
+                      placeholder="Company reference ID (optional)"
                     />
                     <Input
                       value={suspendPrincipalId}
                       onChange={(e) => setSuspendPrincipalId(e.target.value)}
-                      placeholder="Principal UUID for suspension"
+                      placeholder="Company or user reference ID"
                     />
                     <Input
                       value={impersonationTargetUserId}
                       onChange={(e) => setImpersonationTargetUserId(e.target.value)}
-                      placeholder="Target user UUID for impersonation"
+                      placeholder="User reference ID"
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -2371,7 +2376,7 @@ export default function SuperAdminControlPlane() {
                       <Input
                         value={impersonationCompanyId}
                         onChange={(e) => setImpersonationCompanyId(e.target.value)}
-                        placeholder="Optional company UUID"
+                        placeholder="Company reference ID (optional)"
                       />
                       <Input
                         value={impersonationReason}
@@ -2713,8 +2718,8 @@ export default function SuperAdminControlPlane() {
                 {filteredAlerts.length === 0 ? (
                   <EmptyState
                     title="No alerts matched your current filters"
-                    description="Adjust filters or generate a synthetic governance event to validate alerting."
-                    action={<Button size="sm" onClick={() => void handleSeedEvent()}>Create Synthetic Event</Button>}
+                    description="Adjust the filters or create a test event."
+                    action={<Button size="sm" onClick={() => void handleSeedEvent()}>Create Test Event</Button>}
                   />
                 ) : (
                   <Table>
@@ -2777,8 +2782,8 @@ export default function SuperAdminControlPlane() {
                 {filteredEvents.length === 0 ? (
                   <EmptyState
                     title="No events matched your current filters"
-                    description="Try broadening your filters or generate a synthetic event."
-                    action={<Button size="sm" onClick={() => void handleSeedEvent()}>Create Synthetic Event</Button>}
+                    description="Adjust the filters or create a test event."
+                    action={<Button size="sm" onClick={() => void handleSeedEvent()}>Create Test Event</Button>}
                   />
                 ) : (
                   <Table>
@@ -2831,7 +2836,7 @@ export default function SuperAdminControlPlane() {
                 {filteredDecisions.length === 0 ? (
                   <EmptyState
                     title="No entitlement decisions matched"
-                    description="This table populates when entitlement checks are recorded by app flows."
+                    description="Access decisions will appear here when permissions are evaluated."
                   />
                 ) : (
                   <Table>
@@ -2877,7 +2882,7 @@ export default function SuperAdminControlPlane() {
                 {filteredUsage.length === 0 ? (
                   <EmptyState
                     title="No usage snapshots matched"
-                    description="Usage snapshots are created when platform_refresh_usage_snapshot is called."
+                    description="Refresh usage for a selected company to create the latest record."
                   />
                 ) : (
                   <Table>
@@ -2916,7 +2921,7 @@ export default function SuperAdminControlPlane() {
               </CardHeader>
               <CardContent>
                 {incidentTimeline.length === 0 ? (
-                  <EmptyState title="No incident timeline entries" description="Use a correlation filter or create a synthetic governance event." />
+                  <EmptyState title="No incident activity found" description="Adjust the correlation filter or create a test event." />
                 ) : (
                   <Table>
                     <TableHeader>
@@ -3001,7 +3006,7 @@ export default function SuperAdminControlPlane() {
                     title="No user activity in current filters"
                     description={isUuidLike(userFilter)
                       ? 'Selected user currently has no control-plane events or decisions in this time window.'
-                      : 'Use broader filters or create a synthetic governance event.'}
+                      : 'Adjust the filters or create a test event.'}
                   />
                 ) : (
                   <Table>
@@ -3104,7 +3109,6 @@ export default function SuperAdminControlPlane() {
             </AlertDialogContent>
           </AlertDialog>
         </Tabs>
-      )}
     </div>
   );
 }

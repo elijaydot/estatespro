@@ -108,7 +108,7 @@ function formatCurrency(amount: number, currency = 'NGN') {
 }
 
 function formatRelativeTime(value?: string | null) {
-  if (!value) return 'No activity yet';
+  if (!value) return 'No activity recorded';
   const now = Date.now();
   const then = new Date(value).getTime();
   const diffMs = Math.max(0, now - then);
@@ -159,8 +159,8 @@ function LeadCard({
     >
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
-          <p className="text-sm font-medium">{lead.contact_name || 'Unnamed Lead'}</p>
-          <p className="text-xs text-muted-foreground">{lead.contact_phone || lead.contact_email || 'No contact details'}</p>
+          <p className="text-sm font-medium">{lead.contact_name || 'Lead'}</p>
+          <p className="text-xs text-muted-foreground">{lead.contact_phone || lead.contact_email || 'No phone or email'}</p>
         </div>
         <Badge variant="outline">Score {lead.score ?? 0}</Badge>
       </div>
@@ -313,13 +313,13 @@ export default function MarketplaceManage() {
 
         <div className="relative flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Marketplace Control Room</p>
-            <h1 className="text-2xl font-semibold">Revenue CRM + Marketplace Ops</h1>
-            <p className="text-sm text-muted-foreground">Run assignment, conversion, publishing and trust workflows for {companyName}.</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Marketplace Operations</p>
+            <h1 className="text-2xl font-semibold">Leads and Listings</h1>
+            <p className="text-sm text-muted-foreground">Manage lead assignment, listing publication, and verification for {companyName}.</p>
           </div>
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs">
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Command center active
+            Live
           </div>
         </div>
       </section>
@@ -444,8 +444,8 @@ export default function MarketplaceManage() {
                             <AvatarFallback>{(selectedLead.contact_name || 'LD').slice(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="text-sm font-semibold">{selectedLead.contact_name || 'Unnamed Lead'}</p>
-                            <p className="text-xs text-muted-foreground">{selectedLead.contact_phone || selectedLead.contact_email || 'No contact details'}</p>
+                            <p className="text-sm font-semibold">{selectedLead.contact_name || 'Lead'}</p>
+                            <p className="text-xs text-muted-foreground">{selectedLead.contact_phone || selectedLead.contact_email || 'No phone or email'}</p>
                           </div>
                         </div>
                         <Badge variant="outline">{selectedLead.priority}</Badge>

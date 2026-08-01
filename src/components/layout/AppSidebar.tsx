@@ -45,10 +45,13 @@ import { useSaasAccess, type SaasEntitlementKey } from '@/hooks/useSaasAccess';
 import { useSuperAdminOverride } from '@/hooks/useSuperAdminOverride';
 import { Switch } from '@/components/ui/switch';
 import { useIsInternalMarketplaceReviewer } from '@/hooks/useMarketplace';
+import { useOpenOperationalAlertCount } from '@/hooks/useOperationalAlerts';
 
 interface AppSidebarProps {
   mobile?: boolean;
   onNavigate?: () => void;
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 type NavItem = {
@@ -79,6 +82,13 @@ const sharedSections: NavSection[] = [
       { icon: Users, label: 'Tenants', href: '/tenants' },
       { icon: FileText, label: 'Leases', href: '/leases' },
       { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
+    ],
+  },
+  {
+    title: 'Operations',
+    items: [
+      { icon: Bell, label: 'Alerts', href: '/alerts' },
+      { icon: BriefcaseBusiness, label: 'Vendors', href: '/vendors' },
     ],
   },
   {
@@ -155,8 +165,7 @@ function isHrefActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+export function AppSidebar({ mobile = false, onNavigate, collapsed = false, onCollapsedChange }: AppSidebarProps) {
   const [showCompanies, setShowCompanies] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(getInitialExpandedSections);
   const location = useLocation();
@@ -166,6 +175,7 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
   const { entitlements, isLoading: saasLoading } = useSaasAccess();
   const { canOverride, overrideEnabled, isOverrideActive, setOverrideEnabled } = useSuperAdminOverride();
   const reviewerAccess = useIsInternalMarketplaceReviewer(user?.id);
+  const { data: openAlertCount = 0 } = useOpenOperationalAlertCount();
   const collapsedView = !mobile && collapsed;
   const canReviewMarketplace = role === 'super_admin' || reviewerAccess.data === true;
 
@@ -311,7 +321,8 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setCollapsed(!collapsed)}
+              onClick={() => onCollapsedChange?.(!collapsed)}
+              aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
               className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
             >
               {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -321,14 +332,6 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 sidebar-scroll">
-          {!mobile && !collapsedView && (
-            <div className="mb-4 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/50 backdrop-blur-sm p-3">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-sidebar-foreground/55">Today Focus</p>
-              <p className="mt-1 text-sm font-medium text-sidebar-foreground truncate">{profile?.name || 'Team member'}</p>
-              <p className="text-xs text-sidebar-foreground/65 truncate">Prioritize payment exceptions, maintenance blockers, and renewals.</p>
-            </div>
-          )}
-
           {mobile && (
             <div className="mb-4 p-3 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/60">
               <p className="text-[11px] uppercase tracking-[0.12em] text-sidebar-foreground/60 mb-2">Quick actions</p>
@@ -397,6 +400,11 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
                           {!collapsedView && (
                             <span className="flex items-center gap-2">
                               <span>{item.label}</span>
+                              {item.href === '/alerts' && openAlertCount > 0 && (
+                                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-destructive-foreground">
+                                  {openAlertCount > 99 ? '99+' : openAlertCount}
+                                </span>
+                              )}
                               {isLocked && (
                                 <span className="inline-flex items-center gap-1 rounded-full border border-sidebar-border/70 bg-sidebar/50 px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-sidebar-foreground/75">
                                   <Lock className="h-3 w-3" />
@@ -404,6 +412,9 @@ export function AppSidebar({ mobile = false, onNavigate }: AppSidebarProps) {
                                 </span>
                               )}
                             </span>
+                          )}
+                          {collapsedView && item.href === '/alerts' && openAlertCount > 0 && (
+                            <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-sidebar" aria-label={`${openAlertCount} active alerts`} />
                           )}
                         </Link>
                       </li>

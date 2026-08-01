@@ -31,7 +31,7 @@ export function OverviewTab({
           </CardHeader>
           <CardContent>
             {eventsCount === 0 ? (
-              <EmptyState title="No events yet" description="Create a synthetic governance event or expand the current filters." />
+              <EmptyState title="No events found" description="Adjust the filters or create a test event." />
             ) : (
               <Table>
                 <TableHeader>

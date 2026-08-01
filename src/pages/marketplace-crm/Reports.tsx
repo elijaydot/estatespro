@@ -275,8 +275,8 @@ export default function MarketplaceCrmReportsPage() {
   ]);
 
   return (
-    <CrmWorkspace title="Reports" subtitle="Report library modeled in FishGate CRM sequence with domain-specific analytics folders.">
-      <CrmDataCard title="Report Filters" description="Hardened owner/date controls for operational reporting scopes.">
+    <CrmWorkspace title="Reports" subtitle="Pipeline, activity, and conversion reporting.">
+      <CrmDataCard title="Report Filters" description="Filter reports by owner and date range.">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
             <option value="all">All Owners</option>
@@ -298,7 +298,7 @@ export default function MarketplaceCrmReportsPage() {
         <MetricCard label="Open Pipeline Value" value={formatCurrency(pipelineSummary.openValue)} helper="Gross value of non-closed deals." />
         <MetricCard label="Weighted Pipeline" value={formatCurrency(Math.round(pipelineSummary.weightedValue))} helper="Probability-adjusted open pipeline." />
         <MetricCard label="Inquiry to Won %" value={`${executionSummary.inquiryToWonRate}%`} helper="30-day marketplace conversion." />
-        <MetricCard label="Open Tasks" value={executionSummary.openTasks} helper="Execution workload currently pending." />
+        <MetricCard label="Open Tasks" value={executionSummary.openTasks} helper="Tasks awaiting completion." />
         <MetricCard label="Calls Logged" value={executionSummary.callsLogged} helper="Total call records in current scope." />
         <MetricCard label="Active Trust Flags" value={executionSummary.activeTrustFlags} helper="Verification and moderation escalations." />
         <MetricCard label="Handoffs Ready" value={executionSummary.handoffsReady} helper="Closed-won deals ready for property operations." />
@@ -362,7 +362,7 @@ export default function MarketplaceCrmReportsPage() {
       {selectedReport ? (
         <CrmDataCard
           title={`Report View: ${selectedReport.name}`}
-          description="Live view generated from current report filters and data scope."
+          description="Results for the selected report and filters."
           action={<button className="h-8 rounded-md border border-input px-3 text-xs" onClick={clearSelectedReport}>Close Report</button>}
         >
           <div className="overflow-x-auto rounded-lg border border-border/70">

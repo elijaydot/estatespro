@@ -90,8 +90,8 @@ export default function MarketplaceCrmTasksPage() {
   };
 
   return (
-    <CrmWorkspace title="Tasks" subtitle="SLA-driven follow-up execution for lead and deal continuity.">
-      <CrmDataCard title="Create Task" description="Create a new execution task and link it to a lead owner workflow.">
+    <CrmWorkspace title="Tasks" subtitle="Plan and track lead and deal follow-ups.">
+      <CrmDataCard title="Create Task" description="Add a task, owner, and due date.">
         <div className="mb-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
           Use due dates and owner routing to prevent stalled opportunities.
         </div>
@@ -123,7 +123,7 @@ export default function MarketplaceCrmTasksPage() {
         </div>
       </CrmDataCard>
 
-      <CrmDataCard title="All Tasks" description="Tasks aggregated from CRM lead workflow queues.">
+      <CrmDataCard title="All Tasks" description="Open and completed CRM tasks.">
         <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">

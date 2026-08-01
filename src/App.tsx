@@ -44,6 +44,9 @@ const Settings = lazy(() => import("./pages/Settings"));
 const RecurringBills = lazy(() => import("./pages/RecurringBills"));
 const Leases = lazy(() => import("./pages/Leases"));
 const Notifications = lazy(() => import("./pages/Notifications"));
+const Alerts = lazy(() => import("./pages/Alerts"));
+const Vendors = lazy(() => import("./pages/Vendors"));
+const VendorDetail = lazy(() => import("./pages/VendorDetail"));
 const Reports = lazy(() => import("./pages/Reports"));
 const MessagesPageV2 = lazy(() => import("./pages/MessagesPageV2"));
 const Bookings = lazy(() => import("./pages/Bookings"));
@@ -548,6 +551,9 @@ function AppRoutes() {
       />
       <Route path="/guest-booking-portal" element={<PrivateRoute>{withSuspense(<GuestBookingPortal />)}</PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute>{withSuspense(<Notifications />)}</PrivateRoute>} />
+      <Route path="/alerts" element={<PrivateRoute>{withSuspense(<Alerts />)}</PrivateRoute>} />
+      <Route path="/vendors" element={<PrivateRoute>{withSuspense(<Vendors />)}</PrivateRoute>} />
+      <Route path="/vendors/:id" element={<PrivateRoute>{withSuspense(<VendorDetail />)}</PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute>{withSuspense(<Reports />)}</PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute>{withSuspense(<Settings />)}</PrivateRoute>} />
       <Route path="/support" element={<PrivateRoute>{withSuspense(<HelpSupport />)}</PrivateRoute>} />

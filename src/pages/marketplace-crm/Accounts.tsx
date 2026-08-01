@@ -81,7 +81,7 @@ export default function MarketplaceCrmAccountsPage() {
 
   return (
     <CrmWorkspace title="Accounts" subtitle="Business account records for partners, firms, and corporate tenants.">
-      <CrmDataCard title="Create Account" description="Quick add for new account records.">
+      <CrmDataCard title="Create Account" description="Add an organization to the CRM.">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
           <input aria-label="Account name" className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Account name" value={name} onChange={(event) => setName(event.target.value)} />
           <input aria-label="Website" className="h-9 rounded-md border border-input px-3 text-sm" inputMode="url" placeholder="Website" value={website} onChange={(event) => setWebsite(event.target.value)} />
@@ -96,7 +96,7 @@ export default function MarketplaceCrmAccountsPage() {
         </div>
       </CrmDataCard>
 
-      <CrmDataCard title="All Accounts" description="FishGate account directory for CRM workflows.">
+      <CrmDataCard title="All Accounts" description="Organizations and account owners.">
         <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">

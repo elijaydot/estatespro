@@ -94,8 +94,8 @@ export default function MarketplaceCrmLeadsPage() {
   const isSaving = updateLeadStage.isPending || assignLead.isPending;
 
   return (
-    <CrmWorkspace title="Leads" subtitle="Primary lead pipeline sourced from marketplace inquiries.">
-      <CrmDataCard title="All Leads" description="Filter leads by contact, stage, and source context.">
+    <CrmWorkspace title="Leads" subtitle="Manage marketplace inquiries from first contact through qualification.">
+      <CrmDataCard title="All Leads" description="Filter leads by contact, stage, and source.">
         <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
           <span>Sort by:</span>
@@ -106,7 +106,7 @@ export default function MarketplaceCrmLeadsPage() {
           </select>
         </div>
         <div className="mt-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          Edit stage and owner directly in the table to keep triage velocity high.
+          Update a lead's stage and owner directly in the table.
         </div>
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
@@ -126,7 +126,7 @@ export default function MarketplaceCrmLeadsPage() {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-border/60 hover:bg-muted/20">
-                  <td className="px-3 py-2 font-medium">{row.contact_name || 'Unnamed lead'}</td>
+                  <td className="px-3 py-2 font-medium">{row.contact_name || 'Lead'}</td>
                   <td className="px-3 py-2">{row.listing_title || '-'}</td>
                   <td className="px-3 py-2 text-muted-foreground">{row.contact_email || '-'}</td>
                   <td className="px-3 py-2">{row.contact_phone || '-'}</td>

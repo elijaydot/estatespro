@@ -83,8 +83,8 @@ export default function MarketplaceCrmVisitsPage() {
   };
 
   return (
-    <CrmWorkspace title="Visits" subtitle="Property visit operations with geotag and check-in proof requirements.">
-      <CrmDataCard title="Schedule Visit" description="Create a planned visit record.">
+    <CrmWorkspace title="Visits" subtitle="Schedule property visits and record check-ins.">
+      <CrmDataCard title="Schedule Visit" description="Add a property visit to the schedule.">
         <div className="flex gap-2">
           <input className="h-9 flex-1 rounded-md border border-input px-3 text-sm" placeholder="Locality" value={locality} onChange={(event) => setLocality(event.target.value)} />
           <button className="h-9 rounded-md bg-primary px-3 text-sm text-primary-foreground" onClick={create} disabled={createVisit.isPending}>Schedule</button>
@@ -117,7 +117,7 @@ export default function MarketplaceCrmVisitsPage() {
                               className="h-8 w-full rounded-md border border-input px-2 text-xs"
                               value={proofPath}
                               onChange={(event) => setProofPath(event.target.value)}
-                              placeholder="Proof path"
+                              placeholder="Proof URL or file reference"
                             />
                             <input
                               className="h-8 w-full rounded-md border border-input px-2 text-xs"

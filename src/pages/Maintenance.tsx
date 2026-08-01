@@ -54,6 +54,7 @@ import { useTenants } from '@/hooks/useTenants';
 import { useProperties } from '@/hooks/useProperties';
 import { useSendMaintenanceNotification } from '@/hooks/useMaintenanceNotifications';
 import { format } from 'date-fns';
+import { useVendors } from '@/hooks/useVendors';
 
 type MaintenanceRequestRow = {
   id: string;
@@ -65,10 +66,14 @@ type MaintenanceRequestRow = {
   priority: string;
   status: string;
   assigned_to: string | null;
+  vendor_id: string | null;
+  estimated_cost: number | null;
+  actual_cost: number | null;
   created_at: string;
   units?: { unit_number: string | null } | null;
   properties?: { name: string | null } | null;
   tenants?: { name: string | null } | null;
+  vendors?: { name: string | null } | null;
 };
 
 type UnitRow = {
@@ -170,12 +175,16 @@ export default function Maintenance() {
     priority: 'medium',
     status: 'submitted',
     assigned_to: '',
+    vendor_id: '',
+    estimated_cost: '',
+    actual_cost: '',
   });
 
   const { data: requests = [], isLoading } = useMaintenanceRequests();
   const { data: units = [] } = useUnits();
   const { data: tenants = [] } = useTenants();
   const { data: properties = [] } = useProperties();
+  const { data: vendors = [] } = useVendors('active');
   const typedRequests = requests as MaintenanceRequestRow[];
   const typedUnits = units as UnitRow[];
   const typedTenants = tenants as TenantRow[];
@@ -232,6 +241,12 @@ export default function Maintenance() {
     description: `${property.city}, ${property.state}`,
   }));
 
+  const vendorOptions = vendors.map((vendor) => ({
+    value: vendor.id,
+    label: vendor.name,
+    description: vendor.vendor_type || 'General contractor',
+  }));
+
   const handleCreate = async () => {
     if (!formData.title || !formData.unit_id) {
       toast({ title: 'Error', description: 'Title and Unit are required', variant: 'destructive' });
@@ -247,6 +262,9 @@ export default function Maintenance() {
       priority: formData.priority,
       status: formData.status,
       assigned_to: formData.assigned_to || null,
+      vendor_id: formData.vendor_id || null,
+      estimated_cost: formData.estimated_cost ? Number(formData.estimated_cost) : null,
+      actual_cost: formData.actual_cost ? Number(formData.actual_cost) : null,
       completed_at: null,
     });
 
@@ -267,6 +285,9 @@ export default function Maintenance() {
       priority: formData.priority,
       status: formData.status,
       assigned_to: formData.assigned_to || null,
+      vendor_id: formData.vendor_id || null,
+      estimated_cost: formData.estimated_cost ? Number(formData.estimated_cost) : null,
+      actual_cost: formData.actual_cost ? Number(formData.actual_cost) : null,
       completed_at: formData.status === 'completed' ? new Date().toISOString() : null,
     });
 
@@ -285,6 +306,9 @@ export default function Maintenance() {
       priority: 'medium',
       status: 'submitted',
       assigned_to: '',
+      vendor_id: '',
+      estimated_cost: '',
+      actual_cost: '',
     });
   };
 
@@ -299,6 +323,9 @@ export default function Maintenance() {
       priority: request.priority,
       status: request.status,
       assigned_to: request.assigned_to || '',
+      vendor_id: request.vendor_id || '',
+      estimated_cost: request.estimated_cost?.toString() || '',
+      actual_cost: request.actual_cost?.toString() || '',
     });
     setIsEditOpen(true);
   };
@@ -410,6 +437,7 @@ export default function Maintenance() {
                         <div className="min-w-0">
                           <p className="font-medium truncate">{request.title}</p>
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{request.description}</p>
+                          {(request.vendors?.name || request.assigned_to) && <p className="mt-1 text-xs text-muted-foreground">Assigned: {request.vendors?.name || request.assigned_to}</p>}
                         </div>
                         {getStatusBadge(request.status)}
                       </div>
@@ -475,6 +503,8 @@ export default function Maintenance() {
                         <p className="text-xs text-muted-foreground truncate max-w-[200px]">
                           {request.description}
                         </p>
+                        {(request.vendors?.name || request.assigned_to) && <p className="text-xs text-muted-foreground">Assigned: {request.vendors?.name || request.assigned_to}</p>}
+                        {(request.actual_cost != null || request.estimated_cost != null) && <p className="text-xs text-muted-foreground">{request.actual_cost != null ? formatCurrency(request.actual_cost) : `${formatCurrency(request.estimated_cost || 0)} est.`}</p>}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -628,13 +658,29 @@ export default function Maintenance() {
               </div>
             </div>
 
-            <div className="grid gap-2">
-              <Label>Assigned To</Label>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Vendor</Label>
+                <SearchableSelect
+                  options={vendorOptions}
+                  value={formData.vendor_id}
+                  onValueChange={(value) => setFormData({ ...formData, vendor_id: value })}
+                  placeholder="Select vendor..."
+                  searchPlaceholder="Search vendors..."
+                />
+              </div>
+              <div className="grid gap-2">
+              <Label>Other assignee</Label>
               <Input
                 value={formData.assigned_to}
                 onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                placeholder="Technician or contractor name"
+                placeholder="Free-text fallback"
               />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2"><Label htmlFor="estimated-cost">Estimated cost</Label><Input id="estimated-cost" type="number" min="0" step="0.01" value={formData.estimated_cost} onChange={(e) => setFormData({ ...formData, estimated_cost: e.target.value })} /></div>
+              <div className="grid gap-2"><Label htmlFor="actual-cost">Actual cost</Label><Input id="actual-cost" type="number" min="0" step="0.01" value={formData.actual_cost} onChange={(e) => setFormData({ ...formData, actual_cost: e.target.value })} /></div>
             </div>
           </div>
 
@@ -720,13 +766,21 @@ export default function Maintenance() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label>Assigned To</Label>
+                <Label>Vendor</Label>
+                <SearchableSelect options={vendorOptions} value={formData.vendor_id} onValueChange={(value) => setFormData({ ...formData, vendor_id: value })} placeholder="Select vendor..." searchPlaceholder="Search vendors..." />
+              </div>
+              <div className="grid gap-2">
+                <Label>Other assignee</Label>
                 <Input
                   value={formData.assigned_to}
                   onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                  placeholder="Technician name"
+                  placeholder="Free-text fallback"
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2"><Label htmlFor="edit-estimated-cost">Estimated cost</Label><Input id="edit-estimated-cost" type="number" min="0" step="0.01" value={formData.estimated_cost} onChange={(e) => setFormData({ ...formData, estimated_cost: e.target.value })} /></div>
+              <div className="grid gap-2"><Label htmlFor="edit-actual-cost">Actual cost</Label><Input id="edit-actual-cost" type="number" min="0" step="0.01" value={formData.actual_cost} onChange={(e) => setFormData({ ...formData, actual_cost: e.target.value })} /></div>
             </div>
           </div>
 

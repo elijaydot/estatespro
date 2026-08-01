@@ -43,6 +43,7 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
   let fixtures: ProtectedFixture[];
   let otherTenantRowIds: Record<string, string>;
   let teamMemberId: string;
+  let evaluatorVendorDocumentId: string;
 
   async function insertOne(table: string, values: Record<string, unknown>) {
     const { data, error } = await admin.from(table).insert(values).select('id').single();
@@ -248,7 +249,71 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
       status: 'approved',
     });
 
+    const vendorId = await insertOne('vendors', {
+      company_id: ownerA.companyId,
+      name: `RLS Vendor ${runId}`,
+      vendor_type: 'plumbing',
+      created_by: ownerA.userId,
+    });
+    const expiryDate = new Date();
+    expiryDate.setUTCDate(expiryDate.getUTCDate() + 5);
+    evaluatorVendorDocumentId = await insertOne('vendor_documents', {
+      company_id: ownerA.companyId,
+      vendor_id: vendorId,
+      document_type: 'insurance',
+      storage_path: `${ownerA.companyId}/${vendorId}/insurance.pdf`,
+      mime_type: 'application/pdf',
+      expiry_date: expiryDate.toISOString().slice(0, 10),
+      uploaded_by: ownerA.userId,
+    });
+    const vendorPaymentId = await insertOne('vendor_payments', {
+      company_id: ownerA.companyId,
+      vendor_id: vendorId,
+      maintenance_request_id: seeded.maintenance_requests,
+      amount: 250,
+      currency: 'RWF',
+      created_by: ownerA.userId,
+    });
+    const thresholdId = await insertOne('alert_thresholds', {
+      company_id: ownerA.companyId,
+      alert_type: 'lease_expiry',
+      threshold_days: 30,
+    });
+    const operationalAlertId = await insertOne('operational_alerts', {
+      company_id: ownerA.companyId,
+      alert_type: 'lease_expiry',
+      severity: 'warning',
+      title: 'Private Company A alert',
+      reference_table: 'leases',
+      reference_id: leaseId,
+    });
+
     fixtures = [
+      {
+        table: 'operational_alerts', id: operationalAlertId,
+        hostileUpdate: { status: 'dismissed' },
+        hostileInsert: { company_id: ownerA.companyId, alert_type: 'vacant_unit', severity: 'warning', title: 'Injected alert', reference_table: 'units', reference_id: unitId },
+      },
+      {
+        table: 'alert_thresholds', id: thresholdId,
+        hostileUpdate: { threshold_days: 365 },
+        hostileInsert: { company_id: ownerA.companyId, alert_type: 'vacant_unit', threshold_days: 1 },
+      },
+      {
+        table: 'vendors', id: vendorId,
+        hostileUpdate: { name: 'Company B overwrite' },
+        hostileInsert: { company_id: ownerA.companyId, name: 'Injected vendor', created_by: companyBUserId },
+      },
+      {
+        table: 'vendor_documents', id: evaluatorVendorDocumentId,
+        hostileUpdate: { expiry_date: '2099-01-01' },
+        hostileInsert: { company_id: ownerA.companyId, vendor_id: vendorId, document_type: 'license', storage_path: `${ownerA.companyId}/${vendorId}/injected.pdf`, mime_type: 'application/pdf', uploaded_by: companyBUserId },
+      },
+      {
+        table: 'vendor_payments', id: vendorPaymentId,
+        hostileUpdate: { amount: 1 },
+        hostileInsert: { company_id: ownerA.companyId, vendor_id: vendorId, amount: 1, currency: 'RWF', created_by: companyBUserId },
+      },
       {
         table: 'tenants', id: tenantId,
         hostileUpdate: { name: 'Company B overwrite' },
@@ -292,6 +357,11 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
   });
 
   it.each([
+    'operational_alerts',
+    'alert_thresholds',
+    'vendors',
+    'vendor_documents',
+    'vendor_payments',
     'leases',
     'lease_attachments',
     'tenants',
@@ -317,6 +387,29 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
     const inserted = await companyBClient.from(table).insert(fixture.hostileInsert);
     expect(inserted.error, `${table} accepted a cross-company foreign key`).not.toBeNull();
     expect(inserted.error?.code).toBe('42501');
+  });
+
+  it('evaluates operational alerts idempotently and resolves cleared conditions', async () => {
+    const first = await companyAClient.rpc('evaluate_operational_alerts', { p_company_id: companyA.companyId });
+    expect(first.error).toBeNull();
+
+    const firstAlerts = await companyAClient.from('operational_alerts').select('id, status')
+      .eq('alert_type', 'vendor_document_expiring').eq('reference_id', evaluatorVendorDocumentId);
+    expect(firstAlerts.error).toBeNull();
+    expect(firstAlerts.data).toHaveLength(1);
+
+    const second = await companyAClient.rpc('evaluate_operational_alerts', { p_company_id: companyA.companyId });
+    expect(second.error).toBeNull();
+    const secondAlerts = await companyAClient.from('operational_alerts').select('id')
+      .eq('alert_type', 'vendor_document_expiring').eq('reference_id', evaluatorVendorDocumentId);
+    expect(secondAlerts.data).toHaveLength(1);
+
+    expect((await companyAClient.from('vendor_documents').update({ expiry_date: '2099-01-01' }).eq('id', evaluatorVendorDocumentId)).error).toBeNull();
+    expect((await companyAClient.rpc('evaluate_operational_alerts', { p_company_id: companyA.companyId })).error).toBeNull();
+    const resolved = await companyAClient.from('operational_alerts').select('status, resolved_at')
+      .eq('alert_type', 'vendor_document_expiring').eq('reference_id', evaluatorVendorDocumentId).single();
+    expect(resolved.data?.status).toBe('resolved');
+    expect(resolved.data?.resolved_at).not.toBeNull();
   });
 
   it.each(['leases', 'invoices', 'payments', 'maintenance_requests'])('prevents a tenant from reading another tenant\'s %s', async (table) => {

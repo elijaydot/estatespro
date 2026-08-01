@@ -16,6 +16,7 @@ export interface MaintenanceRequest {
   priority: string;
   status: string;
   assigned_to: string | null;
+  vendor_id: string | null;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -34,7 +35,8 @@ export function useMaintenanceRequests() {
           *,
           units:unit_id(id, unit_number, property_id),
           properties:property_id(id, name, company_id),
-          tenants:tenant_id(id, name, email)
+          tenants:tenant_id(id, name, email),
+          vendors:vendor_id(id, name)
         `)
         .order('created_at', { ascending: false });
 
@@ -62,7 +64,8 @@ export function useMaintenanceRequest(id: string) {
           *,
           units:unit_id(id, unit_number),
           properties:property_id(id, name, company_id),
-          tenants:tenant_id(id, name, email)
+          tenants:tenant_id(id, name, email),
+          vendors:vendor_id(id, name)
         `)
         .eq('id', id);
 
@@ -131,7 +134,7 @@ export function useUpdateMaintenanceRequest() {
     mutationFn: async ({ id, ...request }: Partial<MaintenanceRequest> & { id: string }) => {
       const { data: previousRow, error: previousError } = await supabase
         .from('maintenance_requests')
-        .select('status, assigned_to, priority')
+        .select('status, assigned_to, vendor_id, priority')
         .eq('id', id)
         .single();
 
@@ -171,6 +174,7 @@ export function useUpdateMaintenanceRequest() {
           next_status: nextStatus,
           previous_assigned_to: result.previousAssignedTo,
           next_assigned_to: result.data.assigned_to,
+          next_vendor_id: result.data.vendor_id,
           priority: result.data.priority,
         },
       });

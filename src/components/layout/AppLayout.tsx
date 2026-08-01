@@ -16,6 +16,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { companies, activeCompanyId } = useActiveCompany();
@@ -49,8 +50,8 @@ export function AppLayout({ children }: AppLayoutProps) {
     <div className="min-h-screen bg-background app-shell-gradient">
       <div className="app-shell-orb app-shell-orb-a" aria-hidden />
       <div className="app-shell-orb app-shell-orb-b" aria-hidden />
-      <AppSidebar />
-      <div className="lg:ml-64 flex flex-col min-h-screen transition-all duration-300 relative z-10">
+      <AppSidebar collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
+      <div className={`${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'} flex min-h-screen flex-col transition-[margin] duration-300 ease-in-out relative z-10`}>
         <header className="lg:hidden sticky top-0 z-30 border-b border-border/70 bg-card/95 backdrop-blur-sm px-4 py-2.5">
           <div className="flex items-center justify-between gap-2">
             <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
@@ -102,24 +103,6 @@ export function AppLayout({ children }: AppLayoutProps) {
         </div>
 
         <main className="flex-1 p-4 lg:p-6">
-          <div className="mb-4 rounded-xl border border-border/70 bg-card/85 backdrop-blur-sm px-3 py-2.5 card-shadow">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Operations Focus</p>
-                <p className="text-sm text-foreground font-medium truncate">
-                  Monitor exceptions, assign actions, and keep portfolio operations in motion.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <Button variant="outline" size="sm" className="rounded-full h-8" onClick={() => navigate('/payments')}>
-                  Payment Exceptions
-                </Button>
-                <Button variant="outline" size="sm" className="rounded-full h-8" onClick={() => navigate('/maintenance')}>
-                  Maintenance Queue
-                </Button>
-              </div>
-            </div>
-          </div>
           <MfaReminderBanner />
           <div className="animate-fade-in">
             {children}

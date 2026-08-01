@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const sidebar = readFileSync(resolve('src/components/layout/AppSidebar.tsx'), 'utf8');
+const appLayout = readFileSync(resolve('src/components/layout/AppLayout.tsx'), 'utf8');
 const crmWorkspace = readFileSync(resolve('src/components/marketplace-crm/CrmWorkspace.tsx'), 'utf8');
 const crmNavigation = readFileSync(resolve('src/components/marketplace-crm/crmNavigation.ts'), 'utf8');
 const tenantLayout = readFileSync(resolve('src/pages/tenant-portal/TenantPortalLayout.tsx'), 'utf8');
@@ -47,6 +48,12 @@ describe('navigation information architecture', () => {
     expect(sidebar).toContain("entitlementKey: 'marketplace.listings.manage'");
     expect(sidebar).toContain("entitlementKey: 'marketplace.moderation.view'");
     expect(sidebar).toContain("entitlementKey: 'crm.leads.manage'");
+  });
+
+  it('keeps routed content aligned with the collapsible desktop sidebar', () => {
+    expect(sidebar).toContain('onCollapsedChange?.(!collapsed)');
+    expect(appLayout).toContain("sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'");
+    expect(appLayout).toContain('transition-[margin]');
   });
 
   it('keeps all CRM destinations in workflow-based groups', () => {

@@ -164,8 +164,8 @@ export default function MarketplaceCrmAutomationPage() {
   };
 
   return (
-    <CrmWorkspace title="Automation" subtitle="Rule engine controls and execution telemetry for CRM events.">
-      <CrmDataCard title="Create Automation Rule" description="Build event-triggered automation without hand-writing JSON.">
+    <CrmWorkspace title="Automation" subtitle="Create and monitor automated CRM actions.">
+      <CrmDataCard title="Create Automation Rule" description="Define a trigger, conditions, and resulting actions.">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <input
             aria-label="Rule name"
@@ -544,7 +544,7 @@ export default function MarketplaceCrmAutomationPage() {
 
       <CrmDataCard
         title="Run History"
-        description="Recent execution outcomes by event and correlation id."
+        description="Recent automation results by event and run reference."
         action={
           <select className="h-8 rounded-md border border-input px-2 text-xs" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
             <option value="all">All statuses</option>

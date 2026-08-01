@@ -87,8 +87,8 @@ export default function MarketplaceCrmMeetingsPage() {
   };
 
   return (
-    <CrmWorkspace title="Meetings" subtitle="Planned versus realized meetings and check-ins.">
-      <CrmDataCard title="Create Meeting" description="Create a structured meeting record with ownership, context, and timing.">
+    <CrmWorkspace title="Meetings" subtitle="Schedule meetings and record outcomes.">
+      <CrmDataCard title="Create Meeting" description="Set the host, time, and agenda.">
         <div className="mb-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
           Capture meeting context before the call so outcomes and follow-up are easier to execute.
         </div>
@@ -97,7 +97,7 @@ export default function MarketplaceCrmMeetingsPage() {
           <select aria-label="Related lead" className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-3" value={relatedLeadId} onChange={(event) => setRelatedLeadId(event.target.value)}>
             <option value="">Related lead (optional)</option>
             {(leadsQuery.data || []).map((lead) => (
-              <option key={lead.id} value={lead.id}>{lead.contact_name || lead.contact_email || 'Unnamed lead'}</option>
+              <option key={lead.id} value={lead.id}>{lead.contact_name || lead.contact_email || 'Lead'}</option>
             ))}
           </select>
           <div className="lg:col-span-3">
@@ -117,7 +117,7 @@ export default function MarketplaceCrmMeetingsPage() {
         </div>
       </CrmDataCard>
 
-      <CrmDataCard title="Meetings" description="Meetings module table in FishGate CRM sequence.">
+      <CrmDataCard title="Meetings" description="All scheduled and completed meetings.">
         <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">

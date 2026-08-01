@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.check-lease-renewals]
 verify_jwt = false
 
+[functions.evaluate-operational-alerts]
+verify_jwt = true
+
 [functions.send-tenant-invite]
 verify_jwt = false
 

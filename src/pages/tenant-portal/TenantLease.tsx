@@ -116,7 +116,7 @@ export default function TenantLease() {
           <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-info/20 blur-3xl" />
           <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Lease Command Center</p>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Lease Details</p>
               <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Lease Agreement</h1>
               <p className="text-muted-foreground">Review and sign your lease agreement</p>
             </div>
@@ -259,7 +259,7 @@ export default function TenantLease() {
           <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
           <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Lease Command Center</p>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Lease Details</p>
               <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Lease Details</h1>
               <p className="text-muted-foreground">View your lease agreement and documents</p>
             </div>
@@ -304,7 +304,7 @@ export default function TenantLease() {
         <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
         <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Lease Command Center</p>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Lease Details</p>
             <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Lease Details</h1>
             <p className="text-muted-foreground">View your lease agreement and documents</p>
           </div>

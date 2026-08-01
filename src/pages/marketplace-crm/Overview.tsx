@@ -77,7 +77,7 @@ export default function MarketplaceCrmOverviewPage() {
   return (
     <CrmWorkspace
       title="Overview"
-      subtitle="Marketplace CRM command center for daily execution and portfolio growth."
+      subtitle="Lead, pipeline, and marketplace performance at a glance."
     >
       <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         <MetricCard label="My Open Tasks" value={metrics.openTasks} helper="Tasks currently pending action." />
@@ -94,25 +94,16 @@ export default function MarketplaceCrmOverviewPage() {
         <MetricCard label="Automation Failed" value={metrics.automationFailed} helper="Automation runs that need retry or intervention." />
       </section>
 
-      <CrmDataCard title="Quick Summary" description="Operational pulse from leads and listings.">
-        <ul className="space-y-1 text-sm text-muted-foreground">
-          <li>Lead pipeline is connected and updating from marketplace records.</li>
-          <li>FishGate CRM modules are now available under Marketplace CRM section.</li>
-          <li>Trust flags now couple verification/moderation outcomes into CRM operations.</li>
-          <li>Closed-won deals generate handoff readiness records for tenant and lease workflows.</li>
-        </ul>
-      </CrmDataCard>
-
       <CrmDataCard title="Top Priority Leads" description="Highest-scoring leads to action first.">
         <div className="space-y-2">
           {metrics.topLeadsByScore.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No leads available yet.</p>
+            <p className="text-sm text-muted-foreground">No priority leads found.</p>
           ) : (
             metrics.topLeadsByScore.map((lead) => (
               <div key={lead.id} className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
                 <div>
-                  <p className="text-sm font-medium">{lead.contact_name || 'Unnamed lead'}</p>
-                  <p className="text-xs text-muted-foreground">{lead.stage} · {lead.contact_email || lead.contact_phone || 'No contact info'}</p>
+                  <p className="text-sm font-medium">{lead.contact_name || 'Lead'}</p>
+                  <p className="text-xs text-muted-foreground">{lead.stage} · {lead.contact_email || lead.contact_phone || 'No phone or email'}</p>
                 </div>
                 <span className="inline-flex min-w-10 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                   {lead.score}

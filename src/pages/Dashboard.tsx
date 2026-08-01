@@ -33,6 +33,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useSaasAccess } from '@/hooks/useSaasAccess';
+import { useOpenOperationalAlertCount } from '@/hooks/useOperationalAlerts';
 
 function StatCard({ 
   title, value, subtitle, icon: Icon, iconColor, trend, href, className
@@ -77,6 +78,7 @@ export default function Dashboard() {
   const { data: stats, isLoading } = useDashboardStats();
   const { entitlements, quotas, isLoading: saasLoading } = useSaasAccess();
   const { formatCurrency } = useSettings();
+  const { data: openAlertCount = 0 } = useOpenOperationalAlertCount();
   const navigate = useNavigate();
 
   const quotaLabels: Record<string, string> = {
@@ -91,6 +93,13 @@ export default function Dashboard() {
 
   const attentionItems = stats
     ? [
+        {
+          label: 'Operational alerts',
+          value: openAlertCount,
+          tone: openAlertCount > 0 ? 'destructive' : 'muted',
+          actionLabel: 'Open Alerts',
+          action: () => navigate('/alerts'),
+        },
         {
           label: 'Overdue invoices',
           value: stats.overduePaymentsCount,
@@ -172,11 +181,11 @@ export default function Dashboard() {
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/80 flex items-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5" />
-                FishGate Command Center
+                Portfolio Overview
               </p>
               <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground tracking-tight mt-1">Dashboard</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
-                Welcome back. Your portfolio pulse is updated live.
+                Current performance and priorities across your portfolio.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
@@ -226,7 +235,7 @@ export default function Dashboard() {
                 Open Performance Reports
               </Button>
             </div>
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
               {attentionItems.map((item) => (
                 <div key={item.label} className="rounded-xl border border-border/70 bg-background/70 p-3">
                   <p className="text-xs text-muted-foreground">{item.label}</p>
