@@ -76,6 +76,51 @@ export type Database = {
           },
         ]
       }
+      alert_thresholds: {
+        Row: {
+          alert_type: string
+          company_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          threshold_days: number
+          updated_at: string
+        }
+        Insert: {
+          alert_type: string
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          threshold_days: number
+          updated_at?: string
+        }
+        Update: {
+          alert_type?: string
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          threshold_days?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_thresholds_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_thresholds_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           accent_color: string | null
@@ -2569,6 +2614,7 @@ export type Database = {
           unit_id: string
           updated_at: string
           user_id: string
+          vendor_id: string | null
         }
         Insert: {
           actual_cost?: number | null
@@ -2587,6 +2633,7 @@ export type Database = {
           unit_id: string
           updated_at?: string
           user_id: string
+          vendor_id?: string | null
         }
         Update: {
           actual_cost?: number | null
@@ -2605,6 +2652,7 @@ export type Database = {
           unit_id?: string
           updated_at?: string
           user_id?: string
+          vendor_id?: string | null
         }
         Relationships: [
           {
@@ -2626,6 +2674,13 @@ export type Database = {
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_requests_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
         ]
@@ -3144,6 +3199,75 @@ export type Database = {
         }
         Relationships: []
       }
+      operational_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          alert_type: string
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json
+          reference_id: string
+          reference_table: string
+          resolved_at: string | null
+          severity: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_type: string
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json
+          reference_id: string
+          reference_table: string
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_type?: string
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json
+          reference_id?: string
+          reference_table?: string
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operational_alerts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operational_alerts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
@@ -3414,6 +3538,66 @@ export type Database = {
           },
         ]
       }
+      platform_entitlement_overrides: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          decision: string
+          entitlement_key: string
+          expires_at: string | null
+          id: string
+          metadata: Json
+          reason: string
+          revoked_at: string | null
+          revoked_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          decision: string
+          entitlement_key: string
+          expires_at?: string | null
+          id?: string
+          metadata?: Json
+          reason: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          decision?: string
+          entitlement_key?: string
+          expires_at?: string | null
+          id?: string
+          metadata?: Json
+          reason?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_entitlement_overrides_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_entitlement_overrides_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
       platform_impersonation_sessions: {
         Row: {
           actor_user_id: string
@@ -3495,6 +3679,99 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      platform_principal_suspensions: {
+        Row: {
+          cleared_at: string | null
+          cleared_by: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          metadata: Json
+          principal_id: string
+          principal_type: string
+          reason: string
+          updated_at: string
+        }
+        Insert: {
+          cleared_at?: string | null
+          cleared_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          principal_id: string
+          principal_type: string
+          reason: string
+          updated_at?: string
+        }
+        Update: {
+          cleared_at?: string | null
+          cleared_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          principal_id?: string
+          principal_type?: string
+          reason?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      platform_risk_queue_triage_actions: {
+        Row: {
+          actor_user_id: string | null
+          company_id: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          notes: string | null
+          row_id: string
+          row_type: string
+          triage_status: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          notes?: string | null
+          row_id: string
+          row_type: string
+          triage_status: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          notes?: string | null
+          row_id?: string
+          row_type?: string
+          triage_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_risk_queue_triage_actions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_risk_queue_triage_actions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
       }
       platform_sessions: {
         Row: {
@@ -5430,6 +5707,7 @@ export type Database = {
           rent_amount: number
           sqft: number
           status: string
+          status_changed_at: string
           unit_number: string
           updated_at: string
           user_id: string
@@ -5448,6 +5726,7 @@ export type Database = {
           rent_amount?: number
           sqft?: number
           status?: string
+          status_changed_at?: string
           unit_number: string
           updated_at?: string
           user_id: string
@@ -5466,6 +5745,7 @@ export type Database = {
           rent_amount?: number
           sqft?: number
           status?: string
+          status_changed_at?: string
           unit_number?: string
           updated_at?: string
           user_id?: string
@@ -5593,6 +5873,210 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vendor_documents: {
+        Row: {
+          company_id: string
+          created_at: string
+          document_type: string
+          expiry_date: string | null
+          id: string
+          mime_type: string
+          storage_path: string
+          uploaded_by: string | null
+          vendor_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          document_type: string
+          expiry_date?: string | null
+          id?: string
+          mime_type: string
+          storage_path: string
+          uploaded_by?: string | null
+          vendor_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          document_type?: string
+          expiry_date?: string | null
+          id?: string
+          mime_type?: string
+          storage_path?: string
+          uploaded_by?: string | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "vendor_documents_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_payments: {
+        Row: {
+          amount: number
+          company_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          maintenance_request_id: string | null
+          notes: string | null
+          paid_at: string | null
+          payment_method: string | null
+          reference_number: string | null
+          status: string
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          amount: number
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          maintenance_request_id?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          reference_number?: string | null
+          status?: string
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          amount?: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          maintenance_request_id?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          reference_number?: string | null
+          status?: string
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_payments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_payments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "vendor_payments_maintenance_request_id_fkey"
+            columns: ["maintenance_request_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_payments_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          address: string | null
+          company_id: string
+          contact_name: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          rating: number | null
+          status: string
+          updated_at: string
+          vendor_type: string | null
+        }
+        Insert: {
+          address?: string | null
+          company_id: string
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          rating?: number | null
+          status?: string
+          updated_at?: string
+          vendor_type?: string | null
+        }
+        Update: {
+          address?: string | null
+          company_id?: string
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          rating?: number | null
+          status?: string
+          updated_at?: string
+          vendor_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendors_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendors_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
       }
       verification_documents: {
         Row: {
@@ -5911,6 +6395,10 @@ export type Database = {
           score: number
         }[]
       }
+      evaluate_operational_alerts: {
+        Args: { p_company_id?: string }
+        Returns: Json
+      }
       generate_crm_followup_tasks: {
         Args: { p_company_id: string }
         Returns: number
@@ -6135,6 +6623,48 @@ export type Database = {
         }
         Returns: string
       }
+      platform_get_risk_queue: {
+        Args: { p_company_id?: string; p_limit?: number }
+        Returns: {
+          company_id: string
+          detail: string
+          metadata: Json
+          occurred_at: string
+          row_id: string
+          row_type: string
+          score: number
+          severity: string
+          status: string
+          title: string
+        }[]
+      }
+      platform_get_risk_queue_triage_actions_page: {
+        Args: {
+          p_actor_user_id?: string
+          p_company_id?: string
+          p_created_after?: string
+          p_created_before?: string
+          p_page?: number
+          p_page_size?: number
+          p_triage_status?: string
+        }
+        Returns: Json
+      }
+      platform_get_session_revocation_history_page: {
+        Args: {
+          p_actor_user_id?: string
+          p_company_id?: string
+          p_correlation_id?: string
+          p_created_after?: string
+          p_created_before?: string
+          p_page?: number
+          p_page_size?: number
+          p_principal_type?: string
+          p_result_status?: string
+          p_severity?: string
+        }
+        Returns: Json
+      }
       platform_ingest_audit_event: {
         Args: {
           p_action: string
@@ -6155,6 +6685,55 @@ export type Database = {
           p_user_agent?: string
         }
         Returns: string
+      }
+      platform_is_principal_suspended: {
+        Args: { p_principal_id: string; p_principal_type: string }
+        Returns: boolean
+      }
+      platform_list_active_suspensions: {
+        Args: { p_limit?: number; p_principal_type?: string }
+        Returns: {
+          created_at: string
+          created_by: string
+          id: string
+          metadata: Json
+          principal_id: string
+          principal_type: string
+          reason: string
+        }[]
+      }
+      platform_list_entitlement_overrides: {
+        Args: {
+          p_company_id?: string
+          p_limit?: number
+          p_only_active?: boolean
+        }
+        Returns: {
+          company_id: string
+          created_at: string
+          created_by: string
+          decision: string
+          entitlement_key: string
+          expires_at: string
+          id: string
+          reason: string
+          revoked_at: string
+          revoked_by: string
+        }[]
+      }
+      platform_list_impersonation_sessions: {
+        Args: { p_limit?: number; p_only_active?: boolean }
+        Returns: {
+          actor_user_id: string
+          company_id: string
+          created_at: string
+          ended_at: string
+          id: string
+          reason: string
+          session_id: string
+          started_at: string
+          target_user_id: string
+        }[]
       }
       platform_phase10_run_all: {
         Args: { p_emit_alerts?: boolean; p_window?: string }
@@ -6178,6 +6757,63 @@ export type Database = {
       platform_refresh_usage_snapshot: {
         Args: { p_company_id: string; p_product_code?: string }
         Returns: number
+      }
+      platform_revoke_active_platform_sessions: {
+        Args: {
+          p_metadata?: Json
+          p_principal_id: string
+          p_principal_type: string
+          p_reason: string
+        }
+        Returns: Json
+      }
+      platform_revoke_entitlement_override: {
+        Args: { p_metadata?: Json; p_override_id: string; p_reason?: string }
+        Returns: Json
+      }
+      platform_set_entitlement_override: {
+        Args: {
+          p_company_id: string
+          p_decision: string
+          p_entitlement_key: string
+          p_expires_at?: string
+          p_metadata?: Json
+          p_reason: string
+        }
+        Returns: Json
+      }
+      platform_set_principal_suspension: {
+        Args: {
+          p_metadata?: Json
+          p_principal_id: string
+          p_principal_type: string
+          p_reason: string
+          p_suspend: boolean
+        }
+        Returns: Json
+      }
+      platform_start_impersonation_session: {
+        Args: {
+          p_company_id?: string
+          p_metadata?: Json
+          p_reason?: string
+          p_target_user_id: string
+        }
+        Returns: Json
+      }
+      platform_stop_impersonation_session: {
+        Args: { p_impersonation_session_id: string; p_metadata?: Json }
+        Returns: Json
+      }
+      platform_triage_risk_queue_item: {
+        Args: {
+          p_metadata?: Json
+          p_notes?: string
+          p_row_id: string
+          p_row_type: string
+          p_triage_status: string
+        }
+        Returns: Json
       }
       process_payment:
         | {
@@ -6470,6 +7106,7 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      schedule_operational_alert_evaluation: { Args: never; Returns: boolean }
       seed_exit_inspection_items_from_scope: {
         Args: { p_exit_id: string }
         Returns: number
