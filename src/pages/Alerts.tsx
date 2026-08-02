@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertTriangle, BellRing, Check, ExternalLink, RefreshCw, Search, Settings2, X } from 'lucide-react';
+import { AlertTriangle, BellRing, Check, CheckCircle2, ExternalLink, RefreshCw, Search, Settings2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import {
   useDismissOperationalAlert,
   useEvaluateOperationalAlerts,
   useOperationalAlerts,
+  useResolveOperationalAlert,
   type OperationalAlert,
   type OperationalAlertStatus,
 } from '@/hooks/useOperationalAlerts';
@@ -50,6 +51,7 @@ export default function Alerts() {
   const acknowledge = useAcknowledgeOperationalAlert();
   const acknowledgeMany = useAcknowledgeOperationalAlerts();
   const dismiss = useDismissOperationalAlert();
+  const resolve = useResolveOperationalAlert();
   const evaluate = useEvaluateOperationalAlerts();
   const filteredAlerts = alerts.filter((alert) => {
     if (status === 'active' && !['open', 'acknowledged'].includes(alert.status)) return false;
@@ -165,6 +167,11 @@ export default function Alerts() {
                   {alert.status === 'open' && (
                     <Button size="sm" variant="outline" onClick={() => acknowledge.mutate(alert.id)} disabled={acknowledge.isPending}>
                       <Check className="mr-2 h-4 w-4" /> Acknowledge
+                    </Button>
+                  )}
+                  {alert.status === 'acknowledged' && (
+                    <Button size="sm" variant="outline" onClick={() => resolve.mutate(alert.id)} disabled={resolve.isPending} title="Close after the source issue has been fixed">
+                      <CheckCircle2 className="mr-2 h-4 w-4" /> Resolve
                     </Button>
                   )}
                   <Button size="icon" variant="ghost" title="Dismiss alert" onClick={() => dismiss.mutate(alert.id)} disabled={dismiss.isPending}>

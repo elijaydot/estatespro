@@ -45,6 +45,8 @@ import { usePayments } from '@/hooks/usePayments';
 import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useLeases } from '@/hooks/useLeases';
+import { useVendorPayments, summarizeVendorPayments } from '@/hooks/useVendorPayments';
+import { useVendors } from '@/hooks/useVendors';
 import {
   computeAgingRows,
   computeMaintenanceCostRows,
@@ -67,6 +69,8 @@ export default function Reports() {
   const { data: payments = [] } = usePayments();
   const { data: maintenanceRequests = [] } = useMaintenanceRequests();
   const { data: leases = [] } = useLeases();
+  const { data: vendors = [] } = useVendors();
+  const { data: vendorPayments = [] } = useVendorPayments();
   const { data: dashboardStats } = useDashboardStats();
 
   // Calculate statistics
@@ -119,6 +123,11 @@ export default function Reports() {
   const agingRows = computeAgingRows(invoices);
   const occupancyTrendRows = computeOccupancyTrend(leases, units.length, reportMonths);
   const maintenanceCostRows = computeMaintenanceCostRows(maintenanceRequests);
+  const vendorById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
+  const vendorPaymentRows = vendorPayments
+    .filter((payment) => new Date(payment.paid_at ?? payment.created_at) >= subMonths(new Date(), reportMonths))
+    .map((payment) => ({ ...payment, vendorName: vendorById.get(payment.vendor_id) ?? 'Unknown vendor' }));
+  const vendorPaymentTotals = summarizeVendorPayments(vendorPaymentRows);
 
   // Occupancy by property
   const occupancyByProperty = properties.map(p => ({
@@ -160,6 +169,8 @@ export default function Reports() {
       ['Occupancy Rate', `${occupancyRate.toFixed(1)}%`],
       ['Active Tenants', activeTenants.toString()],
       ['Open Maintenance Requests', maintenanceRequests.filter(m => m.status !== 'completed').length.toString()],
+      ['Vendor Payments Paid', formatCurrency(vendorPaymentTotals.paid)],
+      ['Vendor Payments Pending', formatCurrency(vendorPaymentTotals.pending)],
       ['Shortlet Conversion Rate', `${dashboardStats?.shortletConversionRate ?? 0}%`],
       ['Shortlet Acceptance Rate', `${dashboardStats?.shortletAcceptanceRate ?? 0}%`],
       ['Shortlet Avg Time To Pay (hours)', `${dashboardStats?.shortletAvgTimeToPayHours ?? 0}`],
@@ -188,6 +199,12 @@ export default function Reports() {
       csvContent = rowsToCsv(
         ['Property', 'Request', 'Priority', 'Status', 'Estimated Cost', 'Actual Cost', 'Variance'],
         maintenanceCostRows.map((row) => [row.property, row.request, row.priority, row.status, row.estimatedCost, row.actualCost, row.variance]),
+      );
+    } else if (activeReport === 'vendor-payments') {
+      fileName = 'vendor-payments';
+      csvContent = rowsToCsv(
+        ['Vendor', 'Date', 'Amount', 'Currency', 'Status', 'Payment Method', 'Reference', 'Work Order ID'],
+        vendorPaymentRows.map((payment) => [payment.vendorName, payment.paid_at ?? payment.created_at, payment.amount, payment.currency, payment.status, payment.payment_method ?? '', payment.reference_number ?? '', payment.maintenance_request_id ?? '']),
       );
     }
 
@@ -371,6 +388,7 @@ export default function Reports() {
           <TabsTrigger value="aging">Aging</TabsTrigger>
           <TabsTrigger value="occupancy-trend">Occupancy Trend</TabsTrigger>
           <TabsTrigger value="maintenance-cost">Maintenance Cost</TabsTrigger>
+          <TabsTrigger value="vendor-payments">Vendor Payments</TabsTrigger>
         </TabsList>
 
         <TabsContent value="revenue">
@@ -642,6 +660,21 @@ export default function Reports() {
                 <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3">Property</th><th>Request</th><th>Priority</th><th>Status</th><th className="text-right">Estimated</th><th className="text-right">Actual</th><th className="text-right">Variance</th></tr></thead>
                 <tbody>{maintenanceCostRows.map((row, index) => <tr key={`${row.request}-${index}`} className="border-b last:border-0"><td className="py-3">{row.property}</td><td>{row.request}</td><td>{row.priority}</td><td>{row.status}</td><td className="text-right">{formatCurrency(row.estimatedCost)}</td><td className="text-right">{formatCurrency(row.actualCost)}</td><td className="text-right">{formatCurrency(row.variance)}</td></tr>)}</tbody>
               </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="vendor-payments">
+          <Card className="card-shadow-md">
+            <CardHeader><CardTitle>Vendor Payments</CardTitle></CardHeader>
+            <CardContent>
+              <div className="mb-5 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Paid</p><p className="mt-1 text-xl font-bold text-success">{formatCurrency(vendorPaymentTotals.paid)}</p></div>
+                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Pending</p><p className="mt-1 text-xl font-bold text-warning">{formatCurrency(vendorPaymentTotals.pending)}</p></div>
+                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Ledger entries</p><p className="mt-1 text-xl font-bold">{vendorPaymentRows.length}</p></div>
+              </div>
+              <div className="overflow-x-auto"><table className="w-full min-w-[820px] text-sm"><thead><tr className="border-b text-left text-muted-foreground"><th className="py-3">Vendor</th><th>Date</th><th>Method / Reference</th><th>Work order</th><th>Status</th><th className="text-right">Amount</th></tr></thead><tbody>{vendorPaymentRows.map((payment) => <tr key={payment.id} className="border-b last:border-0"><td className="py-3 font-medium">{payment.vendorName}</td><td>{format(new Date(payment.paid_at ?? payment.created_at), 'MMM d, yyyy')}</td><td>{payment.payment_method || '-'}{payment.reference_number ? ` / ${payment.reference_number}` : ''}</td><td>{payment.maintenance_request_id || '-'}</td><td><Badge variant="outline">{payment.status}</Badge></td><td className="text-right">{formatCurrency(payment.amount)}</td></tr>)}</tbody></table></div>
+              {vendorPaymentRows.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No vendor payments in this reporting period.</p>}
             </CardContent>
           </Card>
         </TabsContent>

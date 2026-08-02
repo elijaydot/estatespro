@@ -34,6 +34,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useSaasAccess } from '@/hooks/useSaasAccess';
 import { useOpenOperationalAlertCount } from '@/hooks/useOperationalAlerts';
+import { summarizeVendorPayments, useVendorPayments } from '@/hooks/useVendorPayments';
+import { useVendors } from '@/hooks/useVendors';
 
 function StatCard({ 
   title, value, subtitle, icon: Icon, iconColor, trend, href, className
@@ -79,6 +81,9 @@ export default function Dashboard() {
   const { entitlements, quotas, isLoading: saasLoading } = useSaasAccess();
   const { formatCurrency } = useSettings();
   const { data: openAlertCount = 0 } = useOpenOperationalAlertCount();
+  const { data: vendors = [] } = useVendors();
+  const { data: vendorPayments = [] } = useVendorPayments();
+  const vendorPaymentTotals = summarizeVendorPayments(vendorPayments);
   const navigate = useNavigate();
 
   const quotaLabels: Record<string, string> = {
@@ -350,6 +355,21 @@ export default function Dashboard() {
           </>
         ) : null}
       </div>
+
+      <Card className="border border-border/70 bg-card/90 card-shadow-md">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div><p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Vendor Analytics</p><p className="mt-1 text-sm font-medium">Contractor capacity and payment exposure.</p></div>
+            <Button size="sm" variant="outline" onClick={() => navigate('/vendors')}>Open Vendors</Button>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border bg-background/70 p-3"><p className="text-xs text-muted-foreground">Active vendors</p><p className="mt-1 text-xl font-bold">{vendors.filter((vendor) => vendor.status === 'active').length}</p></div>
+            <div className="rounded-lg border bg-background/70 p-3"><p className="text-xs text-muted-foreground">Paid to vendors</p><p className="mt-1 text-xl font-bold text-success">{formatCurrency(vendorPaymentTotals.paid)}</p></div>
+            <div className="rounded-lg border bg-background/70 p-3"><p className="text-xs text-muted-foreground">Pending payables</p><p className="mt-1 text-xl font-bold text-warning">{formatCurrency(vendorPaymentTotals.pending)}</p></div>
+            <div className="rounded-lg border bg-background/70 p-3"><p className="text-xs text-muted-foreground">Ledger entries</p><p className="mt-1 text-xl font-bold">{vendorPayments.length}</p></div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Shortlet KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">

@@ -121,7 +121,7 @@ export function useOpenOperationalAlertCount() {
   });
 }
 
-function useUpdateAlertStatus(status: 'acknowledged' | 'dismissed') {
+function useUpdateAlertStatus(status: 'acknowledged' | 'resolved' | 'dismissed') {
   const { activeCompanyId } = useActiveCompany();
   const queryClient = useQueryClient();
 
@@ -134,6 +134,7 @@ function useUpdateAlertStatus(status: 'acknowledged' | 'dismissed') {
         payload.acknowledged_by = user.id;
         payload.acknowledged_at = new Date().toISOString();
       }
+      if (status === 'resolved') payload.resolved_at = new Date().toISOString();
 
       const { error } = await supabase
         .from('operational_alerts' as never)
@@ -182,6 +183,10 @@ export function useAcknowledgeOperationalAlerts() {
 
 export function useDismissOperationalAlert() {
   return useUpdateAlertStatus('dismissed');
+}
+
+export function useResolveOperationalAlert() {
+  return useUpdateAlertStatus('resolved');
 }
 
 export function useAlertThresholds() {

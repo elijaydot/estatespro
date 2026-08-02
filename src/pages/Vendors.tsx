@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Building2, Mail, Phone, Plus, Search, ShieldAlert, Star, UsersRound } from 'lucide-react';
+import { Building2, ChevronLeft, ChevronRight, LayoutGrid, List, Mail, Phone, Plus, Search, ShieldAlert, Star, Table2, UsersRound } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,10 +15,15 @@ const emptyVendor: VendorInput = {
   name: '', vendor_type: '', contact_name: '', phone: '', email: '', address: '', status: 'active', notes: '', rating: null,
 };
 
+type VendorView = 'cards' | 'compact' | 'table';
+
 export default function Vendors() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<Vendor['status'] | 'all'>('active');
+  const [view, setView] = useState<VendorView>('compact');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [form, setForm] = useState<VendorInput>(emptyVendor);
   const { data: vendors = [], isLoading, error, refetch } = useVendors();
@@ -36,6 +41,11 @@ export default function Vendors() {
       .some((value) => value?.toLowerCase().includes(query));
     return matchesStatus && matchesSearch;
   });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginatedVendors = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => setPage(1), [search, status, pageSize]);
+  useEffect(() => setPage((current) => Math.min(current, totalPages)), [totalPages]);
 
   const closeCreateDialog = () => {
     setIsCreateOpen(false);
@@ -69,18 +79,23 @@ export default function Vendors() {
         <Card><CardContent className="flex items-center justify-between p-4"><div><p className="text-xs text-muted-foreground">Needs review</p><p className="mt-1 text-2xl font-bold text-warning">{vendors.filter((vendor) => vendor.status === 'suspended').length}</p></div><ShieldAlert className="h-5 w-5 text-warning" /></CardContent></Card>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search vendors..." className="pl-9" />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
           <Button size="sm" variant={status === 'all' ? 'default' : 'outline'} onClick={() => setStatus('all')}>All</Button>
           {(['active', 'inactive', 'suspended'] as const).map((value) => (
             <Button key={value} size="sm" variant={status === value ? 'default' : 'outline'} onClick={() => setStatus(value)}>
               {value}
             </Button>
           ))}
+        </div>
+        <div className="flex items-center gap-1 rounded-md border p-1" role="group" aria-label="Vendor view">
+          <Button size="icon" variant={view === 'cards' ? 'secondary' : 'ghost'} className="h-8 w-8" title="Card view" onClick={() => setView('cards')}><LayoutGrid className="h-4 w-4" /></Button>
+          <Button size="icon" variant={view === 'compact' ? 'secondary' : 'ghost'} className="h-8 w-8" title="Compact view" onClick={() => setView('compact')}><List className="h-4 w-4" /></Button>
+          <Button size="icon" variant={view === 'table' ? 'secondary' : 'ghost'} className="h-8 w-8" title="Table view" onClick={() => setView('table')}><Table2 className="h-4 w-4" /></Button>
         </div>
       </div>
 
@@ -90,11 +105,11 @@ export default function Vendors() {
         <Card><CardContent className="py-12 text-center"><Building2 className="mx-auto mb-3 h-7 w-7 text-muted-foreground" /><p className="font-medium">No vendors found</p></CardContent></Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {filtered.map((vendor) => (
+      {view === 'cards' && <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {paginatedVendors.map((vendor) => (
           <Link key={vendor.id} to={`/vendors/${vendor.id}`}>
             <Card className="h-full transition-colors hover:border-primary/40">
-              <CardContent className="space-y-4 p-5">
+              <CardContent className="space-y-3 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h2 className="truncate font-semibold">{vendor.name}</h2>
@@ -112,7 +127,30 @@ export default function Vendors() {
             </Card>
           </Link>
         ))}
-      </div>
+      </div>}
+
+      {view === 'compact' && <Card><CardContent className="divide-y p-0">
+        {paginatedVendors.map((vendor) => (
+          <Link key={vendor.id} to={`/vendors/${vendor.id}`} className="grid gap-2 px-4 py-3 transition-colors hover:bg-muted/40 sm:grid-cols-[minmax(180px,1.2fr)_minmax(140px,1fr)_minmax(160px,1fr)_auto] sm:items-center">
+            <div className="min-w-0"><p className="truncate font-medium">{vendor.name}</p><p className="truncate text-xs text-muted-foreground">{vendor.vendor_type || 'General contractor'}</p></div>
+            <div className="min-w-0 text-sm"><p className="truncate">{vendor.contact_name || 'No contact name'}</p><p className="truncate text-xs text-muted-foreground">{vendor.phone || vendor.email || 'No contact details'}</p></div>
+            <div className="flex items-center gap-1 text-sm"><Star className="h-3.5 w-3.5 text-warning" />{vendor.rating?.toFixed(1) ?? 'Not rated'}</div>
+            <Badge variant={vendor.status === 'active' ? 'secondary' : 'outline'}>{vendor.status}</Badge>
+          </Link>
+        ))}
+      </CardContent></Card>}
+
+      {view === 'table' && <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3 font-medium">Vendor</th><th className="px-4 py-3 font-medium">Service</th><th className="px-4 py-3 font-medium">Contact</th><th className="px-4 py-3 font-medium">Rating</th><th className="px-4 py-3 font-medium">Status</th></tr></thead><tbody className="divide-y">{paginatedVendors.map((vendor) => <tr key={vendor.id} className="transition-colors hover:bg-muted/40"><td className="px-4 py-3"><Link className="font-medium hover:underline" to={`/vendors/${vendor.id}`}>{vendor.name}</Link></td><td className="px-4 py-3 text-muted-foreground">{vendor.vendor_type || 'General contractor'}</td><td className="px-4 py-3"><p>{vendor.contact_name || '-'}</p><p className="text-xs text-muted-foreground">{vendor.phone || vendor.email || '-'}</p></td><td className="px-4 py-3">{vendor.rating?.toFixed(1) ?? '-'}</td><td className="px-4 py-3"><Badge variant={vendor.status === 'active' ? 'secondary' : 'outline'}>{vendor.status}</Badge></td></tr>)}</tbody></table></div></Card>}
+
+      {!isLoading && !error && filtered.length > 0 && <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, filtered.length)} of {filtered.length} vendors</p>
+        <div className="flex items-center gap-2">
+          <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}><SelectTrigger className="h-9 w-24"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="12">12 / page</SelectItem><SelectItem value="24">24 / page</SelectItem><SelectItem value="48">48 / page</SelectItem></SelectContent></Select>
+          <Button size="icon" variant="outline" className="h-9 w-9" title="Previous page" disabled={page === 1} onClick={() => setPage((current) => current - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+          <span className="min-w-20 text-center text-sm">{page} of {totalPages}</span>
+          <Button size="icon" variant="outline" className="h-9 w-9" title="Next page" disabled={page === totalPages} onClick={() => setPage((current) => current + 1)}><ChevronRight className="h-4 w-4" /></Button>
+        </div>
+      </div>}
 
       <Dialog open={isCreateOpen} onOpenChange={(open) => open ? setIsCreateOpen(true) : closeCreateDialog()}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">

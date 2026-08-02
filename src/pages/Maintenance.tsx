@@ -674,7 +674,7 @@ export default function Maintenance() {
               <Input
                 value={formData.assigned_to}
                 onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                placeholder="Free-text fallback"
+                placeholder="Name of staff member or external contractor"
               />
               </div>
             </div>
@@ -774,7 +774,7 @@ export default function Maintenance() {
                 <Input
                   value={formData.assigned_to}
                   onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                  placeholder="Free-text fallback"
+                  placeholder="Name of staff member or external contractor"
                 />
               </div>
             </div>

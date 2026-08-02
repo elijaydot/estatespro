@@ -25,11 +25,17 @@ import {
   type VendorDocument,
   type VendorInput,
 } from '@/hooks/useVendors';
-import { summarizeVendorPayments, useCreateVendorPayment, useUpdateVendorPayment, useVendorPayments } from '@/hooks/useVendorPayments';
+import { summarizeVendorPayments, useCreateVendorPayment, useUpdateVendorPayment, useVendorPayments, type VendorPayment } from '@/hooks/useVendorPayments';
 
 const emptyVendorForm: VendorInput = {
   name: '', vendor_type: '', contact_name: '', phone: '', email: '', address: '', status: 'active', notes: '', rating: null,
 };
+
+const emptyPaymentForm = {
+  amount: '', maintenance_request_id: '', status: 'pending' as VendorPayment['status'], payment_method: '', reference_number: '', notes: '',
+};
+
+const paymentMethods = ['Bank transfer', 'Cash', 'Cheque', 'Credit card', 'Debit card', 'Mobile money', 'Direct debit', 'Online payment'];
 
 function DocumentRow({ document, onDelete }: { document: VendorDocument; onDelete: () => void }) {
   const { signedUrl } = useSignedUrl('vendor-documents', document.storage_path);
@@ -68,8 +74,9 @@ export default function VendorDetail() {
   const [vendorForm, setVendorForm] = useState<VendorInput>(emptyVendorForm);
   const [documentOpen, setDocumentOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<VendorPayment | null>(null);
   const [documentForm, setDocumentForm] = useState({ document_type: 'insurance' as VendorDocument['document_type'], storage_path: '', mime_type: '', expiry_date: '' });
-  const [paymentForm, setPaymentForm] = useState({ amount: '', maintenance_request_id: '', status: 'pending' as 'pending' | 'paid', payment_method: '', reference_number: '', notes: '' });
+  const [paymentForm, setPaymentForm] = useState(emptyPaymentForm);
   const totals = summarizeVendorPayments(payments);
   const ratingInvalid = vendorForm.rating != null && (vendorForm.rating < 0 || vendorForm.rating > 5);
 
@@ -83,10 +90,10 @@ export default function VendorDetail() {
     setDocumentOpen(false);
   };
 
-  const addPayment = async () => {
+  const savePayment = async () => {
     const amount = Number(paymentForm.amount);
     if (!amount || amount <= 0) return;
-    await createPayment.mutateAsync({
+    const input = {
       vendor_id: id,
       maintenance_request_id: paymentForm.maintenance_request_id || null,
       amount,
@@ -94,11 +101,44 @@ export default function VendorDetail() {
       status: paymentForm.status,
       payment_method: paymentForm.payment_method || null,
       reference_number: paymentForm.reference_number || null,
-      paid_at: paymentForm.status === 'paid' ? new Date().toISOString() : null,
+      paid_at: paymentForm.status === 'paid' ? editingPayment?.paid_at ?? new Date().toISOString() : null,
       notes: paymentForm.notes || null,
-    });
-    setPaymentForm({ amount: '', maintenance_request_id: '', status: 'pending', payment_method: '', reference_number: '', notes: '' });
+    };
+    if (editingPayment) await updatePayment.mutateAsync({ id: editingPayment.id, ...input });
+    else await createPayment.mutateAsync(input);
+    setPaymentForm(emptyPaymentForm);
+    setEditingPayment(null);
     setPaymentOpen(false);
+  };
+
+  const openNewPayment = () => {
+    setEditingPayment(null);
+    setPaymentForm(emptyPaymentForm);
+    setPaymentOpen(true);
+  };
+
+  const openPaymentEditor = (payment: VendorPayment) => {
+    setEditingPayment(payment);
+    setPaymentForm({
+      amount: String(payment.amount),
+      maintenance_request_id: payment.maintenance_request_id ?? '',
+      status: payment.status,
+      payment_method: payment.payment_method ?? '',
+      reference_number: payment.reference_number ?? '',
+      notes: payment.notes ?? '',
+    });
+    setPaymentOpen(true);
+  };
+
+  const selectWorkOrder = (value: string) => {
+    const maintenanceRequestId = value === 'none' ? '' : value;
+    const workOrder = workOrders.find((order) => order.id === maintenanceRequestId);
+    const suggestedAmount = workOrder?.actual_cost ?? workOrder?.estimated_cost;
+    setPaymentForm((current) => ({
+      ...current,
+      maintenance_request_id: maintenanceRequestId,
+      amount: suggestedAmount != null ? String(suggestedAmount) : current.amount,
+    }));
   };
 
   const openVendorEditor = () => {
@@ -184,12 +224,13 @@ export default function VendorDetail() {
         </Card>
 
         <Card>
-          <CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">Payment ledger</CardTitle><Button size="sm" onClick={() => setPaymentOpen(true)}><Plus className="mr-2 h-4 w-4" /> Record</Button></CardHeader>
+          <CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">Payment ledger</CardTitle><Button size="sm" onClick={openNewPayment}><Plus className="mr-2 h-4 w-4" /> Record</Button></CardHeader>
           <CardContent className="space-y-1">{payments.length ? payments.map((payment) => (
             <div key={payment.id} className="flex items-center justify-between gap-3 border-b py-3 last:border-0">
               <div><p className="font-medium">{formatCurrency(payment.amount)}</p><p className="text-xs text-muted-foreground">{payment.reference_number || payment.payment_method || 'No reference'} · {format(new Date(payment.created_at), 'MMM d, yyyy')}</p></div>
               <div className="flex items-center gap-1">
                 <Badge variant={payment.status === 'paid' ? 'secondary' : payment.status === 'cancelled' ? 'outline' : 'default'}>{payment.status}</Badge>
+                <Button size="icon" variant="ghost" title="Edit payment" onClick={() => openPaymentEditor(payment)}><Pencil className="h-4 w-4" /></Button>
                 {payment.status === 'pending' && <>
                   <Button size="icon" variant="ghost" title="Mark paid" onClick={() => void changePaymentStatus(payment.id, 'paid')}><CheckCircle2 className="h-4 w-4 text-success" /></Button>
                   <Button size="icon" variant="ghost" title="Cancel payment" onClick={() => void changePaymentStatus(payment.id, 'cancelled')}><Ban className="h-4 w-4 text-destructive" /></Button>
@@ -226,7 +267,29 @@ export default function VendorDetail() {
 
       <Dialog open={documentOpen} onOpenChange={setDocumentOpen}><DialogContent><DialogHeader><DialogTitle>Add compliance document</DialogTitle><DialogDescription>Upload a private PDF or image. Add an expiry date for insurance, licenses, or certifications so the Alerts Center can warn you before renewal is due.</DialogDescription></DialogHeader><div className="space-y-4 py-2"><div className="space-y-2"><Label>Document type</Label><Select value={documentForm.document_type} onValueChange={(value) => setDocumentForm({ ...documentForm, document_type: value as VendorDocument['document_type'] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{['insurance', 'license', 'certification', 'contract', 'other'].map((type) => <SelectItem key={type} value={type} className="capitalize">{type}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label htmlFor="document-expiry">Expiry date</Label><Input id="document-expiry" type="date" value={documentForm.expiry_date} onChange={(event) => setDocumentForm({ ...documentForm, expiry_date: event.target.value })} /><p className="text-xs text-muted-foreground">Optional for contracts or records that do not expire.</p></div><DocumentUploader bucket="vendor-documents" pathPrefix={`${activeCompanyId}/${id}`} acceptedMimeTypes={['application/pdf', 'image/jpeg', 'image/png']} maxFileSizeBytes={10 * 1024 * 1024} onUploaded={(storage_path, mime_type) => setDocumentForm((current) => ({ ...current, storage_path, mime_type }))} /></div><DialogFooter><Button variant="outline" onClick={() => setDocumentOpen(false)}>Cancel</Button><Button onClick={() => void addDocument()} disabled={!documentForm.storage_path || createDocument.isPending}>Add document</Button></DialogFooter></DialogContent></Dialog>
 
-      <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}><DialogContent><DialogHeader><DialogTitle>Record vendor payment</DialogTitle><DialogDescription>Record a {settings.currencyCode} payable or completed payment.</DialogDescription></DialogHeader><div className="grid gap-4 py-2 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="payment-amount">Amount *</Label><Input id="payment-amount" type="number" min="0" step="0.01" value={paymentForm.amount} onChange={(event) => setPaymentForm({ ...paymentForm, amount: event.target.value })} /></div><div className="space-y-2"><Label>Status</Label><Select value={paymentForm.status} onValueChange={(value) => setPaymentForm({ ...paymentForm, status: value as 'pending' | 'paid' })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="paid">Paid</SelectItem></SelectContent></Select></div><div className="space-y-2 sm:col-span-2"><Label>Work order</Label><Select value={paymentForm.maintenance_request_id || 'none'} onValueChange={(value) => setPaymentForm({ ...paymentForm, maintenance_request_id: value === 'none' ? '' : value })}><SelectTrigger><SelectValue placeholder="Optional work order" /></SelectTrigger><SelectContent><SelectItem value="none">No work order</SelectItem>{workOrders.map((order) => <SelectItem key={order.id} value={order.id}>{order.title}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label htmlFor="payment-method">Payment method</Label><Input id="payment-method" value={paymentForm.payment_method} onChange={(event) => setPaymentForm({ ...paymentForm, payment_method: event.target.value })} /></div><div className="space-y-2"><Label htmlFor="payment-reference">Reference</Label><Input id="payment-reference" value={paymentForm.reference_number} onChange={(event) => setPaymentForm({ ...paymentForm, reference_number: event.target.value })} /></div></div><DialogFooter><Button variant="outline" onClick={() => setPaymentOpen(false)}>Cancel</Button><Button onClick={() => void addPayment()} disabled={!Number(paymentForm.amount) || createPayment.isPending}>Record payment</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={paymentOpen} onOpenChange={(open) => { setPaymentOpen(open); if (!open) setEditingPayment(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingPayment ? 'Edit vendor payment' : 'Record vendor payment'}</DialogTitle>
+            <DialogDescription>Selecting a work order suggests its actual cost, or its estimate when no actual cost exists. You can edit the amount before saving.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Work order</Label>
+              <Select value={paymentForm.maintenance_request_id || 'none'} onValueChange={selectWorkOrder}>
+                <SelectTrigger><SelectValue placeholder="Optional work order" /></SelectTrigger>
+                <SelectContent><SelectItem value="none">No work order</SelectItem>{workOrders.map((order) => <SelectItem key={order.id} value={order.id}>{order.title}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2"><Label htmlFor="payment-amount">Amount ({settings.currencyCode}) *</Label><Input id="payment-amount" type="number" min="0" step="0.01" value={paymentForm.amount} onChange={(event) => setPaymentForm({ ...paymentForm, amount: event.target.value })} /></div>
+            <div className="space-y-2"><Label>Status</Label><Select value={paymentForm.status} onValueChange={(value) => setPaymentForm({ ...paymentForm, status: value as VendorPayment['status'] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="cancelled">Cancelled</SelectItem></SelectContent></Select></div>
+            <div className="space-y-2"><Label htmlFor="payment-method">Payment method</Label><Input id="payment-method" list="vendor-payment-methods" value={paymentForm.payment_method} placeholder="Select or enter a method" onChange={(event) => setPaymentForm({ ...paymentForm, payment_method: event.target.value })} /><datalist id="vendor-payment-methods">{paymentMethods.map((method) => <option key={method} value={method} />)}</datalist></div>
+            <div className="space-y-2"><Label htmlFor="payment-reference">Reference</Label><Input id="payment-reference" value={paymentForm.reference_number} onChange={(event) => setPaymentForm({ ...paymentForm, reference_number: event.target.value })} /></div>
+            <div className="space-y-2 sm:col-span-2"><Label htmlFor="payment-notes">Notes</Label><Textarea id="payment-notes" value={paymentForm.notes} onChange={(event) => setPaymentForm({ ...paymentForm, notes: event.target.value })} /></div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setPaymentOpen(false)}>Cancel</Button><Button onClick={() => void savePayment()} disabled={!Number(paymentForm.amount) || createPayment.isPending || updatePayment.isPending}>{editingPayment ? 'Update payment' : 'Record payment'}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

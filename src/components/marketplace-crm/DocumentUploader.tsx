@@ -102,7 +102,7 @@ export function DocumentUploader({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 max-w-full space-y-3 overflow-hidden">
       <input
         ref={inputRef}
         type="file"
@@ -129,9 +129,9 @@ export function DocumentUploader({
       </div>
 
       {uploadedPath && (
-        <div className="rounded-md border border-border/70 bg-muted/20 p-2">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="truncate text-xs text-muted-foreground">{uploadedPath}</p>
+        <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border/70 bg-muted/20 p-2">
+          <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
+            <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={uploadedPath}>{uploadedPath}</p>
             <button
               type="button"
               className="inline-flex h-6 w-6 items-center justify-center rounded border border-input"

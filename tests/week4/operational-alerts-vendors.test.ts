@@ -17,9 +17,13 @@ const alerts = readFileSync(resolve('src/pages/Alerts.tsx'), 'utf8');
 const alertHooks = readFileSync(resolve('src/hooks/useOperationalAlerts.ts'), 'utf8');
 const vendors = readFileSync(resolve('src/pages/Vendors.tsx'), 'utf8');
 const vendorHooks = readFileSync(resolve('src/hooks/useVendors.ts'), 'utf8');
+const vendorPayments = readFileSync(resolve('src/hooks/useVendorPayments.ts'), 'utf8');
 const vendorDetail = readFileSync(resolve('src/pages/VendorDetail.tsx'), 'utf8');
 const maintenance = readFileSync(resolve('src/pages/Maintenance.tsx'), 'utf8');
 const settings = readFileSync(resolve('src/pages/Settings.tsx'), 'utf8');
+const dashboard = readFileSync(resolve('src/pages/Dashboard.tsx'), 'utf8');
+const reports = readFileSync(resolve('src/pages/Reports.tsx'), 'utf8');
+const uploader = readFileSync(resolve('src/components/marketplace-crm/DocumentUploader.tsx'), 'utf8');
 
 describe('operational alerts and vendor management foundation', () => {
   it('creates all company-scoped tables with RLS', () => {
@@ -87,7 +91,7 @@ describe('operational alerts and vendor management foundation', () => {
     expect(vendorDetail).toContain('currency: settings.currencyCode');
     expect(maintenance).toContain("useVendors('active')");
     expect(maintenance).toContain('vendor_id: formData.vendor_id || null');
-    expect(maintenance).toContain('Free-text fallback');
+    expect(maintenance).toContain('Name of staff member or external contractor');
   });
 
   it('supports complete vendor profile, payment, and document workflows', () => {
@@ -96,6 +100,10 @@ describe('operational alerts and vendor management foundation', () => {
     expect(vendorDetail).toContain("changePaymentStatus(payment.id, 'cancelled')");
     expect(vendorDetail).toContain('confirmAction({');
     expect(vendorDetail).toContain('Expiry dates generate operational alerts.');
+    expect(vendorDetail).toContain('suggestedAmount');
+    expect(vendorDetail).toContain('Edit payment');
+    expect(vendorDetail).toContain('vendor-payment-methods');
+    expect(vendorPayments).toContain("if (payment.status === 'paid')");
     expect(vendorHooks).toContain("storage.from('vendor-documents').remove([input.storage_path])");
     expect(vendorHooks).toContain("throw new Error('Rating must be between 0 and 5')");
   });
@@ -106,6 +114,9 @@ describe('operational alerts and vendor management foundation', () => {
     expect(vendors).toContain('Needs review');
     expect(vendors).toContain('Initial rating (0-5)');
     expect(vendors).toContain('ratingInvalid');
+    expect(vendors).toContain("type VendorView = 'cards' | 'compact' | 'table'");
+    expect(vendors).toContain('paginatedVendors');
+    expect(vendors).toContain('Showing {(page - 1) * pageSize + 1}');
     expect(vendors).toContain("status === 'all' || vendor.status === status");
   });
 
@@ -116,5 +127,15 @@ describe('operational alerts and vendor management foundation', () => {
     expect(alerts).toContain('setSeverity');
     expect(alertHooks).toContain(".eq('company_id', activeCompanyId)");
     expect(alertHooks).toContain(".in('id', ids)");
+    expect(alerts).toContain('Resolve');
+    expect(alertHooks).toContain("useUpdateAlertStatus('resolved')");
+  });
+
+  it('keeps uploads contained and accounts for vendor payments in analytics', () => {
+    expect(uploader).toContain('min-w-0 max-w-full space-y-3 overflow-hidden');
+    expect(reports).toContain('Vendor Payments');
+    expect(reports).toContain("fileName = 'vendor-payments'");
+    expect(dashboard).toContain('Vendor Analytics');
+    expect(dashboard).toContain('Pending payables');
   });
 });
