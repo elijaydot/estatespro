@@ -268,13 +268,6 @@ interface LeadTaskRow {
 }
 
 const REPORT_LIBRARY: CrmReportDefinition[] = [
-  { id: 'email-top-click', folder: 'Email Reports', name: 'Top 10 Templates by Click Rate', description: 'Top templates by click-through rate.' },
-  { id: 'email-top-open', folder: 'Email Reports', name: 'Top 10 Templates by Open Rate', description: 'Top templates by open rate.' },
-  { id: 'email-activity', folder: 'Email Reports', name: 'Email and Activities Analytics Report', description: 'Emails sent/replied with cross-channel activity.' },
-  { id: 'email-call', folder: 'Email Reports', name: 'Email and Call Analytics Report', description: 'Combined email and call engagement report.' },
-  { id: 'email-top-users', folder: 'Email Reports', name: 'Top 10 Users', description: 'Top users by outbound email activity.' },
-  { id: 'email-analytics', folder: 'Email Reports', name: 'Email Analytics', description: 'Summary of sent, opened, clicked, and bounced emails.' },
-  { id: 'email-bounce', folder: 'Email Reports', name: 'Bounce Report', description: 'Email bounce reasons and trends.' },
   { id: 'meeting-plan-vs-realized', folder: 'Meeting Reports', name: 'Planned Vs Realized Meetings this Month', description: 'Planned meetings versus completed check-ins.' },
   { id: 'checkins-salesperson', folder: 'Meeting Reports', name: 'Number of Check-Ins by Salesperson', description: 'Monthly check-ins by team member.' },
   { id: 'checkins-locality', folder: 'Meeting Reports', name: 'Number of Check-Ins by Locality', description: 'Monthly check-ins grouped by locality.' },

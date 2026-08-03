@@ -11,7 +11,6 @@ import {
   CheckSquare,
   Calendar,
   Phone,
-  Megaphone,
   FileText,
   MapPin,
   FolderKanban,
@@ -57,7 +56,6 @@ export const CRM_NAV_GROUPS: CrmNavGroup[] = [
   {
     title: 'Growth',
     items: [
-      { label: 'Campaigns', href: '/marketplace/crm/campaigns', icon: Megaphone },
       { label: 'Automation', href: '/marketplace/crm/automation', icon: Bot },
     ],
   },

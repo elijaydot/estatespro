@@ -6,6 +6,9 @@ const sidebar = readFileSync(resolve('src/components/layout/AppSidebar.tsx'), 'u
 const appLayout = readFileSync(resolve('src/components/layout/AppLayout.tsx'), 'utf8');
 const crmWorkspace = readFileSync(resolve('src/components/marketplace-crm/CrmWorkspace.tsx'), 'utf8');
 const crmNavigation = readFileSync(resolve('src/components/marketplace-crm/crmNavigation.ts'), 'utf8');
+const crmHooks = readFileSync(resolve('src/hooks/useMarketplaceCrm.ts'), 'utf8');
+const crmCampaigns = readFileSync(resolve('src/pages/marketplace-crm/Campaigns.tsx'), 'utf8');
+const app = readFileSync(resolve('src/App.tsx'), 'utf8');
 const tenantLayout = readFileSync(resolve('src/pages/tenant-portal/TenantPortalLayout.tsx'), 'utf8');
 const settings = readFileSync(resolve('src/pages/Settings.tsx'), 'utf8');
 const controlPlane = readFileSync(resolve('src/pages/SuperAdminControlPlane.tsx'), 'utf8');
@@ -68,7 +71,6 @@ describe('navigation information architecture', () => {
       '/marketplace/crm/meetings',
       '/marketplace/crm/calls',
       '/marketplace/crm/visits',
-      '/marketplace/crm/campaigns',
       '/marketplace/crm/automation',
       '/marketplace/crm/documents',
       '/marketplace/crm/projects',
@@ -84,6 +86,14 @@ describe('navigation information architecture', () => {
     }
 
     expect(crmWorkspace).toContain('CRM_NAV_GROUPS.map');
+  });
+
+  it('gates future messaging surfaces without deleting their implementation', () => {
+    expect(crmNavigation).not.toContain("href: '/marketplace/crm/campaigns'");
+    expect(crmHooks).not.toContain("folder: 'Email Reports'");
+    expect(app).toContain('path="/marketplace/crm/campaigns"');
+    expect(crmCampaigns).toContain('FUTURE_FEATURE_MULTI_CHANNEL_MESSAGING.md');
+    expect(crmHooks).toContain('useCrmCampaigns');
   });
 
   it('groups tenant and Settings navigation without hiding existing access', () => {

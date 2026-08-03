@@ -4,6 +4,7 @@ import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useCreateCrmCampaign, useCrmCampaigns, useUpdateCrmCampaign } from '@/hooks/useMarketplaceCrm';
 
+// Navigation remains gated until FUTURE_FEATURE_MULTI_CHANNEL_MESSAGING.md is delivered.
 export default function MarketplaceCrmCampaignsPage() {
   const { activeCompanyId } = useActiveCompany();
   const campaignsQuery = useCrmCampaigns(activeCompanyId);

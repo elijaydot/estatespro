@@ -15,8 +15,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Roboto', 'Segoe UI', 'sans-serif'],
-        display: ['Lato', 'Roboto', 'sans-serif'],
+        sans: ['Inter', 'Segoe UI', 'sans-serif'],
+        display: ['Inter', 'Segoe UI', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
