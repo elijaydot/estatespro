@@ -2,58 +2,25 @@ import { describe, expect, it } from 'vitest';
 import {
   computeDealAgingRows,
   computeExecutionSummary,
-  computePipelineSummary,
+  computeLeadPipelineSummary,
+  computeLeadStageRows,
   filterByDateRange,
   filterByOwner,
   rangeToStartTimestamp,
 } from '../../src/lib/marketplaceCrmReports';
 
 describe('marketplace CRM reports helpers', () => {
-  it('computes pipeline summary with weighted value', () => {
-    const deals = [
-      {
-        id: '1',
-        company_id: 'c1',
-        lead_id: null,
-        account_id: null,
-        contact_id: null,
-        listing_id: null,
-        unit_id: null,
-        deal_name: 'Deal A',
-        amount: 100000,
-        currency: 'NGN',
-        stage: 'negotiation',
-        probability: 50,
-        expected_close_date: null,
-        owner_user_id: null,
-        created_at: '2026-06-01T00:00:00.000Z',
-      },
-      {
-        id: '2',
-        company_id: 'c1',
-        lead_id: null,
-        account_id: null,
-        contact_id: null,
-        listing_id: null,
-        unit_id: null,
-        deal_name: 'Deal B',
-        amount: 40000,
-        currency: 'NGN',
-        stage: 'closed_won',
-        probability: 100,
-        expected_close_date: null,
-        owner_user_id: null,
-        created_at: '2026-06-02T00:00:00.000Z',
-      },
+  it('keeps lead funnels non-empty and separated when there are no deals', () => {
+    const leads = [
+      { id: 'l1', company_id: 'c1', listing_id: null, pipeline_kind: 'leasing' as const, stage: 'qualified', status: 'open', priority: 'normal', score: 0, assigned_to: null, created_at: '2026-06-01T00:00:00.000Z', last_activity_at: null, converted_at: null, lost_reason: null },
+      { id: 'l2', company_id: 'c1', listing_id: null, pipeline_kind: 'leasing' as const, stage: 'converted', status: 'won', priority: 'normal', score: 0, assigned_to: null, created_at: '2026-06-02T00:00:00.000Z', last_activity_at: null, converted_at: null, lost_reason: null },
+      { id: 'l3', company_id: 'c1', listing_id: null, pipeline_kind: 'renewal' as const, stage: 'new', status: 'open', priority: 'normal', score: 0, assigned_to: null, created_at: '2026-06-03T00:00:00.000Z', last_activity_at: null, converted_at: null, lost_reason: null },
     ];
+    const leasing = leads.filter((lead) => lead.pipeline_kind === 'leasing');
 
-    const summary = computePipelineSummary(deals);
-
-    expect(summary.openDeals).toBe(1);
-    expect(summary.openValue).toBe(100000);
-    expect(summary.weightedValue).toBe(50000);
-    expect(summary.closedWon).toBe(1);
-    expect(summary.closedLost).toBe(0);
+    expect(computeLeadStageRows(leasing).map((row) => row.stage).sort()).toEqual(['converted', 'qualified']);
+    expect(computeLeadPipelineSummary(leasing, [])).toMatchObject({ openDeals: 1, closedWon: 1, openValue: 0 });
+    expect(computeLeadStageRows(leasing).some((row) => row.stage === 'new')).toBe(false);
   });
 
   it('computes deal aging rows and stale counts', () => {

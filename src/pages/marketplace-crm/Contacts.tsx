@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
@@ -85,6 +86,7 @@ export default function MarketplaceCrmContactsPage() {
                 <th className="px-3 py-2">Email</th>
                 <th className="px-3 py-2">Phone</th>
                 <th className="px-3 py-2">Preferred Channel</th>
+                <th className="px-3 py-2">Tenant</th>
                 <th className="px-3 py-2">Actions</th>
               </tr>
             </thead>
@@ -102,6 +104,13 @@ export default function MarketplaceCrmContactsPage() {
                         onChange={(event) => setEditChannel(event.target.value)}
                       />
                     ) : (row.preferred_channel || '-')}
+                  </td>
+                  <td className="px-3 py-2">
+                    {row.tenant_id ? (
+                      <Link className="text-primary hover:underline" to={`/tenants/${row.tenant_id}`}>
+                        Tenant since {row.tenant_since ? new Date(row.tenant_since).toLocaleDateString() : 'provisioning'}
+                      </Link>
+                    ) : '-'}
                   </td>
                   <td className="px-3 py-2">
                     {activeEditId === row.id ? (

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CRM_AUTOMATION_EVENT_DEFINITIONS,
   deserializeConditionRows,
+  getInvalidConditionFields,
   serializeActionRows,
   serializeConditionRows,
   type ActionBuilderRow,
@@ -8,16 +10,48 @@ import {
 } from '../../src/lib/crmAutomationBuilder';
 
 describe('crm automation builder serializers', () => {
+  it('offers renewal and collections alert events for rule authoring', () => {
+    const eventTypes = CRM_AUTOMATION_EVENT_DEFINITIONS.map((definition) => definition.value);
+
+    expect(eventTypes).toContain('lease.expiry_threshold_crossed');
+    expect(eventTypes).toContain('payment.overdue_threshold_crossed');
+  });
+
+  it('rejects condition fields that do not apply to threshold events', () => {
+    expect(getInvalidConditionFields('payment.overdue_threshold_crossed', {
+      required_fields: ['reference_id'],
+      equals: { days_until_expiry: '7' },
+    })).toEqual(['days_until_expiry']);
+
+    expect(getInvalidConditionFields('lease.expiry_threshold_crossed', {
+      required_fields: ['reference_id'],
+      equals: { severity: 'critical' },
+    })).toEqual([]);
+  });
+
   it('serializes condition rows to crm_conditions_match shape', () => {
     const rows: ConditionBuilderRow[] = [
       { id: '1', field: 'lead_id', operator: 'required', value: '' },
-      { id: '2', field: 'to_stage', operator: 'equals', value: 'closed_won' },
+      { id: '2', field: 'to_stage', operator: 'equals', value: 'converted' },
     ];
 
     expect(serializeConditionRows(rows)).toEqual({
       required_fields: ['lead_id'],
-      equals: { to_stage: 'closed_won' },
+      equals: { to_stage: 'converted' },
     });
+  });
+
+  it('serializes explicit tenant provisioning lease terms', () => {
+    const row = {
+      id: 'provision', type: 'provision_tenant' as const, taskType: '', dueInHours: '', ownerUserId: '', notes: '',
+      eventType: '', severity: 'info' as const, status: 'ready', recipientUserId: '', notificationTitle: '',
+      notificationMessage: '', notificationLink: '', messageSubject: '', messageContent: '', leadStage: 'converted',
+      leaseStart: '2026-09-01', leaseEnd: '2027-08-31', monthlyRent: '2500', securityDeposit: '2500',
+    };
+
+    expect(serializeActionRows([row])).toEqual([{
+      type: 'provision_tenant', lease_start: '2026-09-01', lease_end: '2027-08-31', monthly_rent: '2500', security_deposit: '2500',
+    }]);
   });
 
   it('serializes supported action rows to crm_execute_automation_rule shape', () => {
@@ -195,11 +229,11 @@ describe('crm automation builder serializers', () => {
   it('deserializes conditions for editing existing rules', () => {
     const rows = deserializeConditionRows({
       required_fields: ['lead_id'],
-      equals: { to_stage: 'closed_won' },
+      equals: { to_stage: 'converted' },
     });
 
     expect(rows).toHaveLength(2);
     expect(rows.some((row) => row.operator === 'required' && row.field === 'lead_id')).toBe(true);
-    expect(rows.some((row) => row.operator === 'equals' && row.field === 'to_stage' && row.value === 'closed_won')).toBe(true);
+    expect(rows.some((row) => row.operator === 'equals' && row.field === 'to_stage' && row.value === 'converted')).toBe(true);
   });
 });

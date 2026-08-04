@@ -16,17 +16,19 @@ export default function MarketplaceCrmAccountsPage() {
   const [search, setSearch] = useState('');
   const [name, setName] = useState('');
   const [website, setWebsite] = useState('');
+  const [accountKind, setAccountKind] = useState<'corporate_tenant' | 'owner_investor'>('corporate_tenant');
   const [ownerUserId, setOwnerUserId] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editWebsite, setEditWebsite] = useState('');
+  const [editAccountKind, setEditAccountKind] = useState<'corporate_tenant' | 'owner_investor'>('corporate_tenant');
   const [editOwnerUserId, setEditOwnerUserId] = useState('');
 
   const rows = useMemo(() => {
     const records = accountsQuery.data || [];
     const query = search.toLowerCase().trim();
     if (!query) return records;
-    return records.filter((row) => (`${row.name} ${row.website || ''} ${row.phone || ''}`).toLowerCase().includes(query));
+    return records.filter((row) => (`${row.name} ${row.website || ''} ${row.phone || ''} ${row.account_kind}`).toLowerCase().includes(query));
   }, [accountsQuery.data, search]);
 
   const ownerNameById = useMemo(() => {
@@ -42,17 +44,20 @@ export default function MarketplaceCrmAccountsPage() {
     createAccount.mutate({
       name: name.trim(),
       website: website.trim() || null,
+      account_kind: accountKind,
       owner_user_id: ownerUserId || null,
     });
     setName('');
     setWebsite('');
+    setAccountKind('corporate_tenant');
     setOwnerUserId('');
   };
 
-  const startEdit = (id: string, currentName: string, currentWebsite: string | null, currentOwnerUserId: string | null) => {
+  const startEdit = (id: string, currentName: string, currentWebsite: string | null, currentAccountKind: 'corporate_tenant' | 'owner_investor', currentOwnerUserId: string | null) => {
     setEditingId(id);
     setEditName(currentName);
     setEditWebsite(currentWebsite || '');
+    setEditAccountKind(currentAccountKind);
     setEditOwnerUserId(currentOwnerUserId || '');
   };
 
@@ -65,6 +70,7 @@ export default function MarketplaceCrmAccountsPage() {
         payload: {
           name: editName.trim(),
           website: editWebsite.trim() || null,
+          account_kind: editAccountKind,
           owner_user_id: editOwnerUserId || null,
         },
       },
@@ -82,9 +88,13 @@ export default function MarketplaceCrmAccountsPage() {
   return (
     <CrmWorkspace title="Accounts" subtitle="Business account records for partners, firms, and corporate tenants.">
       <CrmDataCard title="Create Account" description="Add an organization to the CRM.">
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
           <input aria-label="Account name" className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Account name" value={name} onChange={(event) => setName(event.target.value)} />
           <input aria-label="Website" className="h-9 rounded-md border border-input px-3 text-sm" inputMode="url" placeholder="Website" value={website} onChange={(event) => setWebsite(event.target.value)} />
+          <select aria-label="Account kind" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={accountKind} onChange={(event) => setAccountKind(event.target.value as typeof accountKind)}>
+            <option value="corporate_tenant">Corporate tenant</option>
+            <option value="owner_investor">Owner / investor</option>
+          </select>
           <AssigneePicker
             users={assignableUsersQuery.data || []}
             value={ownerUserId || null}
@@ -107,6 +117,7 @@ export default function MarketplaceCrmAccountsPage() {
                 <th className="px-3 py-2">Website</th>
                 <th className="px-3 py-2">Owner</th>
                 <th className="px-3 py-2">Type</th>
+                <th className="px-3 py-2">Linked Portfolio</th>
                 <th className="px-3 py-2">Actions</th>
               </tr>
             </thead>
@@ -149,7 +160,17 @@ export default function MarketplaceCrmAccountsPage() {
                       (row.owner_user_id ? (ownerNameById.get(row.owner_user_id) || row.owner_user_id) : '-')
                     )}
                   </td>
-                  <td className="px-3 py-2">{row.account_type || '-'}</td>
+                  <td className="px-3 py-2">
+                    {editingId === row.id ? (
+                      <select className="h-8 rounded-md border border-input bg-background px-2 text-sm" value={editAccountKind} onChange={(event) => setEditAccountKind(event.target.value as typeof editAccountKind)}>
+                        <option value="corporate_tenant">Corporate tenant</option>
+                        <option value="owner_investor">Owner / investor</option>
+                      </select>
+                    ) : row.account_kind.replace(/_/g, ' ')}
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {row.account_kind === 'corporate_tenant' ? `${row.linked_tenant_count} tenants` : `${row.linked_property_count} properties`}
+                  </td>
                   <td className="px-3 py-2">
                     {editingId === row.id ? (
                       <div className="flex gap-2">
@@ -162,6 +183,7 @@ export default function MarketplaceCrmAccountsPage() {
                             setEditingId(null);
                             setEditName('');
                             setEditWebsite('');
+                            setEditAccountKind('corporate_tenant');
                             setEditOwnerUserId('');
                           }}
                         >
@@ -171,7 +193,7 @@ export default function MarketplaceCrmAccountsPage() {
                     ) : (
                       <button
                         className="h-8 rounded-md border border-input px-2 text-xs"
-                        onClick={() => startEdit(row.id, row.name, row.website, row.owner_user_id)}
+                        onClick={() => startEdit(row.id, row.name, row.website, row.account_kind, row.owner_user_id)}
                       >
                         Edit
                       </button>

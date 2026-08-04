@@ -8,6 +8,7 @@ const crmWorkspace = readFileSync(resolve('src/components/marketplace-crm/CrmWor
 const crmNavigation = readFileSync(resolve('src/components/marketplace-crm/crmNavigation.ts'), 'utf8');
 const crmHooks = readFileSync(resolve('src/hooks/useMarketplaceCrm.ts'), 'utf8');
 const crmCampaigns = readFileSync(resolve('src/pages/marketplace-crm/Campaigns.tsx'), 'utf8');
+const crmProjects = readFileSync(resolve('src/pages/marketplace-crm/Projects.tsx'), 'utf8');
 const app = readFileSync(resolve('src/App.tsx'), 'utf8');
 const tenantLayout = readFileSync(resolve('src/pages/tenant-portal/TenantPortalLayout.tsx'), 'utf8');
 const settings = readFileSync(resolve('src/pages/Settings.tsx'), 'utf8');
@@ -73,7 +74,6 @@ describe('navigation information architecture', () => {
       '/marketplace/crm/visits',
       '/marketplace/crm/automation',
       '/marketplace/crm/documents',
-      '/marketplace/crm/projects',
       '/marketplace/crm/modules',
     ];
 
@@ -94,6 +94,13 @@ describe('navigation information architecture', () => {
     expect(app).toContain('path="/marketplace/crm/campaigns"');
     expect(crmCampaigns).toContain('FUTURE_FEATURE_MULTI_CHANNEL_MESSAGING.md');
     expect(crmHooks).toContain('useCrmCampaigns');
+  });
+
+  it('gates unused generic projects without deleting their implementation', () => {
+    expect(crmNavigation).not.toContain("href: '/marketplace/crm/projects'");
+    expect(app).toContain('path="/marketplace/crm/projects"');
+    expect(crmProjects).toContain('gated pending a property-specific workflow decision');
+    expect(crmHooks).toContain('useCrmProjects');
   });
 
   it('groups tenant and Settings navigation without hiding existing access', () => {

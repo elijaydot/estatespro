@@ -17,6 +17,7 @@ import {
   CRM_AUTOMATION_EVENT_DEFINITIONS,
   deserializeConditionRows,
   getEventDefinition,
+  getInvalidConditionFields,
   serializeActionRows,
   serializeConditionRows,
   type ActionBuilderRow,
@@ -50,6 +51,10 @@ function createActionRow(): ActionBuilderRow {
     messageSubject: '',
     messageContent: '',
     leadStage: 'qualified',
+    leaseStart: '',
+    leaseEnd: '',
+    monthlyRent: '',
+    securityDeposit: '0',
   };
 }
 
@@ -90,7 +95,7 @@ export default function MarketplaceCrmAutomationPage() {
   };
 
   const onChangeEventType = (nextEventType: string) => {
-    setEventType(nextEventType as 'call.logged' | 'deal.stage_changed' | 'meeting.completed' | 'visit.completed');
+    setEventType(getEventDefinition(nextEventType).value);
 
     const defaults = getEventDefinition(nextEventType);
     setConditionRows(defaults.defaultConditionRows);
@@ -119,6 +124,16 @@ export default function MarketplaceCrmAutomationPage() {
         toast({ title: 'Invalid JSON', description: 'Conditions or actions JSON is invalid.', variant: 'destructive' });
         return;
       }
+    }
+
+    const invalidConditionFields = getInvalidConditionFields(eventType, conditions);
+    if (invalidConditionFields.length) {
+      toast({
+        title: 'Incompatible Conditions',
+        description: `These payload fields do not apply to ${eventType}: ${invalidConditionFields.join(', ')}`,
+        variant: 'destructive',
+      });
+      return;
     }
 
     const parsedRetry = Number.parseInt(retryLimit, 10);
@@ -249,6 +264,7 @@ export default function MarketplaceCrmAutomationPage() {
                       <option value="send_message">send_message</option>
                       <option value="update_lead_stage">update_lead_stage</option>
                       <option value="reassign_lead">reassign_lead</option>
+                      <option value="provision_tenant">provision_tenant</option>
                     </select>
                     <button className="h-9 rounded border border-input px-2 text-xs md:col-span-2 md:col-start-11" onClick={() => setActionRows((current) => current.filter((item) => item.id !== row.id))}>Remove</button>
                   </div>
@@ -420,6 +436,15 @@ export default function MarketplaceCrmAutomationPage() {
                           allowUnassigned={false}
                         />
                       </div>
+                    </div>
+                  ) : null}
+
+                  {row.type === 'provision_tenant' ? (
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                      <input aria-label="Lease start" className="h-9 rounded-md border border-input px-2 text-sm" type="date" value={row.leaseStart || ''} onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, leaseStart: event.target.value } : item))} />
+                      <input aria-label="Lease end" className="h-9 rounded-md border border-input px-2 text-sm" type="date" value={row.leaseEnd || ''} onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, leaseEnd: event.target.value } : item))} />
+                      <input aria-label="Monthly rent" className="h-9 rounded-md border border-input px-2 text-sm" inputMode="decimal" placeholder="Monthly rent" value={row.monthlyRent || ''} onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, monthlyRent: event.target.value } : item))} />
+                      <input aria-label="Security deposit" className="h-9 rounded-md border border-input px-2 text-sm" inputMode="decimal" placeholder="Security deposit" value={row.securityDeposit || ''} onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, securityDeposit: event.target.value } : item))} />
                     </div>
                   ) : null}
                 </div>

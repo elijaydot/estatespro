@@ -9,8 +9,10 @@ export interface CrmAccount {
   phone: string | null;
   website: string | null;
   owner_user_id: string | null;
-  annual_revenue: number | null;
-  account_type: string | null;
+  account_kind: 'corporate_tenant' | 'owner_investor';
+  metadata: Record<string, unknown>;
+  linked_tenant_count: number;
+  linked_property_count: number;
   created_at: string;
 }
 
@@ -26,6 +28,7 @@ export interface CrmDeal {
   amount: number | null;
   currency: string;
   stage: string;
+  pipeline_kind: 'leasing' | 'renewal' | 'collections';
   probability: number;
   expected_close_date: string | null;
   owner_user_id: string | null;
@@ -131,6 +134,8 @@ export interface CrmProject {
 export interface CrmContact {
   id: string;
   lead_id: string;
+  tenant_id: string | null;
+  tenant_since: string | null;
   full_name: string;
   email: string | null;
   phone_e164: string;
@@ -254,6 +259,12 @@ interface LeadContactRow {
   phone_e164: string;
   preferred_channel: string | null;
   created_at: string;
+  tenant_id: string | null;
+  tenants?: { created_at: string } | null;
+}
+
+interface CrmDealRow extends Omit<CrmDeal, 'stage' | 'pipeline_kind'> {
+  leads: { stage: string; pipeline_kind: CrmDeal['pipeline_kind'] } | null;
 }
 
 interface LeadTaskRow {
@@ -299,7 +310,7 @@ export function useCrmContacts(companyId?: string | null) {
       if (!companyId) return [] as CrmContact[];
       const { data, error } = await supabase
         .from('lead_contacts')
-        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, leads!inner(company_id)')
+        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, tenant_id, tenants(created_at), leads!inner(company_id)')
         .eq('leads.company_id', companyId)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -313,6 +324,8 @@ export function useCrmContacts(companyId?: string | null) {
           phone_e164: typedRow.phone_e164,
           preferred_channel: typedRow.preferred_channel,
           created_at: typedRow.created_at,
+          tenant_id: typedRow.tenant_id,
+          tenant_since: typedRow.tenants?.created_at || null,
         };
       }) as CrmContact[];
     },
@@ -321,11 +334,53 @@ export function useCrmContacts(companyId?: string | null) {
 }
 
 export function useCrmAccounts(companyId?: string | null) {
-  return useCompanyTableQuery<CrmAccount>('accounts', 'crm_accounts', companyId, 'id, company_id, name, phone, website, owner_user_id, annual_revenue, account_type, created_at');
+  return useQuery({
+    queryKey: ['marketplace-crm', 'accounts', companyId],
+    queryFn: async () => {
+      if (!companyId) return [] as CrmAccount[];
+      const { data, error } = await supabase
+        .from('crm_accounts' as never)
+        .select('id, company_id, name, phone, website, owner_user_id, account_kind, metadata, created_at, tenants(id), properties(id)' as never)
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+
+      return ((data || []) as Array<Record<string, unknown>>).map((row) => ({
+        ...row,
+        metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
+        linked_tenant_count: Array.isArray(row.tenants) ? row.tenants.length : 0,
+        linked_property_count: Array.isArray(row.properties) ? row.properties.length : 0,
+      })) as CrmAccount[];
+    },
+    enabled: !!companyId,
+  });
 }
 
 export function useCrmDeals(companyId?: string | null) {
-  return useCompanyTableQuery<CrmDeal>('deals', 'crm_deals', companyId, 'id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, stage, probability, expected_close_date, owner_user_id, created_at');
+  return useQuery({
+    queryKey: ['marketplace-crm', 'deals', companyId],
+    queryFn: async () => {
+      if (!companyId) return [] as CrmDeal[];
+
+      const { data, error } = await supabase
+        .from('crm_deals')
+        .select('id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, probability, expected_close_date, owner_user_id, created_at, leads!inner(stage, pipeline_kind)')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map((row) => {
+        const typed = row as unknown as CrmDealRow;
+        return {
+          ...typed,
+          stage: typed.leads?.stage || 'new',
+          pipeline_kind: typed.leads?.pipeline_kind || 'leasing',
+        };
+      }) as CrmDeal[];
+    },
+    enabled: !!companyId,
+  });
 }
 
 export function useCrmMeetings(companyId?: string | null) {
@@ -651,7 +706,6 @@ export function useTransitionCrmDealStage(companyId?: string | null) {
       if (!companyId) throw new Error('Active company is required');
 
       const payload: Record<string, unknown> = {
-        stage,
         probability,
       };
 
@@ -664,16 +718,18 @@ export function useTransitionCrmDealStage(companyId?: string | null) {
       if (listingId !== undefined) payload.listing_id = listingId;
       if (unitId !== undefined) payload.unit_id = unitId;
 
-      const { data, error } = await supabase
-        .from('crm_deals')
-        .update(payload)
-        .eq('id', dealId)
-        .eq('company_id', companyId)
-        .select('id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, stage, probability, expected_close_date, owner_user_id, created_at')
-        .single();
+      const { error } = await supabase.rpc('crm_update_deal_and_lead_stage' as never, {
+        p_deal_id: dealId,
+        p_company_id: companyId,
+        p_stage: stage,
+        p_probability: probability,
+        p_amount: amount ?? null,
+        p_owner_user_id: ownerUserId ?? null,
+        p_expected_close_date: expectedCloseDate ?? null,
+      } as never);
 
       if (error) throw error;
-      return data as CrmDeal;
+      return { dealId, stage, payload };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'deals', companyId] });
@@ -681,6 +737,7 @@ export function useTransitionCrmDealStage(companyId?: string | null) {
       queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'deal-handoffs', companyId] });
       queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'tasks', companyId] });
       queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'funnel-metrics', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
       toast({ title: 'Deal Updated', description: 'Stage transition applied successfully.' });
     },
     onError: (error: Error) => {
@@ -937,7 +994,7 @@ export function useUpdateCrmContact(companyId?: string | null) {
         .from('lead_contacts')
         .update(payload)
         .eq('id', contactId)
-        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at')
+        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, tenant_id, tenants(created_at)')
         .single();
 
       if (error) throw error;
@@ -969,7 +1026,7 @@ export function useMergeCrmContacts(companyId?: string | null) {
 
       const { data: scopedContacts, error: scopeError } = await supabase
         .from('lead_contacts')
-        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, leads!inner(company_id)')
+        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, tenant_id, leads!inner(company_id)')
         .in('id', [primaryContactId, duplicateContactId])
         .eq('leads.company_id', companyId);
 
@@ -979,12 +1036,16 @@ export function useMergeCrmContacts(companyId?: string | null) {
       const duplicate = (scopedContacts || []).find((row) => row.id === duplicateContactId) as LeadContactRow | undefined;
 
       if (!primary || !duplicate) throw new Error('Both contacts must exist in active company scope');
+      if (primary.tenant_id && duplicate.tenant_id && primary.tenant_id !== duplicate.tenant_id) {
+        throw new Error('Contacts linked to different tenants cannot be merged');
+      }
 
       const mergedPayload = {
         full_name: primary.full_name || duplicate.full_name,
         email: primary.email || duplicate.email,
         phone_e164: primary.phone_e164 || duplicate.phone_e164,
         preferred_channel: primary.preferred_channel || duplicate.preferred_channel,
+        tenant_id: primary.tenant_id || duplicate.tenant_id,
       };
 
       const { error: updateError } = await supabase
@@ -1167,6 +1228,7 @@ export function useStartCrmDealHandoff(companyId?: string | null) {
       } as never);
 
       if (error) throw error;
+      if (!data) throw new Error('Tenant provisioning requires a contact name, email, and phone.');
       return data;
     },
     onSuccess: () => {
@@ -1185,18 +1247,12 @@ export function useCompleteCrmDealHandoff(companyId?: string | null) {
   return useMutation({
     mutationFn: async ({
       handoffId,
-      tenantName,
-      tenantEmail,
-      tenantPhone,
       leaseStart,
       leaseEnd,
       monthlyRent,
       securityDeposit,
     }: {
       handoffId: string;
-      tenantName: string;
-      tenantEmail: string;
-      tenantPhone: string;
       leaseStart: string;
       leaseEnd: string;
       monthlyRent: number;
@@ -1204,9 +1260,6 @@ export function useCompleteCrmDealHandoff(companyId?: string | null) {
     }) => {
       const { data, error } = await supabase.rpc('crm_complete_handoff' as never, {
         p_handoff_id: handoffId,
-        p_tenant_name: tenantName,
-        p_tenant_email: tenantEmail,
-        p_tenant_phone: tenantPhone,
         p_lease_start: leaseStart,
         p_lease_end: leaseEnd,
         p_monthly_rent: monthlyRent,

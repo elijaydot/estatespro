@@ -4,7 +4,7 @@ import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, MetricCard, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useSettings } from '@/contexts/useSettings';
-import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
+import { useCrmAssignableUsers, useCrmLeads } from '@/hooks/useMarketplace';
 import {
   useCrmContacts,
   useCrmCalls,
@@ -19,9 +19,9 @@ import {
   useCrmVisits,
 } from '@/hooks/useMarketplaceCrm';
 import {
-  computeDealAgingRows,
   computeExecutionSummary,
-  computePipelineSummary,
+  computeLeadPipelineSummary,
+  computeLeadStageRows,
   filterByDateRange,
   filterByOwner,
   type ReportDateRange,
@@ -33,6 +33,7 @@ export default function MarketplaceCrmReportsPage() {
   const { formatCurrency } = useSettings();
   const reportsQuery = useCrmReportLibrary();
   const assignableUsersQuery = useCrmAssignableUsers(activeCompanyId);
+  const leadsQuery = useCrmLeads(activeCompanyId);
   const dealsQuery = useCrmDeals(activeCompanyId);
   const tasksQuery = useCrmTasks(activeCompanyId);
   const callsQuery = useCrmCalls(activeCompanyId);
@@ -46,6 +47,7 @@ export default function MarketplaceCrmReportsPage() {
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [dateRange, setDateRange] = useState<ReportDateRange>('30d');
+  const [pipelineKind, setPipelineKind] = useState<'leasing' | 'renewal' | 'collections'>('leasing');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(searchParams.get('report'));
 
   const rows = useMemo(() => {
@@ -59,6 +61,12 @@ export default function MarketplaceCrmReportsPage() {
     const byOwner = filterByOwner(dealsQuery.data || [], ownerFilter, (deal) => deal.owner_user_id);
     return filterByDateRange(byOwner, dateRange, (deal) => deal.created_at);
   }, [dealsQuery.data, ownerFilter, dateRange]);
+
+  const filteredLeads = useMemo(() => {
+    const byPipeline = (leadsQuery.data || []).filter((lead) => lead.pipeline_kind === pipelineKind);
+    const byOwner = filterByOwner(byPipeline, ownerFilter, (lead) => lead.assigned_to);
+    return filterByDateRange(byOwner, dateRange, (lead) => lead.created_at);
+  }, [leadsQuery.data, pipelineKind, ownerFilter, dateRange]);
 
   const filteredTasks = useMemo(() => {
     const byOwner = filterByOwner(tasksQuery.data || [], ownerFilter, (task) => task.owner_user_id);
@@ -79,7 +87,7 @@ export default function MarketplaceCrmReportsPage() {
   const filteredTrustFlags = useMemo(() => filterByDateRange(trustFlagsQuery.data || [], dateRange, (flag) => flag.created_at), [trustFlagsQuery.data, dateRange]);
   const filteredHandoffs = useMemo(() => filterByDateRange(handoffsQuery.data || [], dateRange, (handoff) => handoff.created_at), [handoffsQuery.data, dateRange]);
 
-  const pipelineSummary = useMemo(() => computePipelineSummary(filteredDeals), [filteredDeals]);
+  const pipelineSummary = useMemo(() => computeLeadPipelineSummary(filteredLeads, filteredDeals), [filteredLeads, filteredDeals]);
   const executionSummary = useMemo(() => computeExecutionSummary({
     tasks: filteredTasks,
     calls: filteredCalls,
@@ -97,7 +105,7 @@ export default function MarketplaceCrmReportsPage() {
     filteredHandoffs,
     funnelQuery.data,
   ]);
-  const dealAgingRows = useMemo(() => computeDealAgingRows(filteredDeals), [filteredDeals]);
+  const leadStageRows = useMemo(() => computeLeadStageRows(filteredLeads), [filteredLeads]);
 
   const selectedReport = useMemo(() => (reportsQuery.data || []).find((row) => row.id === selectedReportId) || null, [reportsQuery.data, selectedReportId]);
 
@@ -277,7 +285,7 @@ export default function MarketplaceCrmReportsPage() {
   return (
     <CrmWorkspace title="Reports" subtitle="Pipeline, activity, and conversion reporting.">
       <CrmDataCard title="Report Filters" description="Filter reports by owner and date range.">
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
           <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
             <option value="all">All Owners</option>
             {(assignableUsersQuery.data || []).map((user) => (
@@ -290,11 +298,16 @@ export default function MarketplaceCrmReportsPage() {
             <option value="90d">Last 90 days</option>
             <option value="all">All time</option>
           </select>
+          <select aria-label="Pipeline" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={pipelineKind} onChange={(event) => setPipelineKind(event.target.value as typeof pipelineKind)}>
+            <option value="leasing">Leasing</option>
+            <option value="renewal">Renewal</option>
+            <option value="collections">Collections</option>
+          </select>
         </div>
       </CrmDataCard>
 
       <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Open Deals" value={pipelineSummary.openDeals} helper="Deals not yet in final outcome stage." />
+        <MetricCard label="Open Leads" value={pipelineSummary.openDeals} helper="Leads not yet converted or lost in this pipeline." />
         <MetricCard label="Open Pipeline Value" value={formatCurrency(pipelineSummary.openValue)} helper="Gross value of non-closed deals." />
         <MetricCard label="Weighted Pipeline" value={formatCurrency(Math.round(pipelineSummary.weightedValue))} helper="Probability-adjusted open pipeline." />
         <MetricCard label="Inquiry to Won %" value={`${executionSummary.inquiryToWonRate}%`} helper="30-day marketplace conversion." />
@@ -304,7 +317,7 @@ export default function MarketplaceCrmReportsPage() {
         <MetricCard label="Handoffs Ready" value={executionSummary.handoffsReady} helper="Closed-won deals ready for property operations." />
       </section>
 
-      <CrmDataCard title="Deal Stage Aging" description="Stage bottlenecks and stagnation risk by deal volume.">
+      <CrmDataCard title="Pipeline Stage Aging" description="Lead-stage bottlenecks and stagnation risk for the selected pipeline.">
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -316,7 +329,7 @@ export default function MarketplaceCrmReportsPage() {
               </tr>
             </thead>
             <tbody>
-              {dealAgingRows.map((row) => (
+              {leadStageRows.map((row) => (
                 <tr key={row.stage} className="border-t border-border/60">
                   <td className="px-3 py-2 font-medium">{row.stage.replace(/_/g, ' ')}</td>
                   <td className="px-3 py-2">{row.count}</td>
@@ -326,7 +339,7 @@ export default function MarketplaceCrmReportsPage() {
               ))}
             </tbody>
           </table>
-          {dealAgingRows.length === 0 ? <div className="p-4"><EmptyState label="No deals available for aging analytics." /></div> : null}
+          {leadStageRows.length === 0 ? <div className="p-4"><EmptyState label="No leads available for this pipeline." /></div> : null}
         </div>
       </CrmDataCard>
 

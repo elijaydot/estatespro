@@ -38,12 +38,20 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
   let companyAClient: SupabaseClient;
   let companyBClient: SupabaseClient;
   let companyBUserId: string;
+  let companyBPropertyId: string;
+  let companyBTenantId: string;
+  let companyBCorporateAccountId: string;
+  let companyBOwnerAccountId: string;
   let tenantAClient: SupabaseClient;
   let companyA: SeedContext;
+  let companyACorporateAccountId: string;
+  let companyAOwnerAccountId: string;
+  let crmContactId: string;
   let fixtures: ProtectedFixture[];
   let otherTenantRowIds: Record<string, string>;
   let teamMemberId: string;
   let evaluatorVendorDocumentId: string;
+  let operationalAlertId: string;
 
   async function insertOne(table: string, values: Record<string, unknown>) {
     const { data, error } = await admin.from(table).insert(values).select('id').single();
@@ -86,6 +94,41 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
     companyAClient = ownerA.client;
     companyBClient = ownerB.client;
     companyBUserId = ownerB.userId;
+
+    companyBPropertyId = await insertOne('properties', {
+      user_id: ownerB.userId,
+      company_id: ownerB.companyId,
+      name: `RLS Company B Property ${runId}`,
+      address: '2 Isolation Way',
+      city: 'Accra',
+      state: 'Greater Accra',
+      zip_code: '00000',
+    });
+    const companyBUnitId = await insertOne('units', {
+      user_id: ownerB.userId,
+      property_id: companyBPropertyId,
+      unit_number: `RLS-B-${runId}`,
+    });
+    companyBTenantId = await insertOne('tenants', {
+      user_id: ownerB.userId,
+      property_id: companyBPropertyId,
+      unit_id: companyBUnitId,
+      name: 'Company B Tenant',
+      email: `tenant-b-${runId}@example.test`,
+      phone: '+233200000004',
+    });
+    companyBCorporateAccountId = await insertOne('crm_accounts', {
+      company_id: ownerB.companyId,
+      name: `Company B Corporate ${runId}`,
+      account_kind: 'corporate_tenant',
+      metadata: { scope: 'company-b' },
+    });
+    companyBOwnerAccountId = await insertOne('crm_accounts', {
+      company_id: ownerB.companyId,
+      name: `Company B Owner ${runId}`,
+      account_kind: 'owner_investor',
+      metadata: { scope: 'company-b' },
+    });
 
     const tenantEmail = `rls-tenant-${runId}@example.test`;
     const tenantAuth = await admin.auth.admin.createUser({
@@ -155,6 +198,32 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
     });
 
     companyA = { ownerId: ownerA.userId, companyId: ownerA.companyId, propertyId, unitId, tenantId, leaseId, invoiceId };
+    companyACorporateAccountId = await insertOne('crm_accounts', {
+      company_id: ownerA.companyId,
+      name: `Company A Corporate ${runId}`,
+      account_kind: 'corporate_tenant',
+      metadata: { scope: 'company-a' },
+    });
+    companyAOwnerAccountId = await insertOne('crm_accounts', {
+      company_id: ownerA.companyId,
+      name: `Company A Owner ${runId}`,
+      account_kind: 'owner_investor',
+      metadata: { scope: 'company-a' },
+    });
+
+    const crmLeadId = await insertOne('leads', {
+      company_id: ownerA.companyId,
+      source: 'manual',
+      stage: 'qualified',
+      status: 'open',
+      priority: 'normal',
+    });
+    crmContactId = await insertOne('lead_contacts', {
+      lead_id: crmLeadId,
+      full_name: 'CRM Contact A',
+      email: `crm-contact-a-${runId}@example.test`,
+      phone_e164: '+233200000005',
+    });
 
     const seeded = {
       lease_attachments: await insertOne('lease_attachments', {
@@ -279,7 +348,7 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
       alert_type: 'lease_expiry',
       threshold_days: 30,
     });
-    const operationalAlertId = await insertOne('operational_alerts', {
+    operationalAlertId = await insertOne('operational_alerts', {
       company_id: ownerA.companyId,
       alert_type: 'lease_expiry',
       severity: 'warning',
@@ -289,6 +358,11 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
     });
 
     fixtures = [
+      {
+        table: 'crm_accounts', id: companyACorporateAccountId,
+        hostileUpdate: { metadata: { scope: 'company-b-overwrite' } },
+        hostileInsert: { company_id: ownerA.companyId, name: 'Injected account', account_kind: 'corporate_tenant' },
+      },
       {
         table: 'operational_alerts', id: operationalAlertId,
         hostileUpdate: { status: 'dismissed' },
@@ -357,6 +431,7 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
   });
 
   it.each([
+    'crm_accounts',
     'operational_alerts',
     'alert_thresholds',
     'vendors',
@@ -387,6 +462,69 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
     const inserted = await companyBClient.from(table).insert(fixture.hostileInsert);
     expect(inserted.error, `${table} accepted a cross-company foreign key`).not.toBeNull();
     expect(inserted.error?.code).toBe('42501');
+  });
+
+  it('rejects cross-company tenant and property account links before allowing valid links', async () => {
+    const hostileTenantLink = await companyAClient.from('tenants')
+      .update({ account_id: companyBCorporateAccountId }).eq('id', companyA.tenantId);
+    expect(hostileTenantLink.error).not.toBeNull();
+    expect(hostileTenantLink.error?.code).toBe('42501');
+
+    const hostilePropertyLink = await companyAClient.from('properties')
+      .update({ owner_account_id: companyBOwnerAccountId }).eq('id', companyA.propertyId);
+    expect(hostilePropertyLink.error).not.toBeNull();
+    expect(hostilePropertyLink.error?.code).toBe('42501');
+
+    expect((await companyAClient.from('tenants').update({ account_id: companyACorporateAccountId })
+      .eq('id', companyA.tenantId).select('account_id').single()).data?.account_id).toBe(companyACorporateAccountId);
+    expect((await companyAClient.from('properties').update({ owner_account_id: companyAOwnerAccountId })
+      .eq('id', companyA.propertyId).select('owner_account_id').single()).data?.owner_account_id).toBe(companyAOwnerAccountId);
+  });
+
+  it('does not widen core row visibility through account links', async () => {
+    expect((await companyBClient.from('tenants').select('id, account_id').eq('id', companyA.tenantId)).data).toEqual([]);
+    expect((await companyBClient.from('properties').select('id, owner_account_id').eq('id', companyA.propertyId)).data).toEqual([]);
+    expect((await companyAClient.from('tenants').select('id').eq('id', companyBTenantId)).data).toEqual([]);
+    expect((await companyAClient.from('properties').select('id').eq('id', companyBPropertyId)).data).toEqual([]);
+  });
+
+  it('creates one idempotent system-alert lead through the existing alert path', async () => {
+    const first = await admin.from('leads').select('id, pipeline_kind, source')
+      .eq('company_id', companyA.companyId).eq('source_reference_id', operationalAlertId);
+    expect(first.error).toBeNull();
+    expect(first.data).toHaveLength(1);
+    expect(first.data?.[0]).toMatchObject({ pipeline_kind: 'renewal', source: 'system_alert' });
+
+    expect((await admin.rpc('crm_process_operational_alert', { p_alert_id: operationalAlertId })).error).toBeNull();
+    const replayed = await admin.from('leads').select('id')
+      .eq('company_id', companyA.companyId).eq('source_reference_id', operationalAlertId);
+    expect(replayed.data).toHaveLength(1);
+  });
+
+  it('rejects linking a visible CRM contact to another company tenant', async () => {
+    const hostileLink = await companyAClient
+      .from('lead_contacts')
+      .update({ tenant_id: companyBTenantId })
+      .eq('id', crmContactId);
+
+    expect(hostileLink.error).not.toBeNull();
+    expect(hostileLink.error?.code).toBe('42501');
+  });
+
+  it('allows linking a CRM contact to a tenant in the same company without widening tenant reads', async () => {
+    const allowedLink = await companyAClient
+      .from('lead_contacts')
+      .update({ tenant_id: companyA.tenantId })
+      .eq('id', crmContactId)
+      .select('tenant_id')
+      .single();
+
+    expect(allowedLink.error).toBeNull();
+    expect(allowedLink.data?.tenant_id).toBe(companyA.tenantId);
+
+    const companyBRead = await companyBClient.from('lead_contacts').select('id, tenant_id').eq('id', crmContactId);
+    expect(companyBRead.error).toBeNull();
+    expect(companyBRead.data).toEqual([]);
   });
 
   it('evaluates operational alerts idempotently and resolves cleared conditions', async () => {

@@ -1,0 +1,153 @@
+-- Provision tenants from the canonical CRM contact identity and make retries idempotent.
+
+ALTER TABLE public.crm_followup_automation_log
+  DROP CONSTRAINT IF EXISTS crm_followup_automation_log_source_type_check;
+
+ALTER TABLE public.crm_followup_automation_log
+  ADD CONSTRAINT crm_followup_automation_log_source_type_check
+  CHECK (source_type IN ('call', 'meeting', 'deal_stage', 'provision_tenant'));
+
+DROP FUNCTION IF EXISTS public.crm_complete_handoff(uuid, text, text, text, date, date, numeric, numeric);
+
+CREATE OR REPLACE FUNCTION public.crm_complete_handoff(
+  p_handoff_id uuid,
+  p_lease_start date,
+  p_lease_end date,
+  p_monthly_rent numeric,
+  p_security_deposit numeric DEFAULT 0
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_handoff public.crm_deal_handoffs%ROWTYPE;
+  v_deal public.crm_deals%ROWTYPE;
+  v_lead public.leads%ROWTYPE;
+  v_contact public.lead_contacts%ROWTYPE;
+  v_listing public.marketplace_listings%ROWTYPE;
+  v_property_id uuid;
+  v_unit_id uuid;
+  v_tenant_id uuid;
+  v_lease_id uuid;
+  v_actor uuid;
+  v_record_owner uuid;
+BEGIN
+  v_actor := auth.uid();
+
+  SELECT * INTO v_handoff FROM public.crm_deal_handoffs WHERE id = p_handoff_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'HANDOFF_NOT_FOUND'; END IF;
+
+  IF v_actor IS NOT NULL AND NOT public.can_manage_crm_company(v_handoff.company_id) THEN
+    RAISE EXCEPTION 'COMPANY_ACCESS_DENIED' USING ERRCODE = '42501';
+  END IF;
+
+  IF v_handoff.lease_id IS NOT NULL THEN
+    RETURN v_handoff.lease_id;
+  END IF;
+
+  SELECT * INTO v_deal FROM public.crm_deals WHERE id = v_handoff.deal_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'DEAL_NOT_FOUND_FOR_HANDOFF'; END IF;
+
+  SELECT * INTO v_lead FROM public.leads WHERE id = v_deal.lead_id;
+  IF NOT FOUND OR v_lead.stage <> 'converted' THEN RAISE EXCEPTION 'HANDOFF_REQUIRES_CONVERTED_LEAD'; END IF;
+
+  SELECT * INTO v_contact
+  FROM public.lead_contacts
+  WHERE id = v_deal.contact_id OR lead_id = v_deal.lead_id
+  ORDER BY (id = v_deal.contact_id) DESC
+  LIMIT 1
+  FOR UPDATE;
+
+  IF NOT FOUND
+     OR btrim(coalesce(v_contact.full_name, '')) = ''
+     OR btrim(coalesce(v_contact.email, '')) = ''
+     OR btrim(coalesce(v_contact.phone_e164, '')) = '' THEN
+    UPDATE public.crm_deal_handoffs
+    SET status = 'failed',
+      readiness_notes = 'Contact name, email, and phone are required for tenant provisioning.',
+      updated_at = now()
+    WHERE id = p_handoff_id;
+
+    INSERT INTO public.crm_followup_automation_log (
+      company_id, source_type, source_id, lead_id, status, message, metadata
+    ) VALUES (
+      v_handoff.company_id, 'provision_tenant', v_handoff.id, v_deal.lead_id, 'failed',
+      'Contact name, email, and phone are required for tenant provisioning',
+      jsonb_build_object('deal_id', v_deal.id, 'contact_id', v_deal.contact_id)
+    );
+    RETURN NULL;
+  END IF;
+
+  IF v_deal.listing_id IS NOT NULL THEN
+    SELECT * INTO v_listing FROM public.marketplace_listings WHERE id = v_deal.listing_id;
+  END IF;
+
+  v_unit_id := coalesce(v_deal.unit_id, v_listing.unit_id);
+  v_property_id := coalesce(v_listing.property_id, (SELECT u.property_id FROM public.units u WHERE u.id = v_unit_id LIMIT 1));
+  IF v_property_id IS NULL OR v_unit_id IS NULL THEN RAISE EXCEPTION 'HANDOFF_PROPERTY_AND_UNIT_REQUIRED'; END IF;
+
+  SELECT coalesce(v_actor, c.owner_id, v_deal.created_by)
+  INTO v_record_owner
+  FROM public.companies c
+  WHERE c.id = v_handoff.company_id;
+  IF v_record_owner IS NULL THEN RAISE EXCEPTION 'HANDOFF_RECORD_OWNER_REQUIRED'; END IF;
+
+  v_tenant_id := v_contact.tenant_id;
+  IF v_tenant_id IS NULL THEN
+    INSERT INTO public.tenants (
+      user_id, unit_id, property_id, name, email, phone, move_in_date, lease_end_date,
+      monthly_rent, security_deposit, status
+    ) VALUES (
+      v_record_owner, v_unit_id, v_property_id, v_contact.full_name, v_contact.email,
+      v_contact.phone_e164, p_lease_start, p_lease_end, p_monthly_rent,
+      coalesce(p_security_deposit, 0), 'pending'
+    ) RETURNING id INTO v_tenant_id;
+
+    UPDATE public.lead_contacts SET tenant_id = v_tenant_id WHERE id = v_contact.id;
+  END IF;
+
+  SELECT id INTO v_lease_id
+  FROM public.leases
+  WHERE tenant_id = v_tenant_id
+    AND property_id = v_property_id
+    AND unit_id = v_unit_id
+    AND start_date = p_lease_start
+    AND end_date = p_lease_end
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  IF v_lease_id IS NULL THEN
+    INSERT INTO public.leases (
+      user_id, tenant_id, property_id, unit_id, lease_number, start_date, end_date,
+      monthly_rent, security_deposit, status, terms, special_conditions
+    ) VALUES (
+      v_record_owner, v_tenant_id, v_property_id, v_unit_id,
+      format('HND-%s', upper(replace(gen_random_uuid()::text, '-', ''))),
+      p_lease_start, p_lease_end, p_monthly_rent, coalesce(p_security_deposit, 0), 'draft',
+      format('Auto-generated from CRM handoff for deal %s', v_deal.deal_name),
+      'Generated by crm_complete_handoff'
+    ) RETURNING id INTO v_lease_id;
+  END IF;
+
+  UPDATE public.crm_deal_handoffs
+  SET tenant_id = v_tenant_id, lease_id = v_lease_id, status = 'completed',
+      started_at = coalesce(started_at, now()), completed_at = coalesce(completed_at, now()),
+      readiness_notes = 'Handoff completed. Tenant identity linked and lease draft ready.', updated_at = now()
+  WHERE id = p_handoff_id;
+
+  INSERT INTO public.crm_followup_automation_log (
+    company_id, source_type, source_id, lead_id, status, message, metadata
+  ) VALUES (
+    v_handoff.company_id, 'provision_tenant', v_handoff.id, v_deal.lead_id, 'created',
+    'Tenant and lease provisioning completed',
+    jsonb_build_object('deal_id', v_deal.id, 'contact_id', v_contact.id, 'tenant_id', v_tenant_id, 'lease_id', v_lease_id)
+  );
+
+  RETURN v_lease_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.crm_complete_handoff(uuid, date, date, numeric, numeric) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.crm_complete_handoff(uuid, date, date, numeric, numeric) TO authenticated, service_role;

@@ -7,6 +7,7 @@ import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
 import { useCreateCrmProject, useCrmProjects, useUpdateCrmProject } from '@/hooks/useMarketplaceCrm';
 import { buildProjectSlaSummary } from '@/lib/marketplaceCrmWorkflow';
 
+// Navigation remains gated pending a property-specific workflow decision.
 export default function MarketplaceCrmProjectsPage() {
   const { activeCompanyId } = useActiveCompany();
   const assignableUsersQuery = useCrmAssignableUsers(activeCompanyId);

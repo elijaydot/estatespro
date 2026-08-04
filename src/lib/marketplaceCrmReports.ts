@@ -1,10 +1,50 @@
 import type { CrmDeal, CrmTask, CrmCampaign, CrmCall, CrmMeeting, CrmTrustFlag, CrmDealHandoff, CrmMarketplaceFunnelMetric } from '@/hooks/useMarketplaceCrm';
+import type { CrmLead } from '@/hooks/useMarketplace';
 
 export interface DealAgingRow {
   stage: string;
   count: number;
   avgAgeDays: number;
   staleCount: number;
+}
+
+export function computeLeadStageRows(leads: CrmLead[], nowMs = Date.now()): DealAgingRow[] {
+  const stageMap = new Map<string, CrmLead[]>();
+
+  for (const lead of leads) {
+    const current = stageMap.get(lead.stage) || [];
+    current.push(lead);
+    stageMap.set(lead.stage, current);
+  }
+
+  return Array.from(stageMap.entries())
+    .map(([stage, stageLeads]) => {
+      const ages = stageLeads.map((lead) => Math.max(0, Math.floor((nowMs - new Date(lead.created_at).getTime()) / MS_IN_DAY)));
+      const totalAge = ages.reduce((sum, age) => sum + age, 0);
+
+      return {
+        stage,
+        count: stageLeads.length,
+        avgAgeDays: stageLeads.length > 0 ? Math.round(totalAge / stageLeads.length) : 0,
+        staleCount: ages.filter((age) => age >= 14).length,
+      };
+    })
+    .sort((a, b) => b.count - a.count || a.stage.localeCompare(b.stage));
+}
+
+export function computeLeadPipelineSummary(leads: CrmLead[], deals: CrmDeal[]) {
+  const finalStages = new Set(['converted', 'lost']);
+  const openLeads = leads.filter((lead) => !finalStages.has(lead.stage));
+  const openLeadIds = new Set(openLeads.map((lead) => lead.id));
+  const openDeals = deals.filter((deal) => deal.lead_id != null && openLeadIds.has(deal.lead_id));
+
+  return {
+    openDeals: openLeads.length,
+    openValue: openDeals.reduce((sum, deal) => sum + (deal.amount || 0), 0),
+    weightedValue: openDeals.reduce((sum, deal) => sum + ((deal.amount || 0) * (deal.probability / 100)), 0),
+    closedWon: leads.filter((lead) => lead.stage === 'converted').length,
+    closedLost: leads.filter((lead) => lead.stage === 'lost').length,
+  };
 }
 
 export type ReportDateRange = 'all' | '7d' | '30d' | '90d';
@@ -58,22 +98,6 @@ export function computeDealAgingRows(deals: CrmDeal[], nowMs = Date.now()): Deal
       };
     })
     .sort((a, b) => b.count - a.count || a.stage.localeCompare(b.stage));
-}
-
-export function computePipelineSummary(deals: CrmDeal[]) {
-  const openDeals = deals.filter((deal) => !['closed_won', 'closed_lost'].includes(deal.stage));
-  const openValue = openDeals.reduce((sum, deal) => sum + (deal.amount || 0), 0);
-  const weightedValue = openDeals.reduce((sum, deal) => sum + ((deal.amount || 0) * (deal.probability / 100)), 0);
-  const closedWon = deals.filter((deal) => deal.stage === 'closed_won').length;
-  const closedLost = deals.filter((deal) => deal.stage === 'closed_lost').length;
-
-  return {
-    openDeals: openDeals.length,
-    openValue,
-    weightedValue,
-    closedWon,
-    closedLost,
-  };
 }
 
 export function computeExecutionSummary(params: {

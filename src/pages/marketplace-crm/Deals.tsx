@@ -4,7 +4,7 @@ import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useSettings } from '@/contexts/useSettings';
-import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
+import { useCrmAssignableUsers, useCrmLeads } from '@/hooks/useMarketplace';
 import {
   useCompleteCrmDealHandoff,
   useCreateCrmDeal,
@@ -16,12 +16,12 @@ import {
   useTransitionCrmDealStage,
 } from '@/hooks/useMarketplaceCrm';
 
-const DEAL_STAGES = ['qualification', 'needs_analysis', 'value_proposition', 'identify_decision_makers', 'proposal', 'negotiation', 'closed_won', 'closed_lost'];
+const LEAD_STAGES = ['new', 'attempted_contact', 'contacted', 'qualified', 'viewing_scheduled', 'offer_made', 'lease_in_progress', 'converted', 'lost'];
 
 function dealStageChipClass(stage: string) {
-  if (stage === 'closed_won') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
-  if (stage === 'closed_lost') return 'bg-rose-500/15 text-rose-700 border-rose-500/30';
-  if (stage === 'negotiation' || stage === 'proposal') return 'bg-amber-500/15 text-amber-700 border-amber-500/30';
+  if (stage === 'converted') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
+  if (stage === 'lost') return 'bg-rose-500/15 text-rose-700 border-rose-500/30';
+  if (stage === 'offer_made' || stage === 'lease_in_progress') return 'bg-amber-500/15 text-amber-700 border-amber-500/30';
   return 'bg-sky-500/10 text-sky-700 border-sky-500/30';
 }
 
@@ -29,6 +29,7 @@ export default function MarketplaceCrmDealsPage() {
   const { activeCompanyId } = useActiveCompany();
   const { settings } = useSettings();
   const dealsQuery = useCrmDeals(activeCompanyId);
+  const leadsQuery = useCrmLeads(activeCompanyId);
   const accountsQuery = useCrmAccounts(activeCompanyId);
   const contactsQuery = useCrmContacts(activeCompanyId);
   const assignableUsersQuery = useCrmAssignableUsers(activeCompanyId);
@@ -44,19 +45,16 @@ export default function MarketplaceCrmDealsPage() {
   const [createOwnerUserId, setCreateOwnerUserId] = useState('');
   const [createAccountId, setCreateAccountId] = useState('');
   const [createContactId, setCreateContactId] = useState('');
-  const [createStage, setCreateStage] = useState('qualification');
+  const [createLeadId, setCreateLeadId] = useState('');
   const [createProbability, setCreateProbability] = useState('10');
   const [createExpectedCloseDate, setCreateExpectedCloseDate] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editStage, setEditStage] = useState('qualification');
+  const [editStage, setEditStage] = useState('new');
   const [editProbability, setEditProbability] = useState('10');
   const [editAmount, setEditAmount] = useState('');
   const [editOwnerUserId, setEditOwnerUserId] = useState('');
   const [editExpectedCloseDate, setEditExpectedCloseDate] = useState('');
   const [completingHandoffId, setCompletingHandoffId] = useState<string | null>(null);
-  const [tenantName, setTenantName] = useState('');
-  const [tenantEmail, setTenantEmail] = useState('');
-  const [tenantPhone, setTenantPhone] = useState('');
   const [leaseStart, setLeaseStart] = useState('');
   const [leaseEnd, setLeaseEnd] = useState('');
   const [monthlyRent, setMonthlyRent] = useState('');
@@ -71,9 +69,9 @@ export default function MarketplaceCrmDealsPage() {
 
   const grouped = useMemo(() => {
     const bucket: Record<string, typeof rows> = {};
-    DEAL_STAGES.forEach((stage) => { bucket[stage] = []; });
+    LEAD_STAGES.forEach((stage) => { bucket[stage] = []; });
     rows.forEach((row) => {
-      const key = bucket[row.stage] ? row.stage : 'qualification';
+      const key = bucket[row.stage] ? row.stage : 'new';
       bucket[key].push(row);
     });
     return bucket;
@@ -104,7 +102,7 @@ export default function MarketplaceCrmDealsPage() {
   };
 
   const onCreate = () => {
-    if (!dealName.trim()) return;
+    if (!dealName.trim() || !createLeadId) return;
     const parsedProbability = Number(createProbability);
     if (Number.isNaN(parsedProbability) || parsedProbability < 0 || parsedProbability > 100) return;
 
@@ -114,8 +112,8 @@ export default function MarketplaceCrmDealsPage() {
       owner_user_id: createOwnerUserId || null,
       account_id: createAccountId || null,
       contact_id: createContactId || null,
+      lead_id: createLeadId,
       currency: currencyCode,
-      stage: createStage,
       probability: parsedProbability,
       expected_close_date: createExpectedCloseDate || null,
     });
@@ -124,7 +122,7 @@ export default function MarketplaceCrmDealsPage() {
     setCreateOwnerUserId('');
     setCreateAccountId('');
     setCreateContactId('');
-    setCreateStage('qualification');
+    setCreateLeadId('');
     setCreateProbability('10');
     setCreateExpectedCloseDate('');
   };
@@ -171,7 +169,7 @@ export default function MarketplaceCrmDealsPage() {
   };
 
   const submitHandoffCompletion = (handoffId: string, dealAmount: number | null) => {
-    if (!tenantName.trim() || !tenantEmail.trim() || !tenantPhone.trim() || !leaseStart || !leaseEnd) return;
+    if (!leaseStart || !leaseEnd) return;
     const rent = Number(monthlyRent || dealAmount || 0);
     const deposit = Number(securityDeposit || 0);
     if (Number.isNaN(rent) || rent <= 0) return;
@@ -179,9 +177,6 @@ export default function MarketplaceCrmDealsPage() {
 
     completeHandoff.mutate({
       handoffId,
-      tenantName: tenantName.trim(),
-      tenantEmail: tenantEmail.trim(),
-      tenantPhone: tenantPhone.trim(),
       leaseStart,
       leaseEnd,
       monthlyRent: rent,
@@ -189,9 +184,6 @@ export default function MarketplaceCrmDealsPage() {
     }, {
       onSuccess: () => {
         setCompletingHandoffId(null);
-        setTenantName('');
-        setTenantEmail('');
-        setTenantPhone('');
         setLeaseStart('');
         setLeaseEnd('');
         setMonthlyRent('');
@@ -201,7 +193,7 @@ export default function MarketplaceCrmDealsPage() {
   };
 
   return (
-    <CrmWorkspace title="Deals" subtitle="Track opportunities from qualification through close.">
+    <CrmWorkspace title="Deals" subtitle="Track opportunity economics against the authoritative lead pipeline.">
       <CrmDataCard title="Create Deal" description="Add a new sales opportunity.">
         <div className="mb-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
           Add a focused opportunity with ownership, confidence, and close-date context in one step.
@@ -209,9 +201,10 @@ export default function MarketplaceCrmDealsPage() {
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
           <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Deal name" value={dealName} onChange={(event) => setDealName(event.target.value)} />
           <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" placeholder={`Amount (${currencyCode})`} value={amount} onChange={(event) => setAmount(event.target.value)} />
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={createStage} onChange={(event) => setCreateStage(event.target.value)}>
-            {DEAL_STAGES.map((stage) => (
-              <option key={stage} value={stage}>{stage.replace(/_/g, ' ')}</option>
+          <select aria-label="Lead" className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={createLeadId} onChange={(event) => setCreateLeadId(event.target.value)}>
+            <option value="">Select lead</option>
+            {(leadsQuery.data || []).map((lead) => (
+              <option key={lead.id} value={lead.id}>{lead.contact_name || lead.listing_title || lead.id} ({lead.stage.replace(/_/g, ' ')})</option>
             ))}
           </select>
           <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" placeholder="Probability %" value={createProbability} onChange={(event) => setCreateProbability(event.target.value)} />
@@ -252,7 +245,7 @@ export default function MarketplaceCrmDealsPage() {
             <span className="inline-flex items-center rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-rose-700">lost</span>
           </div>
           <div className="flex min-w-max gap-3 pb-2">
-            {DEAL_STAGES.map((stage) => (
+            {LEAD_STAGES.map((stage) => (
               <div key={stage} className="w-72 rounded-xl border border-border/70 bg-card/80 p-3 shadow-sm">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">{stage.replace(/_/g, ' ')}</p>
@@ -276,7 +269,7 @@ export default function MarketplaceCrmDealsPage() {
                       {editingId === deal.id ? (
                         <div className="mt-2 space-y-2">
                           <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={editStage} onChange={(event) => setEditStage(event.target.value)}>
-                            {DEAL_STAGES.map((s) => (
+                            {LEAD_STAGES.map((s) => (
                               <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
                             ))}
                           </select>
@@ -326,7 +319,7 @@ export default function MarketplaceCrmDealsPage() {
                           >
                             Edit Stage
                           </button>
-                          {deal.stage === 'closed_won' && handoffByDealId.get(deal.id) ? (
+                          {deal.stage === 'converted' && handoffByDealId.get(deal.id) ? (
                             <div className="space-y-2">
                               {handoffByDealId.get(deal.id)?.status !== 'in_progress' && handoffByDealId.get(deal.id)?.status !== 'completed' ? (
                                 <button
@@ -340,9 +333,6 @@ export default function MarketplaceCrmDealsPage() {
                               {handoffByDealId.get(deal.id)?.status !== 'completed' ? (
                                 completingHandoffId === handoffByDealId.get(deal.id)!.id ? (
                                   <div className="space-y-2">
-                                    <input aria-label="Tenant full name" className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Tenant full name" value={tenantName} onChange={(event) => setTenantName(event.target.value)} />
-                                    <input aria-label="Tenant email" className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Tenant email" value={tenantEmail} onChange={(event) => setTenantEmail(event.target.value)} />
-                                    <input aria-label="Tenant phone" className="h-8 w-full rounded-md border border-input px-2 text-xs" placeholder="Tenant phone" value={tenantPhone} onChange={(event) => setTenantPhone(event.target.value)} />
                                     <input aria-label="Lease start date" className="h-8 w-full rounded-md border border-input px-2 text-xs" type="date" value={leaseStart} onChange={(event) => setLeaseStart(event.target.value)} />
                                     <input aria-label="Lease end date" className="h-8 w-full rounded-md border border-input px-2 text-xs" type="date" value={leaseEnd} onChange={(event) => setLeaseEnd(event.target.value)} />
                                     <input aria-label="Monthly rent" className="h-8 w-full rounded-md border border-input px-2 text-xs" inputMode="decimal" placeholder="Monthly rent" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} />

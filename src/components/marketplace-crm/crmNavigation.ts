@@ -13,7 +13,6 @@ import {
   Phone,
   FileText,
   MapPin,
-  FolderKanban,
 } from 'lucide-react';
 
 export type CrmNavItem = {
@@ -63,7 +62,6 @@ export const CRM_NAV_GROUPS: CrmNavGroup[] = [
     title: 'Delivery',
     items: [
       { label: 'Documents', href: '/marketplace/crm/documents', icon: FileText },
-      { label: 'Projects', href: '/marketplace/crm/projects', icon: FolderKanban },
     ],
   },
   {
