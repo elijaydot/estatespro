@@ -18,6 +18,9 @@ import {
   useVerificationDocuments,
   type VerificationDocument,
 } from '@/hooks/useMarketplace';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { StatusPill } from '@/components/shared/StatusPill';
 
 const DOCUMENT_TYPES: Array<{ value: VerificationDocument['document_type']; label: string }> = [
   { value: 'id_card', label: 'Government ID' },
@@ -31,32 +34,32 @@ function VerificationStateBadge({ state }: { state?: string | null }) {
 
   if (current === 'verified') {
     return (
-      <Badge variant="default" className="gap-1">
+      <StatusPill variant="success" className="gap-1">
         <ShieldCheck className="h-3.5 w-3.5" /> Verified
-      </Badge>
+      </StatusPill>
     );
   }
 
   if (current === 'rejected') {
     return (
-      <Badge variant="destructive" className="gap-1">
+      <StatusPill variant="destructive" className="gap-1">
         <ShieldX className="h-3.5 w-3.5" /> Rejected
-      </Badge>
+      </StatusPill>
     );
   }
 
   if (current === 'needs_review') {
     return (
-      <Badge variant="secondary" className="gap-1">
+      <StatusPill variant="warning" className="gap-1">
         <ShieldQuestion className="h-3.5 w-3.5" /> Needs Review
-      </Badge>
+      </StatusPill>
     );
   }
 
   return (
-    <Badge variant="secondary" className="gap-1">
+    <StatusPill className="gap-1">
       <ShieldQuestion className="h-3.5 w-3.5" /> Pending
-    </Badge>
+    </StatusPill>
   );
 }
 
@@ -101,11 +104,7 @@ export default function MarketplaceVerification() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-border/60 bg-gradient-to-r from-sky-500/10 via-cyan-500/10 to-emerald-500/10 p-6">
-        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Publisher Trust Center</p>
-        <h1 className="text-2xl font-semibold">Marketplace Verification</h1>
-        <p className="text-sm text-muted-foreground">Manage verification readiness for {companyName}.</p>
-      </section>
+      <PageHeader eyebrow="Publisher Trust Center" title="Marketplace Verification" description={`Manage verification readiness for ${companyName}.`} action={<VerificationStateBadge state={verificationQuery.data?.state} />} />
 
       <Card>
         <CardHeader>
@@ -262,9 +261,7 @@ export default function MarketplaceVerification() {
               <div key={doc.id} className="rounded-lg border border-border/70 px-3 py-2 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-medium">{doc.document_type}</span>
-                  <Badge variant={doc.state === 'approved' ? 'default' : doc.state === 'rejected' ? 'destructive' : 'secondary'}>
-                    {doc.state}
-                  </Badge>
+                  <StatusPill variant={doc.state === 'approved' ? 'success' : doc.state === 'rejected' ? 'destructive' : 'neutral'}>{doc.state}</StatusPill>
                 </div>
                 <p className="text-xs text-muted-foreground break-all">{doc.storage_path}</p>
                 {doc.rejection_reason && (
@@ -318,9 +315,7 @@ export default function MarketplaceVerification() {
             ))}
 
             {!documentsQuery.isLoading && (documentsQuery.data ?? []).length === 0 && (
-              <div className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-                No verification documents added yet.
-              </div>
+              <EmptyState icon={FileUp} title="No verification documents" description="Start verification, then upload the required supporting documents." />
             )}
           </div>
         </CardContent>

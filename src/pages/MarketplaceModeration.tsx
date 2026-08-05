@@ -9,6 +9,10 @@ import { useAuth } from '@/contexts/useAuth';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useCrmAssignableUsers, useIsInternalMarketplaceReviewer, useModerationCases, useUpdateModerationCaseState } from '@/hooks/useMarketplace';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { StatusPill } from '@/components/shared/StatusPill';
 
 export default function MarketplaceModeration() {
   const { user } = useAuth();
@@ -50,15 +54,7 @@ export default function MarketplaceModeration() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-border/60 bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-orange-500/10 p-6">
-        <div className="flex items-center gap-3">
-          <ShieldAlert className="h-5 w-5" />
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Marketplace Safety Ops</p>
-            <h1 className="text-2xl font-semibold">Moderation Queue</h1>
-          </div>
-        </div>
-      </section>
+      <PageHeader eyebrow="Marketplace Safety Ops" title="Moderation Queue" description="Triage, assign, and resolve marketplace trust cases." action={<StatusPill variant={canModerate ? 'success' : 'warning'}>{canModerate ? 'Reviewer Access' : 'Read Only'}</StatusPill>} />
 
       <Card>
         <CardHeader>
@@ -118,8 +114,8 @@ export default function MarketplaceModeration() {
                     <p className="text-xs text-muted-foreground">Resolved: {new Date(item.resolved_at).toLocaleString()} · By: {item.resolved_by || 'unknown'}</p>
                   ) : null}
                   <div className="flex gap-2">
-                    <Badge variant={item.severity === 'critical' ? 'destructive' : 'secondary'}>{item.severity}</Badge>
-                    <Badge variant="outline">{item.state}</Badge>
+                    <StatusPill variant={item.severity === 'critical' ? 'destructive' : item.severity === 'high' ? 'warning' : 'neutral'}>{item.severity}</StatusPill>
+                    <StatusPill variant={item.state === 'resolved' ? 'success' : item.state === 'in_review' ? 'info' : 'neutral'}>{item.state.replace('_', ' ')}</StatusPill>
                   </div>
                 </div>
                 <div className="flex w-full flex-col gap-2 md:w-[320px]">
@@ -173,8 +169,9 @@ export default function MarketplaceModeration() {
                       [item.id]: event.target.value,
                     }))}
                   />
-                  <button
-                    className="h-9 rounded-md border border-input px-3 text-xs"
+                  <Button
+                    variant="outline"
+                    size="sm"
                     disabled={!canModerate || updateModerationState.isPending}
                     onClick={() =>
                       updateModerationState.mutate({
@@ -186,16 +183,14 @@ export default function MarketplaceModeration() {
                     }
                   >
                     Save Notes
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
           ))}
 
           {!moderationCasesQuery.isLoading && filteredCases.length === 0 && (
-            <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              No moderation cases match current filters.
-            </div>
+            <EmptyState icon={ShieldAlert} title="No matching moderation cases" description="Adjust the search or state filter to broaden the queue." />
           )}
         </CardContent>
       </Card>

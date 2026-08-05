@@ -58,6 +58,8 @@ import {
   type CrmLead,
   type CrmLeadTask,
 } from '@/hooks/useMarketplace';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { StatusPill } from '@/components/shared/StatusPill';
 
 const LEAD_STAGE_ORDER = [
   'new',
@@ -307,22 +309,12 @@ export default function MarketplaceManage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <section className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-blue-500/10 p-6">
-        <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-cyan-400/15 blur-3xl" aria-hidden />
-        <div className="absolute -bottom-24 -left-20 h-56 w-56 rounded-full bg-emerald-400/15 blur-3xl" aria-hidden />
-
-        <div className="relative flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Marketplace Operations</p>
-            <h1 className="text-2xl font-semibold">Leads and Listings</h1>
-            <p className="text-sm text-muted-foreground">Manage lead assignment, listing publication, and verification for {companyName}.</p>
-          </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Live
-          </div>
-        </div>
-      </section>
+      <PageHeader
+        eyebrow="Marketplace Operations"
+        title="Leads and Listings"
+        description={`Manage lead assignment, listing publication, and verification for ${companyName}.`}
+        action={<StatusPill variant="success"><CheckCircle2 className="h-3.5 w-3.5" />Live</StatusPill>}
+      />
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Card>
@@ -365,24 +357,24 @@ export default function MarketplaceManage() {
       </section>
 
       <Tabs defaultValue="crm" className="space-y-5">
-        <TabsList className="h-auto w-full justify-start gap-2 rounded-xl bg-muted/60 p-1.5">
-          <TabsTrigger value="crm" className="rounded-lg px-4 py-2 text-xs">
+        <TabsList className="h-auto w-full max-w-full justify-start gap-2 overflow-x-auto rounded-xl bg-muted/60 p-1.5">
+          <TabsTrigger value="crm" className="shrink-0 rounded-lg px-4 py-2 text-xs">
             <Sparkles className="mr-1.5 h-3.5 w-3.5" />
             CRM Workstation
           </TabsTrigger>
-          <TabsTrigger value="listings" className="rounded-lg px-4 py-2 text-xs">
+          <TabsTrigger value="listings" className="shrink-0 rounded-lg px-4 py-2 text-xs">
             <Megaphone className="mr-1.5 h-3.5 w-3.5" />
             Listing Controls
           </TabsTrigger>
-          <TabsTrigger value="trust" className="rounded-lg px-4 py-2 text-xs">
+          <TabsTrigger value="trust" className="shrink-0 rounded-lg px-4 py-2 text-xs">
             <Shield className="mr-1.5 h-3.5 w-3.5" />
             Trust + Moderation
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="crm" className="space-y-4">
-          <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
-            <Card className="border-emerald-500/20 bg-gradient-to-br from-card via-card to-emerald-500/5">
+          <section className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            <Card className="min-w-0 border-emerald-500/20 bg-gradient-to-br from-card via-card to-emerald-500/5">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Target className="h-4 w-4 text-emerald-500" />

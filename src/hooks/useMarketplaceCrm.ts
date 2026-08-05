@@ -259,12 +259,12 @@ interface LeadContactRow {
   phone_e164: string;
   preferred_channel: string | null;
   created_at: string;
-  tenant_id: string | null;
+  tenant_id?: string | null;
   tenants?: { created_at: string } | null;
 }
 
 interface CrmDealRow extends Omit<CrmDeal, 'stage' | 'pipeline_kind'> {
-  leads: { stage: string; pipeline_kind: CrmDeal['pipeline_kind'] } | null;
+  leads: { stage: string; pipeline_kind?: CrmDeal['pipeline_kind'] } | null;
 }
 
 interface LeadTaskRow {
@@ -308,11 +308,22 @@ export function useCrmContacts(companyId?: string | null) {
     queryKey: ['marketplace-crm', 'contacts', companyId],
     queryFn: async () => {
       if (!companyId) return [] as CrmContact[];
-      const { data, error } = await supabase
+      const currentSchemaResult = await supabase
         .from('lead_contacts')
         .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, tenant_id, tenants(created_at), leads!inner(company_id)')
         .eq('leads.company_id', companyId)
         .order('created_at', { ascending: false });
+      const usesLegacySchema = currentSchemaResult.error?.code === 'PGRST200'
+        || (currentSchemaResult.error?.code === '42703' && currentSchemaResult.error.message.includes('tenant_id'));
+      const legacySchemaResult = usesLegacySchema
+        ? await supabase
+            .from('lead_contacts')
+            .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, leads!inner(company_id)')
+            .eq('leads.company_id', companyId)
+            .order('created_at', { ascending: false })
+        : null;
+      const data = legacySchemaResult?.data ?? currentSchemaResult.data;
+      const error = legacySchemaResult?.error ?? (usesLegacySchema ? null : currentSchemaResult.error);
       if (error) throw error;
       return (data || []).map((row) => {
         const typedRow = row as LeadContactRow;
@@ -324,7 +335,7 @@ export function useCrmContacts(companyId?: string | null) {
           phone_e164: typedRow.phone_e164,
           preferred_channel: typedRow.preferred_channel,
           created_at: typedRow.created_at,
-          tenant_id: typedRow.tenant_id,
+          tenant_id: typedRow.tenant_id ?? null,
           tenant_since: typedRow.tenants?.created_at || null,
         };
       }) as CrmContact[];
@@ -362,11 +373,23 @@ export function useCrmDeals(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as CrmDeal[];
 
-      const { data, error } = await supabase
+      const currentSchemaResult = await supabase
         .from('crm_deals')
         .select('id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, probability, expected_close_date, owner_user_id, created_at, leads!inner(stage, pipeline_kind)')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
+
+      const usesLegacySchema = currentSchemaResult.error?.code === '42703'
+        && currentSchemaResult.error.message.includes('pipeline_kind');
+      const legacySchemaResult = usesLegacySchema
+        ? await supabase
+            .from('crm_deals')
+            .select('id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, probability, expected_close_date, owner_user_id, created_at, leads!inner(stage)')
+            .eq('company_id', companyId)
+            .order('created_at', { ascending: false })
+        : null;
+      const data = legacySchemaResult?.data ?? currentSchemaResult.data;
+      const error = legacySchemaResult?.error ?? (usesLegacySchema ? null : currentSchemaResult.error);
 
       if (error) throw error;
 

@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -46,6 +46,11 @@ import { useSuperAdminOverride } from '@/hooks/useSuperAdminOverride';
 import { Switch } from '@/components/ui/switch';
 import { useIsInternalMarketplaceReviewer } from '@/hooks/useMarketplace';
 import { useOpenOperationalAlertCount } from '@/hooks/useOperationalAlerts';
+import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
+import { CRM_NAV_GROUPS } from '@/components/marketplace-crm/crmNavigation';
+import { useWorkspaceNavigation } from '@/hooks/useWorkspaceNavigation';
+import { getMostSpecificMatchingRoute, STAFF_WORKSPACES, type StaffWorkspaceId } from '@/lib/workspaceNavigation';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface AppSidebarProps {
   mobile?: boolean;
@@ -64,18 +69,24 @@ type NavItem = {
 
 type NavSection = {
   title: string;
+  icon: typeof LayoutDashboard;
+  workspaceId: StaffWorkspaceId;
   items: NavItem[];
 };
 
 const sharedSections: NavSection[] = [
   {
     title: 'Home',
+    icon: LayoutDashboard,
+    workspaceId: 'property-management',
     items: [
       { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
     ],
   },
   {
     title: 'Portfolio',
+    icon: Building2,
+    workspaceId: 'property-management',
     items: [
       { icon: Building2, label: 'Properties', href: '/properties' },
       { icon: Home, label: 'Units', href: '/units' },
@@ -86,6 +97,8 @@ const sharedSections: NavSection[] = [
   },
   {
     title: 'Operations',
+    icon: Wrench,
+    workspaceId: 'property-management',
     items: [
       { icon: Bell, label: 'Alerts', href: '/alerts' },
       { icon: BriefcaseBusiness, label: 'Vendors', href: '/vendors' },
@@ -93,6 +106,8 @@ const sharedSections: NavSection[] = [
   },
   {
     title: 'Finance',
+    icon: Wallet,
+    workspaceId: 'property-management',
     items: [
       { icon: Receipt, label: 'Invoices', href: '/invoices' },
       { icon: CreditCard, label: 'Payments', href: '/payments' },
@@ -102,6 +117,8 @@ const sharedSections: NavSection[] = [
   },
   {
     title: 'Guest Operations',
+    icon: CalendarCheck,
+    workspaceId: 'property-management',
     items: [
       { icon: CalendarCheck, label: 'Bookings', href: '/bookings' },
       { icon: Link2, label: 'Booking Links', href: '/guest-booking-portal' },
@@ -109,6 +126,8 @@ const sharedSections: NavSection[] = [
   },
   {
     title: 'Marketplace',
+    icon: Store,
+    workspaceId: 'marketplace',
     items: [
       { icon: Store, label: 'Listings', href: '/marketplace/manage', entitlementKey: 'marketplace.listings.manage' },
       { icon: ShieldAlert, label: 'Moderation', href: '/marketplace/moderation', entitlementKey: 'marketplace.moderation.view', reviewerOnly: true },
@@ -116,30 +135,33 @@ const sharedSections: NavSection[] = [
       { icon: ShieldCheck, label: 'Reviewer Queue', href: '/marketplace/reviewer', entitlementKey: 'marketplace.moderation.view', reviewerOnly: true },
     ],
   },
-  {
-    title: 'CRM',
-    items: [
-      { icon: BriefcaseBusiness, label: 'CRM Workspace', href: '/marketplace/crm', entitlementKey: 'crm.leads.manage' },
-    ],
-  },
-  {
-    title: 'Communication',
-    items: [
-      { icon: MessageSquare, label: 'Messages', href: '/messages' },
-      { icon: Bell, label: 'Notifications', href: '/notifications' },
-    ],
-  },
 ];
 
 const managerCommunicationItem: NavItem = { icon: Megaphone, label: 'Broadcasts', href: '/broadcasts' };
 
+const globalCommunicationItems: NavItem[] = [
+  { icon: MessageSquare, label: 'Messages', href: '/messages' },
+  { icon: Bell, label: 'Notifications', href: '/notifications' },
+];
+
+const crmSections: NavSection[] = CRM_NAV_GROUPS.map((group) => ({
+  title: group.title,
+  icon: group.items[0].icon,
+  workspaceId: 'crm',
+  items: group.items,
+}));
+
 const landlordOnlySection: NavSection = {
   title: 'Organization',
+  icon: UserCog,
+  workspaceId: 'property-management',
   items: [{ icon: UserCog, label: 'Team', href: '/team' }],
 };
 
 const superAdminSection: NavSection = {
   title: 'Platform',
+  icon: Radar,
+  workspaceId: 'control-plane',
   items: [{ icon: Radar, label: 'Control Plane', href: '/super-admin/control-plane' }],
 };
 
@@ -153,7 +175,10 @@ const SIDEBAR_SECTIONS_STORAGE_KEY = 'fishgate_sidebar_sections';
 function getInitialExpandedSections() {
   try {
     const saved = window.localStorage.getItem(SIDEBAR_SECTIONS_STORAGE_KEY);
-    if (saved) return new Set<string>(JSON.parse(saved) as string[]);
+    if (saved) {
+      const [savedSection] = JSON.parse(saved) as string[];
+      if (savedSection) return new Set([savedSection]);
+    }
   } catch {
     // Use the focused default when stored navigation preferences are unavailable.
   }
@@ -161,14 +186,11 @@ function getInitialExpandedSections() {
   return new Set(['Home', 'Portfolio']);
 }
 
-function isHrefActive(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
 export function AppSidebar({ mobile = false, onNavigate, collapsed = false, onCollapsedChange }: AppSidebarProps) {
   const [showCompanies, setShowCompanies] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(getInitialExpandedSections);
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, profile, logout } = useAuth();
   const { isLandlord, role } = useUserRole();
   const { companies, activeCompanyId, setActiveCompanyId } = useActiveCompany();
@@ -176,47 +198,59 @@ export function AppSidebar({ mobile = false, onNavigate, collapsed = false, onCo
   const { canOverride, overrideEnabled, isOverrideActive, setOverrideEnabled } = useSuperAdminOverride();
   const reviewerAccess = useIsInternalMarketplaceReviewer(user?.id);
   const { data: openAlertCount = 0 } = useOpenOperationalAlertCount();
+  const { data: unreadNotificationCount = 0 } = useUnreadNotificationsCount();
+  const { availableWorkspaceIds, currentWorkspaceId, getLandingPath } = useWorkspaceNavigation();
   const collapsedView = !mobile && collapsed;
   const canReviewMarketplace = role === 'super_admin' || reviewerAccess.data === true;
 
-  const navSectionsBase = role === 'super_admin'
-    ? [...sharedSections, landlordOnlySection, superAdminSection]
+  const communicationSection: NavSection = {
+    title: 'Communication',
+    icon: MessageSquare,
+    workspaceId: currentWorkspaceId,
+    items: role === 'landlord' || role === 'property_manager' || role === 'super_admin'
+      ? [globalCommunicationItems[0], managerCommunicationItem, globalCommunicationItems[1]]
+      : globalCommunicationItems,
+  };
+  const roleSections = role === 'super_admin'
+    ? [...sharedSections, ...crmSections, landlordOnlySection, superAdminSection]
     : isLandlord
-      ? [...sharedSections, landlordOnlySection]
-      : sharedSections;
+      ? [...sharedSections, ...crmSections, landlordOnlySection]
+      : [...sharedSections, ...crmSections];
+  const navSectionsBase = [
+    ...roleSections.filter((section) => section.workspaceId === currentWorkspaceId),
+    communicationSection,
+  ];
   const navSections = navSectionsBase
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => !item.reviewerOnly || canReviewMarketplace),
     }))
-    .map((section) => {
-      if (section.title !== 'Communication') return section;
-      if (role === 'landlord' || role === 'property_manager' || role === 'super_admin') {
-        return { ...section, items: [...section.items.slice(0, 1), managerCommunicationItem, ...section.items.slice(1)] };
-      }
-      return section;
-    })
     .filter((section) => section.items.length > 0);
+  const activeHref = getMostSpecificMatchingRoute(
+    location.pathname,
+    navSections.flatMap((section) => section.items.map((item) => item.href)),
+  );
   const activeSectionTitle = navSections.find((section) =>
-    section.items.some((item) => isHrefActive(location.pathname, item.href))
+    section.items.some((item) => item.href === activeHref)
   )?.title;
 
   useEffect(() => {
     if (!activeSectionTitle) return;
-    setExpandedSections((current) => {
-      if (current.has(activeSectionTitle)) return current;
-      return new Set([...current, activeSectionTitle]);
-    });
+    setExpandedSections(new Set([activeSectionTitle]));
   }, [activeSectionTitle]);
 
   const toggleSection = (title: string) => {
     setExpandedSections((current) => {
-      const next = new Set(current);
-      if (next.has(title)) next.delete(title);
-      else next.add(title);
+      const next = current.has(title) ? new Set<string>() : new Set([title]);
       window.localStorage.setItem(SIDEBAR_SECTIONS_STORAGE_KEY, JSON.stringify([...next]));
       return next;
     });
+  };
+
+  const openCollapsedSection = (title: string) => {
+    setExpandedSections(new Set([title]));
+    window.localStorage.setItem(SIDEBAR_SECTIONS_STORAGE_KEY, JSON.stringify([title]));
+    onCollapsedChange?.(false);
   };
 
   const handleLogout = async () => {
@@ -247,9 +281,9 @@ export function AppSidebar({ mobile = false, onNavigate, collapsed = false, onCo
     <aside
       className={cn(
         mobile
-          ? 'h-full bg-sidebar text-sidebar-foreground'
+          ? 'h-full w-full bg-sidebar text-sidebar-foreground'
           : 'hidden lg:block fixed left-0 top-0 z-40 h-screen bg-sidebar text-sidebar-foreground transition-all duration-300',
-        collapsedView ? 'w-20' : 'w-64'
+        !mobile && (collapsedView ? 'w-20' : 'w-64')
       )}
     >
       <div className="flex h-full flex-col">
@@ -333,35 +367,82 @@ export function AppSidebar({ mobile = false, onNavigate, collapsed = false, onCo
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 sidebar-scroll">
           {mobile && (
-            <div className="mb-4 p-3 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/60">
-              <p className="text-[11px] uppercase tracking-[0.12em] text-sidebar-foreground/60 mb-2">Quick actions</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button asChild size="sm" variant="secondary" className="h-9 text-xs justify-center bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
-                  <RouterLink to="/tenants?add=true" onClick={onNavigate}>
-                    <Zap className="h-3.5 w-3.5 mr-1" />
-                    Tenant
-                  </RouterLink>
-                </Button>
-                <Button asChild size="sm" variant="secondary" className="h-9 text-xs justify-center bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
-                  <RouterLink to="/payments?add=true" onClick={onNavigate}>
-                    <Wallet className="h-3.5 w-3.5 mr-1" />
-                    Payment
-                  </RouterLink>
-                </Button>
-                <Button asChild size="sm" variant="secondary" className="h-9 text-xs justify-center col-span-2 bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
-                  <RouterLink to="/maintenance?add=true" onClick={onNavigate}>
-                    <Wrench className="h-3.5 w-3.5 mr-1" />
-                    Request
-                  </RouterLink>
-                </Button>
+            <div className="mb-4 space-y-3">
+              <div>
+                <p className="mb-2 px-1 text-[11px] uppercase tracking-[0.12em] text-sidebar-foreground/60">Workspace</p>
+                <Select
+                  value={currentWorkspaceId}
+                  onValueChange={(value) => {
+                    const landingPath = getLandingPath(value as StaffWorkspaceId);
+                    if (landingPath) navigate(landingPath);
+                    onNavigate?.();
+                  }}
+                >
+                  <SelectTrigger className="border-sidebar-border bg-sidebar-accent/60 text-sidebar-foreground focus:ring-sidebar-ring">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableWorkspaceIds.map((workspaceId) => (
+                      <SelectItem key={workspaceId} value={workspaceId}>
+                        {STAFF_WORKSPACES.find((workspace) => workspace.id === workspaceId)?.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+
+              {currentWorkspaceId === 'property-management' && (
+                <div className="rounded-xl border border-sidebar-border/70 bg-sidebar-accent/60 p-3">
+                  <p className="mb-2 text-[11px] uppercase tracking-[0.12em] text-sidebar-foreground/60">Quick actions</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button asChild size="sm" variant="secondary" className="h-9 justify-center bg-sidebar-primary text-xs text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
+                      <RouterLink to="/tenants?add=true" onClick={onNavigate}>
+                        <Zap className="h-3.5 w-3.5 mr-1" />
+                        Tenant
+                      </RouterLink>
+                    </Button>
+                    <Button asChild size="sm" variant="secondary" className="h-9 justify-center bg-sidebar-primary text-xs text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
+                      <RouterLink to="/payments?add=true" onClick={onNavigate}>
+                        <Wallet className="h-3.5 w-3.5 mr-1" />
+                        Payment
+                      </RouterLink>
+                    </Button>
+                    <Button asChild size="sm" variant="secondary" className="col-span-2 h-9 justify-center bg-sidebar-primary text-xs text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
+                      <RouterLink to="/maintenance?add=true" onClick={onNavigate}>
+                        <Wrench className="h-3.5 w-3.5 mr-1" />
+                        Request
+                      </RouterLink>
+                    </Button>
+                  </div>
+                </div>
+              )}
+              </div>
           )}
 
-          <div className="space-y-5">
-            {navSections.map((section) => (
+          <div className="space-y-3">
+            {navSections.map((section) => {
+              const isSectionActive = section.title === activeSectionTitle;
+              const SectionIcon = section.icon;
+
+              return (
               <div key={section.title}>
-                {!collapsedView && (
+                {collapsedView ? (
+                  <button
+                    type="button"
+                    onClick={() => openCollapsedSection(section.title)}
+                    aria-label={`Open ${section.title} navigation`}
+                    title={section.title}
+                    className={cn(
+                      'relative flex h-[38px] w-full items-center justify-center rounded-lg transition-colors duration-200',
+                      isSectionActive
+                        ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                    )}
+                  >
+                    {isSectionActive && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-sidebar-primary-foreground/70" aria-hidden />}
+                    <SectionIcon className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                  </button>
+                ) : (
                   <button
                     type="button"
                     onClick={() => toggleSection(section.title)}
@@ -374,9 +455,9 @@ export function AppSidebar({ mobile = false, onNavigate, collapsed = false, onCo
                       : <ChevronDown className="h-3.5 w-3.5" />}
                   </button>
                 )}
-                <ul className={cn('space-y-1', !collapsedView && !expandedSections.has(section.title) && 'hidden')}>
+                <ul className={cn('space-y-1', (collapsedView || !expandedSections.has(section.title)) && 'hidden')}>
                   {section.items.map((item) => {
-                    const isActive = isHrefActive(location.pathname, item.href);
+                    const isActive = item.href === activeHref;
                     const isLocked = Boolean(item.entitlementKey) && !isOverrideActive && !saasLoading && !entitlements[item.entitlementKey as SaasEntitlementKey];
                     const targetHref = isLocked ? '/settings?tab=billing' : item.href;
                     const linkLabel = isLocked ? `${item.label} (Upgrade)` : item.label;
@@ -386,23 +467,29 @@ export function AppSidebar({ mobile = false, onNavigate, collapsed = false, onCo
                         <Link
                           to={targetHref}
                           onClick={onNavigate}
+                          aria-current={isActive ? 'page' : undefined}
                           title={collapsedView ? linkLabel : undefined}
                           className={cn(
-                            'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                            'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200',
                             isLocked && 'border border-dashed border-sidebar-border/60',
                             isActive
-                              ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
-                              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground hover:translate-x-0.5'
+                              ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
                           )}
                         >
-                          {isActive && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-sidebar-primary-foreground/85" aria-hidden />}
-                          <item.icon className={cn('h-5 w-5 flex-shrink-0 transition-transform duration-200', !isActive && 'group-hover:scale-105')} />
+                          {isActive && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-sidebar-primary-foreground/70" aria-hidden />}
+                          <item.icon className="h-[18px] w-[18px] flex-shrink-0" strokeWidth={1.5} />
                           {!collapsedView && (
                             <span className="flex items-center gap-2">
                               <span>{item.label}</span>
                               {item.href === '/alerts' && openAlertCount > 0 && (
                                 <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-destructive-foreground">
                                   {openAlertCount > 99 ? '99+' : openAlertCount}
+                                </span>
+                              )}
+                              {item.href === '/notifications' && unreadNotificationCount > 0 && (
+                                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-destructive-foreground">
+                                  {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
                                 </span>
                               )}
                               {isLocked && (
@@ -416,13 +503,16 @@ export function AppSidebar({ mobile = false, onNavigate, collapsed = false, onCo
                           {collapsedView && item.href === '/alerts' && openAlertCount > 0 && (
                             <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-sidebar" aria-label={`${openAlertCount} active alerts`} />
                           )}
+                          {collapsedView && item.href === '/notifications' && unreadNotificationCount > 0 && (
+                            <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-sidebar" aria-label={`${unreadNotificationCount} unread notifications`} />
+                          )}
                         </Link>
                       </li>
                     );
                   })}
                 </ul>
               </div>
-            ))}
+            )})}
           </div>
         </nav>
 
@@ -430,21 +520,23 @@ export function AppSidebar({ mobile = false, onNavigate, collapsed = false, onCo
         <div className="border-t border-sidebar-border p-3">
           <ul className="space-y-1 mb-3">
             {bottomNavItems.map(item => {
-              const isActive = isHrefActive(location.pathname, item.href);
+              const isActive = item.href === activeHref;
               return (
                 <li key={item.href}>
                   <Link
                     to={item.href}
                     onClick={onNavigate}
+                    aria-current={isActive ? 'page' : undefined}
                     title={collapsedView ? item.label : undefined}
                     className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                        'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
                       isActive
-                        ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
-                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground hover:translate-x-0.5'
+                        ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
                     )}
                   >
-                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    {isActive && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-sidebar-primary-foreground/70" aria-hidden />}
+                    <item.icon className="h-[18px] w-[18px] flex-shrink-0" strokeWidth={1.5} />
                     {!collapsedView && <span>{item.label}</span>}
                   </Link>
                 </li>

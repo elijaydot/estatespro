@@ -3,6 +3,7 @@ import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useAssignCrmLead, useCrmAssignableUsers, useCrmLeads, useUpdateCrmLeadStage } from '@/hooks/useMarketplace';
+import { StatusPill } from '@/components/shared/StatusPill';
 
 const LEAD_STAGES = [
   'new',
@@ -16,17 +17,17 @@ const LEAD_STAGES = [
   'lost',
 ];
 
-function leadStageChipClass(stage: string) {
-  if (stage === 'converted') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
-  if (stage === 'lost') return 'bg-rose-500/15 text-rose-700 border-rose-500/30';
-  if (stage === 'negotiation' || stage === 'viewing') return 'bg-amber-500/15 text-amber-700 border-amber-500/30';
-  return 'bg-sky-500/10 text-sky-700 border-sky-500/30';
+function leadStageVariant(stage: string) {
+  if (stage === 'converted') return 'success' as const;
+  if (stage === 'lost') return 'destructive' as const;
+  if (stage === 'viewing_scheduled' || stage === 'offer_made' || stage === 'lease_in_progress') return 'warning' as const;
+  return 'info' as const;
 }
 
-function leadStatusChipClass(status: string) {
-  if (status === 'won') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
-  if (status === 'lost') return 'bg-rose-500/15 text-rose-700 border-rose-500/30';
-  return 'bg-zinc-500/10 text-zinc-700 border-zinc-500/30';
+function leadStatusVariant(status: string) {
+  if (status === 'won') return 'success' as const;
+  if (status === 'lost') return 'destructive' as const;
+  return 'neutral' as const;
 }
 
 export default function MarketplaceCrmLeadsPage() {
@@ -137,9 +138,9 @@ export default function MarketplaceCrmLeadsPage() {
                           <option key={stage} value={stage}>{stage}</option>
                         ))}
                       </select>
-                    ) : <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${leadStageChipClass(row.stage)}`}>{row.stage}</span>}
+                    ) : <StatusPill variant={leadStageVariant(row.stage)} className="capitalize">{row.stage.replace(/_/g, ' ')}</StatusPill>}
                   </td>
-                  <td className="px-3 py-2"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${leadStatusChipClass(row.status)}`}>{row.status}</span></td>
+                  <td className="px-3 py-2"><StatusPill variant={leadStatusVariant(row.status)} className="capitalize">{row.status}</StatusPill></td>
                   <td className="px-3 py-2">
                     <span className="inline-flex min-w-10 items-center justify-center rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
                       {row.score}

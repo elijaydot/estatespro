@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react';
 import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
+import { StatusPill } from '@/components/shared/StatusPill';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
 import { useCreateCrmAccount, useCrmAccounts, useUpdateCrmAccount } from '@/hooks/useMarketplaceCrm';
@@ -89,8 +92,8 @@ export default function MarketplaceCrmAccountsPage() {
     <CrmWorkspace title="Accounts" subtitle="Business account records for partners, firms, and corporate tenants.">
       <CrmDataCard title="Create Account" description="Add an organization to the CRM.">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
-          <input aria-label="Account name" className="h-9 rounded-md border border-input px-3 text-sm" placeholder="Account name" value={name} onChange={(event) => setName(event.target.value)} />
-          <input aria-label="Website" className="h-9 rounded-md border border-input px-3 text-sm" inputMode="url" placeholder="Website" value={website} onChange={(event) => setWebsite(event.target.value)} />
+          <Input aria-label="Account name" className="h-9" placeholder="Account name" value={name} onChange={(event) => setName(event.target.value)} />
+          <Input aria-label="Website" className="h-9" inputMode="url" placeholder="Website" value={website} onChange={(event) => setWebsite(event.target.value)} />
           <select aria-label="Account kind" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={accountKind} onChange={(event) => setAccountKind(event.target.value as typeof accountKind)}>
             <option value="corporate_tenant">Corporate tenant</option>
             <option value="owner_investor">Owner / investor</option>
@@ -102,7 +105,7 @@ export default function MarketplaceCrmAccountsPage() {
             placeholder="Owner (optional)"
             className="h-9"
           />
-          <button className="h-9 rounded-md bg-primary text-primary-foreground text-sm" onClick={onCreate} disabled={createAccount.isPending}>Create Account</button>
+          <Button size="sm" onClick={onCreate} disabled={createAccount.isPending}>Create Account</Button>
         </div>
       </CrmDataCard>
 
@@ -126,8 +129,8 @@ export default function MarketplaceCrmAccountsPage() {
                 <tr key={row.id} className="border-t border-border/60">
                   <td className="px-3 py-2 font-medium">
                     {editingId === row.id ? (
-                      <input
-                        className="h-8 w-full rounded-md border border-input px-2 text-sm"
+                      <Input
+                        className="h-8 w-full"
                         value={editName}
                         onChange={(event) => setEditName(event.target.value)}
                       />
@@ -138,8 +141,8 @@ export default function MarketplaceCrmAccountsPage() {
                   <td className="px-3 py-2">{row.phone || '-'}</td>
                   <td className="px-3 py-2 text-muted-foreground">
                     {editingId === row.id ? (
-                      <input
-                        className="h-8 w-full rounded-md border border-input px-2 text-sm"
+                      <Input
+                        className="h-8 w-full"
                         value={editWebsite}
                         onChange={(event) => setEditWebsite(event.target.value)}
                       />
@@ -166,7 +169,7 @@ export default function MarketplaceCrmAccountsPage() {
                         <option value="corporate_tenant">Corporate tenant</option>
                         <option value="owner_investor">Owner / investor</option>
                       </select>
-                    ) : row.account_kind.replace(/_/g, ' ')}
+                    ) : <StatusPill variant={row.account_kind === 'owner_investor' ? 'info' : 'neutral'} className="capitalize">{row.account_kind.replace(/_/g, ' ')}</StatusPill>}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">
                     {row.account_kind === 'corporate_tenant' ? `${row.linked_tenant_count} tenants` : `${row.linked_property_count} properties`}
@@ -174,11 +177,13 @@ export default function MarketplaceCrmAccountsPage() {
                   <td className="px-3 py-2">
                     {editingId === row.id ? (
                       <div className="flex gap-2">
-                        <button className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground" onClick={onSaveEdit} disabled={updateAccount.isPending}>
+                        <Button size="sm" className="h-8" onClick={onSaveEdit} disabled={updateAccount.isPending}>
                           Save
-                        </button>
-                        <button
-                          className="h-8 rounded-md border border-input px-2 text-xs"
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
                           onClick={() => {
                             setEditingId(null);
                             setEditName('');
@@ -188,15 +193,17 @@ export default function MarketplaceCrmAccountsPage() {
                           }}
                         >
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     ) : (
-                      <button
-                        className="h-8 rounded-md border border-input px-2 text-xs"
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
                         onClick={() => startEdit(row.id, row.name, row.website, row.account_kind, row.owner_user_id)}
                       >
                         Edit
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>

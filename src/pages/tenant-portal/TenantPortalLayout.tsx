@@ -15,7 +15,6 @@ import {
   RefreshCw,
   CircleHelp,
   Shield,
-  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -91,13 +90,13 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                   to={item.href}
                   onClick={onNavigate}
                   className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                     isActive
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-primary/10 text-primary before:absolute before:bottom-2 before:left-0 before:top-2 before:w-[3px] before:rounded-r before:bg-accent'
                       : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                   )}
                 >
-                  <item.icon className="h-5 w-5 shrink-0" />
+                  <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
                   {item.label}
                 </Link>
               );
@@ -170,10 +169,6 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
           </div>
 
           <div className="flex-1 px-4 py-6">
-            <div className="mb-4 rounded-xl border border-border/70 bg-secondary/35 p-3">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Today Focus</p>
-              <p className="mt-1 text-xs text-foreground">Stay current on payments, messages, and maintenance updates.</p>
-            </div>
             <NavLinks />
           </div>
 
@@ -277,16 +272,15 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
         </div>
       </header>
 
-      <header className="hidden lg:flex sticky top-0 z-40 h-16 items-center justify-between border-b border-border/70 bg-card/95 backdrop-blur-sm px-6 lg:ml-64">
+      <header className="hidden lg:flex sticky top-0 z-40 h-16 items-center justify-between border-b border-border bg-card/95 backdrop-blur-sm px-6 lg:ml-64">
         <div>
           <p className="text-sm font-semibold text-foreground truncate">{propertyName}</p>
           <p className="text-[11px] text-muted-foreground truncate">Tenant organization overview</p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="h-9 rounded-full px-3 hidden xl:flex border-primary/30 bg-primary/5 text-primary font-display">
-            <Sparkles className="h-3.5 w-3.5 mr-1" />
-            Tenant Flow
+          <Badge variant="outline" className="hidden h-8 rounded-full border-border bg-muted/60 px-3 text-foreground xl:flex">
+            Tenant
           </Badge>
           <Button
             variant="ghost"
@@ -316,18 +310,6 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
 
       <main className="lg:pl-64">
         <div className="p-6 lg:p-8">
-          <div className="mb-4 rounded-xl border border-border/70 bg-card/85 backdrop-blur-sm px-3 py-2.5 card-shadow">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Tenant Command Strip</p>
-                <p className="text-sm font-medium text-foreground">Review due balances, open requests, and conversation updates in one flow.</p>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <Button variant="outline" size="sm" className="rounded-full h-8" onClick={() => navigate('/tenant/payments')}>Pay Dues</Button>
-                <Button variant="outline" size="sm" className="rounded-full h-8" onClick={() => navigate('/tenant/messages')}>Open Messages</Button>
-              </div>
-            </div>
-          </div>
           <MfaReminderBanner />
           {children}
         </div>

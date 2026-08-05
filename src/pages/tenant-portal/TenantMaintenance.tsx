@@ -8,12 +8,14 @@ import {
   Camera,
   X,
   Loader2,
-  Sparkles,
 } from 'lucide-react';
 import { SignedImage } from '@/components/ui/signed-image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { MetricCard } from '@/components/shared/MetricCard';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { StatusPill } from '@/components/shared/StatusPill';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -55,21 +57,21 @@ const getStatusBadge = (status: string) => {
   switch (status) {
     case 'submitted':
       return (
-        <Badge className="bg-info/10 text-info border-info/20 gap-1">
+        <StatusPill variant="info" className="gap-1">
           <AlertTriangle className="h-3 w-3" /> Submitted
-        </Badge>
+        </StatusPill>
       );
     case 'in_progress':
       return (
-        <Badge className="bg-warning/10 text-warning border-warning/20 gap-1">
+        <StatusPill variant="warning" className="gap-1">
           <Clock className="h-3 w-3" /> In Progress
-        </Badge>
+        </StatusPill>
       );
     case 'completed':
       return (
-        <Badge className="bg-success/10 text-success border-success/20 gap-1">
+        <StatusPill variant="success" className="gap-1">
           <CheckCircle className="h-3 w-3" /> Completed
-        </Badge>
+        </StatusPill>
       );
     default:
       return null;
@@ -79,13 +81,13 @@ const getStatusBadge = (status: string) => {
 const getPriorityBadge = (priority: string) => {
   switch (priority) {
     case 'urgent':
-      return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Urgent</Badge>;
+      return <StatusPill variant="destructive">Urgent</StatusPill>;
     case 'high':
-      return <Badge className="bg-warning/10 text-warning border-warning/20">High</Badge>;
+      return <StatusPill variant="warning">High</StatusPill>;
     case 'medium':
-      return <Badge className="bg-info/10 text-info border-info/20">Medium</Badge>;
+      return <StatusPill variant="info">Medium</StatusPill>;
     case 'low':
-      return <Badge variant="secondary">Low</Badge>;
+      return <StatusPill>Low</StatusPill>;
     default:
       return null;
   }
@@ -186,71 +188,18 @@ export default function TenantMaintenance() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-warning/15 via-background to-primary/10 p-5 md:p-6 card-shadow-md">
-        <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-warning/20 blur-3xl" />
-        <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
-        <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Service Desk</p>
-            <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Maintenance</h1>
-            <p className="text-muted-foreground">Submit and track maintenance requests</p>
-          </div>
-          <Badge variant="outline" className="w-fit rounded-full px-3 border-warning/30 bg-warning/5 text-warning font-display">
-            <Sparkles className="h-3.5 w-3.5 mr-1" />
-            Priority Routing
-          </Badge>
-        </div>
-      </section>
-
-      <div className="rounded-xl border border-border/70 bg-card/85 p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-foreground">Attach clear photos and details to speed up triage and dispatch.</p>
-        <Button className="gap-2" onClick={() => setIsNewRequestOpen(true)}>
-          <Plus className="h-4 w-4" />
-          New Request
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Service Desk"
+        title="Maintenance"
+        description="Submit and track maintenance requests."
+        action={<Button onClick={() => setIsNewRequestOpen(true)}><Plus className="h-4 w-4" />New Request</Button>}
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Open Requests</p>
-                <p className="text-2xl font-bold text-foreground">{openRequests.length}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-warning/10">
-                <Clock className="h-6 w-6 text-warning" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Completed</p>
-                <p className="text-2xl font-bold text-foreground">{completedRequests.length}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-success/10">
-                <CheckCircle className="h-6 w-6 text-success" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Avg. Response</p>
-                <p className="text-2xl font-bold text-foreground">2 days</p>
-              </div>
-              <div className="p-3 rounded-xl bg-info/10">
-                <Wrench className="h-6 w-6 text-info" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard title="Open Requests" value={openRequests.length} subtitle="Awaiting completion" icon={Clock} iconColor="bg-warning/10 text-warning" accent="warning" />
+        <MetricCard title="Completed" value={completedRequests.length} subtitle="Resolved requests" icon={CheckCircle} iconColor="bg-success/10 text-success" accent="success" />
+        <MetricCard title="Total Requests" value={requestRows.length} subtitle="All submitted requests" icon={Wrench} iconColor="bg-info/10 text-info" accent="info" />
       </div>
 
       {/* Requests */}
@@ -269,16 +218,7 @@ export default function TenantMaintenance() {
               </CardContent>
             </Card>
           ) : maintenanceRequests.length === 0 ? (
-            <Card className="card-shadow-md">
-              <CardContent className="py-12 text-center">
-                <Wrench className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                <p className="text-muted-foreground">No maintenance requests yet</p>
-                <Button className="mt-4 gap-2" onClick={() => setIsNewRequestOpen(true)}>
-                  <Plus className="h-4 w-4" />
-                  Create Your First Request
-                </Button>
-              </CardContent>
-            </Card>
+            <Card><EmptyState icon={Wrench} title="No maintenance requests yet" description="Submit an issue and track its progress here." action={<Button size="sm" onClick={() => setIsNewRequestOpen(true)}><Plus className="h-4 w-4" />Create Request</Button>} /></Card>
           ) : (
             <div className="space-y-4">
               {requestRows.map((request) => (
@@ -336,12 +276,7 @@ export default function TenantMaintenance() {
 
         <TabsContent value="open" className="space-y-4">
           {openRequests.length === 0 ? (
-            <Card className="card-shadow-md">
-              <CardContent className="py-12 text-center">
-                <CheckCircle className="h-12 w-12 text-success/50 mx-auto mb-4" />
-                <p className="text-muted-foreground">No open requests - all caught up!</p>
-              </CardContent>
-            </Card>
+            <Card><EmptyState icon={CheckCircle} title="No open requests" description="All submitted maintenance requests are complete." /></Card>
           ) : (
             <div className="space-y-4">
               {openRequests.map((request) => (

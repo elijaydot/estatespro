@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AppSidebar } from './AppSidebar';
 import { AppHeader } from './AppHeader';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/useAuth';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
@@ -47,9 +47,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background app-shell-gradient">
-      <div className="app-shell-orb app-shell-orb-a" aria-hidden />
-      <div className="app-shell-orb app-shell-orb-b" aria-hidden />
+    <div className="min-h-screen bg-background">
       <AppSidebar collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
       <div className={`${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'} flex min-h-screen flex-col transition-[margin] duration-300 ease-in-out relative z-10`}>
         <header className="lg:hidden sticky top-0 z-30 border-b border-border/70 bg-card/95 backdrop-blur-sm px-4 py-2.5">
@@ -60,7 +58,9 @@ export function AppLayout({ children }: AppLayoutProps) {
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="p-0 w-80 sm:w-96 max-w-[90vw] [&>button]:hidden">
+              <SheetContent side="left" className="w-80 max-w-[90vw] border-sidebar-border bg-sidebar p-0 sm:w-96 [&>button]:hidden">
+                <SheetTitle className="sr-only">Main navigation</SheetTitle>
+                <SheetDescription className="sr-only">Navigate FishGate modules and account settings.</SheetDescription>
                 <AppSidebar mobile onNavigate={() => setMobileNavOpen(false)} />
               </SheetContent>
             </Sheet>

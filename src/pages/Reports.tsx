@@ -252,10 +252,7 @@ export default function Reports() {
               <div>
                 <p className="text-sm text-muted-foreground">Total Revenue</p>
                 <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <TrendingUp className="h-4 w-4 text-success" />
-                  <span className="text-xs text-success">+12.5% from last period</span>
-                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Completed payments recorded</p>
               </div>
               <div className="p-3 rounded-xl bg-success/10">
                 <DollarSign className="h-6 w-6 text-success" />

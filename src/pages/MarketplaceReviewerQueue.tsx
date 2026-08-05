@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { Building2, Clock3, FileCheck2, History, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/useAuth';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -28,6 +29,9 @@ import {
   useReviewerVerificationDocumentHistory,
   useReviewerVerificationDocumentQueue,
 } from '@/hooks/useMarketplace';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { MetricCard } from '@/components/shared/MetricCard';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 export default function MarketplaceReviewerQueue() {
   const { user } = useAuth();
@@ -208,11 +212,7 @@ export default function MarketplaceReviewerQueue() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-border/60 bg-gradient-to-r from-indigo-500/10 via-cyan-500/10 to-emerald-500/10 p-6">
-        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Trust Ops</p>
-        <h1 className="text-2xl font-semibold">Reviewer Queue</h1>
-        <p className="text-sm text-muted-foreground">Pending publisher verifications and verification documents across marketplace operations.</p>
-      </section>
+      <PageHeader eyebrow="Trust Ops" title="Reviewer Queue" description="Pending publisher verifications and documents across marketplace operations." />
 
       <Card>
         <CardHeader>
@@ -254,18 +254,10 @@ export default function MarketplaceReviewerQueue() {
       </Card>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2"><CardDescription>Publisher Queue</CardDescription><CardTitle>{filteredPublisherRows.length}</CardTitle></CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardDescription>Document Queue</CardDescription><CardTitle>{filteredDocumentRows.length}</CardTitle></CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardDescription>Avg Publisher Age</CardDescription><CardTitle>{avgPublisherAge}d</CardTitle></CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardDescription>Avg Document Age</CardDescription><CardTitle>{avgDocumentAge}d</CardTitle></CardHeader>
-        </Card>
+        <MetricCard title="Publisher Queue" value={filteredPublisherRows.length} icon={Building2} />
+        <MetricCard title="Document Queue" value={filteredDocumentRows.length} icon={FileCheck2} accent="info" />
+        <MetricCard title="Avg Publisher Age" value={`${avgPublisherAge}d`} icon={Clock3} accent="warning" />
+        <MetricCard title="Avg Document Age" value={`${avgDocumentAge}d`} icon={History} accent="warning" />
       </div>
 
       <Card>
@@ -363,9 +355,7 @@ export default function MarketplaceReviewerQueue() {
           ))}
 
           {!publisherQueue.isLoading && filteredPublisherRows.length === 0 && (
-            <div className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-              No publisher verification records in the reviewer queue.
-            </div>
+            <EmptyState icon={Building2} title="No publisher verifications" description="No publisher records match the current queue filters." />
           )}
           {filteredPublisherRows.length > visiblePublisherRows.length ? (
             <div className="pt-2">
@@ -449,9 +439,7 @@ export default function MarketplaceReviewerQueue() {
           ))}
 
           {!documentQueue.isLoading && filteredDocumentRows.length === 0 && (
-            <div className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-              No verification document records in the reviewer queue.
-            </div>
+            <EmptyState icon={FileCheck2} title="No verification documents" description="No document records match the current queue filters." />
           )}
           {filteredDocumentRows.length > visibleDocumentRows.length ? (
             <div className="pt-2">
@@ -502,9 +490,7 @@ export default function MarketplaceReviewerQueue() {
           ))}
 
           {!publisherHistory.isLoading && !documentHistory.isLoading && auditTrail.length === 0 && (
-            <div className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-              No reviewer decision history yet.
-            </div>
+            <EmptyState icon={ShieldCheck} title="No reviewer history" description="Completed publisher and document decisions will appear here." />
           )}
           {auditTrail.length > visibleAuditTrail.length ? (
             <div className="pt-2">

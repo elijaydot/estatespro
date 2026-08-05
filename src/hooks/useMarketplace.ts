@@ -182,6 +182,7 @@ type LeadRow = {
   id: string;
   company_id: string;
   listing_id: string | null;
+  pipeline_kind?: CrmLead['pipeline_kind'];
   stage: string;
   status: string;
   priority: string;
@@ -297,11 +298,23 @@ export function useCrmLeads(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as CrmLead[];
 
-      const { data, error } = await supabase
+      const currentSchemaResult = await supabase
         .from('leads')
         .select('id, company_id, listing_id, pipeline_kind, stage, status, priority, score, assigned_to, created_at, last_activity_at, converted_at, lost_reason, marketplace_listings(title, slug), lead_contacts(full_name, email, phone_e164)')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
+
+      const usesLegacySchema = currentSchemaResult.error?.code === '42703'
+        && currentSchemaResult.error.message.includes('pipeline_kind');
+      const legacySchemaResult = usesLegacySchema
+        ? await supabase
+            .from('leads')
+            .select('id, company_id, listing_id, stage, status, priority, score, assigned_to, created_at, last_activity_at, converted_at, lost_reason, marketplace_listings(title, slug), lead_contacts(full_name, email, phone_e164)')
+            .eq('company_id', companyId)
+            .order('created_at', { ascending: false })
+        : null;
+      const data = legacySchemaResult?.data ?? currentSchemaResult.data;
+      const error = legacySchemaResult?.error ?? (usesLegacySchema ? null : currentSchemaResult.error);
 
       if (error) throw error;
 
@@ -309,6 +322,7 @@ export function useCrmLeads(companyId?: string | null) {
         const contacts = normalizeLeadContacts(lead.lead_contacts);
         return {
           ...lead,
+          pipeline_kind: lead.pipeline_kind || 'leasing',
           listing_title: lead.marketplace_listings?.title ?? null,
           listing_slug: lead.marketplace_listings?.slug ?? null,
           contact_name: contacts[0]?.full_name ?? null,

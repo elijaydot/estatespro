@@ -10,10 +10,12 @@ import {
   AlertCircle,
   Calendar,
   Building,
-  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { MetricCard } from '@/components/shared/MetricCard';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { StatusPill } from '@/components/shared/StatusPill';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 import { useSettings } from '@/contexts/useSettings';
 import { supabase } from '@/integrations/supabase/client';
@@ -119,81 +121,18 @@ export default function TenantRecurringBills() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-info/15 via-background to-success/10 p-5 md:p-6 card-shadow-md">
-        <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-info/20 blur-3xl" />
-        <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-success/20 blur-3xl" />
-        <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Amenity Billing</p>
-            <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Recurring Bills</h1>
-            <p className="text-muted-foreground">View your recurring amenity bills and charges</p>
-          </div>
-          <Badge variant="outline" className="w-fit rounded-full px-3 border-info/30 bg-info/5 text-info font-display">
-            <Sparkles className="h-3.5 w-3.5 mr-1" />
-            Predictable Monthly View
-          </Badge>
-        </div>
-      </section>
-
-      <div className="rounded-xl border border-border/70 bg-card/85 p-3">
-        <p className="text-sm text-foreground">Use effective monthly totals to budget quarterly and annual charges ahead of time.</p>
-      </div>
+      <PageHeader eyebrow="Amenity Billing" title="Recurring Bills" description="Review recurring utility, service, and amenity charges." />
 
       {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Active Bills</p>
-                <p className="text-2xl font-bold text-foreground">{recurringBills.length}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-primary/10">
-                <RefreshCw className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Monthly Total</p>
-                <p className="text-2xl font-bold text-foreground">{formatCurrency(monthlyTotal)}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-info/10">
-                <Calendar className="h-6 w-6 text-info" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Effective Monthly</p>
-                <p className="text-2xl font-bold text-foreground">{formatCurrency(effectiveMonthlyTotal)}</p>
-                <p className="text-xs text-muted-foreground">Including quarterly & yearly</p>
-              </div>
-              <div className="p-3 rounded-xl bg-success/10">
-                <RefreshCw className="h-6 w-6 text-success" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard title="Active Bills" value={recurringBills.length} subtitle="Current recurring charges" icon={RefreshCw} accent="primary" />
+        <MetricCard title="Monthly Total" value={formatCurrency(monthlyTotal)} subtitle="Monthly schedules only" icon={Calendar} iconColor="bg-info/10 text-info" accent="info" />
+        <MetricCard title="Effective Monthly" value={formatCurrency(effectiveMonthlyTotal)} subtitle="Including quarterly and yearly" icon={RefreshCw} iconColor="bg-success/10 text-success" accent="success" />
       </div>
 
       {/* Bills List */}
       {recurringBills.length === 0 ? (
-        <Card className="card-shadow-md">
-          <CardContent className="py-12 text-center">
-            <Building className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold">No Recurring Bills</h3>
-            <p className="text-muted-foreground mt-2">
-              Your property manager hasn't set up any recurring bills for your property yet.
-            </p>
-          </CardContent>
-        </Card>
+        <Card><EmptyState icon={Building} title="No recurring bills" description="Your property manager has not set up recurring charges for this property." /></Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {billRows.map((bill) => {
@@ -220,9 +159,9 @@ export default function TenantRecurringBills() {
                       <p className="text-2xl font-bold">{formatCurrency(bill.amount)}</p>
                       <p className="text-xs text-muted-foreground">{getFrequencyLabel(bill.frequency)}</p>
                     </div>
-                    <Badge variant="outline" className="capitalize">
+                    <StatusPill className="capitalize">
                       {bill.frequency}
-                    </Badge>
+                    </StatusPill>
                   </div>
                 </CardContent>
               </Card>

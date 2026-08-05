@@ -4,7 +4,6 @@ import {
   Wrench,
   Plus,
   Search,
-  Filter,
   MoreHorizontal,
   CheckCircle,
   Clock,
@@ -18,7 +17,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -55,6 +53,9 @@ import { useProperties } from '@/hooks/useProperties';
 import { useSendMaintenanceNotification } from '@/hooks/useMaintenanceNotifications';
 import { format } from 'date-fns';
 import { useVendors } from '@/hooks/useVendors';
+import { StatusPill } from '@/components/shared/StatusPill';
+import { FilterBar } from '@/components/shared/FilterBar';
+import { EmptyState } from '@/components/shared/EmptyState';
 
 type MaintenanceRequestRow = {
   id: string;
@@ -99,27 +100,27 @@ const getStatusBadge = (status: string) => {
   switch (status) {
     case 'completed':
       return (
-        <Badge className="bg-success/10 text-success border-success/20 gap-1">
+        <StatusPill variant="success" className="gap-1">
           <CheckCircle className="h-3 w-3" /> Completed
-        </Badge>
+        </StatusPill>
       );
     case 'in_progress':
       return (
-        <Badge className="bg-info/10 text-info border-info/20 gap-1">
+        <StatusPill variant="info" className="gap-1">
           <Clock className="h-3 w-3" /> In Progress
-        </Badge>
+        </StatusPill>
       );
     case 'submitted':
       return (
-        <Badge className="bg-warning/10 text-warning border-warning/20 gap-1">
+        <StatusPill variant="warning" className="gap-1">
           <AlertCircle className="h-3 w-3" /> Submitted
-        </Badge>
+        </StatusPill>
       );
     case 'cancelled':
       return (
-        <Badge className="bg-muted text-muted-foreground gap-1">
+        <StatusPill className="gap-1">
           <XCircle className="h-3 w-3" /> Cancelled
-        </Badge>
+        </StatusPill>
       );
     default:
       return null;
@@ -130,27 +131,27 @@ const getPriorityBadge = (priority: string) => {
   switch (priority) {
     case 'urgent':
       return (
-        <Badge className="bg-destructive/10 text-destructive border-destructive/20 gap-1">
+        <StatusPill variant="destructive" className="gap-1">
           <AlertTriangle className="h-3 w-3" /> Urgent
-        </Badge>
+        </StatusPill>
       );
     case 'high':
       return (
-        <Badge className="bg-warning/10 text-warning border-warning/20 gap-1">
+        <StatusPill variant="warning">
           High
-        </Badge>
+        </StatusPill>
       );
     case 'medium':
       return (
-        <Badge className="bg-info/10 text-info border-info/20 gap-1">
+        <StatusPill variant="info">
           Medium
-        </Badge>
+        </StatusPill>
       );
     case 'low':
       return (
-        <Badge className="bg-muted text-muted-foreground gap-1">
+        <StatusPill>
           Low
-        </Badge>
+        </StatusPill>
       );
     default:
       return null;
@@ -401,7 +402,7 @@ export default function Maintenance() {
       </div>
 
       {/* Filters & Search */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <FilterBar>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -411,11 +412,7 @@ export default function Maintenance() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button variant="outline" className="gap-2">
-          <Filter className="h-4 w-4" />
-          Filter
-        </Button>
-      </div>
+      </FilterBar>
 
       {/* Requests Table */}
       <Card className="card-shadow-md">
@@ -426,10 +423,12 @@ export default function Maintenance() {
             <>
               <div className="md:hidden divide-y">
                 {filteredRequests.length === 0 ? (
-                  <div className="py-12 px-6 text-center text-muted-foreground">
-                    <p className="font-medium text-foreground">No maintenance requests found</p>
-                    <p className="text-sm mt-1">Try adjusting your search query.</p>
-                  </div>
+                  <EmptyState
+                    icon={Wrench}
+                    title="No maintenance requests found"
+                    description="Try adjusting your search query or create a request."
+                    action={<Button size="sm" onClick={() => setIsCreateOpen(true)}><Plus className="h-4 w-4" />New Request</Button>}
+                  />
                 ) : (
                   filteredRequests.map((request) => (
                     <div key={request.id} className="p-4 space-y-3">
@@ -491,7 +490,7 @@ export default function Maintenance() {
               {filteredRequests.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No maintenance requests found
+                    <EmptyState icon={Wrench} title="No maintenance requests found" />
                   </TableCell>
                 </TableRow>
               ) : (

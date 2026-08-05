@@ -22,6 +22,9 @@ import { toast } from '@/components/ui/use-toast';
 import { useSettings } from '@/contexts/useSettings';
 import { useLease, useSignLease, useUploadSignature } from '@/hooks/useLeases';
 import { useCreateNotification } from '@/hooks/useNotifications';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { StatusPill } from '@/components/shared/StatusPill';
 
 type LeaseRelations = {
   tenants?: {
@@ -125,15 +128,9 @@ export default function TenantLeaseSign() {
 
   if (!lease) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
-        <h2 className="text-xl font-semibold">Lease Not Found</h2>
-        <p className="text-muted-foreground mt-2">
-          The lease you're looking for doesn't exist or has been removed.
-        </p>
-        <Button onClick={() => navigate('/tenant/lease')} className="mt-4">
-          Back to Lease
-        </Button>
+      <div className="space-y-6 animate-fade-in">
+        <PageHeader eyebrow="Lease Signature Flow" title="Sign Lease Agreement" description="Review and sign your lease agreement." />
+        <EmptyState icon={AlertCircle} title="Lease Not Found" description="This lease does not exist or is no longer available." action={<Button onClick={() => navigate('/tenant/lease')}>Back to Lease</Button>} />
       </div>
     );
   }
@@ -148,10 +145,7 @@ export default function TenantLeaseSign() {
   if (alreadySigned) {
     return (
       <div className="space-y-6 animate-fade-in">
-        <Button variant="ghost" onClick={() => navigate('/tenant/lease')} className="gap-2">
-          <ArrowLeft className="h-4 w-4" />
-          Back to Lease
-        </Button>
+        <PageHeader eyebrow="Lease Signature Flow" title="Lease Agreement" description={`Lease #${lease.lease_number}`} action={<Button variant="outline" onClick={() => navigate('/tenant/lease')}><ArrowLeft className="h-4 w-4" />Back to Lease</Button>} />
 
         <Card className="card-shadow-md border-success/20 bg-success/5">
           <CardContent className="pt-6">
@@ -163,9 +157,7 @@ export default function TenantLeaseSign() {
                 {format(new Date(lease.tenant_signed_at!), 'MMMM d, yyyy')}.
               </p>
               {lease.status === 'active' && (
-                <Badge className="mt-4 bg-success/10 text-success border-success/20">
-                  Lease Active
-                </Badge>
+                <StatusPill variant="success" className="mt-4">Lease Active</StatusPill>
               )}
             </div>
           </CardContent>
@@ -176,34 +168,7 @@ export default function TenantLeaseSign() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-info/15 via-background to-primary/10 p-5 md:p-6 card-shadow-md">
-        <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-info/20 blur-3xl" />
-        <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
-        <div className="relative flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/tenant/lease')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Lease Signature Flow</p>
-            <h1 className="font-display text-2xl font-bold text-foreground">Sign Lease Agreement</h1>
-            <p className="text-muted-foreground">Review and sign your lease for {unit?.unit_number}</p>
-          </div>
-        </div>
-      </section>
-
-      <div className="rounded-xl border border-border/70 bg-card/85 p-3">
-        <p className="text-sm text-foreground">Confirm terms and sign only when details match your agreed rental contract.</p>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/tenant/lease')}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h2 className="font-display text-xl font-bold text-foreground">Review Summary</h2>
-          <p className="text-muted-foreground">Lease #{lease.lease_number}</p>
-        </div>
-      </div>
+      <PageHeader eyebrow="Lease Signature Flow" title="Sign Lease Agreement" description={`Review lease #${lease.lease_number} for unit ${unit?.unit_number || 'N/A'}.`} action={<Button variant="outline" onClick={() => navigate('/tenant/lease')}><ArrowLeft className="h-4 w-4" />Back to Lease</Button>} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
@@ -340,21 +305,21 @@ export default function TenantLeaseSign() {
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Landlord</span>
                 {lease.landlord_signed_at ? (
-                  <Badge className="bg-success/10 text-success border-success/20 gap-1">
+                  <StatusPill variant="success" className="gap-1">
                     <CheckCircle className="h-3 w-3" /> Signed
-                  </Badge>
+                  </StatusPill>
                 ) : (
-                  <Badge variant="outline">Pending</Badge>
+                  <StatusPill>Pending</StatusPill>
                 )}
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Tenant</span>
                 {lease.tenant_signed_at ? (
-                  <Badge className="bg-success/10 text-success border-success/20 gap-1">
+                  <StatusPill variant="success" className="gap-1">
                     <CheckCircle className="h-3 w-3" /> Signed
-                  </Badge>
+                  </StatusPill>
                 ) : (
-                  <Badge variant="outline">Awaiting signature</Badge>
+                  <StatusPill variant="warning">Awaiting signature</StatusPill>
                 )}
               </div>
             </CardContent>

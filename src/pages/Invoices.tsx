@@ -4,7 +4,6 @@ import {
   FileText,
   Plus,
   Search,
-  Filter,
   Download,
   MoreHorizontal,
   Send,
@@ -21,7 +20,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -57,6 +55,9 @@ import { useTenants, type Tenant } from '@/hooks/useTenants';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { format } from 'date-fns';
+import { StatusPill } from '@/components/shared/StatusPill';
+import { FilterBar } from '@/components/shared/FilterBar';
+import { EmptyState } from '@/components/shared/EmptyState';
 
 type TenantWithRelations = Tenant & {
   units?: { unit_number: string | null } | null;
@@ -76,33 +77,33 @@ const getStatusBadge = (status: string) => {
   switch (status) {
     case 'paid':
       return (
-        <Badge className="bg-success/10 text-success border-success/20 gap-1">
+        <StatusPill variant="success" className="gap-1">
           <CheckCircle className="h-3 w-3" /> Paid
-        </Badge>
+        </StatusPill>
       );
     case 'pending':
       return (
-        <Badge className="bg-warning/10 text-warning border-warning/20 gap-1">
+        <StatusPill variant="warning" className="gap-1">
           <Clock className="h-3 w-3" /> Pending
-        </Badge>
+        </StatusPill>
       );
     case 'partial':
       return (
-        <Badge className="bg-info/10 text-info border-info/20 gap-1">
+        <StatusPill variant="info" className="gap-1">
           <AlertCircle className="h-3 w-3" /> Partial
-        </Badge>
+        </StatusPill>
       );
     case 'overdue':
       return (
-        <Badge className="bg-destructive/10 text-destructive border-destructive/20 gap-1">
+        <StatusPill variant="destructive" className="gap-1">
           <XCircle className="h-3 w-3" /> Overdue
-        </Badge>
+        </StatusPill>
       );
     case 'cancelled':
       return (
-        <Badge className="bg-muted text-muted-foreground gap-1">
+        <StatusPill className="gap-1">
           <XCircle className="h-3 w-3" /> Cancelled
-        </Badge>
+        </StatusPill>
       );
     default:
       return null;
@@ -384,7 +385,7 @@ export default function Invoices() {
       </div>
 
       {/* Filters & Search */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <FilterBar>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -394,17 +395,13 @@ export default function Invoices() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="grid grid-cols-2 sm:flex gap-2">
-          <Button variant="outline" className="gap-2 w-full sm:w-auto rounded-full px-4">
-            <Filter className="h-4 w-4" />
-            Filter
-          </Button>
-          <Button variant="outline" className="gap-2 w-full sm:w-auto rounded-full px-4" onClick={handleExport}>
+        <div className="sm:flex">
+          <Button variant="outline" className="w-full gap-2 sm:w-auto" onClick={handleExport}>
             <Download className="h-4 w-4" />
             Export
           </Button>
         </div>
-      </div>
+      </FilterBar>
 
       {/* Loading State */}
       {isLoading && (
@@ -439,14 +436,12 @@ export default function Invoices() {
           <CardContent className="p-0">
             <div className="md:hidden divide-y">
               {filteredInvoices.length === 0 ? (
-                <div className="py-12 px-6 text-center text-muted-foreground">
-                  <p className="font-medium text-foreground">No invoices found</p>
-                  <p className="text-sm mt-1">Try adjusting your search query or create a new invoice.</p>
-                  <Button size="sm" className="mt-4 rounded-full" onClick={() => setIsCreateOpen(true)}>
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    Create first invoice
-                  </Button>
-                </div>
+                <EmptyState
+                  icon={FileText}
+                  title="No invoices found"
+                  description="Try adjusting your search query or create a new invoice."
+                  action={<Button size="sm" onClick={() => setIsCreateOpen(true)}><Plus className="h-4 w-4" />Create invoice</Button>}
+                />
               ) : (
                 filteredInvoices.map((invoice, index) => (
                   <div key={invoice.id} className={`p-4 space-y-3 animate-enter ${index < 5 ? `stagger-${(index % 5) + 1}` : ''}`}>
@@ -514,13 +509,11 @@ export default function Invoices() {
                 {filteredInvoices.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                      <div className="space-y-3 py-4">
-                        <p>No invoices found</p>
-                        <Button size="sm" className="rounded-full" onClick={() => setIsCreateOpen(true)}>
-                          <Plus className="h-3.5 w-3.5 mr-1" />
-                          Create first invoice
-                        </Button>
-                      </div>
+                      <EmptyState
+                        icon={FileText}
+                        title="No invoices found"
+                        action={<Button size="sm" onClick={() => setIsCreateOpen(true)}><Plus className="h-4 w-4" />Create invoice</Button>}
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (

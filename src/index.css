@@ -7,7 +7,7 @@
 @layer base {
   :root {
     /* Estate Management Professional Theme */
-    --background: 220 20% 97%;
+    --background: 220 25% 98%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -16,8 +16,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Deep Navy Primary */
-    --primary: 213 56% 24%;
+    /* Clear action blue */
+    --primary: 217 91% 45%;
     --primary-foreground: 0 0% 100%;
 
     /* Warm Gray Secondary */
@@ -31,29 +31,35 @@
     --accent: 38 92% 50%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 78% 56%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 213 56% 24%;
+    --border: 220 16% 93%;
+    --input: 220 16% 93%;
+    --ring: 217 91% 45%;
 
-    --radius: 0.75rem;
+    --radius: 0.875rem;
+    --shadow-card: 0 1px 2px 0 hsl(220 20% 10% / 0.04), 0 1px 3px 0 hsl(220 20% 10% / 0.06);
 
     /* Status Colors */
-    --success: 142 71% 45%;
+    --success: 142 71% 42%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
+    --pill-success-bg: 142 71% 94%;
+    --pill-warning-bg: 38 92% 94%;
+    --pill-destructive-bg: 0 78% 95%;
+    --pill-info-bg: 199 89% 94%;
+    --pill-neutral-bg: 220 14% 94%;
 
     /* Sidebar */
-    --sidebar-background: 213 56% 18%;
+    --sidebar-background: 213 58% 15%;
     --sidebar-foreground: 220 20% 90%;
     --sidebar-primary: 38 92% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 213 56% 24%;
+    --sidebar-accent: 213 50% 22%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 213 40% 28%;
     --sidebar-ring: 38 92% 50%;
@@ -112,14 +118,6 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Roboto', 'Segoe UI', sans-serif;
-  }
-
-  h1,
-  h2,
-  h3,
-  .font-display {
-    font-family: 'Lato', 'Roboto', sans-serif;
   }
 }
 
@@ -184,7 +182,7 @@
   }
 
   .card-shadow {
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+    box-shadow: var(--shadow-card);
   }
 
   .card-shadow-md {

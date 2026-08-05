@@ -10,11 +10,13 @@ import {
   Calendar,
   ArrowUpRight,
   Loader2,
-  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { MetricCard } from '@/components/shared/MetricCard';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { StatusPill } from '@/components/shared/StatusPill';
 import {
   Table,
   TableBody,
@@ -85,21 +87,21 @@ const getStatusBadge = (status: string) => {
   switch (status) {
     case 'paid':
       return (
-        <Badge className="bg-success/10 text-success border-success/20 gap-1">
+        <StatusPill variant="success" className="gap-1">
           <CheckCircle className="h-3 w-3" /> Paid
-        </Badge>
+        </StatusPill>
       );
     case 'pending':
       return (
-        <Badge className="bg-warning/10 text-warning border-warning/20 gap-1">
+        <StatusPill variant="warning" className="gap-1">
           <Clock className="h-3 w-3" /> Pending
-        </Badge>
+        </StatusPill>
       );
     case 'overdue':
       return (
-        <Badge className="bg-destructive/10 text-destructive border-destructive/20 gap-1">
+        <StatusPill variant="destructive" className="gap-1">
           <AlertCircle className="h-3 w-3" /> Overdue
-        </Badge>
+        </StatusPill>
       );
     default:
       return null;
@@ -286,96 +288,19 @@ export default function TenantPayments() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-success/15 via-background to-primary/10 p-5 md:p-6 card-shadow-md">
-        <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-success/20 blur-3xl" />
-        <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
-        <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Tenant Billing Center</p>
-            <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Payments</h1>
-            <p className="text-muted-foreground">Manage your rent payments and view history</p>
-          </div>
-          <Badge variant="outline" className="w-fit rounded-full px-3 border-success/30 bg-success/5 text-success font-display">
-            <Sparkles className="h-3.5 w-3.5 mr-1" />
-            Always-On Billing
-          </Badge>
-        </div>
-      </section>
-
-      <div className="rounded-xl border border-border/70 bg-card/85 p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-foreground">Review your monthly due first, then settle outstanding invoices to keep your account healthy.</p>
-        <Button variant="outline" size="sm" className="rounded-full" onClick={handleExportHistory} disabled={payments.length === 0}>
-          <Download className="h-4 w-4 mr-2" />
-          Export History
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Tenant Billing Center"
+        title="Payments"
+        description="Manage rent payments and view your payment history."
+        action={<Button variant="outline" size="sm" onClick={handleExportHistory} disabled={payments.length === 0}><Download className="h-4 w-4" />Export History</Button>}
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Monthly Rent</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {formatCurrency(stats.monthlyRent || 0)}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-primary/10">
-                <DollarSign className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">+ Recurring Bills</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {formatCurrency(portalData.totalRecurringAmount || 0)}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-warning/10">
-                <Clock className="h-6 w-6 text-warning" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md border-primary/20 bg-primary/5">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Monthly Due</p>
-                <p className="text-2xl font-bold text-primary">
-                  {formatCurrency(stats.totalMonthlyDue || 0)}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-primary/10">
-                <CreditCard className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Current Balance</p>
-                <p className={`text-2xl font-bold ${stats.balance > 0 ? 'text-destructive' : 'text-success'}`}>
-                  {formatCurrency(stats.balance)}
-                </p>
-              </div>
-              <div className={`p-3 rounded-xl ${stats.balance > 0 ? 'bg-destructive/10' : 'bg-success/10'}`}>
-                {stats.balance > 0 ? (
-                  <AlertCircle className="h-6 w-6 text-destructive" />
-                ) : (
-                  <CheckCircle className="h-6 w-6 text-success" />
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard title="Monthly Rent" value={formatCurrency(stats.monthlyRent || 0)} subtitle="Base monthly charge" icon={DollarSign} accent="primary" />
+        <MetricCard title="Recurring Bills" value={formatCurrency(portalData.totalRecurringAmount || 0)} subtitle="Utilities and services" icon={Clock} iconColor="bg-warning/10 text-warning" accent="warning" />
+        <MetricCard title="Total Monthly Due" value={formatCurrency(stats.totalMonthlyDue || 0)} subtitle="Rent and recurring charges" icon={CreditCard} accent="primary" />
+        <MetricCard title="Current Balance" value={formatCurrency(stats.balance)} subtitle={stats.balance > 0 ? 'Payment due' : 'Account is current'} icon={stats.balance > 0 ? AlertCircle : CheckCircle} iconColor={stats.balance > 0 ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success'} accent={stats.balance > 0 ? 'destructive' : 'success'} />
       </div>
 
       {/* Recurring Bills Breakdown */}
@@ -448,10 +373,7 @@ export default function TenantPayments() {
         </CardHeader>
         <CardContent>
           {payments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No payment history yet</p>
-            </div>
+            <EmptyState icon={DollarSign} title="No payment history yet" description="Completed payments and downloadable receipts will appear here." />
           ) : (
             <Table>
               <TableHeader>

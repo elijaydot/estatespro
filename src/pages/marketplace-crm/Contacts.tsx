@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
+import { StatusPill } from '@/components/shared/StatusPill';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useCrmContacts, useMergeCrmContacts, useUpdateCrmContact } from '@/hooks/useMarketplaceCrm';
 import { findDuplicateContactGroups } from '@/lib/marketplaceCrmWorkflow';
@@ -59,13 +62,15 @@ export default function MarketplaceCrmContactsPage() {
                       <span className="text-muted-foreground">Duplicate:</span>
                       <span>{duplicate.full_name}</span>
                       <span className="text-muted-foreground">{duplicate.email || duplicate.phone_e164}</span>
-                      <button
-                        className="rounded border border-border px-2 py-1 text-xs"
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
                         onClick={() => mergeContacts.mutate({ primaryContactId: primary.id, duplicateContactId: duplicate.id })}
                         disabled={mergeContacts.isPending}
                       >
                         Merge into primary
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -98,12 +103,12 @@ export default function MarketplaceCrmContactsPage() {
                   <td className="px-3 py-2">{row.phone_e164}</td>
                   <td className="px-3 py-2">
                     {activeEditId === row.id ? (
-                      <input
-                        className="h-8 w-40 rounded-md border border-input px-2 text-xs"
+                      <Input
+                        className="h-8 w-40 text-xs"
                         value={editChannel}
                         onChange={(event) => setEditChannel(event.target.value)}
                       />
-                    ) : (row.preferred_channel || '-')}
+                    ) : (row.preferred_channel ? <StatusPill variant="info" className="capitalize">{row.preferred_channel}</StatusPill> : '-')}
                   </td>
                   <td className="px-3 py-2">
                     {row.tenant_id ? (
@@ -115,11 +120,11 @@ export default function MarketplaceCrmContactsPage() {
                   <td className="px-3 py-2">
                     {activeEditId === row.id ? (
                       <div className="flex gap-2">
-                        <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => saveChannel(row.id)} disabled={updateContact.isPending}>Save</button>
-                        <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => setActiveEditId(null)}>Cancel</button>
+                        <Button size="sm" className="h-8" onClick={() => saveChannel(row.id)} disabled={updateContact.isPending}>Save</Button>
+                        <Button variant="outline" size="sm" className="h-8" onClick={() => setActiveEditId(null)}>Cancel</Button>
                       </div>
                     ) : (
-                      <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => startEdit(row.id, row.preferred_channel)}>Edit Channel</button>
+                      <Button variant="outline" size="sm" className="h-8" onClick={() => startEdit(row.id, row.preferred_channel)}>Edit Channel</Button>
                     )}
                   </td>
                 </tr>

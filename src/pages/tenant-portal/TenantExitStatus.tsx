@@ -7,6 +7,10 @@ import { Separator } from '@/components/ui/separator';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 import { useSettings } from '@/contexts/useSettings';
 import { format } from 'date-fns';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { MetricCard } from '@/components/shared/MetricCard';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { StatusPill } from '@/components/shared/StatusPill';
 
 const STATUS_STEPS: Array<{ id: string; label: string }> = [
   { id: 'inspection_pending', label: 'Inspection Pending' },
@@ -32,9 +36,9 @@ export default function TenantExitStatus() {
 
   if (!portalData?.tenant) {
     return (
-      <div className="text-center py-12">
-        <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-warning" />
-        <p className="text-muted-foreground">Tenant profile is not linked yet.</p>
+      <div className="space-y-6 animate-fade-in">
+        <PageHeader eyebrow="Lease Transition" title="Exit Status" description="Track your move-out and deposit refund process." />
+        <EmptyState icon={AlertTriangle} title="Tenant profile not linked" description="Contact your property manager to link your account." />
       </div>
     );
   }
@@ -62,46 +66,24 @@ export default function TenantExitStatus() {
   if (!latestExit) {
     return (
       <div className="space-y-6 animate-fade-in">
-        <Card className="border-border/70 card-shadow-md">
-          <CardHeader>
-            <CardTitle>No Active Exit Process</CardTitle>
-            <CardDescription>
-              Your lease exit workflow has not been initiated yet.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">If you are planning to move out, contact your property manager to begin your exit process.</p>
-          </CardContent>
-        </Card>
+        <PageHeader eyebrow="Lease Transition" title="Exit Status" description="Track your move-out and deposit refund process." />
+        <Card><EmptyState icon={Clock3} title="No Active Exit Process" description="Contact your property manager when you are ready to begin your move-out process." /></Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <PageHeader eyebrow="Exit Timeline" title="Move-out Progress" description={`Requested on ${format(new Date(latestExit.created_at), 'MMM d, yyyy')} · Reason: ${toTitle(latestExit.exit_reason)}`} action={<StatusPill variant="info">{toTitle(latestExit.status)}</StatusPill>} />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <MetricCard title="Deposit Amount" value={formatCurrency(latestExit.deposit_amount)} icon={Wallet} />
+        <MetricCard title="Deductions" value={formatCurrency(latestExit.deduction_amount)} icon={FileSpreadsheet} accent="danger" />
+        <MetricCard title="Expected Refund" value={formatCurrency(latestExit.refund_amount)} icon={CheckCircle2} accent="success" />
+      </div>
+
       <Card className="border-border/70 card-shadow-md overflow-hidden">
-        <div className="bg-gradient-to-r from-primary/10 via-background to-info/10 p-6">
-          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Exit Timeline</p>
-          <h1 className="text-2xl font-bold mt-1">Move-out Progress</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Requested on {format(new Date(latestExit.created_at), 'MMM d, yyyy')} • Reason: {toTitle(latestExit.exit_reason)}
-          </p>
-        </div>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="rounded-xl border border-border/70 p-3 bg-card/80">
-              <p className="text-xs text-muted-foreground">Deposit amount</p>
-              <p className="text-xl font-bold">{formatCurrency(latestExit.deposit_amount)}</p>
-            </div>
-            <div className="rounded-xl border border-border/70 p-3 bg-card/80">
-              <p className="text-xs text-muted-foreground">Deductions</p>
-              <p className="text-xl font-bold text-destructive">{formatCurrency(latestExit.deduction_amount)}</p>
-            </div>
-            <div className="rounded-xl border border-border/70 p-3 bg-card/80">
-              <p className="text-xs text-muted-foreground">Expected refund</p>
-              <p className="text-xl font-bold text-success">{formatCurrency(latestExit.refund_amount)}</p>
-            </div>
-          </div>
 
           <div className="mt-6 space-y-2">
             {STATUS_STEPS.map((step, index) => {
@@ -113,7 +95,7 @@ export default function TenantExitStatus() {
                     {isDone ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Clock3 className="h-4 w-4 text-muted-foreground" />}
                     <p className="text-sm font-medium">{step.label}</p>
                   </div>
-                  {isCurrent && <Badge variant="outline" className="border-primary/30 text-primary">Current</Badge>}
+                  {isCurrent && <StatusPill variant="info">Current</StatusPill>}
                 </div>
               );
             })}
@@ -128,7 +110,7 @@ export default function TenantExitStatus() {
         <CardContent className="space-y-3 text-sm">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Current status</span>
-            <Badge variant="secondary">{toTitle(latestExit.status)}</Badge>
+            <StatusPill>{toTitle(latestExit.status)}</StatusPill>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Inspection date</span>

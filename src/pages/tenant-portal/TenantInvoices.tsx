@@ -8,12 +8,15 @@ import {
   XCircle,
   Loader2,
   Search,
-  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { FilterBar } from '@/components/shared/FilterBar';
+import { MetricCard } from '@/components/shared/MetricCard';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { StatusPill } from '@/components/shared/StatusPill';
 import {
   Table,
   TableBody,
@@ -55,27 +58,27 @@ const getStatusBadge = (status: string) => {
   switch (status) {
     case 'paid':
       return (
-        <Badge className="bg-success/10 text-success border-success/20 gap-1">
+        <StatusPill variant="success" className="gap-1">
           <CheckCircle className="h-3 w-3" /> Paid
-        </Badge>
+        </StatusPill>
       );
     case 'pending':
       return (
-        <Badge className="bg-warning/10 text-warning border-warning/20 gap-1">
+        <StatusPill variant="warning" className="gap-1">
           <Clock className="h-3 w-3" /> Pending
-        </Badge>
+        </StatusPill>
       );
     case 'partial':
       return (
-        <Badge className="bg-info/10 text-info border-info/20 gap-1">
+        <StatusPill variant="info" className="gap-1">
           <AlertCircle className="h-3 w-3" /> Partial
-        </Badge>
+        </StatusPill>
       );
     case 'overdue':
       return (
-        <Badge className="bg-destructive/10 text-destructive border-destructive/20 gap-1">
+        <StatusPill variant="destructive" className="gap-1">
           <XCircle className="h-3 w-3" /> Overdue
-        </Badge>
+        </StatusPill>
       );
     default:
       return null;
@@ -263,86 +266,18 @@ export default function TenantInvoices() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-info/15 via-background to-primary/10 p-5 md:p-6 card-shadow-md">
-        <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-info/20 blur-3xl" />
-        <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
-        <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Billing Documents</p>
-            <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Invoices</h1>
-            <p className="text-muted-foreground">View, settle, and download your invoices</p>
-          </div>
-          <Badge variant="outline" className="w-fit rounded-full px-3 border-info/30 bg-info/5 text-info font-display">
-            <Sparkles className="h-3.5 w-3.5 mr-1" />
-            Payment-Ready
-          </Badge>
-        </div>
-      </section>
-
-      <div className="rounded-xl border border-border/70 bg-card/85 p-3">
-        <p className="text-sm text-foreground">Use search and quick pay to clear pending balances, then keep PDFs for your records.</p>
-      </div>
+      <PageHeader eyebrow="Billing Documents" title="Invoices" description="View, settle, and download your invoices." />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Invoices</p>
-                <p className="text-2xl font-bold text-foreground">{stats.total}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-primary/10">
-                <FileText className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Pending</p>
-                <p className="text-2xl font-bold text-warning">{stats.pending}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-warning/10">
-                <Clock className="h-6 w-6 text-warning" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Paid</p>
-                <p className="text-2xl font-bold text-success">{stats.paid}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-success/10">
-                <CheckCircle className="h-6 w-6 text-success" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Outstanding</p>
-                <p className="text-2xl font-bold text-destructive">
-                  {formatCurrency(stats.totalAmount - stats.totalPaid)}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-destructive/10">
-                <AlertCircle className="h-6 w-6 text-destructive" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard title="Total Invoices" value={stats.total} subtitle="All billing documents" icon={FileText} accent="primary" />
+        <MetricCard title="Pending" value={stats.pending} subtitle="Awaiting payment" icon={Clock} iconColor="bg-warning/10 text-warning" accent="warning" />
+        <MetricCard title="Paid" value={stats.paid} subtitle="Settled invoices" icon={CheckCircle} iconColor="bg-success/10 text-success" accent="success" />
+        <MetricCard title="Outstanding" value={formatCurrency(stats.totalAmount - stats.totalPaid)} subtitle="Balance still due" icon={AlertCircle} iconColor="bg-destructive/10 text-destructive" accent="destructive" />
       </div>
 
       {/* Search */}
-      <div className="grid gap-3 lg:grid-cols-3">
+      <FilterBar className="grid gap-3 lg:grid-cols-3">
         <div className="relative lg:col-span-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -375,7 +310,7 @@ export default function TenantInvoices() {
             <option value="mtn_momo">Mobile Money</option>
           </select>
         </div>
-      </div>
+      </FilterBar>
 
       {paymentSettings?.payment_instructions ? (
         <div className="rounded-md border border-border bg-secondary/30 p-3 text-sm text-muted-foreground">
@@ -390,10 +325,7 @@ export default function TenantInvoices() {
         </CardHeader>
         <CardContent>
           {filteredInvoices.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No invoices found</p>
-            </div>
+            <EmptyState icon={FileText} title="No invoices found" description="Try a different search or check back when a new invoice is issued." />
           ) : (
             <Table>
               <TableHeader>

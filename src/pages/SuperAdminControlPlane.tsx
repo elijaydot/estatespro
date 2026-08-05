@@ -99,6 +99,8 @@ import {
 } from '@/lib/controlPlaneAnalytics';
 import { buildSafetyTimelineRows } from '@/lib/controlPlaneSafety';
 import { formatControlPlaneLabel, shortReference } from '@/lib/controlPlanePresentation';
+import { FilterBar } from '@/components/shared/FilterBar';
+import { MetricCard } from '@/components/shared/MetricCard';
 import {
   buildCorrelationFilterOptions,
   matchesCompanyFilter,
@@ -1518,13 +1520,13 @@ export default function SuperAdminControlPlane() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Platform Administration</p>
-          <h1 className="text-2xl font-bold text-foreground mt-1">Control Plane</h1>
-          <p className="text-sm text-muted-foreground mt-1">Monitor platform risk, access decisions, usage, and billing across organizations.</p>
+          <p className="text-xs font-medium uppercase text-muted-foreground">Platform Administration</p>
+          <h1 className="mt-1 text-3xl font-bold text-foreground">Control Plane</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Monitor platform risk, access decisions, usage, and billing across organizations.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {canOverride && (
             <div className="hidden sm:flex items-center gap-2 rounded-lg border border-border/70 px-3 py-2">
               <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1544,8 +1546,7 @@ export default function SuperAdminControlPlane() {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-8 gap-2">
+      <FilterBar className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-8">
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search module, action, company, correlation..." />
           <SearchableSelect
             options={companyFilterOptions}
@@ -1618,49 +1619,13 @@ export default function SuperAdminControlPlane() {
               <SelectItem value="resolved">Resolved</SelectItem>
             </SelectContent>
           </Select>
-        </CardContent>
-      </Card>
+      </FilterBar>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Open Alerts</p>
-              <Siren className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <p className="text-2xl font-bold mt-2">{openAlerts}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Blocked Events</p>
-              <Shield className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <p className="text-2xl font-bold mt-2">{blockedEvents}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">High Risk Events</p>
-              <Fingerprint className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <p className="text-2xl font-bold mt-2">{highRiskEvents}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Usage Snapshots</p>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <p className="text-2xl font-bold mt-2">{filteredUsage.length}</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard title="Open Alerts" value={openAlerts} subtitle="Requires platform review" icon={Siren} iconColor="bg-destructive/10 text-destructive" accent="destructive" />
+        <MetricCard title="Blocked Events" value={blockedEvents} subtitle="Denied in the selected range" icon={Shield} iconColor="bg-warning/10 text-warning" accent="warning" />
+        <MetricCard title="High Risk Events" value={highRiskEvents} subtitle="Elevated risk signals" icon={Fingerprint} iconColor="bg-info/10 text-info" accent="info" />
+        <MetricCard title="Usage Snapshots" value={filteredUsage.length} subtitle="Matching current filters" icon={Activity} accent="primary" />
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(normalizeTab(value))} className="w-full">

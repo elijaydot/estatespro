@@ -4,7 +4,6 @@ import {
   Home, 
   Plus, 
   Search, 
-  Filter, 
   MoreHorizontal,
   Bed,
   Bath,
@@ -17,7 +16,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -44,6 +42,9 @@ import { useProperties, type Property } from '@/hooks/useProperties';
 import { useSettings } from '@/contexts/useSettings';
 import { UnitPreviewCard } from '@/components/forms/UnitPreviewCard';
 import { useConfirmAction } from '@/components/ui/use-confirm-action';
+import { FilterBar } from '@/components/shared/FilterBar';
+import { StatusPill } from '@/components/shared/StatusPill';
+import { EmptyState } from '@/components/shared/EmptyState';
 
 type UnitTenant = {
   id: string;
@@ -64,11 +65,11 @@ const statusOptions = [
 const getStatusBadge = (status: string) => {
   switch (status) {
     case 'occupied':
-      return <Badge className="bg-info/10 text-info border-info/20">Occupied</Badge>;
+      return <StatusPill variant="info">Occupied</StatusPill>;
     case 'vacant':
-      return <Badge className="bg-success/10 text-success border-success/20">Vacant</Badge>;
+      return <StatusPill variant="success">Vacant</StatusPill>;
     case 'maintenance':
-      return <Badge className="bg-warning/10 text-warning border-warning/20">Maintenance</Badge>;
+      return <StatusPill variant="warning">Maintenance</StatusPill>;
     default:
       return null;
   }
@@ -185,7 +186,7 @@ export default function Units() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 animate-fade-in">
+      <FilterBar className="animate-fade-in">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -195,11 +196,7 @@ export default function Units() {
             className="pl-10"
           />
         </div>
-        <Button variant="outline" className="gap-2">
-          <Filter className="h-4 w-4" />
-          Filters
-        </Button>
-      </div>
+      </FilterBar>
 
       {/* Loading State */}
       {isLoading && (
@@ -300,13 +297,12 @@ export default function Units() {
 
       {/* Empty State */}
       {!isLoading && filteredUnits.length === 0 && (
-        <div className="text-center py-12">
-          <Home className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-foreground">No units found</h3>
-          <p className="text-muted-foreground mt-1">
-            Try adjusting your search or add a new unit.
-          </p>
-        </div>
+        <EmptyState
+          icon={Home}
+          title="No units found"
+          description="Try adjusting your search or add a new unit."
+          action={<Button onClick={() => setIsAddDialogOpen(true)}><Plus className="h-4 w-4" />Add Unit</Button>}
+        />
       )}
 
       {/* Add Unit Dialog */}

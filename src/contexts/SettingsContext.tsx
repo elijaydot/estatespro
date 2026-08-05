@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { isAbortLikeError } from '@/lib/errors';
 import { useAuth } from './useAuth';
 import { SettingsContext, SettingsContextType } from './settings-context-shared';
+import { applyAccentColor } from '@/lib/appearance';
 
 export interface AppSettings {
   id?: string;
@@ -58,6 +59,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
   }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    applyAccentColor(settings.accentColor);
+  }, [settings.accentColor]);
 
   const fetchSettings = async () => {
     try {

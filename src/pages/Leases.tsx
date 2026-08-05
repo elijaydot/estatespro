@@ -54,19 +54,22 @@ import { useCreateNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { DocumentIntelligence } from '@/components/ai/DocumentIntelligence';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { StatusPill } from '@/components/shared/StatusPill';
+import { FilterBar } from '@/components/shared/FilterBar';
+import { EmptyState } from '@/components/shared/EmptyState';
 
-const statusColors: Record<string, string> = {
-  draft: 'bg-muted text-muted-foreground',
-  pending_signature: 'bg-warning/10 text-warning border-warning/20',
-  active: 'bg-success/10 text-success border-success/20',
-  expired: 'bg-destructive/10 text-destructive border-destructive/20',
-  terminated: 'bg-muted text-muted-foreground',
+const statusVariants: Record<string, 'success' | 'warning' | 'destructive' | 'neutral'> = {
+  draft: 'neutral',
+  pending_signature: 'warning',
+  active: 'success',
+  expired: 'destructive',
+  terminated: 'neutral',
 };
 
-const renewalStatusColors: Record<string, string> = {
-  pending_renewal: 'bg-warning/10 text-warning border-warning/20',
-  renewed: 'bg-success/10 text-success border-success/20',
-  not_renewed: 'bg-muted text-muted-foreground',
+const renewalStatusVariants: Record<string, 'success' | 'warning' | 'neutral'> = {
+  pending_renewal: 'warning',
+  renewed: 'success',
+  not_renewed: 'neutral',
 };
 
 const getRenewalStatusLabel = (status: string) => {
@@ -490,7 +493,7 @@ export default function Leases() {
       </div>
 
       {/* Tabs and Search */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <FilterBar className="items-start sm:items-center sm:justify-between">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
@@ -504,7 +507,7 @@ export default function Leases() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search leases..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
         </div>
-      </div>
+      </FilterBar>
 
       {/* Leases Table */}
       <Card className="card-shadow-md">
@@ -515,7 +518,12 @@ export default function Leases() {
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Loading leases...</div>
           ) : filteredLeases.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">No leases found. Create one to get started.</div>
+            <EmptyState
+              icon={FileText}
+              title="No leases found"
+              description="Create a lease agreement to get started."
+              action={<Button size="sm" onClick={() => handleOpenDialog()}><Plus className="h-4 w-4" />Create Lease</Button>}
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -558,20 +566,20 @@ export default function Leases() {
                           <p className="text-sm">{format(new Date(lease.start_date), 'MMM d, yyyy')}</p>
                           <p className="text-xs text-muted-foreground">to {format(new Date(lease.end_date), 'MMM d, yyyy')}</p>
                           {lease.status === 'active' && daysRemaining > 0 && daysRemaining <= 30 && (
-                            <Badge variant="outline" className="mt-1 bg-warning/10 text-warning text-xs">{daysRemaining} days left</Badge>
+                            <StatusPill variant="warning" className="mt-1">{daysRemaining} days left</StatusPill>
                           )}
                         </div>
                       </TableCell>
                       <TableCell className="font-medium">{formatCurrency(lease.monthly_rent)}/mo</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={statusColors[lease.status] || 'bg-muted'}>
+                        <StatusPill variant={statusVariants[lease.status] || 'neutral'} className="capitalize">
                           {lease.status.replace('_', ' ')}
-                        </Badge>
+                        </StatusPill>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={renewalStatusColors[lease.renewal_status || 'not_renewed'] || 'bg-muted'}>
+                        <StatusPill variant={renewalStatusVariants[lease.renewal_status || 'not_renewed'] || 'neutral'}>
                           {getRenewalStatusLabel(lease.renewal_status || 'not_renewed')}
-                        </Badge>
+                        </StatusPill>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">

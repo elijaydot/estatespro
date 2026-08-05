@@ -13,10 +13,13 @@ const app = readFileSync(resolve('src/App.tsx'), 'utf8');
 const tenantLayout = readFileSync(resolve('src/pages/tenant-portal/TenantPortalLayout.tsx'), 'utf8');
 const settings = readFileSync(resolve('src/pages/Settings.tsx'), 'utf8');
 const controlPlane = readFileSync(resolve('src/pages/SuperAdminControlPlane.tsx'), 'utf8');
+const workspaceNavigation = readFileSync(resolve('src/lib/workspaceNavigation.ts'), 'utf8');
+const workspaceHook = readFileSync(resolve('src/hooks/useWorkspaceNavigation.ts'), 'utf8');
+const appHeader = readFileSync(resolve('src/components/layout/AppHeader.tsx'), 'utf8');
 
 describe('navigation information architecture', () => {
-  it('preserves every staff destination while grouping the primary sidebar', () => {
-    const destinations = [
+  it('preserves every staff destination across workspace-owned navigation', () => {
+    const sidebarDestinations = [
       '/dashboard',
       '/properties',
       '/units',
@@ -33,7 +36,6 @@ describe('navigation information architecture', () => {
       '/marketplace/moderation',
       '/marketplace/verification',
       '/marketplace/reviewer',
-      '/marketplace/crm',
       '/messages',
       '/broadcasts',
       '/notifications',
@@ -43,15 +45,16 @@ describe('navigation information architecture', () => {
       '/super-admin/control-plane',
     ];
 
-    for (const destination of destinations) {
+    for (const destination of sidebarDestinations) {
       expect(sidebar).toContain(`href: '${destination}'`);
     }
 
     expect(sidebar).toContain("label: 'Listings'");
     expect(sidebar).toContain("label: 'Booking Links'");
+    expect(sidebar).toContain('CRM_NAV_GROUPS.map');
     expect(sidebar).toContain("entitlementKey: 'marketplace.listings.manage'");
     expect(sidebar).toContain("entitlementKey: 'marketplace.moderation.view'");
-    expect(sidebar).toContain("entitlementKey: 'crm.leads.manage'");
+    expect(crmNavigation).toContain("entitlementKey: 'crm.leads.manage'");
   });
 
   it('keeps routed content aligned with the collapsible desktop sidebar', () => {
@@ -81,11 +84,37 @@ describe('navigation information architecture', () => {
       expect(crmNavigation).toContain(`href: '${destination}'`);
     }
 
-    for (const group of ['Workspace', 'Pipeline', 'Activities', 'Growth', 'Delivery', 'Configuration']) {
+    for (const group of ['Workspace', 'Pipeline', 'Activities', 'Growth', 'Delivery']) {
       expect(crmNavigation).toContain(`title: '${group}'`);
     }
 
-    expect(crmWorkspace).toContain('CRM_NAV_GROUPS.map');
+    expect(crmNavigation).not.toContain("title: 'Configuration'");
+    expect(crmNavigation.indexOf("label: 'Module Directory'")).toBeLessThan(crmNavigation.indexOf("title: 'Pipeline'"));
+
+    expect(sidebar).toContain('CRM_NAV_GROUPS.map');
+    expect(crmWorkspace).not.toContain('CRM_NAV_GROUPS.map');
+    expect(crmWorkspace).not.toContain('CRM primary views');
+  });
+
+  it('keeps broadcasts available in every staff workspace communication section', () => {
+    expect(sidebar).toContain("const managerCommunicationItem: NavItem = { icon: Megaphone, label: 'Broadcasts', href: '/broadcasts' }");
+    expect(sidebar).toContain("? [globalCommunicationItems[0], managerCommunicationItem, globalCommunicationItems[1]]");
+    expect(sidebar).not.toContain("currentWorkspaceId === 'property-management'\n      &&");
+  });
+
+  it('uses one shared route-derived workspace model for header and sidebar', () => {
+    for (const workspaceId of ['property-management', 'marketplace', 'crm', 'control-plane']) {
+      expect(workspaceNavigation).toContain(`'${workspaceId}'`);
+    }
+
+    for (const globalRoute of ['/messages', '/broadcasts', '/notifications', '/support', '/settings']) {
+      expect(workspaceNavigation).toContain(`'${globalRoute}'`);
+    }
+
+    expect(appHeader).toContain('useWorkspaceNavigation');
+    expect(sidebar).toContain('useWorkspaceNavigation');
+    expect(workspaceHook).toContain('fishgate_last_staff_workspace');
+    expect(workspaceHook).toContain('getWorkspaceLandingPath');
   });
 
   it('gates future messaging surfaces without deleting their implementation', () => {

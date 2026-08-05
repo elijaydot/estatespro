@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Download, Printer, RefreshCw } from 'lucide-react';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, MetricCard, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useSettings } from '@/contexts/useSettings';
 import { useCrmAssignableUsers, useCrmLeads } from '@/hooks/useMarketplace';
@@ -26,6 +29,7 @@ import {
   filterByOwner,
   type ReportDateRange,
 } from '@/lib/marketplaceCrmReports';
+import { downloadCsv } from '@/lib/download';
 
 export default function MarketplaceCrmReportsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -49,6 +53,7 @@ export default function MarketplaceCrmReportsPage() {
   const [dateRange, setDateRange] = useState<ReportDateRange>('30d');
   const [pipelineKind, setPipelineKind] = useState<'leasing' | 'renewal' | 'collections'>('leasing');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(searchParams.get('report'));
+  const [generatedAt, setGeneratedAt] = useState(() => new Date());
 
   const rows = useMemo(() => {
     const reportRows = reportsQuery.data || [];
@@ -106,6 +111,7 @@ export default function MarketplaceCrmReportsPage() {
     funnelQuery.data,
   ]);
   const leadStageRows = useMemo(() => computeLeadStageRows(filteredLeads), [filteredLeads]);
+  const maxStageCount = Math.max(1, ...leadStageRows.map((row) => row.count));
 
   const selectedReport = useMemo(() => (reportsQuery.data || []).find((row) => row.id === selectedReportId) || null, [reportsQuery.data, selectedReportId]);
 
@@ -129,6 +135,7 @@ export default function MarketplaceCrmReportsPage() {
 
   const openReport = (reportId: string) => {
     setSelectedReportId(reportId);
+    setGeneratedAt(new Date());
     const next = new URLSearchParams(searchParams);
     next.set('report', reportId);
     setSearchParams(next, { replace: true });
@@ -282,28 +289,153 @@ export default function MarketplaceCrmReportsPage() {
     contactsQuery.data,
   ]);
 
+  type ReportQueryState = {
+    isLoading: boolean;
+    isFetching: boolean;
+    error: unknown;
+    refetch: () => Promise<unknown>;
+  };
+
+  let selectedReportQueries: ReportQueryState[] = [];
+  switch (selectedReport?.id) {
+    case 'meeting-plan-vs-realized':
+    case 'checkins-salesperson':
+      selectedReportQueries = [meetingsQuery, assignableUsersQuery];
+      break;
+    case 'checkins-locality':
+      selectedReportQueries = [visitsQuery];
+      break;
+    case 'contact-mailing-list':
+      selectedReportQueries = [contactsQuery];
+      break;
+    case 'deals-closing-month':
+      selectedReportQueries = [dealsQuery];
+      break;
+    case 'verification-aging':
+    case 'trust-flag-load':
+      selectedReportQueries = [trustFlagsQuery];
+      break;
+    case 'inquiry-to-won-30d':
+      selectedReportQueries = [funnelQuery];
+      break;
+    case 'closed-won-handoff':
+      selectedReportQueries = [handoffsQuery];
+      break;
+  }
+
+  const reportIsLoading = selectedReportQueries.some((query) => query.isLoading || query.isFetching);
+  const reportError = selectedReportQueries.find((query) => query.error)?.error;
+
+  const refreshReport = async () => {
+    await Promise.all(selectedReportQueries.map((query) => query.refetch()));
+    setGeneratedAt(new Date());
+  };
+
+  const exportReport = () => {
+    if (!selectedReport) return;
+    downloadCsv(`${selectedReport.id}-${generatedAt.toISOString().slice(0, 10)}.csv`, reportPreviewRows.map((row) => ({
+      label: row.label,
+      value: row.value,
+    })));
+  };
+
+  const reportFilters = (
+    <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+      <select aria-label="Owner" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
+        <option value="all">All Owners</option>
+        {(assignableUsersQuery.data || []).map((user) => (
+          <option key={user.user_id} value={user.user_id}>{user.name}</option>
+        ))}
+      </select>
+      <select aria-label="Date range" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={dateRange} onChange={(event) => setDateRange(event.target.value as ReportDateRange)}>
+        <option value="7d">Last 7 days</option>
+        <option value="30d">Last 30 days</option>
+        <option value="90d">Last 90 days</option>
+        <option value="all">All time</option>
+      </select>
+      <select aria-label="Pipeline" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={pipelineKind} onChange={(event) => setPipelineKind(event.target.value as typeof pipelineKind)}>
+        <option value="leasing">Leasing</option>
+        <option value="renewal">Renewal</option>
+        <option value="collections">Collections</option>
+      </select>
+    </div>
+  );
+
+  if (selectedReport) {
+    return (
+      <CrmWorkspace title={selectedReport.name} subtitle={selectedReport.description}>
+        <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
+          <Button variant="ghost" className="w-fit gap-2" onClick={clearSelectedReport}>
+            <ArrowLeft className="h-4 w-4" />
+            Report Library
+          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={refreshReport} disabled={reportIsLoading}>
+              <RefreshCw className={`h-4 w-4 ${reportIsLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={exportReport} disabled={reportIsLoading || reportPreviewRows.length === 0}>
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <Badge variant="outline">{selectedReport.folder}</Badge>
+          <span>Generated {generatedAt.toLocaleString()}</span>
+          <span aria-hidden="true">•</span>
+          <span>{reportPreviewRows.length} result{reportPreviewRows.length === 1 ? '' : 's'}</span>
+        </div>
+
+        <CrmDataCard title="Report Filters" description="Adjust the scope; results update immediately.">
+          {reportFilters}
+        </CrmDataCard>
+
+        <CrmDataCard title="Report Results" description={`Generated from live CRM data for ${selectedReport.name}.`}>
+          {reportError ? (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              Unable to generate this report. {reportError instanceof Error ? reportError.message : 'Please refresh and try again.'}
+            </div>
+          ) : reportIsLoading ? (
+            <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              Generating report...
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-border/70">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2">Label</th>
+                    <th className="px-3 py-2">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportPreviewRows.map((row) => (
+                    <tr key={`${selectedReport.id}-${row.label}`} className="border-t border-border/60">
+                      <td className="px-3 py-2 font-medium">{row.label}</td>
+                      <td className="px-3 py-2">{String(row.value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {reportPreviewRows.length === 0 ? <div className="p-4"><EmptyState label="No data available for this report in the selected scope." /></div> : null}
+            </div>
+          )}
+        </CrmDataCard>
+      </CrmWorkspace>
+    );
+  }
+
   return (
     <CrmWorkspace title="Reports" subtitle="Pipeline, activity, and conversion reporting.">
       <CrmDataCard title="Report Filters" description="Filter reports by owner and date range.">
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
-            <option value="all">All Owners</option>
-            {(assignableUsersQuery.data || []).map((user) => (
-              <option key={user.user_id} value={user.user_id}>{user.name}</option>
-            ))}
-          </select>
-          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={dateRange} onChange={(event) => setDateRange(event.target.value as ReportDateRange)}>
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-            <option value="90d">Last 90 days</option>
-            <option value="all">All time</option>
-          </select>
-          <select aria-label="Pipeline" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={pipelineKind} onChange={(event) => setPipelineKind(event.target.value as typeof pipelineKind)}>
-            <option value="leasing">Leasing</option>
-            <option value="renewal">Renewal</option>
-            <option value="collections">Collections</option>
-          </select>
-        </div>
+        {reportFilters}
       </CrmDataCard>
 
       <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -318,6 +450,22 @@ export default function MarketplaceCrmReportsPage() {
       </section>
 
       <CrmDataCard title="Pipeline Stage Aging" description="Lead-stage bottlenecks and stagnation risk for the selected pipeline.">
+        {leadStageRows.length > 0 ? (
+          <div className="mb-4 space-y-3 rounded-lg border border-border bg-muted/20 p-4" aria-label="Lead distribution by pipeline stage">
+            {leadStageRows.map((row) => (
+              <div key={row.stage} className="grid grid-cols-[minmax(100px,160px)_1fr_36px] items-center gap-3">
+                <span className="truncate text-xs font-medium capitalize text-muted-foreground">{row.stage.replace(/_/g, ' ')}</span>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-primary to-info"
+                    style={{ width: `${Math.max(3, (row.count / maxStageCount) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-right text-xs font-semibold text-foreground">{row.count}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -372,33 +520,6 @@ export default function MarketplaceCrmReportsPage() {
         </div>
       </CrmDataCard>
 
-      {selectedReport ? (
-        <CrmDataCard
-          title={`Report View: ${selectedReport.name}`}
-          description="Results for the selected report and filters."
-          action={<button className="h-8 rounded-md border border-input px-3 text-xs" onClick={clearSelectedReport}>Close Report</button>}
-        >
-          <div className="overflow-x-auto rounded-lg border border-border/70">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2">Label</th>
-                  <th className="px-3 py-2">Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportPreviewRows.map((row) => (
-                  <tr key={`${selectedReport.id}-${row.label}`} className="border-t border-border/60">
-                    <td className="px-3 py-2 font-medium">{row.label}</td>
-                    <td className="px-3 py-2">{String(row.value)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {reportPreviewRows.length === 0 ? <div className="p-4"><EmptyState label="No data available for this report in current filters." /></div> : null}
-          </div>
-        </CrmDataCard>
-      ) : null}
     </CrmWorkspace>
   );
 }

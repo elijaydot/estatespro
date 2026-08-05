@@ -4,7 +4,6 @@ import {
   Building2, 
   Plus, 
   Search, 
-  Filter, 
   MoreHorizontal,
   MapPin,
   Home,
@@ -16,7 +15,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -42,6 +40,9 @@ import { useProperties, useCreateProperty, useDeleteProperty, type Property } fr
 import { useSettings } from '@/contexts/useSettings';
 import { PropertyPreviewCard } from '@/components/forms/PropertyPreviewCard';
 import { useConfirmAction } from '@/components/ui/use-confirm-action';
+import { FilterBar } from '@/components/shared/FilterBar';
+import { StatusPill } from '@/components/shared/StatusPill';
+import { EmptyState } from '@/components/shared/EmptyState';
 
 const propertyTypeOptions = [
   { value: 'apartment', label: 'Apartment', description: 'Multi-unit residential building' },
@@ -60,15 +61,15 @@ const getOccupancyColor = (occupied: number, total: number) => {
   return 'text-destructive';
 };
 
-const getPropertyTypeBadge = (type: string) => {
-  const styles: Record<string, string> = {
-    apartment: 'bg-info/10 text-info border-info/20',
-    house: 'bg-success/10 text-success border-success/20',
-    commercial: 'bg-accent/10 text-accent border-accent/20',
-    mixed: 'bg-primary/10 text-primary border-primary/20',
-    short_let: 'bg-warning/10 text-warning border-warning/20',
+const getPropertyTypeVariant = (type: string) => {
+  const variants: Record<string, 'success' | 'warning' | 'info' | 'neutral'> = {
+    apartment: 'info',
+    house: 'success',
+    commercial: 'warning',
+    mixed: 'neutral',
+    short_let: 'warning',
   };
-  return styles[type] || 'bg-muted text-muted-foreground';
+  return variants[type] || 'neutral';
 };
 
 export default function Properties() {
@@ -174,7 +175,7 @@ export default function Properties() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 animate-fade-in">
+      <FilterBar className="animate-fade-in">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -184,11 +185,7 @@ export default function Properties() {
             className="pl-10"
           />
         </div>
-        <Button variant="outline" className="gap-2">
-          <Filter className="h-4 w-4" />
-          Filters
-        </Button>
-      </div>
+      </FilterBar>
 
       {/* Loading State */}
       {isLoading && (
@@ -199,7 +196,7 @@ export default function Properties() {
 
       {/* Properties Grid */}
       {!isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredProperties.map((property, index: number) => (
             <Card
               key={property.id}
@@ -213,11 +210,12 @@ export default function Properties() {
                 ) : (
                   <Building2 className="h-16 w-16 text-primary/40" />
                 )}
-                <Badge
-                  className={`absolute top-3 right-3 ${getPropertyTypeBadge(property.type)}`}
+                <StatusPill
+                  variant={getPropertyTypeVariant(property.type)}
+                  className="absolute right-3 top-3 capitalize"
                 >
                   {property.type}
-                </Badge>
+                </StatusPill>
               </div>
 
               {/* Property Details */}
@@ -293,13 +291,12 @@ export default function Properties() {
 
       {/* Empty State */}
       {!isLoading && filteredProperties.length === 0 && (
-        <div className="text-center py-12">
-          <Building2 className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-foreground">No properties found</h3>
-          <p className="text-muted-foreground mt-1">
-            Try adjusting your search or add a new property.
-          </p>
-        </div>
+        <EmptyState
+          icon={Building2}
+          title="No properties found"
+          description="Try adjusting your search or add a new property."
+          action={<Button onClick={() => setIsAddDialogOpen(true)}><Plus className="h-4 w-4" />Add Property</Button>}
+        />
       )}
 
       {/* Add Property Dialog */}

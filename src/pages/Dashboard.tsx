@@ -7,13 +7,13 @@ import {
   AlertCircle,
   Wrench,
   Calendar,
-  ArrowUpRight,
   Receipt,
   FileText,
-  Sparkles,
-  WandSparkles,
+  Store,
+  BriefcaseBusiness,
+  Radar,
+  ArrowRight,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { OccupancyChart } from '@/components/dashboard/OccupancyChart';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
@@ -36,45 +36,10 @@ import { useSaasAccess } from '@/hooks/useSaasAccess';
 import { useOpenOperationalAlertCount } from '@/hooks/useOperationalAlerts';
 import { summarizeVendorPayments, useVendorPayments } from '@/hooks/useVendorPayments';
 import { useVendors } from '@/hooks/useVendors';
-
-function StatCard({ 
-  title, value, subtitle, icon: Icon, iconColor, trend, href, className
-}: { 
-  title: string; value: string; subtitle: string; icon: LucideIcon; iconColor: string; trend?: 'up' | 'down' | 'neutral'; href?: string; className?: string;
-}) {
-  const navigate = useNavigate();
-  return (
-    <div 
-      className={cn(
-        "group relative bg-card rounded-xl p-5 border border-border/60 hover:border-primary/20 transition-all duration-300 hover:shadow-md",
-        'hover:-translate-y-0.5',
-        className,
-        href && "cursor-pointer"
-      )}
-      onClick={() => href && navigate(href)}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{title}</p>
-          <p className="mt-1.5 text-2xl font-bold text-foreground tracking-tight">{value}</p>
-          <p className={cn(
-            "mt-1 text-xs font-medium",
-            trend === 'up' && "text-success",
-            trend === 'down' && "text-destructive",
-            (!trend || trend === 'neutral') && "text-muted-foreground"
-          )}>{subtitle}</p>
-        </div>
-        <div className={cn("shrink-0 p-2.5 rounded-lg", iconColor)}>
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/25 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-      {href && (
-        <ArrowUpRight className="absolute top-4 right-4 h-3.5 w-3.5 text-muted-foreground/0 group-hover:text-muted-foreground transition-all duration-200" />
-      )}
-    </div>
-  );
-}
+import { MetricCard } from '@/components/shared/MetricCard';
+import { useAuth } from '@/contexts/useAuth';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useUserRole } from '@/hooks/useUserRole';
 
 export default function Dashboard() {
   const { data: stats, isLoading } = useDashboardStats();
@@ -85,6 +50,9 @@ export default function Dashboard() {
   const { data: vendorPayments = [] } = useVendorPayments();
   const vendorPaymentTotals = summarizeVendorPayments(vendorPayments);
   const navigate = useNavigate();
+  const { profile, user } = useAuth();
+  const { companies, activeCompanyId } = useActiveCompany();
+  const { isSuperAdmin } = useUserRole();
 
   const quotaLabels: Record<string, string> = {
     properties_managed: 'Properties',
@@ -95,6 +63,47 @@ export default function Dashboard() {
   };
 
   const aiEnabled = entitlements['ai.assistant.enabled'];
+  const activeCompanyName = companies.find((company) => company.id === activeCompanyId)?.name;
+  const displayName = profile?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
+  const dateLabel = new Date().toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+  const workspaces = [
+    {
+      name: 'Property Management',
+      description: 'Portfolio, tenancy, and finance',
+      path: '/dashboard',
+      icon: Building2,
+      iconClassName: 'bg-primary/10 text-primary',
+      available: true,
+    },
+    {
+      name: 'Marketplace',
+      description: 'Listings and verification',
+      path: '/marketplace/manage',
+      icon: Store,
+      iconClassName: 'bg-warning/10 text-warning',
+      available: entitlements['marketplace.listings.manage'] || entitlements['marketplace.moderation.view'],
+    },
+    {
+      name: 'CRM',
+      description: 'Leads, deals, and activity',
+      path: '/marketplace/crm',
+      icon: BriefcaseBusiness,
+      iconClassName: 'bg-success/10 text-success',
+      available: entitlements['crm.leads.manage'] || entitlements['crm.deals.manage'],
+    },
+    {
+      name: 'Control Plane',
+      description: 'Platform health and governance',
+      path: '/super-admin/control-plane',
+      icon: Radar,
+      iconClassName: 'bg-info/10 text-info',
+      available: isSuperAdmin,
+    },
+  ].filter((workspace) => workspace.available);
 
   const attentionItems = stats
     ? [
@@ -132,9 +141,9 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 max-w-[1600px] pb-2">
       <div className="md:hidden space-y-4 animate-fade-in">
-        <div className="rounded-2xl border border-border/60 bg-card/95 p-4 card-shadow-md">
-          <p className="text-sm font-display font-semibold text-foreground">Welcome back {stats ? '' : ''}</p>
-          <p className="text-xs text-muted-foreground mt-1">Here is your organization overview</p>
+        <div className="rounded-lg border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+          <p className="text-sm font-semibold text-foreground">Welcome back, {displayName}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{activeCompanyName || 'Your organization'} · {dateLabel}</p>
         </div>
 
         <div className="rounded-2xl border border-border/60 bg-card p-4 card-shadow-md">
@@ -179,37 +188,55 @@ export default function Dashboard() {
 
       {/* Header */}
       <div className="animate-fade-in hidden md:block">
-        <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm p-4 sm:p-5 card-shadow-md overflow-hidden relative">
-          <div className="absolute -top-16 -right-10 h-44 w-44 rounded-full bg-accent/20 blur-2xl" aria-hidden />
-          <div className="absolute -bottom-16 left-10 h-32 w-32 rounded-full bg-primary/15 blur-2xl" aria-hidden />
-          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="border-b border-border pb-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/80 flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5" />
-                Portfolio Overview
-              </p>
-              <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground tracking-tight mt-1">Dashboard</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Current performance and priorities across your portfolio.
+              <h1 className="text-3xl font-bold text-foreground">Welcome back, {displayName}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {dateLabel}{activeCompanyName ? ` · ${activeCompanyName}` : ''}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-              <div className="rounded-full border border-border/70 bg-background/80 px-3 h-8 inline-flex items-center shadow-sm">
-                <p className="text-xs text-muted-foreground">
-                  Collection Focus: {isLoading || !stats ? '--' : formatCurrency(stats.pendingPayments + stats.overduePayments)}
-                </p>
-              </div>
-              <Button size="sm" variant="outline" className="rounded-full h-8" onClick={() => navigate('/reports')}>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => navigate('/reports')}>
                 Open Reports
               </Button>
-              <Button size="sm" className="rounded-full gap-1.5 h-8" onClick={() => navigate('/messages')}>
-                <WandSparkles className="h-3.5 w-3.5" />
-                Team Pulse
+              <Button size="sm" onClick={() => navigate('/messages')}>
+                Messages
               </Button>
             </div>
           </div>
         </div>
       </div>
+
+      {!saasLoading && (
+        <section aria-labelledby="workspace-launcher-title">
+          <div className="mb-3 flex items-end justify-between gap-4">
+            <div>
+              <h2 id="workspace-launcher-title" className="text-base font-semibold text-foreground">Your active modules</h2>
+              <p className="text-sm text-muted-foreground">Move between the workspaces available to your role and plan.</p>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {workspaces.map((workspace) => (
+              <button
+                key={workspace.name}
+                type="button"
+                onClick={() => navigate(workspace.path)}
+                className="group flex min-h-24 items-center gap-4 rounded-lg border border-border bg-card p-4 text-left shadow-[var(--shadow-card)] transition-colors hover:border-primary/25 hover:bg-muted/20"
+              >
+                <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-lg', workspace.iconClassName)}>
+                  <workspace.icon className="h-5 w-5" strokeWidth={1.75} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-foreground">{workspace.name}</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">{workspace.description}</span>
+                </span>
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {!isLoading && !stats && (
         <Card className="border-dashed">
@@ -307,14 +334,14 @@ export default function Dashboard() {
       )}
 
       {/* KPI Cards — 4 columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-[104px] rounded-xl" />
           ))
         ) : stats ? (
           <>
-            <StatCard
+            <MetricCard
               title="Properties"
               value={String(stats.totalProperties)}
               subtitle={`${stats.totalUnits} total units`}
@@ -323,7 +350,7 @@ export default function Dashboard() {
               className="animate-enter stagger-1"
               href="/properties"
             />
-            <StatCard
+            <MetricCard
               title="Occupancy"
               value={`${stats.occupancyRate}%`}
               subtitle={`${stats.occupiedUnits} of ${stats.totalUnits} units`}
@@ -332,7 +359,7 @@ export default function Dashboard() {
               className="animate-enter stagger-2"
               href="/units"
             />
-            <StatCard
+            <MetricCard
               title="Active Tenants"
               value={String(stats.activeTenants)}
               subtitle={`${stats.occupiedUnits} units occupied`}
@@ -342,7 +369,7 @@ export default function Dashboard() {
               className="animate-enter stagger-3"
               href="/tenants"
             />
-            <StatCard
+            <MetricCard
               title="Monthly Revenue"
               value={formatCurrency(stats.monthlyRevenue)}
               subtitle="This month"
@@ -372,14 +399,14 @@ export default function Dashboard() {
       </Card>
 
       {/* Shortlet KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {isLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-[104px] rounded-xl" />
           ))
         ) : stats ? (
           <>
-            <StatCard
+            <MetricCard
               title="Shortlet Conversion"
               value={`${stats.shortletConversionRate}%`}
               subtitle={`${stats.shortletTotalBookings} bookings total`}
@@ -388,7 +415,7 @@ export default function Dashboard() {
               className="animate-enter stagger-1"
               href="/reports"
             />
-            <StatCard
+            <MetricCard
               title="Shortlet Acceptance"
               value={`${stats.shortletAcceptanceRate}%`}
               subtitle="Guest acceptance rate"
@@ -397,7 +424,7 @@ export default function Dashboard() {
               className="animate-enter stagger-2"
               href="/reports"
             />
-            <StatCard
+            <MetricCard
               title="Avg Time To Pay"
               value={`${stats.shortletAvgTimeToPayHours}h`}
               subtitle="From booking to first payment"
@@ -411,14 +438,14 @@ export default function Dashboard() {
       </div>
 
       {/* Financial alerts — 4 columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-[104px] rounded-xl" />
           ))
         ) : stats ? (
           <>
-            <StatCard
+            <MetricCard
               title="Pending Payments"
               value={formatCurrency(stats.pendingPayments)}
               subtitle={`${stats.pendingPaymentsCount} invoices pending`}
@@ -427,7 +454,7 @@ export default function Dashboard() {
               className="animate-enter stagger-1"
               href="/invoices"
             />
-            <StatCard
+            <MetricCard
               title="Overdue"
               value={formatCurrency(stats.overduePayments)}
               subtitle={`${stats.overduePaymentsCount} overdue invoices`}
@@ -437,7 +464,7 @@ export default function Dashboard() {
               className="animate-enter stagger-2"
               href="/invoices"
             />
-            <StatCard
+            <MetricCard
               title="Maintenance"
               value={String(stats.maintenanceRequests)}
               subtitle={`${stats.maintenanceInProgress} in progress`}
@@ -446,7 +473,7 @@ export default function Dashboard() {
               className="animate-enter stagger-3"
               href="/maintenance"
             />
-            <StatCard
+            <MetricCard
               title="Renewals"
               value={String(stats.upcomingRenewals)}
               subtitle="Next 30 days"

@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { useSettings } from '@/contexts/useSettings';
 import { ColorPicker } from '@/components/ui/color-picker';
+import { applyAccentColor } from '@/lib/appearance';
 
 export function AppearanceSettings() {
   const { settings, updateSettings, isLoading } = useSettings();
@@ -20,38 +21,7 @@ export function AppearanceSettings() {
 
   // Live preview accent color
   useEffect(() => {
-    const root = document.documentElement;
-    const hexToRgb = (hex: string) => {
-      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-      return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
-    };
-    const rgbToHsl = (r: number, g: number, b: number) => {
-      r /= 255; g /= 255; b /= 255;
-      const max = Math.max(r, g, b), min = Math.min(r, g, b);
-      let h = 0, s = 0;
-      const l = (max + min) / 2;
-      if (max !== min) {
-        const d = max - min;
-        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-        switch (max) {
-          case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-          case g: h = ((b - r) / d + 2) / 6; break;
-          case b: h = ((r - g) / d + 4) / 6; break;
-        }
-      }
-      return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
-    };
-    const rgb = hexToRgb(accentColor);
-    if (rgb) {
-      const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-      root.style.setProperty('--accent', hsl);
-      root.style.setProperty('--primary', hsl);
-      root.style.setProperty('--ring', hsl);
-      const yiq = ((rgb.r * 299) + (rgb.g * 587) + (rgb.b * 114)) / 1000;
-      const fg = yiq >= 128 ? '222.2 84% 4.9%' : '210 40% 98%';
-      root.style.setProperty('--primary-foreground', fg);
-      root.style.setProperty('--accent-foreground', fg);
-    }
+    applyAccentColor(accentColor);
   }, [accentColor]);
 
   const handleSave = async () => {

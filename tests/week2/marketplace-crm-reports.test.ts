@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   computeDealAgingRows,
   computeExecutionSummary,
@@ -9,7 +11,35 @@ import {
   rangeToStartTimestamp,
 } from '../../src/lib/marketplaceCrmReports';
 
+const reportsPage = readFileSync(resolve('src/pages/marketplace-crm/Reports.tsx'), 'utf8');
+const crmHooks = readFileSync(resolve('src/hooks/useMarketplaceCrm.ts'), 'utf8');
+
 describe('marketplace CRM reports helpers', () => {
+  it('generates every report-library definition in a dedicated report view', () => {
+    const reportIds = [
+      'meeting-plan-vs-realized',
+      'checkins-salesperson',
+      'checkins-locality',
+      'contact-mailing-list',
+      'deals-closing-month',
+      'verification-aging',
+      'inquiry-to-won-30d',
+      'trust-flag-load',
+      'closed-won-handoff',
+    ];
+
+    for (const reportId of reportIds) {
+      expect(crmHooks).toContain(`id: '${reportId}'`);
+      expect(reportsPage).toContain(`case '${reportId}'`);
+    }
+
+    expect(reportsPage).toContain('if (selectedReport)');
+    expect(reportsPage.indexOf('if (selectedReport)')).toBeLessThan(reportsPage.indexOf('title="Report Library"'));
+    for (const action of ['Report Library', 'Refresh', 'Export CSV', 'Print', 'Report Results']) {
+      expect(reportsPage).toContain(action);
+    }
+  });
+
   it('keeps lead funnels non-empty and separated when there are no deals', () => {
     const leads = [
       { id: 'l1', company_id: 'c1', listing_id: null, pipeline_kind: 'leasing' as const, stage: 'qualified', status: 'open', priority: 'normal', score: 0, assigned_to: null, created_at: '2026-06-01T00:00:00.000Z', last_activity_at: null, converted_at: null, lost_reason: null },

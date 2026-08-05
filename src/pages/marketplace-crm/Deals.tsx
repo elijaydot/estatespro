@@ -15,15 +15,18 @@ import {
   useStartCrmDealHandoff,
   useTransitionCrmDealStage,
 } from '@/hooks/useMarketplaceCrm';
+import { StatusPill } from '@/components/shared/StatusPill';
 
 const LEAD_STAGES = ['new', 'attempted_contact', 'contacted', 'qualified', 'viewing_scheduled', 'offer_made', 'lease_in_progress', 'converted', 'lost'];
 
-function dealStageChipClass(stage: string) {
-  if (stage === 'converted') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
-  if (stage === 'lost') return 'bg-rose-500/15 text-rose-700 border-rose-500/30';
-  if (stage === 'offer_made' || stage === 'lease_in_progress') return 'bg-amber-500/15 text-amber-700 border-amber-500/30';
-  return 'bg-sky-500/10 text-sky-700 border-sky-500/30';
+function dealStageVariant(stage: string) {
+  if (stage === 'converted') return 'success' as const;
+  if (stage === 'lost') return 'destructive' as const;
+  if (stage === 'offer_made' || stage === 'lease_in_progress') return 'warning' as const;
+  return 'info' as const;
 }
+
+const SUMMARY_STAGES = ['new', 'contacted', 'qualified', 'offer_made', 'converted'] as const;
 
 export default function MarketplaceCrmDealsPage() {
   const { activeCompanyId } = useActiveCompany();
@@ -237,13 +240,16 @@ export default function MarketplaceCrmDealsPage() {
       </CrmDataCard>
 
       <CrmDataCard title="Pipeline Board" description="Review and update opportunities by stage.">
+        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+          {SUMMARY_STAGES.map((stage) => (
+            <div key={stage} className="rounded-lg border border-border bg-card p-3 shadow-[var(--shadow-card)]">
+              <p className="text-xs font-medium capitalize text-muted-foreground">{stage.replace(/_/g, ' ')}</p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">{(grouped[stage] || []).length}</p>
+            </div>
+          ))}
+        </div>
         <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto">
-          <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-emerald-700">won</span>
-            <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-700">negotiation</span>
-            <span className="inline-flex items-center rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-rose-700">lost</span>
-          </div>
           <div className="flex min-w-max gap-3 pb-2">
             {LEAD_STAGES.map((stage) => (
               <div key={stage} className="w-72 rounded-xl border border-border/70 bg-card/80 p-3 shadow-sm">
@@ -256,7 +262,7 @@ export default function MarketplaceCrmDealsPage() {
                     <div key={deal.id} className="rounded-lg border border-border/70 bg-background/90 p-2.5 text-sm shadow-sm">
                       <div className="mb-1 flex items-start justify-between gap-2">
                         <p className="font-medium leading-tight">{deal.deal_name}</p>
-                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${dealStageChipClass(deal.stage)}`}>{deal.stage.replace(/_/g, ' ')}</span>
+                        <StatusPill variant={dealStageVariant(deal.stage)}>{deal.stage.replace(/_/g, ' ')}</StatusPill>
                       </div>
                       <p className="text-xs text-muted-foreground">{formatDealAmount(deal.amount)}</p>
                       <p className="text-xs text-muted-foreground">Probability: {deal.probability}%</p>

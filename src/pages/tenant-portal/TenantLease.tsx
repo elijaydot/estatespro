@@ -13,7 +13,6 @@ import {
   AlertCircle,
   FileSignature,
   Loader2,
-  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +23,9 @@ import { useSettings } from '@/contexts/useSettings';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { StatusPill } from '@/components/shared/StatusPill';
 
 type LeaseView = {
   id: string;
@@ -90,14 +92,8 @@ export default function TenantLease() {
   if (!portalData || !portalData.tenant) {
     return (
       <div className="space-y-6 animate-fade-in">
-        <div className="text-center py-12">
-          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-xl font-semibold">Account Not Linked</h2>
-          <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-            Your account hasn't been linked to a tenant profile yet. 
-            Please contact your property manager for assistance.
-          </p>
-        </div>
+        <PageHeader eyebrow="Lease Details" title="Lease Agreement" description="View your lease agreement and documents." />
+        <EmptyState icon={AlertCircle} title="Account Not Linked" description="Your account has not been linked to a tenant profile. Contact your property manager for assistance." />
       </div>
     );
   }
@@ -111,34 +107,14 @@ export default function TenantLease() {
 
     return (
       <div className="space-y-6 animate-fade-in">
-        <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-warning/15 via-background to-info/10 p-5 md:p-6 card-shadow-md">
-          <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-warning/20 blur-3xl" />
-          <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-info/20 blur-3xl" />
-          <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Lease Details</p>
-              <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Lease Agreement</h1>
-              <p className="text-muted-foreground">Review and sign your lease agreement</p>
-            </div>
-            <Badge className="bg-warning/10 text-warning border-warning/20 gap-1 text-sm px-3 py-1 w-fit">
-              <AlertCircle className="h-4 w-4" /> Signature Required
-            </Badge>
-          </div>
-        </section>
-
-        <div className="rounded-xl border border-border/70 bg-card/85 p-3">
-          <p className="text-sm text-foreground">Validate terms carefully, then complete your signature to activate the lease.</p>
-        </div>
+        <PageHeader eyebrow="Lease Details" title="Lease Agreement" description="Review and sign your lease agreement." action={<StatusPill variant="warning"><AlertCircle className="h-3.5 w-3.5" />Signature Required</StatusPill>} />
 
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-display text-xl font-bold text-foreground">Pending Signature</h2>
             <p className="text-muted-foreground">Lease #{lease.lease_number}</p>
           </div>
-          <Badge variant="outline" className="rounded-full px-3 border-primary/30 bg-primary/5 text-primary font-display">
-            <Sparkles className="h-3.5 w-3.5 mr-1" />
-            Ready To Sign
-          </Badge>
+          <StatusPill variant="info">Ready To Sign</StatusPill>
         </div>
 
         <Card className="card-shadow-md border-warning/20 bg-warning/5">
@@ -190,9 +166,7 @@ export default function TenantLease() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Status</p>
-                  <Badge variant="outline" className="bg-warning/10 text-warning">
-                    Pending Signature
-                  </Badge>
+                  <StatusPill variant="warning">Pending Signature</StatusPill>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Start Date</p>
@@ -254,39 +228,8 @@ export default function TenantLease() {
   if (!currentLease) {
     return (
       <div className="space-y-6 animate-fade-in">
-        <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-info/15 via-background to-primary/10 p-5 md:p-6 card-shadow-md">
-          <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-info/20 blur-3xl" />
-          <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
-          <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Lease Details</p>
-              <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Lease Details</h1>
-              <p className="text-muted-foreground">View your lease agreement and documents</p>
-            </div>
-            <Badge variant="outline" className="w-fit rounded-full px-3 border-primary/30 bg-primary/5 text-primary font-display">
-              <Sparkles className="h-3.5 w-3.5 mr-1" />
-              Awaiting Lease
-            </Badge>
-          </div>
-        </section>
-
-        <div className="rounded-xl border border-border/70 bg-card/85 p-3">
-          <p className="text-sm text-foreground">Your signed lease will appear here once shared by your property manager.</p>
-        </div>
-
-        <div>
-          <h2 className="font-display text-xl font-bold text-foreground">Lease Details</h2>
-          <p className="text-muted-foreground">View your lease agreement and documents</p>
-        </div>
-        <Card className="card-shadow-md">
-          <CardContent className="py-12 text-center">
-            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold">No Active Lease</h3>
-            <p className="text-muted-foreground mt-2">
-              You don't have an active lease at the moment. Please contact your property manager for more information.
-            </p>
-          </CardContent>
-        </Card>
+        <PageHeader eyebrow="Lease Details" title="Lease Agreement" description="View your lease agreement and documents." action={<StatusPill>Awaiting Lease</StatusPill>} />
+        <Card><EmptyState icon={FileText} title="No Active Lease" description="Your signed lease will appear here once shared by your property manager." /></Card>
       </div>
     );
   }
@@ -299,34 +242,16 @@ export default function TenantLease() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-info/15 via-background to-primary/10 p-5 md:p-6 card-shadow-md">
-        <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-info/20 blur-3xl" />
-        <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
-        <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Lease Details</p>
-            <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Lease Details</h1>
-            <p className="text-muted-foreground">View your lease agreement and documents</p>
-          </div>
-          <Badge variant="outline" className="w-fit rounded-full px-3 border-primary/30 bg-primary/5 text-primary font-display">
-            <Sparkles className="h-3.5 w-3.5 mr-1" />
-            Active Contract
-          </Badge>
-        </div>
-      </section>
-
-      <div className="rounded-xl border border-border/70 bg-card/85 p-3">
-        <p className="text-sm text-foreground">Track key lease dates, payment terms, and signature status in one place.</p>
-      </div>
+      <PageHeader eyebrow="Lease Details" title="Lease Agreement" description="View your lease agreement and documents." action={<StatusPill variant="success"><CheckCircle className="h-3.5 w-3.5" />Active</StatusPill>} />
 
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-display text-xl font-bold text-foreground">Current Lease</h2>
           <p className="text-muted-foreground">View your lease agreement and documents</p>
         </div>
-        <Badge className="bg-success/10 text-success border-success/20 gap-1 text-sm px-3 py-1">
+        <StatusPill variant="success" className="gap-1">
           <CheckCircle className="h-4 w-4" /> Active Lease
-        </Badge>
+        </StatusPill>
       </div>
 
       {/* Lease Status Card */}

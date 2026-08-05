@@ -4,7 +4,6 @@ import {
   Users, 
   Plus, 
   Search, 
-  Filter, 
   MoreHorizontal,
   Mail,
   Phone,
@@ -69,6 +68,10 @@ import { useTenantExits, type TenantExit } from '@/hooks/useTenantExits';
 import { Card, CardContent } from '@/components/ui/card';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useConfirmAction } from '@/components/ui/use-confirm-action';
+import { FilterBar } from '@/components/shared/FilterBar';
+import { StatusPill } from '@/components/shared/StatusPill';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { DataTable } from '@/components/shared/DataTable';
 
 type TenantRow = Tenant & {
   units?: {
@@ -91,17 +94,17 @@ const getErrorMessage = (error: unknown) => {
 };
 
 const getLeaseStatusBadge = (leaseEndDate: string | null) => {
-  if (!leaseEndDate) return <Badge className="bg-muted text-muted-foreground">No Lease</Badge>;
+  if (!leaseEndDate) return <StatusPill>No Lease</StatusPill>;
   
   const daysUntilEnd = differenceInDays(new Date(leaseEndDate), new Date());
   
   if (daysUntilEnd < 0) {
-    return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Expired</Badge>;
+    return <StatusPill variant="destructive">Expired</StatusPill>;
   }
   if (daysUntilEnd <= 30) {
-    return <Badge className="bg-warning/10 text-warning border-warning/20">Expiring Soon</Badge>;
+    return <StatusPill variant="warning">Expiring Soon</StatusPill>;
   }
-  return <Badge className="bg-success/10 text-success border-success/20">Active</Badge>;
+  return <StatusPill variant="success">Active</StatusPill>;
 };
 
 const getInitials = (name: string) => {
@@ -366,7 +369,7 @@ export default function Tenants() {
 
         <TabsContent value="tenants" className="space-y-4 mt-4">
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
+          <FilterBar>
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -376,11 +379,7 @@ export default function Tenants() {
                 className="pl-10"
               />
             </div>
-            <Button variant="outline" className="gap-2">
-              <Filter className="h-4 w-4" />
-              Filters
-            </Button>
-          </div>
+          </FilterBar>
 
           {/* Loading State */}
           {isLoading && (
@@ -391,7 +390,7 @@ export default function Tenants() {
 
       {/* Tenants Table */}
       {!isLoading && filteredTenants.length > 0 && (
-        <div className="bg-card rounded-xl card-shadow-md overflow-hidden animate-fade-in">
+        <DataTable className="animate-fade-in">
           <Table>
             <TableHeader>
               <TableRow>
@@ -524,18 +523,17 @@ export default function Tenants() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </DataTable>
       )}
 
       {/* Empty State */}
       {!isLoading && filteredTenants.length === 0 && (
-        <div className="text-center py-12">
-          <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-foreground">No tenants found</h3>
-          <p className="text-muted-foreground mt-1">
-            Try adjusting your search or add a new tenant.
-          </p>
-        </div>
+        <EmptyState
+          icon={Users}
+          title="No tenants found"
+          description="Try adjusting your search or add a new tenant."
+          action={<Button onClick={() => setIsAddDialogOpen(true)}><Plus className="h-4 w-4" />Add Tenant</Button>}
+        />
       )}
         </TabsContent>
 
@@ -550,22 +548,20 @@ export default function Tenants() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : tenantExits.length === 0 ? (
-            <div className="text-center py-12">
-              <LogOut className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground">No exit processes</h3>
-              <p className="text-muted-foreground mt-1">
-                Tenant exit workflows will appear here when initiated from a tenant's profile.
-              </p>
-            </div>
+            <EmptyState
+              icon={LogOut}
+              title="No exit processes"
+              description="Tenant exit workflows will appear here when initiated from a tenant's profile."
+            />
           ) : (
             <div className="space-y-3">
               {tenantExitRows.map((exit) => {
-                const statusConfig: Record<string, { label: string; color: string; icon: typeof ClipboardCheck }> = {
-                  inspection_pending: { label: 'Inspection Pending', color: 'bg-warning/10 text-warning border-warning/20', icon: ClipboardCheck },
-                  inspection_complete: { label: 'Inspection Done', color: 'bg-info/10 text-info border-info/20', icon: ClipboardCheck },
-                  deposit_decided: { label: 'Awaiting Approval', color: 'bg-primary/10 text-primary border-primary/20', icon: DollarSign },
-                  approved: { label: 'Refund Approved', color: 'bg-success/10 text-success border-success/20', icon: CheckCircle2 },
-                  completed: { label: 'Completed', color: 'bg-muted text-muted-foreground', icon: CheckCircle2 },
+                const statusConfig: Record<string, { label: string; variant: 'success' | 'warning' | 'info' | 'neutral'; icon: typeof ClipboardCheck }> = {
+                  inspection_pending: { label: 'Inspection Pending', variant: 'warning', icon: ClipboardCheck },
+                  inspection_complete: { label: 'Inspection Done', variant: 'info', icon: ClipboardCheck },
+                  deposit_decided: { label: 'Awaiting Approval', variant: 'info', icon: DollarSign },
+                  approved: { label: 'Refund Approved', variant: 'success', icon: CheckCircle2 },
+                  completed: { label: 'Completed', variant: 'neutral', icon: CheckCircle2 },
                 };
                 const config = statusConfig[exit.status] || statusConfig.inspection_pending;
                 const StatusIcon = config.icon;
@@ -601,9 +597,9 @@ export default function Tenants() {
                                 Refund: {formatCurrency(exit.refund_amount)}
                               </p>
                             )}
-                            <Badge className={config.color}>
+                            <StatusPill variant={config.variant}>
                               {config.label}
-                            </Badge>
+                            </StatusPill>
                           </div>
                           <ArrowRight className="h-4 w-4 text-muted-foreground" />
                         </div>

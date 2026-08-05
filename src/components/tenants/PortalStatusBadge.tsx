@@ -1,5 +1,5 @@
 import { CheckCircle, Clock, UserX } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { StatusPill } from '@/components/shared/StatusPill';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PortalStatusBadgeProps {
@@ -14,10 +14,10 @@ export function PortalStatusBadge({ tenantUserId, hasPendingInvite, compact = fa
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger>
-            <Badge className="bg-success/10 text-success border-success/20 gap-1">
+            <StatusPill variant="success" className="gap-1">
               <CheckCircle className="h-3 w-3" />
               {!compact && 'Linked'}
-            </Badge>
+            </StatusPill>
           </TooltipTrigger>
           <TooltipContent>
             <p>Tenant has linked their account and can access the portal</p>
@@ -32,10 +32,10 @@ export function PortalStatusBadge({ tenantUserId, hasPendingInvite, compact = fa
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger>
-            <Badge className="bg-warning/10 text-warning border-warning/20 gap-1">
+            <StatusPill variant="warning" className="gap-1">
               <Clock className="h-3 w-3" />
               {!compact && 'Invited'}
-            </Badge>
+            </StatusPill>
           </TooltipTrigger>
           <TooltipContent>
             <p>Invite sent - waiting for tenant to register</p>
@@ -49,10 +49,10 @@ export function PortalStatusBadge({ tenantUserId, hasPendingInvite, compact = fa
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger>
-          <Badge className="bg-muted text-muted-foreground gap-1">
+          <StatusPill className="gap-1">
             <UserX className="h-3 w-3" />
             {!compact && 'Not Invited'}
-          </Badge>
+          </StatusPill>
         </TooltipTrigger>
         <TooltipContent>
           <p>Tenant has not been invited to the portal</p>

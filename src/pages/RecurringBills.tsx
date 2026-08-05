@@ -4,9 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { FilterBar } from '@/components/shared/FilterBar';
+import { MetricCard } from '@/components/shared/MetricCard';
+import { StatusPill } from '@/components/shared/StatusPill';
 import {
   Dialog,
   DialogContent,
@@ -243,57 +246,23 @@ export default function RecurringBills() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <Card className="card-shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-primary/10">
-                <RefreshCw className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Bills</p>
-                <p className="text-2xl font-bold">{filteredBills.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-success/10">
-                <Shield className="h-6 w-6 text-success" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Active Bills</p>
-                <p className="text-2xl font-bold">{activeBillsCount}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-info/10">
-                <Droplets className="h-6 w-6 text-info" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Monthly Total</p>
-                <p className="text-2xl font-bold">{formatCurrency(totalMonthlyBills)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard title="Total Bills" value={filteredBills.length} subtitle="Matching the current search" icon={RefreshCw} accent="primary" />
+        <MetricCard title="Active Bills" value={activeBillsCount} subtitle="Currently generating charges" icon={Shield} iconColor="bg-success/10 text-success" accent="success" />
+        <MetricCard title="Monthly Total" value={formatCurrency(totalMonthlyBills)} subtitle="Active monthly schedules" icon={Droplets} iconColor="bg-info/10 text-info" accent="info" />
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search bills..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      <FilterBar>
+        <div className="relative w-full sm:max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search bills..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </FilterBar>
 
       {/* Bills Table */}
       <Card className="card-shadow-md">
@@ -304,9 +273,12 @@ export default function RecurringBills() {
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Loading bills...</div>
           ) : filteredBills.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No recurring bills found. Create one to get started.
-            </div>
+            <EmptyState
+              icon={RefreshCw}
+              title={searchQuery ? 'No matching recurring bills' : 'No recurring bills yet'}
+              description={searchQuery ? 'Try a different bill name or type.' : 'Create a recurring charge for utilities, services, or amenities.'}
+              action={!searchQuery ? <Button size="sm" onClick={() => handleOpenDialog()}><Plus />Add Recurring Bill</Button> : undefined}
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -345,9 +317,9 @@ export default function RecurringBills() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="capitalize">
+                        <StatusPill variant="neutral" className="capitalize">
                           {bill.bill_type}
-                        </Badge>
+                        </StatusPill>
                       </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(bill.amount)}

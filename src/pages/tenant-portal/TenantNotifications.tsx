@@ -10,7 +10,6 @@ import {
   Megaphone,
   Trash2,
   MoreHorizontal,
-  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,6 +42,8 @@ import {
   type Notification,
 } from '@/hooks/useNotifications';
 import { useBroadcastAnnouncements } from '@/hooks/useBroadcasts';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 const iconByType = {
   info: Info,
@@ -82,38 +83,12 @@ export default function TenantNotifications() {
   };
 
   const renderEmpty = (title: string, subtitle: string, icon: 'bell' | 'megaphone') => (
-    <div className="text-center py-16 flex flex-col items-center gap-4">
-      <div className="h-24 w-24 rounded-full bg-muted flex items-center justify-center">
-        {icon === 'bell' ? <Bell className="h-10 w-10 text-muted-foreground" /> : <Megaphone className="h-10 w-10 text-muted-foreground" />}
-      </div>
-      <div>
-        <p className="text-base font-medium text-foreground">{title}</p>
-        <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
-      </div>
-    </div>
+    <EmptyState icon={icon === 'bell' ? Bell : Megaphone} title={title} description={subtitle} />
   );
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-r from-primary/10 via-background to-warning/10 p-5 md:p-6 card-shadow-md">
-        <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
-        <div className="absolute -left-10 -bottom-12 h-36 w-36 rounded-full bg-warning/20 blur-3xl" />
-        <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Alert Center</p>
-            <h1 className="mt-2 font-display text-2xl font-bold text-foreground md:text-3xl">Notifications</h1>
-            <p className="text-muted-foreground mt-1">Announcements and account updates in one place.</p>
-          </div>
-          <Badge variant="outline" className="w-fit rounded-full px-3 border-primary/30 bg-primary/5 text-primary font-display">
-            <Sparkles className="h-3.5 w-3.5 mr-1" />
-            Unified Activity Feed
-          </Badge>
-        </div>
-      </section>
-
-      <div className="rounded-xl border border-border/70 bg-card/85 p-3">
-        <p className="text-sm text-foreground">Keep this feed clear by marking read and removing outdated alerts.</p>
-      </div>
+      <PageHeader eyebrow="Alert Center" title="Notifications" description="Announcements and account updates in one place." />
 
       <Tabs defaultValue="announcements" className="space-y-4">
         <TabsList className="w-full grid grid-cols-2 h-11 rounded-lg">

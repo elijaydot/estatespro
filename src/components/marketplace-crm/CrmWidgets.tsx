@@ -2,12 +2,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ReactNode } from 'react';
+import { Inbox } from 'lucide-react';
+import { FilterBar } from '@/components/shared/FilterBar';
+import { EmptyState as SharedEmptyState } from '@/components/shared/EmptyState';
 
 export function MetricCard({ label, value, helper }: { label: string; value: string | number; helper?: string }) {
   return (
-    <Card className="border-border/70 bg-gradient-to-b from-background to-muted/20 shadow-sm">
+    <Card>
       <CardHeader className="pb-2">
-        <CardDescription className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</CardDescription>
+        <CardDescription className="text-xs uppercase text-muted-foreground">{label}</CardDescription>
         <CardTitle className="text-2xl font-semibold">{value}</CardTitle>
       </CardHeader>
       {helper && <CardContent className="text-xs text-muted-foreground">{helper}</CardContent>}
@@ -27,7 +30,7 @@ export function CrmDataCard({
   children: ReactNode;
 }) {
   return (
-    <Card className="border-border/70 bg-gradient-to-b from-background to-muted/20 shadow-sm">
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -43,11 +46,7 @@ export function CrmDataCard({
 }
 
 export function EmptyState({ label }: { label: string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-      {label}
-    </div>
-  );
+  return <SharedEmptyState icon={Inbox} title={label} />;
 }
 
 export function SimpleToolbar({
@@ -62,11 +61,11 @@ export function SimpleToolbar({
   onCreate?: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-muted/20 p-2 sm:flex-row sm:items-center sm:justify-between">
+    <FilterBar className="p-3">
       <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search records" className="h-9 border-border/70 bg-background sm:max-w-xs" />
       {createLabel && onCreate ? (
         <Button className="h-9" onClick={onCreate}>{createLabel}</Button>
       ) : null}
-    </div>
+    </FilterBar>
   );
 }
