@@ -58,6 +58,7 @@ import { format } from 'date-fns';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { Badge } from '@/components/ui/badge';
 
 type TenantWithRelations = Tenant & {
   units?: { unit_number: string | null } | null;

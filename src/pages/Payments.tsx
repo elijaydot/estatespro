@@ -61,6 +61,7 @@ import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { Badge } from '@/components/ui/badge';
 
 type TenantRow = {
   id: string;

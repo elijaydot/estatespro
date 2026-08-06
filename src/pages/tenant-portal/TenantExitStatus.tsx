@@ -78,7 +78,7 @@ export default function TenantExitStatus() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <MetricCard title="Deposit Amount" value={formatCurrency(latestExit.deposit_amount)} icon={Wallet} />
-        <MetricCard title="Deductions" value={formatCurrency(latestExit.deduction_amount)} icon={FileSpreadsheet} accent="danger" />
+        <MetricCard title="Deductions" value={formatCurrency(latestExit.deduction_amount)} icon={FileSpreadsheet} accent="destructive" />
         <MetricCard title="Expected Refund" value={formatCurrency(latestExit.refund_amount)} icon={CheckCircle2} accent="success" />
       </div>
 
