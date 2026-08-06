@@ -524,12 +524,12 @@ export type Database = {
       }
       crm_accounts: {
         Row: {
-          account_kind: string
+          account_type: string | null
+          annual_revenue: number | null
           company_id: string
           created_at: string
           created_by: string | null
           id: string
-          metadata: Json
           name: string
           owner_user_id: string | null
           phone: string | null
@@ -537,12 +537,12 @@ export type Database = {
           website: string | null
         }
         Insert: {
-          account_kind?: string
+          account_type?: string | null
+          annual_revenue?: number | null
           company_id: string
           created_at?: string
           created_by?: string | null
           id?: string
-          metadata?: Json
           name: string
           owner_user_id?: string | null
           phone?: string | null
@@ -550,12 +550,12 @@ export type Database = {
           website?: string | null
         }
         Update: {
-          account_kind?: string
+          account_type?: string | null
+          annual_revenue?: number | null
           company_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
-          metadata?: Json
           name?: string
           owner_user_id?: string | null
           phone?: string | null
@@ -1001,10 +1001,11 @@ export type Database = {
           deal_name: string
           expected_close_date: string | null
           id: string
-          lead_id: string
+          lead_id: string | null
           listing_id: string | null
           owner_user_id: string | null
           probability: number
+          stage: string
           unit_id: string | null
           updated_at: string
         }
@@ -1019,10 +1020,11 @@ export type Database = {
           deal_name: string
           expected_close_date?: string | null
           id?: string
-          lead_id: string
+          lead_id?: string | null
           listing_id?: string | null
           owner_user_id?: string | null
           probability?: number
+          stage?: string
           unit_id?: string | null
           updated_at?: string
         }
@@ -1037,10 +1039,11 @@ export type Database = {
           deal_name?: string
           expected_close_date?: string | null
           id?: string
-          lead_id?: string
+          lead_id?: string | null
           listing_id?: string | null
           owner_user_id?: string | null
           probability?: number
+          stage?: string
           unit_id?: string | null
           updated_at?: string
         }
@@ -1965,7 +1968,6 @@ export type Database = {
           lead_id: string
           phone_e164: string
           preferred_channel: string | null
-          tenant_id: string | null
         }
         Insert: {
           consent_marketing?: boolean
@@ -1976,7 +1978,6 @@ export type Database = {
           lead_id: string
           phone_e164: string
           preferred_channel?: string | null
-          tenant_id?: string | null
         }
         Update: {
           consent_marketing?: boolean
@@ -1987,7 +1988,6 @@ export type Database = {
           lead_id?: string
           phone_e164?: string
           preferred_channel?: string | null
-          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -1995,13 +1995,6 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: true
             referencedRelation: "leads"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lead_contacts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -2100,11 +2093,9 @@ export type Database = {
           last_activity_at: string | null
           listing_id: string | null
           lost_reason: string | null
-          pipeline_kind: string
           priority: string
           score: number
           source: string
-          source_reference_id: string | null
           stage: string
           status: string
           updated_at: string
@@ -2120,11 +2111,9 @@ export type Database = {
           last_activity_at?: string | null
           listing_id?: string | null
           lost_reason?: string | null
-          pipeline_kind?: string
           priority?: string
           score?: number
           source?: string
-          source_reference_id?: string | null
           stage?: string
           status?: string
           updated_at?: string
@@ -2140,11 +2129,9 @@ export type Database = {
           last_activity_at?: string | null
           listing_id?: string | null
           lost_reason?: string | null
-          pipeline_kind?: string
           priority?: string
           score?: number
           source?: string
-          source_reference_id?: string | null
           stage?: string
           status?: string
           updated_at?: string
@@ -3943,7 +3930,6 @@ export type Database = {
           image_urls: string[] | null
           name: string
           occupied_units: number
-          owner_account_id: string | null
           state: string
           total_units: number
           type: string
@@ -3963,7 +3949,6 @@ export type Database = {
           image_urls?: string[] | null
           name: string
           occupied_units?: number
-          owner_account_id?: string | null
           state: string
           total_units?: number
           type?: string
@@ -3983,7 +3968,6 @@ export type Database = {
           image_urls?: string[] | null
           name?: string
           occupied_units?: number
-          owner_account_id?: string | null
           state?: string
           total_units?: number
           type?: string
@@ -3992,13 +3976,6 @@ export type Database = {
           zip_code?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "properties_owner_account_id_fkey"
-            columns: ["owner_account_id"]
-            isOneToOne: false
-            referencedRelation: "crm_accounts"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "properties_company_id_fkey"
             columns: ["company_id"]
@@ -5627,7 +5604,6 @@ export type Database = {
       }
       tenants: {
         Row: {
-          account_id: string | null
           avatar_url: string | null
           balance: number
           created_at: string
@@ -5652,7 +5628,6 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          account_id?: string | null
           avatar_url?: string | null
           balance?: number
           created_at?: string
@@ -5677,7 +5652,6 @@ export type Database = {
           user_id: string
         }
         Update: {
-          account_id?: string | null
           avatar_url?: string | null
           balance?: number
           created_at?: string
@@ -5702,13 +5676,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "tenants_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "crm_accounts"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "tenants_property_id_fkey"
             columns: ["property_id"]
@@ -6372,23 +6339,11 @@ export type Database = {
           p_lease_start: string
           p_monthly_rent: number
           p_security_deposit?: number
+          p_tenant_email: string
+          p_tenant_name: string
+          p_tenant_phone: string
         }
-        Returns: string | null
-      }
-      crm_process_operational_alert: {
-        Args: { p_alert_id: string }
-        Returns: string | null
-      }
-      crm_update_deal_and_lead_stage: {
-        Args: {
-          p_amount?: number
-          p_deal_id: string
-          p_expected_close_date?: string
-          p_owner_user_id?: string
-          p_probability?: number
-          p_stage: string
-        }
-        Returns: Json
+        Returns: string
       }
       crm_compute_lead_score: { Args: { p_lead_id: string }; Returns: number }
       crm_conditions_match: {
@@ -6447,6 +6402,28 @@ export type Database = {
       generate_crm_followup_tasks: {
         Args: { p_company_id: string }
         Returns: number
+      }
+      get_accessible_company_executive_report: {
+        Args: never
+        Returns: {
+          access_role: string
+          active_tenant_count: number
+          ai_credits_used: number
+          company_address: string
+          company_email: string
+          company_id: string
+          company_name: string
+          company_phone: string
+          is_verified: boolean
+          occupancy_rate: number
+          occupied_unit_count: number
+          open_maintenance_count: number
+          outstanding_balance: number
+          property_count: number
+          team_member_count: number
+          total_collected: number
+          unit_count: number
+        }[]
       }
       get_company_property_ids: {
         Args: { _user_id: string }
