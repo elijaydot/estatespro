@@ -1021,7 +1021,7 @@ export function useUpdateCrmContact(companyId?: string | null) {
         .single();
 
       if (error) throw error;
-      return data as CrmContact;
+      return data as unknown as CrmContact;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'contacts', companyId] });
@@ -1055,8 +1055,9 @@ export function useMergeCrmContacts(companyId?: string | null) {
 
       if (scopeError) throw scopeError;
 
-      const primary = (scopedContacts || []).find((row) => row.id === primaryContactId) as LeadContactRow | undefined;
-      const duplicate = (scopedContacts || []).find((row) => row.id === duplicateContactId) as LeadContactRow | undefined;
+      const scopedRows = (scopedContacts || []) as unknown as LeadContactRow[];
+      const primary = scopedRows.find((row) => row.id === primaryContactId);
+      const duplicate = scopedRows.find((row) => row.id === duplicateContactId);
 
       if (!primary || !duplicate) throw new Error('Both contacts must exist in active company scope');
       if (primary.tenant_id && duplicate.tenant_id && primary.tenant_id !== duplicate.tenant_id) {
