@@ -29,20 +29,20 @@ export function useProperties() {
   return useQuery({
     queryKey: ['properties', activeCompanyId],
     queryFn: async () => {
-      let query = supabase
+      if (!activeCompanyId) return [];
+
+      const query = supabase
         .from('properties')
         .select('*')
+        .eq('company_id', activeCompanyId)
         .order('created_at', { ascending: false });
-
-      if (activeCompanyId) {
-        query = query.eq('company_id', activeCompanyId);
-      }
 
       const { data, error } = await query;
 
       if (error) throw error;
       return data as Property[];
     },
+    enabled: Boolean(activeCompanyId),
   });
 }
 
@@ -52,21 +52,20 @@ export function useProperty(id: string) {
   return useQuery({
     queryKey: ['properties', id, activeCompanyId],
     queryFn: async () => {
-      let query = supabase
+      if (!activeCompanyId) throw new Error('Select a company first');
+
+      const query = supabase
         .from('properties')
         .select('*')
-        .eq('id', id);
-
-      if (activeCompanyId) {
-        query = query.eq('company_id', activeCompanyId);
-      }
+        .eq('id', id)
+        .eq('company_id', activeCompanyId);
 
       const { data, error } = await query.single();
 
       if (error) throw error;
       return data as Property;
     },
-    enabled: !!id,
+    enabled: Boolean(id && activeCompanyId),
   });
 }
 
@@ -78,29 +77,20 @@ export function useCreateProperty() {
     mutationFn: async (property: Omit<Property, 'id' | 'created_at' | 'updated_at' | 'user_id'> & { company_id?: string | null }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
-
-      // Auto-attach company_id if not provided
-      let companyId = property.company_id || activeCompanyId;
-      if (!companyId) {
-        const { data: companies } = await supabase
-          .from('companies')
-          .select('id')
-          .eq('owner_id', user.id)
-          .limit(1);
-        companyId = companies?.[0]?.id || null;
+      if (!activeCompanyId) throw new Error('Select a company first');
+      if (property.company_id && property.company_id !== activeCompanyId) {
+        throw new Error('Property company must match the active company');
       }
 
-      if (companyId) {
-        await assertQuotaAvailable({
-          companyId,
-          quotaCode: 'properties_managed',
-          requestedDelta: 1,
-        });
-      }
+      await assertQuotaAvailable({
+        companyId: activeCompanyId,
+        quotaCode: 'properties_managed',
+        requestedDelta: 1,
+      });
 
       const { data, error } = await supabase
         .from('properties')
-        .insert({ ...property, user_id: user.id, company_id: companyId })
+        .insert({ ...property, user_id: user.id, company_id: activeCompanyId })
         .select()
         .single();
 
@@ -119,13 +109,16 @@ export function useCreateProperty() {
 
 export function useUpdateProperty() {
   const queryClient = useQueryClient();
+  const { activeCompanyId } = useActiveCompany();
 
   return useMutation({
     mutationFn: async ({ id, ...property }: Partial<Property> & { id: string }) => {
+      if (!activeCompanyId) throw new Error('Select a company first');
       const { data, error } = await supabase
         .from('properties')
         .update(property)
         .eq('id', id)
+        .eq('company_id', activeCompanyId)
         .select()
         .single();
 
@@ -145,13 +138,16 @@ export function useUpdateProperty() {
 
 export function useDeleteProperty() {
   const queryClient = useQueryClient();
+  const { activeCompanyId } = useActiveCompany();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!activeCompanyId) throw new Error('Select a company first');
       const { error } = await supabase
         .from('properties')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('company_id', activeCompanyId);
 
       if (error) throw error;
     },

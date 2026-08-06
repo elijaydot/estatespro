@@ -22,6 +22,33 @@ function extractFirstString(values: unknown[]): string | null {
   return null;
 }
 
+async function canUserAccessCompany(
+  supabase: SupabaseClient,
+  userId: string,
+  companyId: string,
+): Promise<boolean> {
+  const [{ data: profile }, { data: ownedCompany }, { data: membership }, { data: tenant }] = await Promise.all([
+    supabase.from("profiles").select("role").eq("user_id", userId).maybeSingle(),
+    supabase.from("companies").select("id").eq("id", companyId).eq("owner_id", userId).maybeSingle(),
+    supabase
+      .from("company_members")
+      .select("company_id")
+      .eq("company_id", companyId)
+      .eq("user_id", userId)
+      .eq("status", "approved")
+      .maybeSingle(),
+    supabase
+      .from("tenants")
+      .select("properties:property_id!inner(company_id)")
+      .eq("tenant_user_id", userId)
+      .eq("properties.company_id", companyId)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  return profile?.role === "super_admin" || Boolean(ownedCompany || membership || tenant);
+}
+
 export async function resolveCompanyIdForUser(
   supabase: SupabaseClient,
   userId: string,
@@ -34,14 +61,17 @@ export async function resolveCompanyIdForUser(
     requestBody?.company_id,
   ]);
 
-  if (fromBody) return fromBody;
-
   const fromHeader = extractFirstString([
     req?.headers.get("x-company-id"),
     req?.headers.get("x-active-company-id"),
   ]);
 
-  if (fromHeader) return fromHeader;
+  const requestedCompanyId = fromBody || fromHeader;
+  if (requestedCompanyId) {
+    return await canUserAccessCompany(supabase, userId, requestedCompanyId)
+      ? requestedCompanyId
+      : null;
+  }
 
   const { data: memberCompany } = await supabase
     .from("company_members")

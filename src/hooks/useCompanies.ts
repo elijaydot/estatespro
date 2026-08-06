@@ -118,21 +118,43 @@ export function useCompanyMembers(companyId: string | undefined) {
 }
 
 // Fetch PM membership status for current user
-export function useMyMembership() {
+export function useMyMembership(companyId?: string | null) {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ['my_membership', user?.id],
+    queryKey: ['my_membership', user?.id, companyId],
+    queryFn: async () => {
+      if (!user?.id || !companyId) return null;
+      const { data, error } = await db
+        .from('company_members')
+        .select('*, companies:company_id(id, name)')
+        .eq('user_id', user.id)
+        .eq('company_id', companyId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: Boolean(user?.id && companyId),
+  });
+}
+
+export function usePendingMembership() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['my_pending_membership', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
       const { data, error } = await db
         .from('company_members')
         .select('*, companies:company_id(id, name)')
         .eq('user_id', user.id)
+        .neq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.id,
+    enabled: Boolean(user?.id),
   });
 }
 
@@ -344,6 +366,7 @@ export function useCreateCompany() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my_companies'] });
+      queryClient.invalidateQueries({ queryKey: ['active-company-options'] });
       toast({ title: 'Success', description: 'Company created' });
     },
     onError: (error) => {

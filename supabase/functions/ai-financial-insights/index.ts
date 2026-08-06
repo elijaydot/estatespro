@@ -59,29 +59,44 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // Fetch financial data in parallel
-    const [invoicesRes, paymentsRes, leasesRes, tenantsRes] = await Promise.all([
-      supabaseClient
-        .from("invoices")
-        .select("id, tenant_id, booking_id, source, guest_name, guest_email, amount, paid_amount, status, due_date, created_at, description")
-        .order("created_at", { ascending: false })
-        .limit(500),
-      supabaseClient
+    const { data: companyProperties, error: propertiesError } = await supabaseClient
+      .from("properties")
+      .select("id")
+      .eq("company_id", quotaResult.companyId);
+    if (propertiesError) throw propertiesError;
+    const propertyIds = (companyProperties || []).map((property) => property.id);
+
+    const [invoicesRes, leasesRes, tenantsRes] = propertyIds.length > 0
+      ? await Promise.all([
+        supabaseClient
+          .from("invoices")
+          .select("id, tenant_id, booking_id, source, guest_name, guest_email, amount, paid_amount, status, due_date, created_at, description")
+          .in("property_id", propertyIds)
+          .order("created_at", { ascending: false })
+          .limit(500),
+        supabaseClient
+          .from("leases")
+          .select("id, tenant_id, monthly_rent, start_date, end_date, status")
+          .in("property_id", propertyIds)
+          .eq("status", "active")
+          .limit(200),
+        supabaseClient
+          .from("tenants")
+          .select("id, name, monthly_rent, status, property_id")
+          .in("property_id", propertyIds)
+          .eq("status", "active")
+          .limit(200),
+      ])
+      : [{ data: [] }, { data: [] }, { data: [] }];
+    const invoiceIds = (invoicesRes.data || []).map((invoice) => invoice.id);
+    const paymentsRes = invoiceIds.length > 0
+      ? await supabaseClient
         .from("payments")
         .select("id, tenant_id, booking_id, source, payer_name, payer_email, amount, method, created_at, invoice_id, status")
+        .in("invoice_id", invoiceIds)
         .order("created_at", { ascending: false })
-        .limit(500),
-      supabaseClient
-        .from("leases")
-        .select("id, tenant_id, monthly_rent, start_date, end_date, status")
-        .eq("status", "active")
-        .limit(200),
-      supabaseClient
-        .from("tenants")
-        .select("id, name, monthly_rent, status, property_id")
-        .eq("status", "active")
-        .limit(200),
-    ]);
+        .limit(500)
+      : { data: [] };
 
     const invoices = invoicesRes.data || [];
     const payments = paymentsRes.data || [];

@@ -59,7 +59,7 @@ export default function TeamManagement() {
   const [assignPropertyId, setAssignPropertyId] = useState('');
   const [editCompanyDialogOpen, setEditCompanyDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<{ id: string; name: string; email: string; phone: string; address: string } | null>(null);
-  const resolvedCompanyId = activeCompanyId || companies?.[0]?.id || '';
+  const resolvedCompanyId = activeCompanyId || '';
   
   const { data: members, isLoading: loadingMembers } = useCompanyMembers(resolvedCompanyId);
   const { data: assignments } = usePMAssignments(resolvedCompanyId);

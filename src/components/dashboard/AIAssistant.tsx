@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -13,6 +14,7 @@ interface Message {
 }
 
 export function AIAssistant() {
+  const { activeCompanyId } = useActiveCompany();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -29,7 +31,16 @@ export function AIAssistant() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    setMessages([]);
+    setInput('');
+  }, [activeCompanyId]);
+
   const streamChat = async (userMessage: string) => {
+    if (!activeCompanyId) {
+      toast.error('Select a company before using AI features.');
+      return;
+    }
     const newMessages: Message[] = [...messages, { role: 'user', content: userMessage }];
     setMessages(newMessages);
     setInput('');
@@ -53,7 +64,7 @@ export function AIAssistant() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ messages: newMessages }),
+          body: JSON.stringify({ messages: newMessages, companyId: activeCompanyId }),
         }
       );
 

@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/useAuth';
-import { useMyMembership } from '@/hooks/useCompanies';
+import { usePendingMembership } from '@/hooks/useCompanies';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Clock, LogOut, CheckCircle2, XCircle } from 'lucide-react';
@@ -15,7 +15,7 @@ type MembershipWithCompany = {
 
 export default function PendingApproval() {
   const { logout, profile } = useAuth();
-  const { data: membership, isLoading } = useMyMembership();
+  const { data: membership, isLoading } = usePendingMembership();
 
   if (isLoading) {
     return (

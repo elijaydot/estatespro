@@ -3,6 +3,7 @@ import { useRevenueData } from '@/hooks/useDashboardStats';
 import { useSettings } from '@/contexts/useSettings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp } from 'lucide-react';
+import { DashboardChartEmptyState } from '@/components/dashboard/DashboardOverview';
 
 export function RevenueChart() {
   const { data: chartData = [], isLoading } = useRevenueData();
@@ -30,7 +31,10 @@ export function RevenueChart() {
         </div>
       </div>
       <div className="flex-1 min-h-[260px]">
-        <ResponsiveContainer width="100%" height="100%">
+        {totalRevenue <= 0 ? (
+          <DashboardChartEmptyState message="No revenue recorded yet this period" />
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
@@ -47,7 +51,8 @@ export function RevenueChart() {
             />
             <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#revenueGradient)" dot={false} activeDot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--card))' }} />
           </AreaChart>
-        </ResponsiveContainer>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

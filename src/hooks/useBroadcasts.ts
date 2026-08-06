@@ -21,20 +21,19 @@ export function useBroadcastAnnouncements() {
   return useQuery({
     queryKey: ['broadcasts', activeCompanyId],
     queryFn: async () => {
-      let query = supabase
+      if (!activeCompanyId) return [];
+      const query = supabase
         .from('broadcasts')
         .select('*')
+        .eq('company_id', activeCompanyId)
         .order('created_at', { ascending: false })
         .limit(50);
-
-      if (activeCompanyId) {
-        query = query.eq('company_id', activeCompanyId);
-      }
 
       const { data, error } = await query;
       if (error) throw error;
       return (data || []) as Broadcast[];
     },
+    enabled: Boolean(activeCompanyId),
   });
 }
 
@@ -55,14 +54,16 @@ export function useSendBroadcast() {
       unitId?: string | null;
       companyId?: string;
     }) => {
-      const companyId = payload.companyId || activeCompanyId;
-      if (!companyId) {
+      if (!activeCompanyId) {
         throw new Error('No active company selected.');
+      }
+      if (payload.companyId && payload.companyId !== activeCompanyId) {
+        throw new Error('Broadcast company must match the active company.');
       }
 
       const { data, error } = await supabase.functions.invoke('send-broadcast', {
         body: {
-          companyId,
+          companyId: activeCompanyId,
           title: payload.title,
           message: payload.message,
           targetRole: payload.targetRole,

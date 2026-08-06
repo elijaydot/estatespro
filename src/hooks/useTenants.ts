@@ -35,24 +35,23 @@ export function useTenants() {
   return useQuery({
     queryKey: ['tenants', activeCompanyId],
     queryFn: async () => {
-      let query = supabase
+      if (!activeCompanyId) return [];
+      const query = supabase
         .from('tenants')
         .select(`
           *,
-          properties:property_id(id, name, company_id),
+          properties:property_id!inner(id, name, company_id),
           units:unit_id(id, unit_number)
         `)
+        .eq('properties.company_id', activeCompanyId)
         .order('created_at', { ascending: false });
-
-      if (activeCompanyId) {
-        query = query.eq('properties.company_id', activeCompanyId);
-      }
 
       const { data, error } = await query;
 
       if (error) throw error;
       return data;
     },
+    enabled: Boolean(activeCompanyId),
   });
 }
 
@@ -62,25 +61,23 @@ export function useTenant(id: string) {
   return useQuery({
     queryKey: ['tenants', id, activeCompanyId],
     queryFn: async () => {
-      let query = supabase
+      if (!activeCompanyId) throw new Error('Select a company first');
+      const query = supabase
         .from('tenants')
         .select(`
           *,
-          properties:property_id(id, name, company_id),
+          properties:property_id!inner(id, name, company_id),
           units:unit_id(id, unit_number)
         `)
-        .eq('id', id);
-
-      if (activeCompanyId) {
-        query = query.eq('properties.company_id', activeCompanyId);
-      }
+        .eq('id', id)
+        .eq('properties.company_id', activeCompanyId);
 
       const { data, error } = await query.single();
 
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: Boolean(id && activeCompanyId),
   });
 }
 

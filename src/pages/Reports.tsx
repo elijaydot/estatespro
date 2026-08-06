@@ -13,6 +13,10 @@ import {
   Users,
   Wrench,
   FileText,
+  Building2,
+  ChevronDown,
+  Loader2,
+  Printer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,13 +58,52 @@ import {
   computeRentRollRows,
   rowsToCsv,
 } from '@/lib/pmReports';
+import { useCompanyExecutiveReport, type CompanyExecutiveReportRow } from '@/hooks/useCompanyExecutiveReport';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--info))'];
+
+const escapeHtml = (value: unknown) => String(value ?? '')
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#039;');
+
+function ExecutiveCompanyDrilldown({
+  row,
+  formatCurrency,
+}: {
+  row: CompanyExecutiveReportRow;
+  formatCurrency: (amount: number) => string;
+}) {
+  return (
+    <div className="border-t pt-5">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold">{row.company_name}</h3>
+          <p className="text-sm text-muted-foreground">{[row.company_address, row.company_phone, row.company_email].filter(Boolean).join(' · ') || 'No contact details recorded'}</p>
+        </div>
+        <Badge variant={row.is_verified ? 'default' : 'secondary'}>{row.is_verified ? 'Verified' : 'Not verified'}</Badge>
+      </div>
+      <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div><p className="text-xs text-muted-foreground">Portfolio</p><p className="font-medium">{row.property_count} properties, {row.unit_count} units</p></div>
+        <div><p className="text-xs text-muted-foreground">Occupancy</p><p className="font-medium">{row.occupied_unit_count} occupied ({row.occupancy_rate}%)</p></div>
+        <div><p className="text-xs text-muted-foreground">Active tenants</p><p className="font-medium">{row.active_tenant_count}</p></div>
+        <div><p className="text-xs text-muted-foreground">Approved team</p><p className="font-medium">{row.team_member_count}</p></div>
+        <div><p className="text-xs text-muted-foreground">Collected</p><p className="font-medium">{formatCurrency(Number(row.total_collected))}</p></div>
+        <div><p className="text-xs text-muted-foreground">Outstanding</p><p className="font-medium">{formatCurrency(Number(row.outstanding_balance))}</p></div>
+        <div><p className="text-xs text-muted-foreground">Open maintenance</p><p className="font-medium">{row.open_maintenance_count}</p></div>
+        <div><p className="text-xs text-muted-foreground">AI credits this month</p><p className="font-medium">{row.ai_credits_used ?? 'Restricted'}</p></div>
+      </div>
+    </div>
+  );
+}
 
 export default function Reports() {
   const { formatCurrency } = useSettings();
   const [dateRange, setDateRange] = useState('6m');
   const [activeReport, setActiveReport] = useState('revenue');
+  const [selectedExecutiveCompanyId, setSelectedExecutiveCompanyId] = useState<string | null>(null);
 
   const { data: properties = [] } = useProperties();
   const { data: units = [] } = useUnits();
@@ -72,6 +115,8 @@ export default function Reports() {
   const { data: vendors = [] } = useVendors();
   const { data: vendorPayments = [] } = useVendorPayments();
   const { data: dashboardStats } = useDashboardStats();
+  const { data: executiveRows = [], isLoading: executiveLoading } = useCompanyExecutiveReport();
+  const selectedExecutiveCompany = executiveRows.find((row) => row.company_id === selectedExecutiveCompanyId) ?? null;
 
   // Calculate statistics
   const totalRevenue = payments
@@ -176,7 +221,13 @@ export default function Reports() {
       ['Shortlet Avg Time To Pay (hours)', `${dashboardStats?.shortletAvgTimeToPayHours ?? 0}`],
     ]);
 
-    if (activeReport === 'rent-roll') {
+    if (activeReport === 'executive') {
+      fileName = 'all-companies-executive-report';
+      csvContent = rowsToCsv(
+        ['Company', 'Access', 'Email', 'Phone', 'Address', 'Verified', 'Properties', 'Units', 'Occupied Units', 'Occupancy Rate', 'Active Tenants', 'Team Members', 'Collected', 'Outstanding', 'Open Maintenance', 'AI Credits Used'],
+        executiveRows.map((row) => [row.company_name, row.access_role, row.company_email ?? '', row.company_phone ?? '', row.company_address ?? '', row.is_verified ? 'Yes' : 'No', row.property_count, row.unit_count, row.occupied_unit_count, `${row.occupancy_rate}%`, row.active_tenant_count, row.team_member_count, row.total_collected, row.outstanding_balance, row.open_maintenance_count, row.ai_credits_used ?? 'Restricted']),
+      );
+    } else if (activeReport === 'rent-roll') {
       fileName = 'rent-roll';
       csvContent = rowsToCsv(
         ['Property', 'Unit', 'Tenant', 'Lease', 'Start', 'End', 'Monthly Rent', 'Status'],
@@ -217,6 +268,14 @@ export default function Reports() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExecutivePdf = () => {
+    const printWindow = window.open('', '_blank', 'noopener,noreferrer');
+    if (!printWindow) return;
+    const rows = executiveRows.map((row) => `<tr><td>${escapeHtml(row.company_name)}</td><td>${escapeHtml(row.access_role)}</td><td>${row.property_count}</td><td>${row.unit_count}</td><td>${row.occupancy_rate}%</td><td>${row.active_tenant_count}</td><td>${escapeHtml(formatCurrency(row.total_collected))}</td><td>${escapeHtml(formatCurrency(row.outstanding_balance))}</td><td>${row.open_maintenance_count}</td><td>${escapeHtml(row.ai_credits_used ?? 'Restricted')}</td></tr>`).join('');
+    printWindow.document.write(`<!doctype html><html><head><title>All Companies Executive Report</title><style>body{font-family:Arial,sans-serif;color:#17202a;padding:28px}h1{font-size:24px;margin:0 0 6px}p{color:#5d6d7e;margin:0 0 24px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #d5d8dc;padding:7px;text-align:left}th{background:#eef2f3}@media print{@page{size:landscape;margin:12mm}}</style></head><body><h1>All Companies Executive Report</h1><p>Generated ${escapeHtml(format(new Date(), 'PPP'))}</p><table><thead><tr><th>Company</th><th>Access</th><th>Properties</th><th>Units</th><th>Occupancy</th><th>Active tenants</th><th>Collected</th><th>Outstanding</th><th>Open maintenance</th><th>AI credits</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close()}</script></body></html>`);
+    printWindow.document.close();
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -239,8 +298,14 @@ export default function Reports() {
           </Select>
           <Button onClick={handleExportReport} variant="outline" className="gap-2">
             <Download className="h-4 w-4" />
-            Export
+            Export CSV
           </Button>
+          {activeReport === 'executive' && (
+            <Button onClick={handleExecutivePdf} variant="outline" className="gap-2" disabled={executiveRows.length === 0}>
+              <Printer className="h-4 w-4" />
+              PDF
+            </Button>
+          )}
         </div>
       </div>
 
@@ -386,7 +451,39 @@ export default function Reports() {
           <TabsTrigger value="occupancy-trend">Occupancy Trend</TabsTrigger>
           <TabsTrigger value="maintenance-cost">Maintenance Cost</TabsTrigger>
           <TabsTrigger value="vendor-payments">Vendor Payments</TabsTrigger>
+          <TabsTrigger value="executive" className="gap-2"><Building2 className="h-4 w-4" />All Companies</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="executive">
+          <Card className="card-shadow-md">
+            <CardHeader>
+              <CardTitle>All Companies Executive Report</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {executiveLoading ? (
+                <div className="flex min-h-48 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+              ) : executiveRows.length === 0 ? (
+                <p className="py-12 text-center text-sm text-muted-foreground">No accessible companies found.</p>
+              ) : (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="border-l-2 border-primary pl-4"><p className="text-xs text-muted-foreground">Companies</p><p className="text-2xl font-semibold">{executiveRows.length}</p></div>
+                    <div className="border-l-2 border-success pl-4"><p className="text-xs text-muted-foreground">Properties</p><p className="text-2xl font-semibold">{executiveRows.reduce((sum, row) => sum + Number(row.property_count), 0)}</p></div>
+                    <div className="border-l-2 border-info pl-4"><p className="text-xs text-muted-foreground">Collected</p><p className="text-xl font-semibold">{formatCurrency(executiveRows.reduce((sum, row) => sum + Number(row.total_collected), 0))}</p></div>
+                    <div className="border-l-2 border-warning pl-4"><p className="text-xs text-muted-foreground">Outstanding</p><p className="text-xl font-semibold">{formatCurrency(executiveRows.reduce((sum, row) => sum + Number(row.outstanding_balance), 0))}</p></div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3">Company</th><th>Access</th><th className="text-right">Properties</th><th className="text-right">Units</th><th className="text-right">Occupancy</th><th className="text-right">Collected</th><th className="text-right">Outstanding</th><th><span className="sr-only">Details</span></th></tr></thead>
+                      <tbody>{executiveRows.map((row) => <tr key={row.company_id} className="border-b last:border-0"><td className="py-3"><div className="font-medium">{row.company_name}</div><div className="text-xs text-muted-foreground">{row.company_email || 'No email'}</div></td><td><Badge variant="outline">{row.access_role.replace('_', ' ')}</Badge></td><td className="text-right">{row.property_count}</td><td className="text-right">{row.unit_count}</td><td className="text-right">{row.occupancy_rate}%</td><td className="text-right">{formatCurrency(row.total_collected)}</td><td className="text-right">{formatCurrency(row.outstanding_balance)}</td><td className="text-right"><Button variant="ghost" size="icon" title={`View ${row.company_name} details`} onClick={() => setSelectedExecutiveCompanyId(selectedExecutiveCompanyId === row.company_id ? null : row.company_id)}><ChevronDown className={`h-4 w-4 transition-transform ${selectedExecutiveCompanyId === row.company_id ? 'rotate-180' : ''}`} /></Button></td></tr>)}</tbody>
+                    </table>
+                  </div>
+                  {selectedExecutiveCompany && <ExecutiveCompanyDrilldown row={selectedExecutiveCompany} formatCurrency={formatCurrency} />}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="revenue">
           <Card className="card-shadow-md">

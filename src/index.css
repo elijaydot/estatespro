@@ -181,6 +181,13 @@
     @apply backdrop-blur-xl bg-white/80 border border-white/20;
   }
 
+  .dashboard-ai-glass {
+    background: hsl(var(--card) / 0.58);
+    border: 0.5px solid hsl(var(--foreground) / 0.16);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
   .card-shadow {
     box-shadow: var(--shadow-card);
   }

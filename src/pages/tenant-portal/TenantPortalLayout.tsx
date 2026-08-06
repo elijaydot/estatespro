@@ -26,6 +26,7 @@ import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 import { TenantChatbot } from '@/components/ai/TenantChatbot';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { MfaReminderBanner } from '@/components/security/MfaReminderBanner';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 const navGroups = [
   {
@@ -245,6 +246,7 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
           </div>
 
           <div className="flex items-center gap-1">
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="icon"
@@ -279,6 +281,7 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <Badge variant="outline" className="hidden h-8 rounded-full border-border bg-muted/60 px-3 text-foreground xl:flex">
             Tenant
           </Badge>

@@ -29,24 +29,23 @@ export function usePayments() {
   return useQuery({
     queryKey: ['payments', activeCompanyId],
     queryFn: async () => {
-      let query = supabase
+      if (!activeCompanyId) return [];
+      const query = supabase
         .from('payments')
         .select(`
           *,
           tenants:tenant_id(id, name, email, property_id, unit_id),
-          invoices:invoice_id(id, invoice_number, amount, property_id, properties:property_id(company_id))
+          invoices:invoice_id!inner(id, invoice_number, amount, property_id, properties:property_id!inner(company_id))
         `)
+        .eq('invoices.properties.company_id', activeCompanyId)
         .order('created_at', { ascending: false });
-
-      if (activeCompanyId) {
-        query = query.eq('invoices.properties.company_id', activeCompanyId);
-      }
 
       const { data, error } = await query;
 
       if (error) throw error;
       return data;
     },
+    enabled: Boolean(activeCompanyId),
   });
 }
 
@@ -56,25 +55,23 @@ export function usePayment(id: string) {
   return useQuery({
     queryKey: ['payments', id, activeCompanyId],
     queryFn: async () => {
-      let query = supabase
+      if (!activeCompanyId) throw new Error('Select a company first');
+      const query = supabase
         .from('payments')
         .select(`
           *,
           tenants:tenant_id(id, name, email),
-          invoices:invoice_id(id, invoice_number, amount, property_id, properties:property_id(company_id))
+          invoices:invoice_id!inner(id, invoice_number, amount, property_id, properties:property_id!inner(company_id))
         `)
-        .eq('id', id);
-
-      if (activeCompanyId) {
-        query = query.eq('invoices.properties.company_id', activeCompanyId);
-      }
+        .eq('id', id)
+        .eq('invoices.properties.company_id', activeCompanyId);
 
       const { data, error } = await query.single();
 
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: Boolean(id && activeCompanyId),
   });
 }
 

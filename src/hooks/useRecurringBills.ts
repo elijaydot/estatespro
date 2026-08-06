@@ -24,6 +24,7 @@ export function useRecurringBills(propertyId?: string, tenantId?: string) {
   return useQuery({
     queryKey: ['recurring_bills', propertyId, tenantId, activeCompanyId],
     queryFn: async () => {
+      if (!activeCompanyId) return [];
       let query = supabase
         .from('recurring_bills')
         .select(`
@@ -33,21 +34,19 @@ export function useRecurringBills(propertyId?: string, tenantId?: string) {
         `)
         .order('created_at', { ascending: false });
 
-      if (activeCompanyId) {
-        const { data: scopedProperties, error: scopedPropertiesError } = await supabase
-          .from('properties')
-          .select('id')
-          .eq('company_id', activeCompanyId);
+      const { data: scopedProperties, error: scopedPropertiesError } = await supabase
+        .from('properties')
+        .select('id')
+        .eq('company_id', activeCompanyId);
 
-        if (scopedPropertiesError) throw scopedPropertiesError;
+      if (scopedPropertiesError) throw scopedPropertiesError;
 
-        const propertyIds = (scopedProperties || []).map((property) => property.id);
-        if (propertyIds.length === 0) {
-          return [];
-        }
-
-        query = query.in('property_id', propertyIds);
+      const propertyIds = (scopedProperties || []).map((property) => property.id);
+      if (propertyIds.length === 0) {
+        return [];
       }
+
+      query = query.in('property_id', propertyIds);
 
       if (propertyId) {
         query = query.eq('property_id', propertyId);
@@ -61,6 +60,7 @@ export function useRecurringBills(propertyId?: string, tenantId?: string) {
       if (error) throw error;
       return data;
     },
+    enabled: Boolean(activeCompanyId),
   });
 }
 

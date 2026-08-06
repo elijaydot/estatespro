@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/useAuth';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { MfaReminderBanner } from '@/components/security/MfaReminderBanner';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -71,6 +72,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             </div>
 
             <div className="flex items-center gap-1">
+              <ThemeToggle />
               <Button
                 variant="ghost"
                 size="icon"

@@ -29,26 +29,25 @@ export function useMaintenanceRequests() {
   return useQuery({
     queryKey: ['maintenance_requests', activeCompanyId],
     queryFn: async () => {
-      let query = supabase
+      if (!activeCompanyId) return [];
+      const query = supabase
         .from('maintenance_requests')
         .select(`
           *,
           units:unit_id(id, unit_number, property_id),
-          properties:property_id(id, name, company_id),
+          properties:property_id!inner(id, name, company_id),
           tenants:tenant_id(id, name, email),
           vendors:vendor_id(id, name)
         `)
+        .eq('properties.company_id', activeCompanyId)
         .order('created_at', { ascending: false });
-
-      if (activeCompanyId) {
-        query = query.eq('properties.company_id', activeCompanyId);
-      }
 
       const { data, error } = await query;
 
       if (error) throw error;
       return data;
     },
+    enabled: Boolean(activeCompanyId),
   });
 }
 
@@ -58,27 +57,25 @@ export function useMaintenanceRequest(id: string) {
   return useQuery({
     queryKey: ['maintenance_requests', id, activeCompanyId],
     queryFn: async () => {
-      let query = supabase
+      if (!activeCompanyId) throw new Error('Select a company first');
+      const query = supabase
         .from('maintenance_requests')
         .select(`
           *,
           units:unit_id(id, unit_number),
-          properties:property_id(id, name, company_id),
+          properties:property_id!inner(id, name, company_id),
           tenants:tenant_id(id, name, email),
           vendors:vendor_id(id, name)
         `)
-        .eq('id', id);
-
-      if (activeCompanyId) {
-        query = query.eq('properties.company_id', activeCompanyId);
-      }
+        .eq('id', id)
+        .eq('properties.company_id', activeCompanyId);
 
       const { data, error } = await query.single();
 
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: Boolean(id && activeCompanyId),
   });
 }
 

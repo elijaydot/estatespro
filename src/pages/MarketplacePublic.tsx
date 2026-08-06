@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import {
   useCreateMarketplaceInquiry,
   useMarketplaceListingDetail,
@@ -250,7 +251,10 @@ export default function MarketplacePublic() {
             <h1 className="text-2xl font-semibold">FishGate Marketplace</h1>
             <p className="text-sm text-muted-foreground">Verified listings with fast inquiry-to-lease response.</p>
           </div>
-          <Badge variant="secondary">Public Beta</Badge>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Badge variant="secondary">Public Beta</Badge>
+          </div>
         </div>
 
         <Card className="mb-6">

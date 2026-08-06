@@ -45,26 +45,25 @@ export function useBookings(propertyId?: string) {
   return useQuery({
     queryKey: ['bookings', propertyId, activeCompanyId],
     queryFn: async () => {
+      if (!activeCompanyId) return [];
       let query = supabase
         .from('bookings')
         .select('*, properties(name), units(unit_number)')
         .order('check_in', { ascending: false });
 
-      if (activeCompanyId) {
-        const { data: scopedProperties, error: scopedPropertiesError } = await supabase
-          .from('properties')
-          .select('id')
-          .eq('company_id', activeCompanyId);
+      const { data: scopedProperties, error: scopedPropertiesError } = await supabase
+        .from('properties')
+        .select('id')
+        .eq('company_id', activeCompanyId);
 
-        if (scopedPropertiesError) throw scopedPropertiesError;
+      if (scopedPropertiesError) throw scopedPropertiesError;
 
-        const propertyIds = (scopedProperties || []).map((property) => property.id);
-        if (propertyIds.length === 0) {
-          return [] as Booking[];
-        }
-
-        query = query.in('property_id', propertyIds);
+      const propertyIds = (scopedProperties || []).map((property) => property.id);
+      if (propertyIds.length === 0) {
+        return [] as Booking[];
       }
+
+      query = query.in('property_id', propertyIds);
 
       if (propertyId) {
         query = query.eq('property_id', propertyId);
@@ -79,6 +78,7 @@ export function useBookings(propertyId?: string) {
         unit_number: b.units?.unit_number,
       })) as Booking[];
     },
+    enabled: Boolean(activeCompanyId),
   });
 }
 

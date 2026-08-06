@@ -2,6 +2,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useOccupancyData } from '@/hooks/useDashboardStats';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Home } from 'lucide-react';
+import { DashboardChartEmptyState } from '@/components/dashboard/DashboardOverview';
 
 export function OccupancyChart() {
   const { data: chartData = [], isLoading } = useOccupancyData();
@@ -20,7 +21,10 @@ export function OccupancyChart() {
       </div>
 
       <div className="flex-1 flex items-center justify-center relative min-h-[180px]">
-        <ResponsiveContainer width="100%" height={180}>
+        {total <= 0 ? (
+          <DashboardChartEmptyState message="No units available for occupancy reporting" />
+        ) : (
+          <ResponsiveContainer width="100%" height={180}>
           <PieChart>
             <Pie
               data={chartData}
@@ -41,18 +45,19 @@ export function OccupancyChart() {
               formatter={(value: number) => [`${value} units`, '']}
             />
           </PieChart>
-        </ResponsiveContainer>
+          </ResponsiveContainer>
+        )}
         {/* Center label */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        {total > 0 ? <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="text-center">
             <p className="text-2xl font-bold text-foreground">{occupiedPct}%</p>
             <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Occupied</p>
           </div>
-        </div>
+        </div> : null}
       </div>
 
       {/* Legend */}
-      <div className="mt-auto pt-4 border-t border-border/60 grid grid-cols-3 gap-2">
+      {total > 0 ? <div className="mt-auto pt-4 border-t border-border/60 grid grid-cols-3 gap-2">
         {chartData.map((item) => (
           <div key={item.name} className="text-center">
             <div className="flex items-center justify-center gap-1.5 mb-0.5">
@@ -62,7 +67,7 @@ export function OccupancyChart() {
             <p className="text-sm font-semibold text-foreground">{item.value}</p>
           </div>
         ))}
-      </div>
+      </div> : null}
     </div>
   );
 }

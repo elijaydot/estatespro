@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Palette, Save } from 'lucide-react';
+import { Monitor, Moon, Palette, Save, Sun } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,7 @@ import { applyAccentColor } from '@/lib/appearance';
 
 export function AppearanceSettings() {
   const { settings, updateSettings, isLoading } = useSettings();
+  const { theme, setTheme } = useTheme();
   const [accentColor, setAccentColor] = useState('#f59e0b');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -48,6 +50,39 @@ export function AppearanceSettings() {
           {isSaving ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
+
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-2">
+            <Sun className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">Color Theme</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-2" role="group" aria-label="Color theme">
+            {[
+              { value: 'light', label: 'Light', icon: Sun },
+              { value: 'dark', label: 'Dark', icon: Moon },
+              { value: 'system', label: 'System', icon: Monitor },
+            ].map((option) => (
+              <Button
+                key={option.value}
+                type="button"
+                variant={theme === option.value ? 'default' : 'outline'}
+                className="h-auto min-h-16 flex-col gap-1.5 px-2 py-3"
+                onClick={() => setTheme(option.value)}
+                aria-pressed={theme === option.value}
+              >
+                <option.icon className="h-4 w-4" />
+                <span className="text-xs">{option.label}</span>
+              </Button>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            System follows your device appearance automatically.
+          </p>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-4">

@@ -1,12 +1,14 @@
-import { useState } from 'react';
-import { Search, Sparkles, Loader2, TrendingUp, FileBarChart, Send } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Search, Sparkles, Loader2, TrendingUp, FileBarChart, Printer, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import ReactMarkdown from 'react-markdown';
+import { AiMarkdownResult } from '@/components/ai/AiMarkdownResult';
+import { buildAiExportBaseName, printAiResult } from '@/lib/aiResultExport';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 
 const EXAMPLE_QUERIES = {
   search: [
@@ -26,17 +28,27 @@ const EXAMPLE_QUERIES = {
   ],
 };
 
-export function SmartSearchInsights() {
+export function SmartSearchInsights({ embedded = false }: { embedded?: boolean }) {
+  const { activeCompanyId } = useActiveCompany();
   const [query, setQuery] = useState('');
   const [action, setAction] = useState<'search' | 'trends' | 'report'>('search');
   const [response, setResponse] = useState('');
+  const [submittedQuery, setSubmittedQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setResponse('');
+    setSubmittedQuery('');
+  }, [activeCompanyId]);
 
   const handleSubmit = async (q?: string) => {
     const searchQuery = q || query;
     if (!searchQuery.trim()) return;
+    if (!activeCompanyId) { toast.error('Select a company before using AI features.'); return; }
     setIsLoading(true);
     setResponse('');
+    setSubmittedQuery(searchQuery.trim());
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -47,7 +59,7 @@ export function SmartSearchInsights() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ query: searchQuery, action }),
+          body: JSON.stringify({ query: searchQuery, action, companyId: activeCompanyId }),
         }
       );
 
@@ -87,21 +99,28 @@ export function SmartSearchInsights() {
   };
 
   const actionConfig = {
-    search: { icon: Search, label: 'Search', color: 'text-primary' },
-    trends: { icon: TrendingUp, label: 'Trends', color: 'text-chart-2' },
-    report: { icon: FileBarChart, label: 'Reports', color: 'text-chart-4' },
+    search: { icon: Search, label: 'Search', resultLabel: 'Search result' },
+    trends: { icon: TrendingUp, label: 'Trends', resultLabel: 'Trend analysis' },
+    report: { icon: FileBarChart, label: 'Reports', resultLabel: 'Generated report' },
+  };
+  const exportBaseName = buildAiExportBaseName(action, submittedQuery);
+
+  const handlePrint = () => {
+    if (!resultRef.current) return;
+    try {
+      printAiResult({
+        title: actionConfig[action].resultLabel,
+        query: submittedQuery,
+        resultElement: resultRef.current,
+        documentTitle: exportBaseName,
+      });
+    } catch {
+      toast.error('Unable to open print preview.');
+    }
   };
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          Smart Search & Insights
-          <Badge variant="secondary" className="text-xs">AI</Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+  const content = (
+      <div className="space-y-4">
         <div className="flex gap-2">
           {(Object.keys(actionConfig) as Array<keyof typeof actionConfig>).map((key) => {
             const cfg = actionConfig[key];
@@ -111,7 +130,7 @@ export function SmartSearchInsights() {
                 key={key}
                 size="sm"
                 variant={action === key ? 'default' : 'outline'}
-                onClick={() => { setAction(key); setResponse(''); }}
+                onClick={() => { setAction(key); setResponse(''); setSubmittedQuery(''); }}
                 className="gap-1.5"
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -125,7 +144,7 @@ export function SmartSearchInsights() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`${action === 'search' ? 'Search your portfolio...' : action === 'trends' ? 'Ask about trends...' : 'Describe the report you need...'}`}
+            placeholder="Ask about your portfolio…"
             onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
           />
           <Button onClick={() => handleSubmit()} disabled={isLoading || !query.trim()} size="icon">
@@ -151,11 +170,40 @@ export function SmartSearchInsights() {
         )}
 
         {response && (
-          <div className="rounded-lg border border-border bg-muted/30 p-4 prose prose-sm max-w-none">
-            <ReactMarkdown>{response}</ReactMarkdown>
+          <div className="overflow-hidden rounded-lg border border-border bg-background/70" aria-live="polite" aria-busy={isLoading}>
+            <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
+              {(() => {
+                const ResultIcon = actionConfig[action].icon;
+                return <ResultIcon className="h-4 w-4 text-primary" aria-hidden="true" />;
+              })()}
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">{actionConfig[action].resultLabel}</p>
+              {isLoading && <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin text-muted-foreground" aria-label="Generating response" />}
+              <Button type="button" variant="outline" size="sm" className="ml-auto h-8 gap-1.5" onClick={handlePrint} disabled={isLoading}>
+                <Printer className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Print / PDF</span>
+                <span className="sm:hidden">PDF</span>
+              </Button>
+            </div>
+            <div ref={resultRef} className="p-4 text-sm leading-6 text-foreground sm:p-5">
+              <AiMarkdownResult content={response} filenameBase={exportBaseName} exportEnabled={!isLoading} />
+            </div>
           </div>
         )}
-      </CardContent>
+      </div>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" />
+          Smart Search & Insights
+          <Badge variant="secondary" className="text-xs">AI</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>{content}</CardContent>
     </Card>
   );
 }

@@ -14,19 +14,36 @@ function jsonResponse(req: Request, body: unknown, status = 200) {
   });
 }
 
-async function getPortfolioContext(supabase: ReturnType<typeof createClient>, userId: string) {
-  const [propertiesRes, unitsRes, tenantsRes, maintenanceRes, paymentsRes] = await Promise.all([
-    supabase.from('properties').select('id, name, total_units, occupied_units').eq('user_id', userId),
-    supabase.from('units').select('id, status').eq('user_id', userId),
-    supabase.from('tenants').select('id, status').eq('user_id', userId),
-    supabase.from('maintenance_requests').select('id, status, priority').eq('user_id', userId),
-    supabase.from('payments').select('amount, created_at, status').eq('user_id', userId).gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
-  ]);
+async function getPortfolioContext(supabase: ReturnType<typeof createClient>, companyId: string) {
+  const propertiesRes = await supabase
+    .from('properties')
+    .select('id, name, total_units, occupied_units')
+    .eq('company_id', companyId);
 
   const properties = propertiesRes.data || [];
+  const propertyIds = properties.map((property) => property.id);
+  if (propertyIds.length === 0) {
+    return 'Portfolio Summary:\n- Properties: 0\n- Units: 0\n- Active Tenants: 0\n- Revenue (Last 30 days): 0\n- Pending Maintenance: 0';
+  }
+
+  const [unitsRes, tenantsRes, maintenanceRes, invoicesRes] = await Promise.all([
+    supabase.from('units').select('id, status').in('property_id', propertyIds),
+    supabase.from('tenants').select('id, status').in('property_id', propertyIds),
+    supabase.from('maintenance_requests').select('id, status, priority').in('property_id', propertyIds),
+    supabase.from('invoices').select('id').in('property_id', propertyIds),
+  ]);
+
   const units = unitsRes.data || [];
   const tenants = tenantsRes.data || [];
   const maintenance = maintenanceRes.data || [];
+  const invoiceIds = (invoicesRes.data || []).map((invoice) => invoice.id);
+  const paymentsRes = invoiceIds.length > 0
+    ? await supabase
+      .from('payments')
+      .select('amount, created_at, status')
+      .in('invoice_id', invoiceIds)
+      .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+    : { data: [] };
   const payments = paymentsRes.data || [];
 
   const occupancyRate = units.length > 0 
@@ -98,7 +115,7 @@ serve(async (req) => {
       return jsonResponse(req, { error: quotaResult.message }, quotaResult.status);
     }
 
-    const context = await getPortfolioContext(supabaseClient, userId);
+    const context = await getPortfolioContext(supabaseClient, quotaResult.companyId);
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");

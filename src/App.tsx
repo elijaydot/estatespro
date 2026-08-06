@@ -11,7 +11,7 @@ import { ActiveCompanyProvider } from "@/contexts/ActiveCompanyContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { TenantPortalLayout } from "@/pages/tenant-portal/TenantPortalLayout";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useMyMembership } from "@/hooks/useCompanies";
+import { useMyMembership, usePendingMembership } from "@/hooks/useCompanies";
 import { isDeviceTrusted } from "@/lib/trustedDevice";
 import { useSaasAccess, type SaasEntitlementKey } from "@/hooks/useSaasAccess";
 import { useActiveCompany } from "@/contexts/useActiveCompany";
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmActionProvider } from "@/components/ui/confirm-action";
 import { Link } from "react-router-dom";
 import { LoaderCircle, Lock, RefreshCw, ShieldX } from "lucide-react";
+import { ThemeProvider } from "next-themes";
 
 import PendingApproval from "./pages/PendingApproval";
 
@@ -272,12 +273,13 @@ function MarketplaceReviewerRoute({ children }: { children: ReactNode }) {
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading, mfa, user } = useAuth();
   const { role, isLoading: roleLoading, isPropertyManager, isTenant } = useUserRole();
-  const { activeCompanyId } = useActiveCompany();
-  const { data: membership, isLoading: membershipLoading } = useMyMembership();
+  const { activeCompanyId, isLoading: companyLoading, isResolved: companyResolved } = useActiveCompany();
+  const { data: membership, isLoading: membershipLoading } = useMyMembership(activeCompanyId);
+  const { data: pendingMembership, isLoading: pendingMembershipLoading } = usePendingMembership();
   const userSuspension = usePrincipalSuspension('user', user?.id, Boolean(user?.id));
   const companySuspension = usePrincipalSuspension('company', activeCompanyId, Boolean(activeCompanyId));
   const location = useLocation();
-  const accessLoading = authLoading || roleLoading || membershipLoading || mfa.isLoading || userSuspension.isLoading || companySuspension.isLoading;
+  const accessLoading = authLoading || roleLoading || companyLoading || !companyResolved || membershipLoading || pendingMembershipLoading || mfa.isLoading || userSuspension.isLoading || companySuspension.isLoading;
   const loadingTimedOut = useLoadingTimeout(accessLoading);
 
   if (accessLoading) {
@@ -313,10 +315,8 @@ function PrivateRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/settings?tab=security&enforce_mfa=1" replace />;
   }
 
-  if (isPropertyManager && membership) {
-    if (membership.status !== "approved") {
-      return <PendingApproval />;
-    }
+  if (isPropertyManager && !membership && pendingMembership) {
+    return <PendingApproval />;
   }
 
   return <AppLayout>{children}</AppLayout>;
@@ -587,23 +587,25 @@ function AppRoutes() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <SettingsProvider>
-          <ActiveCompanyProvider>
-            <ConfirmActionProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <AppRoutes />
-              </BrowserRouter>
-            </ConfirmActionProvider>
-          </ActiveCompanyProvider>
-        </SettingsProvider>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="fishgate-theme">
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AuthProvider>
+          <SettingsProvider>
+            <ActiveCompanyProvider>
+              <ConfirmActionProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <AppRoutes />
+                </BrowserRouter>
+              </ConfirmActionProvider>
+            </ActiveCompanyProvider>
+          </SettingsProvider>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;

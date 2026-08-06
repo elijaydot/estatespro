@@ -60,16 +60,25 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // Fetch comprehensive data
-    const [propertiesRes, unitsRes, tenantsRes, leasesRes, invoicesRes, paymentsRes, maintenanceRes] = await Promise.all([
-      supabaseClient.from("properties").select("*").limit(100),
-      supabaseClient.from("units").select("id, property_id, unit_number, status, rent_amount, bedrooms, bathrooms, sqft").limit(500),
-      supabaseClient.from("tenants").select("id, name, status, monthly_rent, balance, move_in_date, lease_end_date, property_id, unit_id").limit(200),
-      supabaseClient.from("leases").select("id, lease_number, start_date, end_date, monthly_rent, status, tenant_id, property_id, renewal_status").limit(200),
-      supabaseClient.from("invoices").select("id, amount, due_date, status, paid_amount, paid_at, tenant_id, created_at").limit(1000),
-      supabaseClient.from("payments").select("id, amount, method, status, created_at, tenant_id").limit(1000),
-      supabaseClient.from("maintenance_requests").select("id, title, priority, status, created_at, completed_at, property_id, unit_id").limit(500),
-    ]);
+    const propertiesRes = await supabaseClient
+      .from("properties")
+      .select("*")
+      .eq("company_id", quotaResult.companyId)
+      .limit(100);
+    const propertyIds = (propertiesRes.data || []).map((property) => property.id);
+    const [unitsRes, tenantsRes, leasesRes, invoicesRes, maintenanceRes] = propertyIds.length > 0
+      ? await Promise.all([
+        supabaseClient.from("units").select("id, property_id, unit_number, status, rent_amount, bedrooms, bathrooms, sqft").in("property_id", propertyIds).limit(500),
+        supabaseClient.from("tenants").select("id, name, status, monthly_rent, balance, move_in_date, lease_end_date, property_id, unit_id").in("property_id", propertyIds).limit(200),
+        supabaseClient.from("leases").select("id, lease_number, start_date, end_date, monthly_rent, status, tenant_id, property_id, renewal_status").in("property_id", propertyIds).limit(200),
+        supabaseClient.from("invoices").select("id, amount, due_date, status, paid_amount, paid_at, tenant_id, created_at").in("property_id", propertyIds).limit(1000),
+        supabaseClient.from("maintenance_requests").select("id, title, priority, status, created_at, completed_at, property_id, unit_id").in("property_id", propertyIds).limit(500),
+      ])
+      : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
+    const invoiceIds = (invoicesRes.data || []).map((invoice) => invoice.id);
+    const paymentsRes = invoiceIds.length > 0
+      ? await supabaseClient.from("payments").select("id, amount, method, status, created_at, tenant_id").in("invoice_id", invoiceIds).limit(1000)
+      : { data: [] };
 
     const properties = propertiesRes.data || [];
     const units = unitsRes.data || [];

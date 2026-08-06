@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -40,7 +41,8 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center p-4">
+      <ThemeToggle className="absolute right-4 top-4 sm:right-6 sm:top-6" />
       <div className="w-full max-w-md animate-scale-in">
         {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-8">

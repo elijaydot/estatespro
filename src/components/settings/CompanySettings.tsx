@@ -20,7 +20,7 @@ const getErrorMessage = (error: unknown) => {
 export function CompanySettings() {
   const { activeCompanyId, companies, isLoading: activeCompanyLoading } = useActiveCompany();
   const { isLandlord, isPropertyManager } = useUserRole();
-  const { data: membership } = useMyMembership();
+  const { data: membership } = useMyMembership(activeCompanyId);
   const { data: settings, isLoading } = useCompanySettings(activeCompanyId);
   const updateSettings = useUpdateCompanySettings(activeCompanyId);
   const [isUploading, setIsUploading] = useState(false);

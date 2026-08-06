@@ -120,25 +120,37 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
     setActiveCompanyIdState(companies[0].id);
   }, [companies, user?.id]);
 
+  const activeCompany = useMemo(
+    () => companies.find((company) => company.id === activeCompanyId) ?? null,
+    [activeCompanyId, companies],
+  );
+  const validatedActiveCompanyId = activeCompany?.id ?? null;
+  const isResolved = !isLoading && (companies.length === 0 || activeCompany !== null);
+
   const setActiveCompanyId = useCallback((companyId: string | null) => {
-    setActiveCompanyIdState(companyId);
+    const validatedCompanyId = companyId && companies.some((company) => company.id === companyId)
+      ? companyId
+      : null;
+    setActiveCompanyIdState(validatedCompanyId);
     if (!user?.id) return;
 
-    if (companyId) {
-      localStorage.setItem(getStorageKey(user.id), companyId);
+    if (validatedCompanyId) {
+      localStorage.setItem(getStorageKey(user.id), validatedCompanyId);
     } else {
       localStorage.removeItem(getStorageKey(user.id));
     }
-  }, [user?.id]);
+  }, [companies, user?.id]);
 
   const value = useMemo(
     () => ({
-      activeCompanyId,
+      activeCompanyId: validatedActiveCompanyId,
+      activeCompany,
       setActiveCompanyId,
       companies,
       isLoading,
+      isResolved,
     }),
-    [activeCompanyId, companies, isLoading, setActiveCompanyId]
+    [activeCompany, companies, isLoading, isResolved, setActiveCompanyId, validatedActiveCompanyId]
   );
 
   return <ActiveCompanyContext.Provider value={value}>{children}</ActiveCompanyContext.Provider>;

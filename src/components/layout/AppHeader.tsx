@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useWorkspaceNavigation } from '@/hooks/useWorkspaceNavigation';
 import type { StaffWorkspaceId } from '@/lib/workspaceNavigation';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 type QuickAddType = 'property' | 'unit' | 'tenant' | 'lease' | 'invoice';
 
@@ -223,6 +224,7 @@ export function AppHeader() {
 
       {/* Actions */}
       <div className="flex items-center gap-3">
+        <ThemeToggle />
         {/* Quick Add */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -72,13 +72,11 @@ export function useDashboardStats() {
   return useQuery({
     queryKey: ['dashboard-stats', activeCompanyId],
     queryFn: async (): Promise<DashboardStats> => {
+      if (!activeCompanyId) throw new Error('Select a company first');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      let propertiesQuery = supabase.from('properties').select('id, total_units, occupied_units, company_id');
-      if (activeCompanyId) {
-        propertiesQuery = propertiesQuery.eq('company_id', activeCompanyId);
-      }
+      const propertiesQuery = supabase.from('properties').select('id, total_units, occupied_units, company_id').eq('company_id', activeCompanyId);
 
       const { data: propertiesData, error: propertiesError } = await propertiesQuery;
       if (propertiesError) throw propertiesError;
@@ -247,6 +245,7 @@ export function useDashboardStats() {
         shortletTotalBookings,
       };
     },
+    enabled: Boolean(activeCompanyId),
   });
 }
 
@@ -256,13 +255,11 @@ export function useRecentActivity() {
   return useQuery({
     queryKey: ['recent-activity', activeCompanyId],
     queryFn: async () => {
+      if (!activeCompanyId) return [];
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      let propertiesQuery = supabase.from('properties').select('id, company_id');
-      if (activeCompanyId) {
-        propertiesQuery = propertiesQuery.eq('company_id', activeCompanyId);
-      }
+      const propertiesQuery = supabase.from('properties').select('id, company_id').eq('company_id', activeCompanyId);
 
       const { data: scopedProperties, error: scopedPropertiesError } = await propertiesQuery;
       if (scopedPropertiesError) throw scopedPropertiesError;
@@ -360,6 +357,7 @@ export function useRecentActivity() {
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, 10);
     },
+    enabled: Boolean(activeCompanyId),
   });
 }
 
@@ -369,6 +367,7 @@ export function useUpcomingRenewals() {
   return useQuery({
     queryKey: ['upcoming-renewals', activeCompanyId],
     queryFn: async () => {
+      if (!activeCompanyId) return [];
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -376,18 +375,15 @@ export function useUpcomingRenewals() {
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-      let query = supabase
+      const query = supabase
         .from('tenants')
-        .select('id, name, lease_end_date, units:unit_id(unit_number), properties:property_id(name, company_id)')
+        .select('id, name, lease_end_date, units:unit_id(unit_number), properties:property_id!inner(name, company_id)')
         .eq('status', 'active')
+        .eq('properties.company_id', activeCompanyId)
         .gte('lease_end_date', now.toISOString().split('T')[0])
         .lte('lease_end_date', thirtyDaysFromNow.toISOString().split('T')[0])
         .order('lease_end_date', { ascending: true })
         .limit(10);
-
-      if (activeCompanyId) {
-        query = query.eq('properties.company_id', activeCompanyId);
-      }
 
       const { data, error } = await query;
 
@@ -410,6 +406,7 @@ export function useUpcomingRenewals() {
         };
       }) || [];
     },
+    enabled: Boolean(activeCompanyId),
   });
 }
 
@@ -419,13 +416,11 @@ export function useRevenueData() {
   return useQuery({
     queryKey: ['revenue-chart-data', activeCompanyId],
     queryFn: async () => {
+      if (!activeCompanyId) return [];
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      let propertiesQuery = supabase.from('properties').select('id, company_id');
-      if (activeCompanyId) {
-        propertiesQuery = propertiesQuery.eq('company_id', activeCompanyId);
-      }
+      const propertiesQuery = supabase.from('properties').select('id, company_id').eq('company_id', activeCompanyId);
 
       const { data: scopedProperties, error: scopedPropertiesError } = await propertiesQuery;
       if (scopedPropertiesError) throw scopedPropertiesError;
@@ -484,19 +479,30 @@ export function useRevenueData() {
         revenue,
       }));
     },
+    enabled: Boolean(activeCompanyId),
   });
 }
 
 export function useOccupancyData() {
+  const { activeCompanyId } = useActiveCompany();
+
   return useQuery({
-    queryKey: ['occupancy-chart-data'],
+    queryKey: ['occupancy-chart-data', activeCompanyId],
     queryFn: async () => {
+      if (!activeCompanyId) return [];
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase
-        .from('units')
-        .select('status');
+      const { data: properties, error: propertiesError } = await supabase
+        .from('properties')
+        .select('id')
+        .eq('company_id', activeCompanyId);
+
+      if (propertiesError) throw propertiesError;
+      const propertyIds = (properties || []).map((property) => property.id);
+      if (propertyIds.length === 0) return [];
+
+      const { data, error } = await supabase.from('units').select('status').in('property_id', propertyIds);
 
       if (error) throw error;
 
@@ -521,5 +527,6 @@ export function useOccupancyData() {
         { name: 'Maintenance', value: statusCounts.maintenance, fill: 'hsl(var(--muted))' },
       ];
     },
+    enabled: Boolean(activeCompanyId),
   });
 }
