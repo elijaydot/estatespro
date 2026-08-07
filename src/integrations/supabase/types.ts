@@ -2791,6 +2791,7 @@ export type Database = {
           paused_at: string | null
           property_id: string | null
           published_at: string | null
+          removal_flagged_at: string | null
           rent_amount: number
           slug: string
           status: string
@@ -2818,6 +2819,7 @@ export type Database = {
           paused_at?: string | null
           property_id?: string | null
           published_at?: string | null
+          removal_flagged_at?: string | null
           rent_amount: number
           slug: string
           status?: string
@@ -2845,6 +2847,7 @@ export type Database = {
           paused_at?: string | null
           property_id?: string | null
           published_at?: string | null
+          removal_flagged_at?: string | null
           rent_amount?: number
           slug?: string
           status?: string
@@ -3110,6 +3113,7 @@ export type Database = {
         Row: {
           assigned_moderator: string | null
           closed_at: string | null
+          company_id: string
           created_at: string
           entity_id: string
           entity_type: string
@@ -3128,6 +3132,7 @@ export type Database = {
         Insert: {
           assigned_moderator?: string | null
           closed_at?: string | null
+          company_id: string
           created_at?: string
           entity_id: string
           entity_type: string
@@ -3146,6 +3151,7 @@ export type Database = {
         Update: {
           assigned_moderator?: string | null
           closed_at?: string | null
+          company_id?: string
           created_at?: string
           entity_id?: string
           entity_type?: string
@@ -3161,7 +3167,22 @@ export type Database = {
           state?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "moderation_cases_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderation_cases_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -6307,6 +6328,7 @@ export type Database = {
       }
     }
     Functions: {
+      auto_remove_stale_pending_listings: { Args: never; Returns: number }
       can_access_tenant_exit_inventory: {
         Args: { tenant_id_text: string }
         Returns: boolean
@@ -6586,6 +6608,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      handle_pending_listing_removal: {
+        Args: { p_action: string; p_listing_id: string }
+        Returns: undefined
+      }
       has_platform_operator_role: {
         Args: { _role: string; _user_id: string }
         Returns: boolean
@@ -6619,6 +6645,19 @@ export type Database = {
           p_user_agent?: string
         }
         Returns: string
+      }
+      notify_listing_owner: {
+        Args: {
+          p_listing_id: string
+          p_message: string
+          p_title: string
+          p_type: string
+        }
+        Returns: undefined
+      }
+      notify_listing_owner_of_lead: {
+        Args: { p_lead_id: string }
+        Returns: undefined
       }
       platform_admin_change_company_plan: {
         Args: {
@@ -6876,6 +6915,10 @@ export type Database = {
         }
         Returns: Json
       }
+      resolve_moderation_case_company_id: {
+        Args: { p_entity_id: string; p_entity_type: string }
+        Returns: string
+      }
       saas_adjust_usage_counter: {
         Args: {
           p_company_id: string
@@ -7127,6 +7170,10 @@ export type Database = {
       saas_user_can_administer_billing: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
+      }
+      schedule_marketplace_stale_listing_removal: {
+        Args: never
+        Returns: undefined
       }
       schedule_operational_alert_evaluation: { Args: never; Returns: boolean }
       seed_exit_inspection_items_from_scope: {
