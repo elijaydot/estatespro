@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ReactNode } from 'react';
-import { Inbox } from 'lucide-react';
+import { AlertCircle, Inbox, RefreshCw, type LucideIcon } from 'lucide-react';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { EmptyState as SharedEmptyState } from '@/components/shared/EmptyState';
 
@@ -45,8 +45,34 @@ export function CrmDataCard({
   );
 }
 
-export function EmptyState({ label }: { label: string }) {
-  return <SharedEmptyState icon={Inbox} title={label} />;
+export function EmptyState({
+  label,
+  description,
+  action,
+  icon = Inbox,
+}: {
+  label: string;
+  description?: string;
+  action?: ReactNode;
+  icon?: LucideIcon;
+}) {
+  return <SharedEmptyState icon={icon} title={label} description={description} action={action} />;
+}
+
+export function QueryErrorState({ message, onRetry }: { message?: string; onRetry: () => void }) {
+  return (
+    <SharedEmptyState
+      icon={AlertCircle}
+      title="We couldn't load this workspace"
+      description={message || 'Check your connection and try again. Your data has not been changed.'}
+      action={(
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Try again
+        </Button>
+      )}
+    />
+  );
 }
 
 export function SimpleToolbar({

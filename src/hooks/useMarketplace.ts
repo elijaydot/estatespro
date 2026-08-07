@@ -83,6 +83,34 @@ export interface ManagedMarketplaceListing {
   created_at: string;
 }
 
+export interface VacantMarketplaceUnit {
+  id: string;
+  property_id: string;
+  unit_number: string;
+  bedrooms: number;
+  bathrooms: number;
+  rent_amount: number;
+  description: string | null;
+  property_name: string;
+  city: string;
+  state: string;
+}
+
+export interface CreateMarketplaceListingInput {
+  unitId: string;
+  propertyId: string;
+  title: string;
+  description: string;
+  city: string;
+  area?: string | null;
+  rentAmount: number;
+  currency?: string;
+  bedrooms: number;
+  bathrooms: number;
+  availableFrom?: string | null;
+  mediaPaths?: string[];
+}
+
 export interface ModerationCase {
   id: string;
   entity_type: string;
@@ -170,6 +198,18 @@ export interface ReviewerVerificationDocumentHistoryItem {
   reviewed_by: string | null;
   reviewed_at: string;
   rejection_reason: string | null;
+}
+
+export interface ReviewerModerationCaseQueueItem extends ModerationCase {
+  company_id: string;
+  company_name: string;
+}
+
+export interface ReviewerModerationCaseHistoryItem extends ReviewerModerationCaseQueueItem {
+  state: 'resolved' | 'dismissed';
+  resolved_by: string;
+  resolved_at: string;
+  resolution_notes: string;
 }
 
 export interface ReviewerProfile {
@@ -700,6 +740,133 @@ export function useManagedMarketplaceListings(companyId?: string | null) {
   });
 }
 
+export function useVacantUnpublishedUnits(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'vacant-unpublished-units', companyId],
+    queryFn: async () => {
+      if (!companyId) return [] as VacantMarketplaceUnit[];
+
+      const [unitsResult, listingsResult] = await Promise.all([
+        supabase
+          .from('units')
+          .select('id, property_id, unit_number, bedrooms, bathrooms, rent_amount, description, properties:property_id!inner(id, name, city, state, company_id)')
+          .eq('status', 'vacant')
+          .eq('properties.company_id', companyId)
+          .order('unit_number', { ascending: true }),
+        supabase
+          .from('marketplace_listings')
+          .select('unit_id')
+          .eq('company_id', companyId)
+          .neq('status', 'archived')
+          .not('unit_id', 'is', null),
+      ]);
+
+      if (unitsResult.error) throw unitsResult.error;
+      if (listingsResult.error) throw listingsResult.error;
+
+      const listedUnitIds = new Set((listingsResult.data || []).map((row) => row.unit_id).filter(Boolean));
+      return ((unitsResult.data || []) as Array<Record<string, unknown>>)
+        .filter((row) => !listedUnitIds.has(String(row.id)))
+        .map((row) => {
+          const property = row.properties as { name?: string; city?: string; state?: string } | null;
+          return {
+            id: String(row.id),
+            property_id: String(row.property_id),
+            unit_number: String(row.unit_number),
+            bedrooms: Number(row.bedrooms || 0),
+            bathrooms: Number(row.bathrooms || 0),
+            rent_amount: Number(row.rent_amount || 0),
+            description: (row.description as string | null) || null,
+            property_name: property?.name || 'Property',
+            city: property?.city || '',
+            state: property?.state || '',
+          };
+        }) as VacantMarketplaceUnit[];
+    },
+    enabled: !!companyId,
+  });
+}
+
+function marketplaceSlugPart(value: string) {
+  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+}
+
+export function useCreateMarketplaceListing(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreateMarketplaceListingInput) => {
+      if (!companyId) throw new Error('Select a company first');
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) throw authError || new Error('Not authenticated');
+
+      const slugBase = [marketplaceSlugPart(input.title), marketplaceSlugPart(input.city)].filter(Boolean).join('-') || 'listing';
+      let listing: { id: string; title: string; slug: string } | null = null;
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const suffix = crypto.randomUUID().replace(/-/g, '').slice(0, 8 + attempt * 2);
+        const { data, error } = await supabase
+          .from('marketplace_listings')
+          .insert({
+            company_id: companyId,
+            property_id: input.propertyId,
+            unit_id: input.unitId,
+            title: input.title.trim(),
+            slug: `${slugBase}-${suffix}`,
+            description: input.description.trim() || null,
+            city: input.city.trim(),
+            area: input.area?.trim() || null,
+            rent_amount: input.rentAmount,
+            currency: input.currency || 'NGN',
+            bedrooms: input.bedrooms,
+            bathrooms: input.bathrooms,
+            available_from: input.availableFrom || null,
+            status: 'draft',
+            created_by: authData.user.id,
+          })
+          .select('id, title, slug')
+          .single();
+
+        if (!error) {
+          listing = data;
+          break;
+        }
+        if (error.code !== '23505' || !error.message.toLowerCase().includes('slug')) throw error;
+      }
+
+      if (!listing) throw new Error('Could not generate a unique listing slug. Please try again.');
+
+      if (input.mediaPaths?.length) {
+        const { error: mediaError } = await supabase.from('listing_media').insert(
+          input.mediaPaths.map((storagePath, index) => ({
+            listing_id: listing!.id,
+            storage_path: storagePath,
+            media_type: 'image',
+            sort_order: index,
+            is_cover: index === 0,
+          })),
+        );
+        if (mediaError) throw mediaError;
+      }
+
+      return listing;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'managed-listings', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'vacant-unpublished-units', companyId] });
+      toast({ title: 'Draft listing created', description: 'Review the listing, then publish when verification is complete.' });
+    },
+    onError: (error: Error) => {
+      const duplicateUnit = error.message.includes('uq_marketplace_listings_active_unit');
+      toast({
+        title: 'Listing creation failed',
+        description: duplicateUnit ? 'This unit already has a non-archived marketplace listing.' : error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
 export function useToggleMarketplacePublish(companyId?: string | null) {
   const queryClient = useQueryClient();
 
@@ -742,6 +909,25 @@ export function useToggleMarketplacePublish(companyId?: string | null) {
             : error.message;
       toast({ title: 'Publish Toggle Failed', description: message, variant: 'destructive' });
     },
+  });
+}
+
+export function useHandlePendingListingRemoval(companyId?: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ listingId, action }: { listingId: string; action: 'confirm' | 'keep_live' }) => {
+      const { error } = await supabase.rpc('handle_pending_listing_removal' as never, {
+        p_listing_id: listingId,
+        p_action: action,
+      } as never);
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'managed-listings', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['operational-alerts', companyId] });
+      toast({ title: variables.action === 'confirm' ? 'Listing removed' : 'Listing restored', description: variables.action === 'confirm' ? 'The listing has been archived.' : 'The override was logged and the listing is live again.' });
+    },
+    onError: (error: Error) => toast({ title: 'Listing update failed', description: error.message, variant: 'destructive' }),
   });
 }
 
@@ -809,6 +995,8 @@ export function useUpdateModerationCaseState(companyId?: string | null) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'moderation-cases', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'reviewer-moderation-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'reviewer-moderation-history'] });
       toast({ title: 'Moderation Updated', description: 'Case state updated successfully' });
     },
     onError: (error: Error) => {
@@ -997,6 +1185,67 @@ export function useReviewerPublisherVerificationQueue(companyId?: string | null)
           verified_at: (row.verified_at as string | null) || null,
         };
       }) as ReviewerPublisherVerificationQueueItem[];
+    },
+  });
+}
+
+export function useReviewerModerationCaseQueue(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'reviewer-moderation-queue', companyId || 'all'],
+    queryFn: async () => {
+      let query = supabase
+        .from('moderation_cases' as never)
+        .select('id, company_id, entity_type, entity_id, reason_code, severity, state, queue, assigned_moderator, resolved_by, resolved_at, resolution_notes, opened_at, closed_at, created_at, updated_at, companies:company_id(name)')
+        .in('state', ['open', 'in_review'])
+        .order('opened_at', { ascending: true })
+        .limit(300);
+
+      if (companyId) {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return ((data || []) as Array<Record<string, unknown>>).map((row) => {
+        const company = row.companies as { name?: string } | null;
+        return {
+          ...row,
+          company_id: String(row.company_id),
+          company_name: company?.name || 'Unknown company',
+        };
+      }) as ReviewerModerationCaseQueueItem[];
+    },
+  });
+}
+
+export function useReviewerModerationCaseHistory(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'reviewer-moderation-history', companyId || 'all'],
+    queryFn: async () => {
+      let query = supabase
+        .from('moderation_cases' as never)
+        .select('id, company_id, entity_type, entity_id, reason_code, severity, state, queue, assigned_moderator, resolved_by, resolved_at, resolution_notes, opened_at, closed_at, created_at, updated_at, companies:company_id(name)')
+        .in('state', ['resolved', 'dismissed'])
+        .not('resolved_at', 'is', null)
+        .order('resolved_at', { ascending: false })
+        .limit(200);
+
+      if (companyId) {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return ((data || []) as Array<Record<string, unknown>>).map((row) => {
+        const company = row.companies as { name?: string } | null;
+        return {
+          ...row,
+          company_id: String(row.company_id),
+          company_name: company?.name || 'Unknown company',
+        };
+      }) as ReviewerModerationCaseHistoryItem[];
     },
   });
 }

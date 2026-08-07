@@ -5,15 +5,12 @@ import { DocumentUploader } from '@/components/marketplace-crm/DocumentUploader'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useUserRole } from '@/hooks/useUserRole';
 import {
   useAddVerificationDocument,
   usePublisherVerification,
-  useReviewerDecisionOnPublisherVerification,
-  useReviewerDecisionOnVerificationDocument,
   useSubmitPublisherVerification,
   useVerificationDocuments,
   type VerificationDocument,
@@ -70,18 +67,14 @@ export default function MarketplaceVerification() {
   const verificationQuery = usePublisherVerification(activeCompanyId);
   const submitVerification = useSubmitPublisherVerification(activeCompanyId);
   const addDocument = useAddVerificationDocument(activeCompanyId);
-  const reviewPublisherVerification = useReviewerDecisionOnPublisherVerification(activeCompanyId);
 
   const verificationId = verificationQuery.data?.id ?? null;
   const documentsQuery = useVerificationDocuments(verificationId);
-  const reviewVerificationDocument = useReviewerDecisionOnVerificationDocument(verificationId);
 
   const [documentType, setDocumentType] = useState<VerificationDocument['document_type']>('id_card');
   const [documentPath, setDocumentPath] = useState<string | null>(null);
   const [documentMimeType, setDocumentMimeType] = useState<string | null>(null);
   const [documentUploadResetKey, setDocumentUploadResetKey] = useState(0);
-  const [verificationRejectionReason, setVerificationRejectionReason] = useState('');
-  const [documentRejectionReasons, setDocumentRejectionReasons] = useState<Record<string, string>>({});
 
   const acceptedMimeTypesByDocumentType: Record<VerificationDocument['document_type'], string[]> = {
     id_card: ['application/pdf', 'image/jpeg', 'image/png'],
@@ -100,7 +93,6 @@ export default function MarketplaceVerification() {
   }
 
   const canSubmit = isLandlord;
-  const canReview = isSuperAdmin;
 
   return (
     <div className="space-y-6">
@@ -139,55 +131,6 @@ export default function MarketplaceVerification() {
             )}
           </div>
 
-          {canReview && verificationId && (
-            <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Internal Reviewer Actions</p>
-              <Input
-                placeholder="Reason (required for rejection)"
-                value={verificationRejectionReason}
-                onChange={(event) => setVerificationRejectionReason(event.target.value)}
-              />
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="default"
-                  disabled={reviewPublisherVerification.isPending}
-                  onClick={() =>
-                    reviewPublisherVerification.mutate({
-                      verificationId,
-                      state: 'verified',
-                    })
-                  }
-                >
-                  Mark Verified
-                </Button>
-                <Button
-                  variant="secondary"
-                  disabled={reviewPublisherVerification.isPending}
-                  onClick={() =>
-                    reviewPublisherVerification.mutate({
-                      verificationId,
-                      state: 'needs_review',
-                    })
-                  }
-                >
-                  Mark Needs Review
-                </Button>
-                <Button
-                  variant="destructive"
-                  disabled={reviewPublisherVerification.isPending || !verificationRejectionReason.trim()}
-                  onClick={() =>
-                    reviewPublisherVerification.mutate({
-                      verificationId,
-                      state: 'rejected',
-                      rejectionReason: verificationRejectionReason,
-                    })
-                  }
-                >
-                  Reject
-                </Button>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -268,49 +211,6 @@ export default function MarketplaceVerification() {
                   <p className="text-xs text-muted-foreground">Reason: {doc.rejection_reason}</p>
                 )}
 
-                {canReview && (
-                  <div className="mt-2 space-y-2">
-                    <Input
-                      placeholder="Reason (required for document rejection)"
-                      value={documentRejectionReasons[doc.id] ?? ''}
-                      onChange={(event) =>
-                        setDocumentRejectionReasons((prev) => ({
-                          ...prev,
-                          [doc.id]: event.target.value,
-                        }))
-                      }
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={reviewVerificationDocument.isPending}
-                        onClick={() =>
-                          reviewVerificationDocument.mutate({
-                            documentId: doc.id,
-                            state: 'approved',
-                          })
-                        }
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        disabled={reviewVerificationDocument.isPending || !(documentRejectionReasons[doc.id] ?? '').trim()}
-                        onClick={() =>
-                          reviewVerificationDocument.mutate({
-                            documentId: doc.id,
-                            state: 'rejected',
-                            rejectionReason: documentRejectionReasons[doc.id] ?? '',
-                          })
-                        }
-                      >
-                        Reject
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </div>
             ))}
 

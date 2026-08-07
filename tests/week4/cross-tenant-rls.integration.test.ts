@@ -52,6 +52,9 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
   let teamMemberId: string;
   let evaluatorVendorDocumentId: string;
   let operationalAlertId: string;
+  let companyAVacantUnitId: string;
+  let companyAPendingListingId: string;
+  let companyAModerationCaseId: string;
 
   async function insertOne(table: string, values: Record<string, unknown>) {
     const { data, error } = await admin.from(table).insert(values).select('id').single();
@@ -209,6 +212,39 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
       name: `Company A Owner ${runId}`,
       account_kind: 'owner_investor',
       metadata: { scope: 'company-a' },
+    });
+
+    companyAVacantUnitId = await insertOne('units', {
+      user_id: ownerA.userId,
+      property_id: propertyId,
+      unit_number: `RLS-MARKETPLACE-${runId}`,
+      status: 'vacant',
+    });
+    const pendingListingUnitId = await insertOne('units', {
+      user_id: ownerA.userId,
+      property_id: propertyId,
+      unit_number: `RLS-PENDING-${runId}`,
+      status: 'vacant',
+    });
+    companyAPendingListingId = await insertOne('marketplace_listings', {
+      company_id: ownerA.companyId,
+      property_id: propertyId,
+      unit_id: pendingListingUnitId,
+      title: `Private pending listing ${runId}`,
+      slug: `private-pending-${runId}`,
+      city: 'Accra',
+      rent_amount: 1500,
+      status: 'pending_removal',
+      removal_flagged_at: new Date().toISOString(),
+      created_by: ownerA.userId,
+    });
+    companyAModerationCaseId = await insertOne('moderation_cases', {
+      entity_type: 'listing',
+      entity_id: companyAPendingListingId,
+      reason_code: 'integration_review',
+      severity: 'medium',
+      state: 'open',
+      opened_by: ownerA.userId,
     });
 
     const crmLeadId = await insertOne('leads', {
@@ -486,6 +522,85 @@ describeWithSupabase('cross-tenant RLS isolation', () => {
     expect((await companyBClient.from('properties').select('id, owner_account_id').eq('id', companyA.propertyId)).data).toEqual([]);
     expect((await companyAClient.from('tenants').select('id').eq('id', companyBTenantId)).data).toEqual([]);
     expect((await companyAClient.from('properties').select('id').eq('id', companyBPropertyId)).data).toEqual([]);
+  });
+
+  it('isolates marketplace listing creation, moderation, and removal actions by company', async () => {
+    const moderationRead = await companyBClient.from('moderation_cases').select('id').eq('id', companyAModerationCaseId);
+    expect(moderationRead.error).toBeNull();
+    expect(moderationRead.data).toEqual([]);
+
+    const hostileListing = await companyBClient.from('marketplace_listings').insert({
+      company_id: companyA.companyId,
+      property_id: companyA.propertyId,
+      unit_id: companyAVacantUnitId,
+      title: `Injected marketplace listing ${runId}`,
+      slug: `injected-marketplace-${runId}`,
+      city: 'Accra',
+      rent_amount: 1,
+      status: 'draft',
+      created_by: companyBUserId,
+    });
+    expect(hostileListing.error).not.toBeNull();
+    expect(hostileListing.error?.code).toBe('42501');
+
+    const hostileRemoval = await companyBClient.rpc('handle_pending_listing_removal', {
+      p_listing_id: companyAPendingListingId,
+      p_action: 'confirm',
+    });
+    expect(hostileRemoval.error).not.toBeNull();
+    expect(hostileRemoval.error?.message).toContain('LISTING_REMOVAL_ACCESS_DENIED');
+
+    const unchanged = await admin.from('marketplace_listings').select('status, removal_flagged_at')
+      .eq('id', companyAPendingListingId).single();
+    expect(unchanged.data?.status).toBe('pending_removal');
+    expect(unchanged.data?.removal_flagged_at).not.toBeNull();
+  });
+
+  it('keeps fresh pending listings, archives stale ones, and clears owner overrides', async () => {
+    const createLifecycleListing = async (label: string, flaggedAt: string) => {
+      const unitId = await insertOne('units', {
+        user_id: companyA.ownerId,
+        property_id: companyA.propertyId,
+        unit_number: `RLS-${label}-${runId}`,
+        status: 'vacant',
+      });
+      return insertOne('marketplace_listings', {
+        company_id: companyA.companyId,
+        property_id: companyA.propertyId,
+        unit_id: unitId,
+        title: `${label} listing ${runId}`,
+        slug: `${label.toLowerCase()}-${runId}`,
+        city: 'Accra',
+        rent_amount: 1200,
+        status: 'pending_removal',
+        removal_flagged_at: flaggedAt,
+        created_by: companyA.ownerId,
+      });
+    };
+
+    const freshId = await createLifecycleListing('Fresh', new Date().toISOString());
+    const staleId = await createLifecycleListing('Stale', new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString());
+    const overrideId = await createLifecycleListing('Override', new Date().toISOString());
+
+    const override = await companyAClient.rpc('handle_pending_listing_removal', {
+      p_listing_id: overrideId,
+      p_action: 'keep_live',
+    });
+    expect(override.error).toBeNull();
+
+    const processed = await admin.rpc('auto_remove_stale_pending_listings');
+    expect(processed.error).toBeNull();
+    expect(processed.data).toBeGreaterThanOrEqual(1);
+
+    const listings = await admin.from('marketplace_listings').select('id, status, removal_flagged_at')
+      .in('id', [freshId, staleId, overrideId]);
+    expect(listings.error).toBeNull();
+    expect(listings.data?.find((listing) => listing.id === freshId)?.status).toBe('pending_removal');
+    expect(listings.data?.find((listing) => listing.id === staleId)?.status).toBe('archived');
+    expect(listings.data?.find((listing) => listing.id === overrideId)).toMatchObject({
+      status: 'live',
+      removal_flagged_at: null,
+    });
   });
 
   it('creates one idempotent system-alert lead through the existing alert path', async () => {

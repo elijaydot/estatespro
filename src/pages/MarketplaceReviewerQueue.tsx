@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Building2, Clock3, FileCheck2, History, ShieldCheck } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Building2, Clock3, FileCheck2, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/useAuth';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -23,13 +24,17 @@ import {
   useReviewerDecisionOnPublisherVerification,
   useReviewerDecisionOnVerificationDocument,
   useIsInternalMarketplaceReviewer,
+  useReviewerModerationCaseHistory,
+  useReviewerModerationCaseQueue,
   useReviewerProfiles,
   useReviewerPublisherDecisionHistory,
   useReviewerPublisherVerificationQueue,
   useReviewerVerificationDocumentHistory,
   useReviewerVerificationDocumentQueue,
+  useUpdateModerationCaseState,
 } from '@/hooks/useMarketplace';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { QueryErrorState } from '@/components/marketplace-crm/CrmWidgets';
 import { MetricCard } from '@/components/shared/MetricCard';
 import { PageHeader } from '@/components/shared/PageHeader';
 
@@ -40,24 +45,31 @@ export default function MarketplaceReviewerQueue() {
   const reviewerAccessQuery = useIsInternalMarketplaceReviewer(user?.id);
 
   const [scopeAllCompanies, setScopeAllCompanies] = useState(true);
+  const [activeQueue, setActiveQueue] = useState<'publishers' | 'documents' | 'moderation' | 'history'>('publishers');
   const [search, setSearch] = useState('');
   const [publisherSlaFilter, setPublisherSlaFilter] = useState<'all' | 'healthy' | 'warning' | 'critical'>('all');
   const [documentSlaFilter, setDocumentSlaFilter] = useState<'all' | 'healthy' | 'warning' | 'critical'>('all');
-  const [auditDecisionFilter, setAuditDecisionFilter] = useState<'all' | 'verified' | 'needs_review' | 'rejected' | 'approved'>('all');
+  const [moderationSlaFilter, setModerationSlaFilter] = useState<'all' | 'healthy' | 'warning' | 'critical'>('all');
+  const [auditDecisionFilter, setAuditDecisionFilter] = useState<'all' | 'verified' | 'needs_review' | 'rejected' | 'approved' | 'resolved' | 'dismissed'>('all');
   const [verificationReasons, setVerificationReasons] = useState<Record<string, string>>({});
   const [documentReasons, setDocumentReasons] = useState<Record<string, string>>({});
+  const [moderationNotes, setModerationNotes] = useState<Record<string, string>>({});
   const [publisherVisibleCount, setPublisherVisibleCount] = useState(REVIEWER_QUEUE_PAGE_SIZE);
   const [documentVisibleCount, setDocumentVisibleCount] = useState(REVIEWER_QUEUE_PAGE_SIZE);
+  const [moderationVisibleCount, setModerationVisibleCount] = useState(REVIEWER_QUEUE_PAGE_SIZE);
   const [auditVisibleCount, setAuditVisibleCount] = useState(REVIEWER_AUDIT_PAGE_SIZE);
 
   const scopedCompanyId = scopeAllCompanies ? null : activeCompanyId;
 
   const publisherQueue = useReviewerPublisherVerificationQueue(scopedCompanyId);
   const documentQueue = useReviewerVerificationDocumentQueue(scopedCompanyId);
+  const moderationQueue = useReviewerModerationCaseQueue(scopedCompanyId);
   const publisherHistory = useReviewerPublisherDecisionHistory(scopedCompanyId);
   const documentHistory = useReviewerVerificationDocumentHistory(scopedCompanyId);
+  const moderationHistory = useReviewerModerationCaseHistory(scopedCompanyId);
   const reviewPublisher = useReviewerDecisionOnPublisherVerification(scopedCompanyId);
   const reviewDocument = useReviewerDecisionOnVerificationDocument();
+  const updateModerationState = useUpdateModerationCaseState(scopedCompanyId);
 
   const reviewerIds = useMemo(() => {
     const ids: string[] = [];
@@ -78,8 +90,16 @@ export default function MarketplaceReviewerQueue() {
       if (row.reviewed_by) ids.push(row.reviewed_by);
     });
 
+    (moderationQueue.data || []).forEach((row) => {
+      if (row.assigned_moderator) ids.push(row.assigned_moderator);
+    });
+
+    (moderationHistory.data || []).forEach((row) => {
+      if (row.resolved_by) ids.push(row.resolved_by);
+    });
+
     return Array.from(new Set(ids));
-  }, [publisherQueue.data, documentQueue.data, publisherHistory.data, documentHistory.data]);
+  }, [publisherQueue.data, documentQueue.data, publisherHistory.data, documentHistory.data, moderationQueue.data, moderationHistory.data]);
 
   const reviewerProfiles = useReviewerProfiles(reviewerIds);
   const reviewerMap = useMemo(() => {
@@ -129,13 +149,21 @@ export default function MarketplaceReviewerQueue() {
     [filteredDocumentRows, documentVisibleCount],
   );
 
-  const avgPublisherAge = filteredPublisherRows.length
-    ? Math.round(filteredPublisherRows.reduce((sum, row) => sum + ageInDays(row.last_submitted_at), 0) / filteredPublisherRows.length)
-    : 0;
+  const moderationRows = useMemo(() => {
+    const rows = moderationQueue.data || [];
+    const query = search.toLowerCase().trim();
+    if (!query) return rows;
+    return rows.filter((row) => (`${row.company_name} ${row.reason_code} ${row.severity} ${row.queue}`).toLowerCase().includes(query));
+  }, [moderationQueue.data, search]);
 
-  const avgDocumentAge = filteredDocumentRows.length
-    ? Math.round(filteredDocumentRows.reduce((sum, row) => sum + ageInDays(row.created_at), 0) / filteredDocumentRows.length)
-    : 0;
+  const filteredModerationRows = useMemo(() => {
+    return moderationRows.filter((row) => matchesSlaFilter(ageInDays(row.opened_at), moderationSlaFilter));
+  }, [moderationRows, moderationSlaFilter]);
+
+  const visibleModerationRows = useMemo(
+    () => sliceRows(filteredModerationRows, moderationVisibleCount),
+    [filteredModerationRows, moderationVisibleCount],
+  );
 
   const publisherSla = useMemo(() => {
     return publisherRows.reduce(
@@ -158,6 +186,31 @@ export default function MarketplaceReviewerQueue() {
       { healthy: 0, warning: 0, critical: 0 },
     );
   }, [documentRows]);
+
+  const moderationSla = useMemo(() => {
+    return moderationRows.reduce(
+      (acc, row) => {
+        const level = getSlaLevel(ageInDays(row.opened_at));
+        acc[level] += 1;
+        return acc;
+      },
+      { healthy: 0, warning: 0, critical: 0 },
+    );
+  }, [moderationRows]);
+
+  const activeQueueError = activeQueue === 'publishers'
+    ? publisherQueue.error
+    : activeQueue === 'documents'
+      ? documentQueue.error
+      : activeQueue === 'moderation'
+        ? moderationQueue.error
+        : publisherHistory.error || documentHistory.error || moderationHistory.error;
+  const retryActiveQueue = () => {
+    if (activeQueue === 'publishers') void publisherQueue.refetch();
+    else if (activeQueue === 'documents') void documentQueue.refetch();
+    else if (activeQueue === 'moderation') void moderationQueue.refetch();
+    else void Promise.all([publisherHistory.refetch(), documentHistory.refetch(), moderationHistory.refetch()]);
+  };
 
   const auditTrail = useMemo(() => {
     const publisherEvents = (publisherHistory.data || []).map((row) => {
@@ -186,11 +239,21 @@ export default function MarketplaceReviewerQueue() {
       };
     });
 
-    return [...publisherEvents, ...documentEvents]
+    const moderationEvents = (moderationHistory.data || []).map((row) => ({
+      id: `moderation-${row.id}`,
+      type: `Moderation (${row.reason_code})`,
+      company: row.company_name,
+      decision: row.state,
+      actor: resolveReviewerLabel(row.resolved_by),
+      at: row.resolved_at,
+      reason: row.resolution_notes,
+    }));
+
+    return [...publisherEvents, ...documentEvents, ...moderationEvents]
       .filter((event) => matchesDecisionFilter(event.decision, auditDecisionFilter))
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
       .slice(0, 200);
-  }, [publisherHistory.data, documentHistory.data, reviewerMap, auditDecisionFilter]);
+  }, [publisherHistory.data, documentHistory.data, moderationHistory.data, reviewerMap, auditDecisionFilter]);
 
   const visibleAuditTrail = useMemo(
     () => sliceRows(auditTrail, auditVisibleCount),
@@ -212,14 +275,14 @@ export default function MarketplaceReviewerQueue() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Trust Ops" title="Reviewer Queue" description="Pending publisher verifications and documents across marketplace operations." />
+      <PageHeader eyebrow="Trust Ops" title="Reviewer Console" description="Publisher verification, document review, and moderation cases in one operational queue." />
 
       <Card>
         <CardHeader>
           <CardTitle>Queue Controls</CardTitle>
           <CardDescription>Filter by company scope and search queue records.</CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-5">
+        <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-4">
           <div className="rounded-md border border-border px-3 py-2 text-sm">
             <div className="flex items-center justify-between gap-3">
               <span className="text-muted-foreground">All companies</span>
@@ -227,7 +290,7 @@ export default function MarketplaceReviewerQueue() {
             </div>
           </div>
           <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search company, state, document type" />
-          <select
+          {activeQueue === 'publishers' ? <select
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             value={publisherSlaFilter}
             onChange={(event) => setPublisherSlaFilter(event.target.value as 'all' | 'healthy' | 'warning' | 'critical')}
@@ -236,8 +299,8 @@ export default function MarketplaceReviewerQueue() {
             <option value="healthy">Publisher SLA: Healthy</option>
             <option value="warning">Publisher SLA: Warning</option>
             <option value="critical">Publisher SLA: Critical</option>
-          </select>
-          <select
+          </select> : null}
+          {activeQueue === 'documents' ? <select
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             value={documentSlaFilter}
             onChange={(event) => setDocumentSlaFilter(event.target.value as 'all' | 'healthy' | 'warning' | 'critical')}
@@ -246,45 +309,54 @@ export default function MarketplaceReviewerQueue() {
             <option value="healthy">Document SLA: Healthy</option>
             <option value="warning">Document SLA: Warning</option>
             <option value="critical">Document SLA: Critical</option>
-          </select>
+          </select> : null}
+          {activeQueue === 'moderation' ? <select
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            value={moderationSlaFilter}
+            onChange={(event) => setModerationSlaFilter(event.target.value as 'all' | 'healthy' | 'warning' | 'critical')}
+          >
+            <option value="all">Moderation SLA: All</option>
+            <option value="healthy">Moderation SLA: Healthy</option>
+            <option value="warning">Moderation SLA: Warning</option>
+            <option value="critical">Moderation SLA: Critical</option>
+          </select> : null}
+          {activeQueue === 'history' ? <select
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            value={auditDecisionFilter}
+            onChange={(event) => setAuditDecisionFilter(event.target.value as typeof auditDecisionFilter)}
+          >
+            <option value="all">All decisions</option>
+            <option value="verified">Verified</option>
+            <option value="needs_review">Needs Review</option>
+            <option value="rejected">Rejected</option>
+            <option value="approved">Approved</option>
+            <option value="resolved">Resolved</option>
+            <option value="dismissed">Dismissed</option>
+          </select> : null}
           <div className="rounded-md border border-border px-3 py-2 text-sm text-muted-foreground">
-            {filteredPublisherRows.length}/{publisherRows.length} verification items · {filteredDocumentRows.length}/{documentRows.length} document items
+            {filteredPublisherRows.length} verifications · {filteredDocumentRows.length} documents · {filteredModerationRows.length} cases
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <MetricCard title="Publisher Queue" value={filteredPublisherRows.length} icon={Building2} />
-        <MetricCard title="Document Queue" value={filteredDocumentRows.length} icon={FileCheck2} accent="info" />
-        <MetricCard title="Avg Publisher Age" value={`${avgPublisherAge}d`} icon={Clock3} accent="warning" />
-        <MetricCard title="Avg Document Age" value={`${avgDocumentAge}d`} icon={History} accent="warning" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <MetricCard title="Publisher Queue" value={publisherQueue.isError ? '—' : filteredPublisherRows.length} icon={Building2} />
+        <MetricCard title="Document Queue" value={documentQueue.isError ? '—' : filteredDocumentRows.length} icon={FileCheck2} accent="info" />
+        <MetricCard title="Moderation Queue" value={moderationQueue.isError ? '—' : filteredModerationRows.length} icon={ShieldAlert} accent="warning" />
+        <MetricCard title="Critical SLA" value={publisherQueue.isError || documentQueue.isError || moderationQueue.isError ? '—' : publisherSla.critical + documentSla.critical + moderationSla.critical} icon={Clock3} accent="warning" />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>SLA Escalation</CardTitle>
-          <CardDescription>Escalation thresholds: warning at 3+ days, critical at 7+ days.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div className="rounded-md border border-border p-3">
-            <p className="text-sm font-medium">Publisher Queue SLA</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Badge variant="outline">Healthy: {publisherSla.healthy}</Badge>
-              <Badge variant="secondary">Warning: {publisherSla.warning}</Badge>
-              <Badge variant="destructive">Critical: {publisherSla.critical}</Badge>
-            </div>
-          </div>
-          <div className="rounded-md border border-border p-3">
-            <p className="text-sm font-medium">Document Queue SLA</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Badge variant="outline">Healthy: {documentSla.healthy}</Badge>
-              <Badge variant="secondary">Warning: {documentSla.warning}</Badge>
-              <Badge variant="destructive">Critical: {documentSla.critical}</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs value={activeQueue} onValueChange={(value) => setActiveQueue(value as typeof activeQueue)} className="space-y-4">
+        <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto p-1">
+          <TabsTrigger value="publishers">Publishers <Badge variant="secondary" className="ml-2">{filteredPublisherRows.length}</Badge></TabsTrigger>
+          <TabsTrigger value="documents">Documents <Badge variant="secondary" className="ml-2">{filteredDocumentRows.length}</Badge></TabsTrigger>
+          <TabsTrigger value="moderation">Moderation <Badge variant="secondary" className="ml-2">{filteredModerationRows.length}</Badge></TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+        </TabsList>
 
+      {activeQueueError ? <Card><QueryErrorState message={activeQueueError.message} onRetry={retryActiveQueue} /></Card> : null}
+
+      <TabsContent value="publishers" className={activeQueueError ? 'hidden' : undefined}>
       <Card>
         <CardHeader>
           <CardTitle>Publisher Verification Queue</CardTitle>
@@ -373,7 +445,9 @@ export default function MarketplaceReviewerQueue() {
           ) : null}
         </CardContent>
       </Card>
+      </TabsContent>
 
+      <TabsContent value="documents" className={activeQueueError ? 'hidden' : undefined}>
       <Card>
         <CardHeader>
           <CardTitle>Verification Document Queue</CardTitle>
@@ -457,26 +531,89 @@ export default function MarketplaceReviewerQueue() {
           ) : null}
         </CardContent>
       </Card>
+      </TabsContent>
 
+      <TabsContent value="moderation" className={activeQueueError ? 'hidden' : undefined}>
+      <Card>
+        <CardHeader>
+          <CardTitle>Moderation Cases</CardTitle>
+          <CardDescription>Self-assign cases before triage. Resolution and dismissal require notes; separation of duties is enforced by the database.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {visibleModerationRows.map((row) => {
+            const level = getSlaLevel(ageInDays(row.opened_at));
+            const notes = moderationNotes[row.id] || '';
+            return (
+              <div key={row.id} className="rounded-lg border border-border/70 p-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <Badge variant={level === 'critical' ? 'destructive' : level === 'warning' ? 'secondary' : 'outline'}>{level} SLA</Badge>
+                      <Badge variant={row.severity === 'critical' ? 'destructive' : 'outline'}>{row.severity}</Badge>
+                      <Badge variant="secondary">{row.state.replace('_', ' ')}</Badge>
+                    </div>
+                    <p className="font-medium">{row.company_name} · {row.reason_code}</p>
+                    <p className="text-xs text-muted-foreground">Queue: {row.queue} · Opened {new Date(row.opened_at).toLocaleString()} · {ageInDays(row.opened_at)}d ago</p>
+                    <p className="text-xs text-muted-foreground">Assigned: {resolveReviewerLabel(row.assigned_moderator)}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={updateModerationState.isPending || row.assigned_moderator === user?.id}
+                    onClick={() => updateModerationState.mutate({ caseId: row.id, state: 'in_review', assignedModerator: user?.id || null })}
+                  >
+                    Assign to me
+                  </Button>
+                </div>
+                <Input
+                  className="mt-3"
+                  placeholder="Resolution notes (required to resolve or dismiss)"
+                  value={notes}
+                  onChange={(event) => setModerationNotes((current) => ({ ...current, [row.id]: event.target.value }))}
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    disabled={updateModerationState.isPending || !notes.trim()}
+                    onClick={() => updateModerationState.mutate({ caseId: row.id, state: 'resolved', assignedModerator: row.assigned_moderator || user?.id || null, resolutionNotes: notes })}
+                  >
+                    Resolve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={updateModerationState.isPending || !notes.trim()}
+                    onClick={() => updateModerationState.mutate({ caseId: row.id, state: 'dismissed', assignedModerator: row.assigned_moderator || user?.id || null, resolutionNotes: notes })}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+
+          {!moderationQueue.isLoading && filteredModerationRows.length === 0 && (
+            <EmptyState icon={ShieldAlert} title="No moderation cases" description="No open moderation cases match the current queue filters." />
+          )}
+          {filteredModerationRows.length > visibleModerationRows.length ? (
+            <Button
+              variant="outline"
+              onClick={() => setModerationVisibleCount((current) => nextVisibleCount(current, filteredModerationRows.length, REVIEWER_QUEUE_PAGE_SIZE))}
+            >
+              Load More Cases ({visibleModerationRows.length}/{filteredModerationRows.length})
+            </Button>
+          ) : null}
+        </CardContent>
+      </Card>
+      </TabsContent>
+
+      <TabsContent value="history" className={activeQueueError ? 'hidden' : undefined}>
       <Card>
         <CardHeader>
           <CardTitle>Audit Trail</CardTitle>
           <CardDescription>Latest reviewer decisions across publisher and document workflows.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          <div className="pb-1">
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              value={auditDecisionFilter}
-              onChange={(event) => setAuditDecisionFilter(event.target.value as 'all' | 'verified' | 'needs_review' | 'rejected' | 'approved')}
-            >
-              <option value="all">All decisions</option>
-              <option value="verified">Verified</option>
-              <option value="needs_review">Needs Review</option>
-              <option value="rejected">Rejected</option>
-              <option value="approved">Approved</option>
-            </select>
-          </div>
           {visibleAuditTrail.map((event) => (
             <div key={event.id} className="rounded-md border border-border/70 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -489,8 +626,8 @@ export default function MarketplaceReviewerQueue() {
             </div>
           ))}
 
-          {!publisherHistory.isLoading && !documentHistory.isLoading && auditTrail.length === 0 && (
-            <EmptyState icon={ShieldCheck} title="No reviewer history" description="Completed publisher and document decisions will appear here." />
+          {!publisherHistory.isLoading && !documentHistory.isLoading && !moderationHistory.isLoading && auditTrail.length === 0 && (
+            <EmptyState icon={ShieldCheck} title="No reviewer history" description="Completed verification, document, and moderation decisions will appear here." />
           )}
           {auditTrail.length > visibleAuditTrail.length ? (
             <div className="pt-2">
@@ -508,6 +645,8 @@ export default function MarketplaceReviewerQueue() {
           ) : null}
         </CardContent>
       </Card>
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }

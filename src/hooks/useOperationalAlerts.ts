@@ -8,7 +8,8 @@ export type OperationalAlertType =
   | 'lease_expiry'
   | 'vacant_unit'
   | 'overdue_payment'
-  | 'vendor_document_expiring';
+  | 'vendor_document_expiring'
+  | 'listing_deal_closed';
 
 export type OperationalAlertStatus = 'open' | 'acknowledged' | 'resolved' | 'dismissed';
 
@@ -20,7 +21,7 @@ export interface OperationalAlert {
   status: OperationalAlertStatus;
   title: string;
   description: string | null;
-  reference_table: 'leases' | 'units' | 'invoices' | 'vendor_documents';
+  reference_table: 'leases' | 'units' | 'invoices' | 'vendor_documents' | 'marketplace_listings';
   reference_id: string;
   metadata: Record<string, unknown>;
   acknowledged_by: string | null;
@@ -38,7 +39,7 @@ export interface AlertThreshold {
   enabled: boolean;
 }
 
-export const DEFAULT_ALERT_THRESHOLDS: Record<OperationalAlertType, number> = {
+export const DEFAULT_ALERT_THRESHOLDS: Partial<Record<OperationalAlertType, number>> = {
   lease_expiry: 30,
   vacant_unit: 14,
   overdue_payment: 0,

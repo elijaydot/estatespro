@@ -130,9 +130,8 @@ const sharedSections: NavSection[] = [
     workspaceId: 'marketplace',
     items: [
       { icon: Store, label: 'Listings', href: '/marketplace/manage', entitlementKey: 'marketplace.listings.manage' },
-      { icon: ShieldAlert, label: 'Moderation', href: '/marketplace/moderation', entitlementKey: 'marketplace.moderation.view', reviewerOnly: true },
-      { icon: ShieldCheck, label: 'Verification', href: '/marketplace/verification', entitlementKey: 'marketplace.moderation.view', reviewerOnly: true },
-      { icon: ShieldCheck, label: 'Reviewer Queue', href: '/marketplace/reviewer', entitlementKey: 'marketplace.moderation.view', reviewerOnly: true },
+      { icon: ShieldCheck, label: 'Verification', href: '/marketplace/verification', entitlementKey: 'marketplace.verification.manage' },
+      { icon: ShieldCheck, label: 'Reviewer Console', href: '/marketplace/reviewer', entitlementKey: 'marketplace.moderation.view', reviewerOnly: true },
     ],
   },
 ];

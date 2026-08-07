@@ -113,6 +113,7 @@ const tierOrder: Record<string, number> = {
 
 const featuredKeys = [
   'marketplace.listings.manage',
+  'marketplace.verification.manage',
   'marketplace.moderation.view',
   'crm.leads.manage',
   'crm.deals.manage',
@@ -123,6 +124,7 @@ const featuredKeys = [
 
 const keyLabelMap: Record<string, string> = {
   'marketplace.listings.manage': 'Marketplace Listing Management',
+  'marketplace.verification.manage': 'Marketplace Publisher Verification',
   'marketplace.moderation.view': 'Marketplace Moderation Queue',
   'crm.leads.manage': 'CRM Leads',
   'crm.deals.manage': 'CRM Deals',

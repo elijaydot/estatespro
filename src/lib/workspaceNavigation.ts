@@ -40,7 +40,7 @@ export const STAFF_WORKSPACES: StaffWorkspace[] = [
   {
     id: 'marketplace',
     name: 'Marketplace',
-    routePrefixes: ['/marketplace/manage', '/marketplace/moderation', '/marketplace/verification', '/marketplace/reviewer'],
+    routePrefixes: ['/marketplace/manage', '/marketplace/verification', '/marketplace/reviewer'],
   },
   {
     id: 'crm',
@@ -84,6 +84,7 @@ export function isWorkspaceAvailable(workspaceId: StaffWorkspaceId, access: Work
       return access.role !== 'tenant';
     case 'marketplace':
       return access.entitlements['marketplace.listings.manage']
+        || access.entitlements['marketplace.verification.manage']
         || (access.entitlements['marketplace.moderation.view'] && access.canReviewMarketplace);
     case 'crm':
       return access.entitlements['crm.leads.manage']
@@ -107,7 +108,8 @@ export function getWorkspaceLandingPath(workspaceId: StaffWorkspaceId, access: W
       return '/dashboard';
     case 'marketplace':
       if (access.entitlements['marketplace.listings.manage']) return '/marketplace/manage';
-      if (access.entitlements['marketplace.moderation.view'] && access.canReviewMarketplace) return '/marketplace/moderation';
+      if (access.entitlements['marketplace.verification.manage']) return '/marketplace/verification';
+      if (access.entitlements['marketplace.moderation.view'] && access.canReviewMarketplace) return '/marketplace/reviewer';
       return null;
     case 'crm':
       if (access.entitlements['crm.leads.manage']) return '/marketplace/crm';

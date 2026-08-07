@@ -12,6 +12,7 @@ import {
 
 const entitlementKeys: SaasEntitlementKey[] = [
   'marketplace.listings.manage',
+  'marketplace.verification.manage',
   'marketplace.moderation.view',
   'crm.leads.manage',
   'crm.deals.manage',
@@ -76,7 +77,8 @@ describe('workspace navigation', () => {
 
   it('chooses an authorized Marketplace landing', () => {
     expect(getWorkspaceLandingPath('marketplace', withEntitlements('marketplace.listings.manage'))).toBe('/marketplace/manage');
-    expect(getWorkspaceLandingPath('marketplace', { ...withEntitlements('marketplace.moderation.view'), canReviewMarketplace: true })).toBe('/marketplace/moderation');
+    expect(getWorkspaceLandingPath('marketplace', withEntitlements('marketplace.verification.manage'))).toBe('/marketplace/verification');
+    expect(getWorkspaceLandingPath('marketplace', { ...withEntitlements('marketplace.moderation.view'), canReviewMarketplace: true })).toBe('/marketplace/reviewer');
     expect(getWorkspaceLandingPath('marketplace', withEntitlements('marketplace.moderation.view'))).toBeNull();
   });
 

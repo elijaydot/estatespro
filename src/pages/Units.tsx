@@ -13,7 +13,10 @@ import {
   Eye,
   User,
   Loader2,
+  Store,
 } from 'lucide-react';
+import { CreateListingFlow } from '@/components/marketplace-crm/CreateListingFlow';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -77,10 +80,12 @@ const getStatusBadge = (status: string) => {
 
 export default function Units() {
   const navigate = useNavigate();
+  const { activeCompanyId } = useActiveCompany();
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [listingUnitId, setListingUnitId] = useState<string | null>(null);
 
   // Handle ?add=true query parameter from Quick Add
   useEffect(() => {
@@ -247,6 +252,11 @@ export default function Units() {
                     >
                       <Edit className="h-4 w-4 mr-2" /> Edit Unit
                     </DropdownMenuItem>
+                    {unit.status === 'vacant' && (
+                      <DropdownMenuItem onSelect={() => setListingUnitId(unit.id)}>
+                        <Store className="h-4 w-4 mr-2" /> Publish to marketplace
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive"
@@ -304,6 +314,8 @@ export default function Units() {
           action={<Button onClick={() => setIsAddDialogOpen(true)}><Plus className="h-4 w-4" />Add Unit</Button>}
         />
       )}
+
+      <CreateListingFlow companyId={activeCompanyId} open={Boolean(listingUnitId)} onOpenChange={(open) => { if (!open) setListingUnitId(null); }} initialUnitId={listingUnitId} />
 
       {/* Add Unit Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>

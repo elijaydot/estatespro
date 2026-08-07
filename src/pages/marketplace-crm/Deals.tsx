@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
+import { ArrowRight, Handshake, Loader2, SearchX } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
-import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
+import { CrmDataCard, EmptyState, QueryErrorState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
+import { Button } from '@/components/ui/button';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useSettings } from '@/contexts/useSettings';
 import { useCrmAssignableUsers, useCrmLeads } from '@/hooks/useMarketplace';
@@ -98,6 +101,8 @@ export default function MarketplaceCrmDealsPage() {
 
   const currencyCode = settings.currencyCode || 'NGN';
   const currencySymbol = settings.currencySymbol || currencyCode;
+  const loadError = dealsQuery.error || leadsQuery.error || accountsQuery.error || contactsQuery.error || assignableUsersQuery.error || handoffsQuery.error;
+  const isLoading = dealsQuery.isLoading || leadsQuery.isLoading || accountsQuery.isLoading || contactsQuery.isLoading || assignableUsersQuery.isLoading || handoffsQuery.isLoading;
 
   const formatDealAmount = (value: number | null) => {
     if (value == null) return 'No amount';
@@ -197,6 +202,17 @@ export default function MarketplaceCrmDealsPage() {
 
   return (
     <CrmWorkspace title="Deals" subtitle="Track opportunity economics against the authoritative lead pipeline.">
+      {loadError ? (
+        <CrmDataCard title="Deals unavailable" description="The CRM could not retrieve the records needed for this pipeline.">
+          <QueryErrorState message={loadError.message} onRetry={() => { void dealsQuery.refetch(); void leadsQuery.refetch(); void accountsQuery.refetch(); void contactsQuery.refetch(); void assignableUsersQuery.refetch(); void handoffsQuery.refetch(); }} />
+        </CrmDataCard>
+      ) : isLoading ? (
+        <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-border/70 bg-card">
+          <div className="text-center text-sm text-muted-foreground"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin" />Loading deal pipeline...</div>
+        </div>
+      ) : (
+      <>
+      {(leadsQuery.data || []).length > 0 ? (
       <CrmDataCard title="Create Deal" description="Add a new sales opportunity.">
         <div className="mb-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
           Add a focused opportunity with ownership, confidence, and close-date context in one step.
@@ -238,8 +254,18 @@ export default function MarketplaceCrmDealsPage() {
           <button className="h-10 rounded-md bg-primary text-primary-foreground text-sm lg:col-span-3" onClick={onCreate} disabled={createDeal.isPending}>Create Deal</button>
         </div>
       </CrmDataCard>
+      ) : null}
 
       <CrmDataCard title="Pipeline Board" description="Review and update opportunities by stage.">
+        {rows.length === 0 ? (
+          <EmptyState
+            icon={(dealsQuery.data || []).length ? SearchX : Handshake}
+            label={(dealsQuery.data || []).length ? 'No deals match your search' : (leadsQuery.data || []).length ? 'Create your first qualified opportunity' : 'Deals begin with a qualified lead'}
+            description={(dealsQuery.data || []).length ? 'Clear the search to return to the complete opportunity pipeline.' : (leadsQuery.data || []).length ? 'Use the deal form above to add economics, ownership, confidence, and a close date to a lead.' : 'Qualify a marketplace inquiry first, then create a deal without losing its contact or listing context.'}
+            action={(dealsQuery.data || []).length ? <Button variant="outline" onClick={() => setSearch('')}>Clear search</Button> : (leadsQuery.data || []).length === 0 ? <Button asChild><Link to="/marketplace/crm/leads">Open lead pipeline<ArrowRight className="ml-2 h-4 w-4" /></Link></Button> : undefined}
+          />
+        ) : (
+        <>
         <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
           {SUMMARY_STAGES.map((stage) => (
             <div key={stage} className="rounded-lg border border-border bg-card p-3 shadow-[var(--shadow-card)]">
@@ -377,8 +403,11 @@ export default function MarketplaceCrmDealsPage() {
             ))}
           </div>
         </div>
-        {rows.length === 0 ? <div className="mt-3"><EmptyState label="No deals created yet." /></div> : null}
+        </>
+        )}
       </CrmDataCard>
+      </>
+      )}
     </CrmWorkspace>
   );
 }

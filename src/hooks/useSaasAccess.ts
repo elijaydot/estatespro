@@ -6,6 +6,7 @@ import { useSuperAdminOverride } from '@/hooks/useSuperAdminOverride';
 
 export type SaasEntitlementKey =
   | 'marketplace.listings.manage'
+  | 'marketplace.verification.manage'
   | 'marketplace.moderation.view'
   | 'crm.leads.manage'
   | 'crm.deals.manage'
@@ -37,6 +38,7 @@ type SaasAccessResult = {
 
 const ENTITLEMENT_KEYS: SaasEntitlementKey[] = [
   'marketplace.listings.manage',
+  'marketplace.verification.manage',
   'marketplace.moderation.view',
   'crm.leads.manage',
   'crm.deals.manage',
@@ -47,6 +49,7 @@ const ENTITLEMENT_KEYS: SaasEntitlementKey[] = [
 
 const EMPTY_ENTITLEMENTS: Record<SaasEntitlementKey, boolean> = {
   'marketplace.listings.manage': false,
+  'marketplace.verification.manage': false,
   'marketplace.moderation.view': false,
   'crm.leads.manage': false,
   'crm.deals.manage': false,

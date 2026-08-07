@@ -80,7 +80,6 @@ const GuestBookingPage = lazy(() => import("./pages/guest-booking/GuestBookingPa
 const GuestBookingActionPage = lazy(() => import("./pages/guest-booking/GuestBookingActionPage"));
 const MarketplacePublic = lazy(() => import("./pages/MarketplacePublic"));
 const MarketplaceManage = lazy(() => import("./pages/MarketplaceManage"));
-const MarketplaceModeration = lazy(() => import("./pages/MarketplaceModeration"));
 const MarketplaceVerification = lazy(() => import("./pages/MarketplaceVerification"));
 const MarketplaceReviewerQueue = lazy(() => import("./pages/MarketplaceReviewerQueue"));
 const MarketplaceCrmOverview = lazy(() => import("./pages/marketplace-crm/Overview"));
@@ -478,12 +477,8 @@ function AppRoutes() {
         element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.listings.manage" featureName="Marketplace">{withSuspense(<MarketplaceManage />)}</FeatureRoute></PrivateRoute>}
       />
       <Route
-        path="/marketplace/moderation"
-        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.moderation.view" featureName="Marketplace Moderation"><MarketplaceReviewerRoute>{withSuspense(<MarketplaceModeration />)}</MarketplaceReviewerRoute></FeatureRoute></PrivateRoute>}
-      />
-      <Route
         path="/marketplace/verification"
-        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.moderation.view" featureName="Marketplace Verification"><MarketplaceReviewerRoute>{withSuspense(<MarketplaceVerification />)}</MarketplaceReviewerRoute></FeatureRoute></PrivateRoute>}
+        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.verification.manage" featureName="Marketplace Verification">{withSuspense(<MarketplaceVerification />)}</FeatureRoute></PrivateRoute>}
       />
       <Route
         path="/marketplace/reviewer"

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowRight, SearchX, Users } from 'lucide-react';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
-import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
+import { CrmDataCard, EmptyState, QueryErrorState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,7 +45,14 @@ export default function MarketplaceCrmContactsPage() {
 
   return (
     <CrmWorkspace title="Contacts" subtitle="People records linked to leads and account relationships.">
-      <CrmDataCard title="Possible Duplicates" description="Contacts with matching email addresses or phone numbers.">
+      {contactsQuery.isError ? (
+        <CrmDataCard title="Contacts unavailable" description="The CRM could not retrieve contact records.">
+          <QueryErrorState message={contactsQuery.error?.message} onRetry={() => void contactsQuery.refetch()} />
+        </CrmDataCard>
+      ) : null}
+
+      {!contactsQuery.isError && duplicateGroups.length > 0 ? (
+        <CrmDataCard title="Resolve Possible Duplicates" description={`${duplicateGroups.length} group${duplicateGroups.length === 1 ? '' : 's'} need review before outreach or reporting.`}>
         <div className="space-y-3">
           {duplicateGroups.map((group) => {
             const [primary, ...duplicates] = group.contacts;
@@ -77,13 +85,18 @@ export default function MarketplaceCrmContactsPage() {
               </div>
             );
           })}
-          {duplicateGroups.length === 0 ? <EmptyState label="No duplicate contact candidates found." /> : null}
         </div>
-      </CrmDataCard>
+        </CrmDataCard>
+      ) : null}
 
-      <CrmDataCard title="All Contacts" description="People associated with active leads and accounts.">
-        <SimpleToolbar search={search} setSearch={setSearch} />
-        <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
+      {!contactsQuery.isError ? (
+        <CrmDataCard
+          title={contactsQuery.data?.length ? 'All Contacts' : 'Contact Directory'}
+          description={contactsQuery.data?.length ? `${contactsQuery.data.length} people associated with leads and accounts.` : 'Contacts are created automatically when a lead enters the pipeline.'}
+          action={contactsQuery.data?.length ? <Button variant="outline" size="sm" asChild><Link to="/marketplace/crm/leads">View leads<ArrowRight className="ml-2 h-4 w-4" /></Link></Button> : null}
+        >
+        {contactsQuery.data?.length ? <SimpleToolbar search={search} setSearch={setSearch} /> : null}
+        {contactsQuery.data?.length ? <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
@@ -91,6 +104,7 @@ export default function MarketplaceCrmContactsPage() {
                 <th className="px-3 py-2">Email</th>
                 <th className="px-3 py-2">Phone</th>
                 <th className="px-3 py-2">Preferred Channel</th>
+                <th className="px-3 py-2">Origin</th>
                 <th className="px-3 py-2">Tenant</th>
                 <th className="px-3 py-2">Actions</th>
               </tr>
@@ -110,6 +124,7 @@ export default function MarketplaceCrmContactsPage() {
                       />
                     ) : (row.preferred_channel ? <StatusPill variant="info" className="capitalize">{row.preferred_channel}</StatusPill> : '-')}
                   </td>
+                  <td className="px-3 py-2"><Link className="text-primary hover:underline" to={`/marketplace/crm/leads?lead=${row.lead_id}`}>View lead</Link></td>
                   <td className="px-3 py-2">
                     {row.tenant_id ? (
                       <Link className="text-primary hover:underline" to={`/tenants/${row.tenant_id}`}>
@@ -131,9 +146,26 @@ export default function MarketplaceCrmContactsPage() {
               ))}
             </tbody>
           </table>
-          {rows.length === 0 ? <div className="p-4"><EmptyState label="No contacts available yet." /></div> : null}
-        </div>
-      </CrmDataCard>
+          {rows.length === 0 ? (
+            <div className="p-4">
+              <EmptyState
+                icon={SearchX}
+                label="No contacts match your search"
+                description="Try a name, email address, or phone number, or clear the search to see all contacts."
+                action={<Button variant="outline" size="sm" onClick={() => setSearch('')}>Clear search</Button>}
+              />
+            </div>
+          ) : null}
+        </div> : (
+          <EmptyState
+            icon={Users}
+            label="Your contact directory starts with a lead"
+            description="Marketplace inquiries become contacts automatically, keeping the person and their opportunity connected from the first conversation."
+            action={<Button asChild><Link to="/marketplace/crm/leads">Open lead pipeline<ArrowRight className="ml-2 h-4 w-4" /></Link></Button>}
+          />
+        )}
+        </CrmDataCard>
+      ) : null}
     </CrmWorkspace>
   );
 }
