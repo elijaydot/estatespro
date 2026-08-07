@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
+import { Building2 } from 'lucide-react';
 import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
 import { useCreateCrmAccount, useCrmAccounts, useUpdateCrmAccount } from '@/hooks/useMarketplaceCrm';
@@ -17,6 +19,8 @@ export default function MarketplaceCrmAccountsPage() {
   const updateAccount = useUpdateCrmAccount(activeCompanyId);
 
   const [search, setSearch] = useState('');
+  const [kindFilter, setKindFilter] = useState('all');
+  const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState('');
   const [website, setWebsite] = useState('');
   const [accountKind, setAccountKind] = useState<'corporate_tenant' | 'owner_investor'>('corporate_tenant');
@@ -30,9 +34,11 @@ export default function MarketplaceCrmAccountsPage() {
   const rows = useMemo(() => {
     const records = accountsQuery.data || [];
     const query = search.toLowerCase().trim();
-    if (!query) return records;
-    return records.filter((row) => (`${row.name} ${row.website || ''} ${row.phone || ''} ${row.account_kind}`).toLowerCase().includes(query));
-  }, [accountsQuery.data, search]);
+    return records.filter((row) => (
+      (!query || (`${row.name} ${row.website || ''} ${row.phone || ''} ${row.account_kind}`).toLowerCase().includes(query))
+      && (kindFilter === 'all' || row.account_kind === kindFilter)
+    ));
+  }, [accountsQuery.data, kindFilter, search]);
 
   const ownerNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -49,11 +55,9 @@ export default function MarketplaceCrmAccountsPage() {
       website: website.trim() || null,
       account_kind: accountKind,
       owner_user_id: ownerUserId || null,
-    });
-    setName('');
-    setWebsite('');
-    setAccountKind('corporate_tenant');
-    setOwnerUserId('');
+    }, { onSuccess: () => {
+      setName(''); setWebsite(''); setAccountKind('corporate_tenant'); setOwnerUserId(''); setCreateOpen(false);
+    } });
   };
 
   const startEdit = (id: string, currentName: string, currentWebsite: string | null, currentAccountKind: 'corporate_tenant' | 'owner_investor', currentOwnerUserId: string | null) => {
@@ -90,27 +94,11 @@ export default function MarketplaceCrmAccountsPage() {
 
   return (
     <CrmWorkspace title="Accounts" subtitle="Business account records for partners, firms, and corporate tenants.">
-      <CrmDataCard title="Create Account" description="Add an organization to the CRM.">
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
-          <Input aria-label="Account name" className="h-9" placeholder="Account name" value={name} onChange={(event) => setName(event.target.value)} />
-          <Input aria-label="Website" className="h-9" inputMode="url" placeholder="Website" value={website} onChange={(event) => setWebsite(event.target.value)} />
-          <select aria-label="Account kind" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={accountKind} onChange={(event) => setAccountKind(event.target.value as typeof accountKind)}>
-            <option value="corporate_tenant">Corporate tenant</option>
-            <option value="owner_investor">Owner / investor</option>
-          </select>
-          <AssigneePicker
-            users={assignableUsersQuery.data || []}
-            value={ownerUserId || null}
-            onChange={(next) => setOwnerUserId(next || '')}
-            placeholder="Owner (optional)"
-            className="h-9"
-          />
-          <Button size="sm" onClick={onCreate} disabled={createAccount.isPending}>Create Account</Button>
+      <CrmDataCard title="All Accounts" description="Organizations that group people, opportunities, ownership, and portfolio context." action={<Button onClick={() => setCreateOpen(true)}><Building2 className="mr-2 h-4 w-4" />New account</Button>}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <SimpleToolbar search={search} setSearch={setSearch} />
+          <select aria-label="Filter account type" className="h-9 rounded-md border border-input bg-background px-3 text-xs" value={kindFilter} onChange={(event) => setKindFilter(event.target.value)}><option value="all">All account types</option><option value="corporate_tenant">Corporate tenants</option><option value="owner_investor">Owners / investors</option></select>
         </div>
-      </CrmDataCard>
-
-      <CrmDataCard title="All Accounts" description="Organizations and account owners.">
-        <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -213,6 +201,19 @@ export default function MarketplaceCrmAccountsPage() {
           {rows.length === 0 ? <div className="p-4"><EmptyState label="No accounts created yet." /></div> : null}
         </div>
       </CrmDataCard>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Create account</DialogTitle><DialogDescription>Add an organization only when multiple contacts, properties, or deals need shared commercial context.</DialogDescription></DialogHeader>
+          <div className="space-y-4">
+            <label className="block space-y-1.5 text-sm"><span>Organization name</span><Input aria-label="Account name" placeholder="Company or investment entity" value={name} onChange={(event) => setName(event.target.value)} /></label>
+            <label className="block space-y-1.5 text-sm"><span>Website</span><Input aria-label="Website" inputMode="url" placeholder="https://" value={website} onChange={(event) => setWebsite(event.target.value)} /></label>
+            <label className="block space-y-1.5 text-sm"><span>Account type</span><select aria-label="Account kind" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={accountKind} onChange={(event) => setAccountKind(event.target.value as typeof accountKind)}><option value="corporate_tenant">Corporate tenant</option><option value="owner_investor">Owner / investor</option></select></label>
+            <label className="block space-y-1.5 text-sm"><span>Relationship owner</span><AssigneePicker users={assignableUsersQuery.data || []} value={ownerUserId || null} onChange={(next) => setOwnerUserId(next || '')} placeholder="Unassigned" className="h-10" /></label>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button onClick={onCreate} disabled={!name.trim() || createAccount.isPending}>Create account</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </CrmWorkspace>
   );
 }

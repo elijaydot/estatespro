@@ -64,11 +64,15 @@ serve(async (req: Request) => {
     const moveInDate = (body?.move_in_date || "").trim() || null;
     const budgetMin = body?.budget_min ?? null;
     const budgetMax = body?.budget_max ?? null;
+    const preferredChannel = String(body?.preferred_channel || "phone").toLowerCase();
     const consentMarketing = Boolean(body?.consent_marketing ?? false);
 
     if (!listingId) return jsonResponse(req, { error: "listing_id is required" }, 400);
     if (!fullName) return jsonResponse(req, { error: "full_name is required" }, 400);
     if (!phone) return jsonResponse(req, { error: "phone_e164 is required" }, 400);
+    if (!["phone", "email", "whatsapp", "sms"].includes(preferredChannel)) {
+      return jsonResponse(req, { error: "preferred_channel is invalid" }, 400);
+    }
 
     await emitAuditEvent({
       event_type: "marketplace.inquiry.received",
@@ -114,6 +118,23 @@ serve(async (req: Request) => {
       });
 
       return jsonResponse(req, { error: "Unable to process inquiry" }, 500);
+    }
+
+    if (data?.lead_id) {
+      const { error: channelError } = await supabase
+        .from("lead_contacts")
+        .update({ preferred_channel: preferredChannel })
+        .eq("lead_id", data.lead_id);
+
+      if (channelError) {
+        await emitAuditEvent({
+          event_type: "marketplace.inquiry.preferred_channel_update_failed",
+          source: "marketplace-inquiry",
+          severity: "warning",
+          correlation_id: correlationId,
+          details: { lead_id: data.lead_id, message: channelError.message },
+        });
+      }
     }
 
     let riskDecision: { score: number; decision: string; reason_codes: string[] } | null = null;

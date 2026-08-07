@@ -63,6 +63,7 @@ export interface MarketplaceInquiryPayload {
   move_in_date?: string;
   budget_min?: number;
   budget_max?: number;
+  preferred_channel?: 'phone' | 'email' | 'whatsapp' | 'sms';
   consent_marketing?: boolean;
 }
 

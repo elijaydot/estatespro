@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, SearchX, Users } from 'lucide-react';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
+import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { CrmDataCard, EmptyState, QueryErrorState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useCrmContacts, useMergeCrmContacts, useUpdateCrmContact } from '@/hooks/useMarketplaceCrm';
 import { findDuplicateContactGroups } from '@/lib/marketplaceCrmWorkflow';
+import { CRM_CHANNELS } from '@/lib/crmPreferences';
 
 export default function MarketplaceCrmContactsPage() {
   const { activeCompanyId } = useActiveCompany();
@@ -18,13 +20,26 @@ export default function MarketplaceCrmContactsPage() {
   const [search, setSearch] = useState('');
   const [activeEditId, setActiveEditId] = useState<string | null>(null);
   const [editChannel, setEditChannel] = useState('');
+  const [channelFilter, setChannelFilter] = useState('all');
+  const [identityFilter, setIdentityFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const rows = useMemo(() => {
     const records = contactsQuery.data || [];
     const query = search.toLowerCase().trim();
-    if (!query) return records;
-    return records.filter((row) => (`${row.full_name} ${row.email || ''} ${row.phone_e164}`).toLowerCase().includes(query));
-  }, [contactsQuery.data, search]);
+    return records.filter((row) => (
+      (!query || (`${row.full_name} ${row.email || ''} ${row.phone_e164}`).toLowerCase().includes(query))
+      && (channelFilter === 'all' || row.preferred_channel === channelFilter)
+      && (identityFilter === 'all' || (identityFilter === 'tenant' ? !!row.tenant_id : !row.tenant_id))
+    ));
+  }, [channelFilter, contactsQuery.data, identityFilter, search]);
+
+  const paginatedRows = rows.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [channelFilter, identityFilter, pageSize, search]);
 
   const duplicateGroups = useMemo(() => findDuplicateContactGroups(contactsQuery.data || []), [contactsQuery.data]);
 
@@ -95,7 +110,18 @@ export default function MarketplaceCrmContactsPage() {
           description={contactsQuery.data?.length ? `${contactsQuery.data.length} people associated with leads and accounts.` : 'Contacts are created automatically when a lead enters the pipeline.'}
           action={contactsQuery.data?.length ? <Button variant="outline" size="sm" asChild><Link to="/marketplace/crm/leads">View leads<ArrowRight className="ml-2 h-4 w-4" /></Link></Button> : null}
         >
-        {contactsQuery.data?.length ? <SimpleToolbar search={search} setSearch={setSearch} /> : null}
+        {contactsQuery.data?.length ? <div className="space-y-3">
+          <SimpleToolbar search={search} setSearch={setSearch} />
+          <div className="flex flex-wrap items-center gap-2">
+            <select aria-label="Filter by preferred channel" className="h-9 rounded-md border border-input bg-background px-3 text-xs" value={channelFilter} onChange={(event) => setChannelFilter(event.target.value)}>
+              <option value="all">All channels</option>{CRM_CHANNELS.map((channel) => <option key={channel.value} value={channel.value}>{channel.label}</option>)}
+            </select>
+            <select aria-label="Filter by identity" className="h-9 rounded-md border border-input bg-background px-3 text-xs" value={identityFilter} onChange={(event) => setIdentityFilter(event.target.value)}>
+              <option value="all">All contacts</option><option value="tenant">Linked tenants</option><option value="prospect">Prospects</option>
+            </select>
+            {(channelFilter !== 'all' || identityFilter !== 'all') && <Button variant="ghost" size="sm" onClick={() => { setChannelFilter('all'); setIdentityFilter('all'); }}>Reset filters</Button>}
+          </div>
+        </div> : null}
         {contactsQuery.data?.length ? <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -110,18 +136,21 @@ export default function MarketplaceCrmContactsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {paginatedRows.map((row) => (
                 <tr key={row.id} className="border-t border-border/60">
                   <td className="px-3 py-2 font-medium">{row.full_name}</td>
                   <td className="px-3 py-2 text-muted-foreground">{row.email || '-'}</td>
                   <td className="px-3 py-2">{row.phone_e164}</td>
                   <td className="px-3 py-2">
                     {activeEditId === row.id ? (
-                      <Input
-                        className="h-8 w-40 text-xs"
+                      <select
+                        aria-label="Preferred channel"
+                        className="h-8 w-40 rounded-md border border-input bg-background px-2 text-xs"
                         value={editChannel}
                         onChange={(event) => setEditChannel(event.target.value)}
-                      />
+                      >
+                        <option value="">Not specified</option>{CRM_CHANNELS.map((channel) => <option key={channel.value} value={channel.value}>{channel.label}</option>)}
+                      </select>
                     ) : (row.preferred_channel ? <StatusPill variant="info" className="capitalize">{row.preferred_channel}</StatusPill> : '-')}
                   </td>
                   <td className="px-3 py-2"><Link className="text-primary hover:underline" to={`/marketplace/crm/leads?lead=${row.lead_id}`}>View lead</Link></td>
@@ -156,6 +185,7 @@ export default function MarketplaceCrmContactsPage() {
               />
             </div>
           ) : null}
+          {rows.length > 0 ? <TablePagination page={page} pageSize={pageSize} total={rows.length} onPageChange={setPage} onPageSizeChange={setPageSize} /> : null}
         </div> : (
           <EmptyState
             icon={Users}

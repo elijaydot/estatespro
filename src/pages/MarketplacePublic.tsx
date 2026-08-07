@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { CRM_CHANNELS, type CrmChannel } from '@/lib/crmPreferences';
 import {
   useCreateMarketplaceInquiry,
   useMarketplaceListingDetail,
@@ -54,6 +55,7 @@ export default function MarketplacePublic() {
     message: '',
     budget_min: '',
     budget_max: '',
+    preferred_channel: 'phone' as CrmChannel,
     consent_marketing: false,
   });
 
@@ -238,6 +240,7 @@ export default function MarketplacePublic() {
         message: inquiryForm.message || undefined,
         budget_min: inquiryForm.budget_min ? Number(inquiryForm.budget_min) : undefined,
         budget_max: inquiryForm.budget_max ? Number(inquiryForm.budget_max) : undefined,
+        preferred_channel: inquiryForm.preferred_channel,
         consent_marketing: inquiryForm.consent_marketing,
       },
     });
@@ -508,6 +511,18 @@ export default function MarketplacePublic() {
                       value={inquiryForm.budget_max}
                       onChange={(e) => setInquiryForm((prev) => ({ ...prev, budget_max: e.target.value }))}
                     />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <Label htmlFor="preferred_channel">Preferred contact channel</Label>
+                    <select
+                      id="preferred_channel"
+                      className="flex h-10 w-full rounded-[10px] border border-input bg-background px-3 py-2 text-sm"
+                      value={inquiryForm.preferred_channel}
+                      onChange={(e) => setInquiryForm((prev) => ({ ...prev, preferred_channel: e.target.value as CrmChannel }))}
+                    >
+                      {CRM_CHANNELS.map((channel) => <option key={channel.value} value={channel.value}>{channel.label}</option>)}
+                    </select>
                   </div>
 
                   <div className="md:col-span-2">

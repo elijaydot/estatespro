@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { LeadDetailPanel } from '@/components/marketplace-crm/LeadDetailPanel';
 import { LeadPipelineBoard, LEAD_STAGE_ORDER } from '@/components/marketplace-crm/LeadPipelineBoard';
+import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { CrmDataCard, EmptyState, QueryErrorState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { Button } from '@/components/ui/button';
 import { StatusPill } from '@/components/shared/StatusPill';
@@ -34,6 +35,11 @@ export default function MarketplaceCrmLeadsPage() {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(searchParams.get('lead'));
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'created_desc' | 'score_desc' | 'score_asc'>('score_desc');
+  const [stageFilter, setStageFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [tablePage, setTablePage] = useState(1);
+  const [tablePageSize, setTablePageSize] = useState(10);
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [draftStage, setDraftStage] = useState('new');
   const [draftAssignee, setDraftAssignee] = useState('');
@@ -53,12 +59,22 @@ export default function MarketplaceCrmLeadsPage() {
   }, [leadsQuery.data, listingFilter, search]);
 
   const tableRows = useMemo(() => {
-    const sorted = [...filteredLeads];
+    const sorted = filteredLeads.filter((lead) => (
+      (stageFilter === 'all' || lead.stage === stageFilter)
+      && (statusFilter === 'all' || lead.status === statusFilter)
+      && (ownerFilter === 'all' || (ownerFilter === 'unassigned' ? !lead.assigned_to : lead.assigned_to === ownerFilter))
+    ));
     if (sortBy === 'score_desc') sorted.sort((a, b) => b.score - a.score || Date.parse(b.created_at) - Date.parse(a.created_at));
     else if (sortBy === 'score_asc') sorted.sort((a, b) => a.score - b.score || Date.parse(b.created_at) - Date.parse(a.created_at));
     else sorted.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
     return sorted;
-  }, [filteredLeads, sortBy]);
+  }, [filteredLeads, ownerFilter, sortBy, stageFilter, statusFilter]);
+
+  const paginatedTableRows = tableRows.slice((tablePage - 1) * tablePageSize, tablePage * tablePageSize);
+
+  useEffect(() => {
+    setTablePage(1);
+  }, [search, stageFilter, statusFilter, ownerFilter, tablePageSize]);
 
   useEffect(() => {
     if (selectedLeadId && filteredLeads.some((lead) => lead.id === selectedLeadId)) return;
@@ -153,11 +169,20 @@ export default function MarketplaceCrmLeadsPage() {
         </div>
       ) : (
         <CrmDataCard title="All Leads" description="Filter and update leads by contact, stage, score, and owner.">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>Sort by:</span>
-            <select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <select aria-label="Filter by stage" className="h-9 rounded-md border border-input bg-background px-2 text-xs" value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}>
+              <option value="all">All stages</option>{LEAD_STAGE_ORDER.map((stage) => <option key={stage} value={stage}>{stage.replace(/_/g, ' ')}</option>)}
+            </select>
+            <select aria-label="Filter by status" className="h-9 rounded-md border border-input bg-background px-2 text-xs" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="all">All statuses</option><option value="open">Open</option><option value="won">Won</option><option value="lost">Lost</option>
+            </select>
+            <select aria-label="Filter by owner" className="h-9 rounded-md border border-input bg-background px-2 text-xs" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
+              <option value="all">All owners</option><option value="unassigned">Unassigned</option>{assignableUsers.map((member) => <option key={member.user_id} value={member.user_id}>{member.name}</option>)}
+            </select>
+            <select aria-label="Sort leads" className="h-9 rounded-md border border-input bg-background px-2 text-xs" value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
               <option value="score_desc">Score (high to low)</option><option value="score_asc">Score (low to high)</option><option value="created_desc">Newest first</option>
             </select>
+            {(stageFilter !== 'all' || statusFilter !== 'all' || ownerFilter !== 'all') && <Button variant="ghost" size="sm" onClick={() => { setStageFilter('all'); setStatusFilter('all'); setOwnerFilter('all'); }}>Reset filters</Button>}
           </div>
           <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
             <table className="w-full text-sm">
@@ -165,7 +190,7 @@ export default function MarketplaceCrmLeadsPage() {
                 <tr><th className="px-3 py-2.5">Lead</th><th className="px-3 py-2.5">Listing</th><th className="px-3 py-2.5">Email</th><th className="px-3 py-2.5">Phone</th><th className="px-3 py-2.5">Stage</th><th className="px-3 py-2.5">Status</th><th className="px-3 py-2.5">Score</th><th className="px-3 py-2.5">Owner</th><th className="px-3 py-2.5">Actions</th></tr>
               </thead>
               <tbody>
-                {tableRows.map((row) => (
+                {paginatedTableRows.map((row) => (
                   <tr key={row.id} className="border-t border-border/60 hover:bg-muted/20">
                     <td className="px-3 py-2 font-medium">{row.contact_name || 'Lead'}</td>
                     <td className="px-3 py-2">{row.listing_title || '-'}</td>
@@ -197,6 +222,7 @@ export default function MarketplaceCrmLeadsPage() {
               </tbody>
             </table>
             {tableRows.length === 0 && <div className="p-4"><EmptyState label="No leads found for this filter." /></div>}
+            {tableRows.length > 0 && <TablePagination page={tablePage} pageSize={tablePageSize} total={tableRows.length} onPageChange={setTablePage} onPageSizeChange={setTablePageSize} />}
           </div>
         </CrmDataCard>
       )}

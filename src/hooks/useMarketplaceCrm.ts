@@ -107,6 +107,8 @@ export interface CrmVisit {
   related_id: string | null;
   locality: string | null;
   address_text: string | null;
+  scheduled_at: string | null;
+  assigned_to: string | null;
   status: 'planned' | 'in_progress' | 'completed' | 'canceled';
   check_in_at: string | null;
   check_in_lat: number | null;
@@ -351,7 +353,7 @@ export function useCrmAccounts(companyId?: string | null) {
       if (!companyId) return [] as CrmAccount[];
       const { data, error } = await supabase
         .from('crm_accounts' as never)
-        .select('id, company_id, name, phone, website, owner_user_id, account_kind, metadata, created_at, tenants(id), properties(id)' as never)
+        .select('id, company_id, name, phone, website, owner_user_id, account_kind, metadata, created_at' as never)
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -359,8 +361,8 @@ export function useCrmAccounts(companyId?: string | null) {
       return ((data || []) as Array<Record<string, unknown>>).map((row) => ({
         ...row,
         metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
-        linked_tenant_count: Array.isArray(row.tenants) ? row.tenants.length : 0,
-        linked_property_count: Array.isArray(row.properties) ? row.properties.length : 0,
+        linked_tenant_count: Number((row.metadata as Record<string, unknown> | null)?.linked_tenant_count || 0),
+        linked_property_count: Number((row.metadata as Record<string, unknown> | null)?.linked_property_count || 0),
       })) as CrmAccount[];
     },
     enabled: !!companyId,
@@ -423,7 +425,7 @@ export function useCrmDocuments(companyId?: string | null) {
 }
 
 export function useCrmVisits(companyId?: string | null) {
-  return useCompanyTableQuery<CrmVisit>('visits', 'crm_visits', companyId, 'id, company_id, related_type, related_id, locality, address_text, status, check_in_at, check_in_lat, check_in_lng, check_out_at, proof_path, outcome, notes, created_by, created_at');
+  return useCompanyTableQuery<CrmVisit>('visits', 'crm_visits', companyId, 'id, company_id, related_type, related_id, locality, address_text, scheduled_at, assigned_to, status, check_in_at, check_in_lat, check_in_lng, check_out_at, proof_path, outcome, notes, created_by, created_at');
 }
 
 export function useCrmProjects(companyId?: string | null) {
