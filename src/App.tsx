@@ -482,7 +482,7 @@ function AppRoutes() {
       />
       <Route
         path="/marketplace/reviewer"
-        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.moderation.view" featureName="Marketplace Reviewer Queue"><MarketplaceReviewerRoute>{withSuspense(<MarketplaceReviewerQueue />)}</MarketplaceReviewerRoute></FeatureRoute></PrivateRoute>}
+        element={<PrivateRoute><FeatureRoute entitlementKey="marketplace.moderation.view" featureName="Marketplace Reviewer Console"><MarketplaceReviewerRoute>{withSuspense(<MarketplaceReviewerQueue />)}</MarketplaceReviewerRoute></FeatureRoute></PrivateRoute>}
       />
       <Route
         path="/marketplace/crm"
