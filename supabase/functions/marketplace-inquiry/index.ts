@@ -49,7 +49,7 @@ serve(async (req: Request) => {
     }
 
     const correlationId = createCorrelationId();
-    const idempotencyKey = (req.headers.get("Idempotency-Key") || "").trim();
+    const idempotencyKey = (req.headers.get("idempotency-key") || "").trim();
     if (!idempotencyKey) return jsonResponse(req, { error: "Idempotency-Key header is required" }, 400);
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
