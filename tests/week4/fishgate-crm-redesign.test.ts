@@ -36,6 +36,7 @@ const automation = readFileSync(resolve('src/pages/marketplace-crm/Automation.ts
 const deals = readFileSync(resolve('src/pages/marketplace-crm/Deals.tsx'), 'utf8');
 const contacts = readFileSync(resolve('src/pages/marketplace-crm/Contacts.tsx'), 'utf8');
 const accounts = readFileSync(resolve('src/pages/marketplace-crm/Accounts.tsx'), 'utf8');
+const tasks = readFileSync(resolve('src/pages/marketplace-crm/Tasks.tsx'), 'utf8');
 const reports = readFileSync(resolve('src/pages/marketplace-crm/Reports.tsx'), 'utf8');
 
 describe('FishGate CRM redesign contracts', () => {
@@ -108,6 +109,24 @@ describe('FishGate CRM redesign contracts', () => {
     expect(accounts).toContain('aria-label="Account kind"');
     expect(accounts).toContain('linked_tenant_count');
     expect(accounts).toContain('linked_property_count');
+  });
+
+  it('keeps CRM workspaces operational during the account schema rollout', () => {
+    expect(crmHooks).toContain("currentSchemaResult.error?.code === '42703'");
+    expect(crmHooks).toContain(".select('id, company_id, name, phone, website, owner_user_id, account_type, created_at')");
+    expect(crmHooks).toContain("account_type: accountKind === 'owner_investor' ? 'Owner / Investor' : 'Corporate Tenant'");
+  });
+
+  it('updates preferred channels without requiring the tenant identity migration', () => {
+    expect(crmHooks).toContain(".select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at')");
+    expect(contacts).toContain('{ onSuccess: () => setActiveEditId(null) }');
+  });
+
+  it('uses a table-first task workspace with focused operational views', () => {
+    expect(tasks).toContain("useState<'open' | 'closed' | 'all'>('open')");
+    expect(tasks).toContain('<DialogTitle>Create task</DialogTitle>');
+    expect(tasks).toContain('action={<Button onClick={() => setCreateOpen(true)}>');
+    expect(tasks).not.toContain('title="Create Task"');
   });
 
   it('persists threshold event rules through the existing automation mutation', () => {

@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
+import { ListTodo } from 'lucide-react';
 import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useCreateCrmLeadTask, useCrmAssignableUsers, useCrmLeads } from '@/hooks/useMarketplace';
 import { useCrmTasks, useUpdateCrmTask, useUpdateCrmTaskStatus } from '@/hooks/useMarketplaceCrm';
@@ -23,6 +26,8 @@ export default function MarketplaceCrmTasksPage() {
   const createTask = useCreateCrmLeadTask(activeCompanyId);
   const updateTaskDetails = useUpdateCrmTask(activeCompanyId);
   const [search, setSearch] = useState('');
+  const [view, setView] = useState<'open' | 'closed' | 'all'>('open');
+  const [createOpen, setCreateOpen] = useState(false);
   const [leadId, setLeadId] = useState('');
   const [ownerUserId, setOwnerUserId] = useState('');
   const [dueAt, setDueAt] = useState('');
@@ -37,9 +42,11 @@ export default function MarketplaceCrmTasksPage() {
   const rows = useMemo(() => {
     const records = tasksQuery.data || [];
     const query = search.toLowerCase().trim();
-    if (!query) return records;
-    return records.filter((row) => (`${row.task_type} ${row.notes || ''} ${row.status}`).toLowerCase().includes(query));
-  }, [tasksQuery.data, search]);
+    return records.filter((row) => (
+      (!query || (`${row.task_type} ${row.notes || ''} ${row.status}`).toLowerCase().includes(query))
+      && (view === 'all' || (view === 'open' ? row.status === 'open' : row.status !== 'open'))
+    ));
+  }, [tasksQuery.data, search, view]);
 
   const create = () => {
     if (!leadId || !ownerUserId || !dueAt) return;
@@ -49,12 +56,9 @@ export default function MarketplaceCrmTasksPage() {
       dueAt: new Date(dueAt).toISOString(),
       notes: notes.trim() || undefined,
       taskType,
-    });
-    setLeadId('');
-    setOwnerUserId('');
-    setDueAt('');
-    setTaskType('follow_up');
-    setNotes('');
+    }, { onSuccess: () => {
+      setLeadId(''); setOwnerUserId(''); setDueAt(''); setTaskType('follow_up'); setNotes(''); setCreateOpen(false);
+    } });
   };
 
   const startEdit = (taskId: string, currentTaskType: string, currentOwnerUserId: string, currentDueAt: string, currentNotes: string | null) => {
@@ -91,50 +95,23 @@ export default function MarketplaceCrmTasksPage() {
 
   return (
     <CrmWorkspace title="Tasks" subtitle="Plan and track lead and deal follow-ups.">
-      <CrmDataCard title="Create Task" description="Add a task, owner, and due date.">
-        <div className="mb-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          Use due dates and owner routing to prevent stalled opportunities.
-        </div>
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-3" value={leadId} onChange={(event) => setLeadId(event.target.value)}>
-            <option value="">Select lead</option>
-            {(leadsQuery.data || []).map((lead) => (
-              <option key={lead.id} value={lead.id}>{lead.contact_name || lead.contact_email || lead.id}</option>
-            ))}
-          </select>
-          <div className="lg:col-span-3">
-            <AssigneePicker
-              users={assignableUsersQuery.data || []}
-              value={ownerUserId || null}
-              onChange={(next) => setOwnerUserId(next || '')}
-              placeholder="Select owner"
-              className="h-10"
-              allowUnassigned={false}
-            />
+      <CrmDataCard title="Tasks" description="Prioritize follow-ups, assign clear ownership, and close the loop on every lead." action={<Button onClick={() => setCreateOpen(true)}><ListTodo className="mr-2 h-4 w-4" />New task</Button>}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <SimpleToolbar search={search} setSearch={setSearch} />
+          <div className="flex rounded-md border border-border p-1" aria-label="Task views">
+            {(['open', 'closed', 'all'] as const).map((item) => <Button key={item} size="sm" variant={view === item ? 'secondary' : 'ghost'} className="capitalize" onClick={() => setView(item)}>{item}</Button>)}
           </div>
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={taskType} onChange={(event) => setTaskType(event.target.value)}>
-            {TASK_TYPES.map((type) => (
-              <option key={type} value={type}>{type.replace(/_/g, ' ')}</option>
-            ))}
-          </select>
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} />
-          <button className="h-10 rounded-md bg-primary px-3 text-sm text-primary-foreground lg:col-span-2" onClick={create} disabled={createTask.isPending}>Create Task</button>
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-12" placeholder="Task notes / activity details" value={notes} onChange={(event) => setNotes(event.target.value)} />
         </div>
-      </CrmDataCard>
-
-      <CrmDataCard title="All Tasks" description="Open and completed CRM tasks.">
-        <SimpleToolbar search={search} setSearch={setSearch} />
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2.5">Subject</th>
+                <th className="px-3 py-2.5">Type</th>
                 <th className="px-3 py-2.5">Due Date</th>
                 <th className="px-3 py-2.5">Status</th>
-                <th className="px-3 py-2.5">Priority</th>
+                <th className="px-3 py-2.5">Owner</th>
                 <th className="px-3 py-2.5">Action</th>
-                <th className="px-3 py-2.5">Edit</th>
               </tr>
             </thead>
             <tbody>
@@ -145,6 +122,13 @@ export default function MarketplaceCrmTasksPage() {
                       <input className="h-8 w-full rounded-md border border-input px-2 text-xs" value={editNotes} onChange={(event) => setEditNotes(event.target.value)} />
                     ) : (row.notes || row.task_type)}
                   </td>
+                  <td className="px-3 py-2 capitalize">
+                    {editingTaskId === row.id ? (
+                      <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={editTaskType} onChange={(event) => setEditTaskType(event.target.value)}>
+                        {TASK_TYPES.map((type) => <option key={type} value={type}>{type.replace(/_/g, ' ')}</option>)}
+                      </select>
+                    ) : row.task_type.replace(/_/g, ' ')}
+                  </td>
                   <td className="px-3 py-2">
                     {editingTaskId === row.id ? (
                       <input className="h-8 w-full rounded-md border border-input px-2 text-xs" type="datetime-local" value={editDueAt} onChange={(event) => setEditDueAt(event.target.value)} />
@@ -152,13 +136,7 @@ export default function MarketplaceCrmTasksPage() {
                   </td>
                   <td className="px-3 py-2"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${taskStatusChipClass(row.status)}`}>{row.status}</span></td>
                   <td className="px-3 py-2">
-                    {editingTaskId === row.id ? (
-                      <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={editTaskType} onChange={(event) => setEditTaskType(event.target.value)}>
-                        {TASK_TYPES.map((type) => (
-                          <option key={type} value={type}>{type.replace(/_/g, ' ')}</option>
-                        ))}
-                      </select>
-                    ) : (row.status === 'open' ? 'Normal' : row.status === 'done' ? 'Done' : 'Canceled')}
+                    {editingTaskId === row.id ? <AssigneePicker users={assignableUsersQuery.data || []} value={editOwnerUserId || null} onChange={(next) => setEditOwnerUserId(next || '')} placeholder="Select owner" className="h-8" allowUnassigned={false} /> : (assignableUsersQuery.data || []).find((user) => user.user_id === row.owner_user_id)?.name || 'Assigned user'}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-2">
@@ -188,38 +166,34 @@ export default function MarketplaceCrmTasksPage() {
                           Cancel
                         </button>
                       ) : null}
+                      {editingTaskId === row.id ? (
+                        <><Button size="sm" className="h-8" onClick={saveEdit} disabled={updateTaskDetails.isPending}>Save</Button><Button size="sm" variant="outline" className="h-8" onClick={() => setEditingTaskId(null)}>Close</Button></>
+                      ) : (
+                        <Button size="sm" variant="outline" className="h-8" onClick={() => startEdit(row.id, row.task_type, row.owner_user_id, row.due_at, row.notes)}>Edit</Button>
+                      )}
                     </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    {editingTaskId === row.id ? (
-                      <div className="flex gap-2">
-                        <AssigneePicker
-                          users={assignableUsersQuery.data || []}
-                          value={editOwnerUserId || null}
-                          onChange={(next) => setEditOwnerUserId(next || '')}
-                          placeholder="Select owner"
-                          className="h-8"
-                          allowUnassigned={false}
-                        />
-                        <button className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground" onClick={saveEdit} disabled={updateTaskDetails.isPending}>Save</button>
-                        <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => setEditingTaskId(null)} disabled={updateTaskDetails.isPending}>Close</button>
-                      </div>
-                    ) : (
-                      <button
-                        className="h-8 rounded-md border border-input px-2 text-xs"
-                        onClick={() => startEdit(row.id, row.task_type, row.owner_user_id, row.due_at, row.notes)}
-                      >
-                        Edit
-                      </button>
-                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {rows.length === 0 ? <div className="p-4"><EmptyState label="No tasks available for this scope." /></div> : null}
+          {rows.length === 0 ? <div className="p-4"><EmptyState label={`No ${view} tasks found.`} /></div> : null}
         </div>
       </CrmDataCard>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Create task</DialogTitle><DialogDescription>Connect the follow-up to a lead, set ownership, and choose a deadline.</DialogDescription></DialogHeader>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="space-y-1.5 text-sm"><span>Related lead</span><select aria-label="Related lead" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={leadId} onChange={(event) => setLeadId(event.target.value)}><option value="">Select lead</option>{(leadsQuery.data || []).map((lead) => <option key={lead.id} value={lead.id}>{lead.contact_name || lead.contact_email || lead.id}</option>)}</select></label>
+            <label className="space-y-1.5 text-sm"><span>Owner</span><AssigneePicker users={assignableUsersQuery.data || []} value={ownerUserId || null} onChange={(next) => setOwnerUserId(next || '')} placeholder="Select owner" className="h-10" allowUnassigned={false} /></label>
+            <label className="space-y-1.5 text-sm"><span>Task type</span><select aria-label="Task type" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={taskType} onChange={(event) => setTaskType(event.target.value)}>{TASK_TYPES.map((type) => <option key={type} value={type}>{type.replace(/_/g, ' ')}</option>)}</select></label>
+            <label className="space-y-1.5 text-sm"><span>Due date and time</span><input aria-label="Due date and time" className="h-10 w-full rounded-md border border-input px-3 text-sm" type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} /></label>
+            <label className="space-y-1.5 text-sm sm:col-span-2"><span>Notes</span><textarea aria-label="Task notes" className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Outcome expected, context, or next step" value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button onClick={create} disabled={!leadId || !ownerUserId || !dueAt || createTask.isPending}>Create task</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </CrmWorkspace>
   );
 }

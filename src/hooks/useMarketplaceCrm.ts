@@ -351,15 +351,29 @@ export function useCrmAccounts(companyId?: string | null) {
     queryKey: ['marketplace-crm', 'accounts', companyId],
     queryFn: async () => {
       if (!companyId) return [] as CrmAccount[];
-      const { data, error } = await supabase
+      const currentSchemaResult = await supabase
         .from('crm_accounts' as never)
         .select('id, company_id, name, phone, website, owner_user_id, account_kind, metadata, created_at' as never)
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
+      const usesLegacySchema = currentSchemaResult.error?.code === '42703'
+        && (currentSchemaResult.error.message.includes('account_kind') || currentSchemaResult.error.message.includes('metadata'));
+      const legacySchemaResult = usesLegacySchema
+        ? await supabase
+            .from('crm_accounts')
+            .select('id, company_id, name, phone, website, owner_user_id, account_type, created_at')
+            .eq('company_id', companyId)
+            .order('created_at', { ascending: false })
+        : null;
+      const data = legacySchemaResult?.data ?? currentSchemaResult.data;
+      const error = legacySchemaResult?.error ?? (usesLegacySchema ? null : currentSchemaResult.error);
       if (error) throw error;
 
       return ((data || []) as Array<Record<string, unknown>>).map((row) => ({
         ...row,
+        account_kind: row.account_kind === 'owner_investor' || String(row.account_type || '').toLowerCase().includes('owner')
+          ? 'owner_investor'
+          : 'corporate_tenant',
         metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
         linked_tenant_count: Number((row.metadata as Record<string, unknown> | null)?.linked_tenant_count || 0),
         linked_property_count: Number((row.metadata as Record<string, unknown> | null)?.linked_property_count || 0),
@@ -685,7 +699,6 @@ function buildUpdateMutation<TInput extends Record<string, unknown>>(table: stri
   };
 }
 
-export const useCreateCrmAccount = buildCreateMutation<Record<string, unknown>>('crm_accounts', 'accounts');
 export const useCreateCrmDeal = buildCreateMutation<Record<string, unknown>>('crm_deals', 'deals');
 export const useCreateCrmMeeting = buildCreateMutation<Record<string, unknown>>('crm_meetings', 'meetings');
 export const useCreateCrmCall = buildCreateMutation<Record<string, unknown>>('crm_calls', 'calls');
@@ -693,11 +706,89 @@ export const useCreateCrmCampaign = buildCreateMutation<Record<string, unknown>>
 export const useCreateCrmDocument = buildCreateMutation<Record<string, unknown>>('crm_documents', 'documents');
 export const useCreateCrmVisit = buildCreateMutation<Record<string, unknown>>('crm_visits', 'visits');
 export const useCreateCrmProject = buildCreateMutation<Record<string, unknown>>('crm_projects', 'projects');
-export const useUpdateCrmAccount = buildUpdateMutation<Record<string, unknown>>('crm_accounts', 'accounts');
 export const useUpdateCrmDeal = buildUpdateMutation<Record<string, unknown>>('crm_deals', 'deals');
 export const useUpdateCrmDocument = buildUpdateMutation<Record<string, unknown>>('crm_documents', 'documents');
 export const useUpdateCrmCampaign = buildUpdateMutation<Record<string, unknown>>('crm_campaigns', 'campaigns');
 export const useUpdateCrmProject = buildUpdateMutation<Record<string, unknown>>('crm_projects', 'projects');
+
+export function useCreateCrmAccount(companyId?: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => {
+      if (!companyId) throw new Error('Active company is required');
+      const currentResult = await supabase
+        .from('crm_accounts' as never)
+        .insert({ ...payload, company_id: companyId } as never)
+        .select('*')
+        .single();
+      if (currentResult.error?.code !== '42703') {
+        if (currentResult.error) throw currentResult.error;
+        return currentResult.data;
+      }
+
+      const { account_kind: accountKind, metadata: _metadata, ...stablePayload } = payload;
+      const legacyResult = await supabase
+        .from('crm_accounts')
+        .insert({
+          ...stablePayload,
+          company_id: companyId,
+          account_type: accountKind === 'owner_investor' ? 'Owner / Investor' : 'Corporate Tenant',
+        })
+        .select('*')
+        .single();
+      if (legacyResult.error) throw legacyResult.error;
+      return legacyResult.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'accounts', companyId] });
+      toast({ title: 'Saved', description: 'Record created successfully.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Save Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateCrmAccount(companyId?: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: Record<string, unknown> }) => {
+      if (!companyId) throw new Error('Active company is required');
+      const currentResult = await supabase
+        .from('crm_accounts' as never)
+        .update(payload as never)
+        .eq('id', id)
+        .eq('company_id', companyId)
+        .select('*')
+        .single();
+      if (currentResult.error?.code !== '42703') {
+        if (currentResult.error) throw currentResult.error;
+        return currentResult.data;
+      }
+
+      const { account_kind: accountKind, metadata: _metadata, ...stablePayload } = payload;
+      const legacyResult = await supabase
+        .from('crm_accounts')
+        .update({
+          ...stablePayload,
+          account_type: accountKind === 'owner_investor' ? 'Owner / Investor' : 'Corporate Tenant',
+        })
+        .eq('id', id)
+        .eq('company_id', companyId)
+        .select('*')
+        .single();
+      if (legacyResult.error) throw legacyResult.error;
+      return legacyResult.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'accounts', companyId] });
+      toast({ title: 'Saved', description: 'Record updated successfully.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Update Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
 
 export function useTransitionCrmDealStage(companyId?: string | null) {
   const queryClient = useQueryClient();
@@ -1019,7 +1110,7 @@ export function useUpdateCrmContact(companyId?: string | null) {
         .from('lead_contacts')
         .update(payload)
         .eq('id', contactId)
-        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, tenant_id, tenants(created_at)')
+        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at')
         .single();
 
       if (error) throw error;

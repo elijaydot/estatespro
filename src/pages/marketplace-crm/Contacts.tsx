@@ -49,13 +49,15 @@ export default function MarketplaceCrmContactsPage() {
   };
 
   const saveChannel = (contactId: string) => {
-    updateContact.mutate({
-      contactId,
-      payload: {
-        preferred_channel: editChannel.trim() || null,
+    updateContact.mutate(
+      {
+        contactId,
+        payload: {
+          preferred_channel: editChannel.trim() || null,
+        },
       },
-    });
-    setActiveEditId(null);
+      { onSuccess: () => setActiveEditId(null) },
+    );
   };
 
   return (
