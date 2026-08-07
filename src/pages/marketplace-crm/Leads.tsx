@@ -140,7 +140,7 @@ export default function MarketplaceCrmLeadsPage() {
           />
         </CrmDataCard>
       ) : view === 'board' ? (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(360px,1fr)]">
+        <div className="space-y-4">
           <LeadPipelineBoard
             leads={filteredLeads}
             selectedLeadId={selectedLeadId}

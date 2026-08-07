@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { Loader2, Target } from 'lucide-react';
+import { GripVertical, Loader2, Target } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import type { CrmLead } from '@/hooks/useMarketplace';
@@ -57,39 +57,33 @@ function LeadCard({
   disabled: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(lead.id)}
+    <article
       className={cn(
-        'w-full rounded-lg border p-3 text-left shadow-sm backdrop-blur-sm transition',
+        'w-full rounded-md border bg-card p-2.5 text-left shadow-sm transition-colors',
         selected
-          ? 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-400/30'
-          : 'border-border/70 bg-card/80 hover:bg-card',
+          ? 'border-emerald-500/60 ring-2 ring-emerald-500/20'
+          : 'border-border/80 hover:border-foreground/20 hover:bg-muted/30',
       )}
     >
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-medium">{lead.contact_name || 'Lead'}</p>
-          <p className="text-xs text-muted-foreground">{lead.contact_phone || lead.contact_email || 'No phone or email'}</p>
+      <button type="button" className="w-full text-left" onClick={() => onSelect(lead.id)}>
+        <div className="mb-2 flex items-start gap-2">
+          <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{lead.contact_name || 'Lead'}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{lead.contact_phone || lead.contact_email || 'No contact details'}</p>
+          </div>
+          <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-[10px]">{lead.score ?? 0}</Badge>
         </div>
-        <Badge variant="outline">Score {lead.score ?? 0}</Badge>
-      </div>
-      <div className="mb-3">
-        <p className="text-xs text-muted-foreground">Listing</p>
-        <p className="truncate text-sm">{lead.listing_title || 'No listing linked'}</p>
-      </div>
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        <div>
-          <p className="text-[11px] uppercase text-muted-foreground">Priority</p>
-          <Badge variant="secondary" className="mt-1 text-[11px]">{lead.priority}</Badge>
+        <div className="mb-2 rounded bg-muted/50 px-2 py-1.5">
+          <p className="truncate text-xs font-medium">{lead.listing_title || 'No listing linked'}</p>
         </div>
-        <div>
-          <p className="text-[11px] uppercase text-muted-foreground">Status</p>
-          <Badge variant="outline" className="mt-1 text-[11px]">{lead.status}</Badge>
+        <div className="mb-2 flex items-center gap-1.5">
+          <Badge variant="secondary" className="px-1.5 py-0 text-[10px] capitalize">{lead.priority}</Badge>
+          <Badge variant="outline" className="px-1.5 py-0 text-[10px] capitalize">{lead.status}</Badge>
         </div>
-      </div>
+      </button>
       <Select value={lead.stage} onValueChange={(value) => onChangeStage(lead.id, value)} disabled={disabled}>
-        <SelectTrigger className="h-8 text-xs">
+        <SelectTrigger className="h-7 text-xs">
           <SelectValue placeholder="Update stage" />
         </SelectTrigger>
         <SelectContent>
@@ -98,7 +92,7 @@ function LeadCard({
           ))}
         </SelectContent>
       </Select>
-    </button>
+    </article>
   );
 }
 
@@ -127,25 +121,25 @@ export function LeadPipelineBoard({
   }, [leads]);
 
   return (
-    <Card className="min-w-0 border-emerald-500/20">
-      <CardHeader>
+    <Card className="min-w-0 overflow-hidden border-emerald-500/20">
+      <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2">
           <Target className="h-4 w-4 text-emerald-600" />
           Pipeline Board
           {(isLoading || isUpdating) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </CardTitle>
-        <CardDescription>Choose a lead to open timeline, notes, assignment, and task actions.</CardDescription>
+        <CardDescription>Move work through each stage and select a lead to open its complete record below.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <ScrollArea className="w-full whitespace-nowrap pb-2">
-          <div className="flex min-w-full gap-3 pr-2">
+      <CardContent className="px-3 pb-3 sm:px-4">
+        <ScrollArea className="w-full pb-3">
+          <div className="flex w-max min-w-full items-start gap-3 pb-2">
             {LEAD_STAGE_ORDER.map((stage) => (
-              <div key={stage} className={cn('min-h-[520px] w-[280px] rounded-lg border p-3', STAGE_ACCENT[stage] || 'border-border')}>
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">{LEAD_STAGE_LABEL[stage]}</p>
-                  <Badge variant="secondary">{groupedLeads[stage]?.length || 0}</Badge>
+              <section key={stage} className={cn('flex h-[560px] w-64 shrink-0 flex-col overflow-hidden rounded-md border', STAGE_ACCENT[stage] || 'border-border')}>
+                <div className="flex h-11 shrink-0 items-center justify-between border-b border-border/60 bg-background/80 px-3 backdrop-blur-sm">
+                  <p className="truncate text-xs font-semibold uppercase text-foreground/80">{LEAD_STAGE_LABEL[stage]}</p>
+                  <Badge variant="secondary" className="h-5 min-w-5 justify-center px-1.5 text-[10px]">{groupedLeads[stage]?.length || 0}</Badge>
                 </div>
-                <div className="space-y-2">
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2 scrollbar-thin">
                   {(groupedLeads[stage] || []).map((lead) => (
                     <LeadCard
                       key={lead.id}
@@ -156,10 +150,16 @@ export function LeadPipelineBoard({
                       onChangeStage={onChangeStage}
                     />
                   ))}
+                  {(groupedLeads[stage] || []).length === 0 && (
+                    <div className="flex h-20 items-center justify-center rounded-md border border-dashed border-border/60 px-3 text-center text-xs text-muted-foreground">
+                      No leads in this stage
+                    </div>
+                  )}
                 </div>
-              </div>
+              </section>
             ))}
           </div>
+          <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </CardContent>
     </Card>
