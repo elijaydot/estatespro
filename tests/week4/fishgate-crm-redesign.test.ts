@@ -26,6 +26,10 @@ const documentCommentsMigration = readFileSync(
   resolve('supabase/migrations/20260808110000_crm_document_comments.sql'),
   'utf8',
 );
+const leadRecordSearchMigration = readFileSync(
+  resolve('supabase/migrations/20260808130000_crm_lead_record_search.sql'),
+  'utf8',
+);
 const alertLeadMigration = readFileSync(
   resolve('supabase/migrations/20260804150000_fishgate_crm_operational_alert_leads.sql'),
   'utf8',
@@ -48,6 +52,7 @@ const reports = readFileSync(resolve('src/pages/marketplace-crm/Reports.tsx'), '
 const leads = readFileSync(resolve('src/pages/marketplace-crm/Leads.tsx'), 'utf8');
 const leadBoard = readFileSync(resolve('src/components/marketplace-crm/LeadPipelineBoard.tsx'), 'utf8');
 const leadDetail = readFileSync(resolve('src/components/marketplace-crm/LeadDetailPanel.tsx'), 'utf8');
+const leadRecordNavigator = readFileSync(resolve('src/components/marketplace-crm/LeadRecordNavigator.tsx'), 'utf8');
 
 describe('FishGate CRM redesign contracts', () => {
   it('adds a constrained and indexed lead pipeline discriminator', () => {
@@ -154,10 +159,24 @@ describe('FishGate CRM redesign contracts', () => {
     expect(leads).toContain('paginatedTableRows.map');
     expect(marketplaceHooks).toContain("payload.status = 'open'");
     expect(marketplaceHooks).toContain("activity_type: 'status_change'");
-    expect(leads).toContain('id="lead-record-selector"');
-    expect(leads).toContain('Previous lead');
-    expect(leads).toContain('Next lead');
+    expect(leadRecordNavigator).toContain('id="lead-record-selector"');
+    expect(leads).not.toContain('Previous lead');
+    expect(leads).not.toContain('Next lead');
     expect(leads).toContain('openLeadRecord(row.id)');
+  });
+
+  it('finds lead records through capped indexed server search instead of a native dropdown', () => {
+    expect(leadRecordSearchMigration).toContain('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+    expect(leadRecordSearchMigration).toContain('CREATE OR REPLACE FUNCTION public.search_crm_leads');
+    expect(leadRecordSearchMigration).toContain('SECURITY INVOKER');
+    expect(leadRecordSearchMigration).toContain('LIMIT LEAST(GREATEST(COALESCE(p_limit, 30), 1), 50)');
+    expect(marketplaceHooks).toContain("queryKey: ['marketplace', 'crm-lead-search'");
+    expect(marketplaceHooks).toContain("queryKey: ['marketplace', 'crm-lead-record'");
+    expect(leadRecordNavigator).toContain('Search name, phone, email, listing, stage...');
+    expect(leadRecordNavigator).toContain('shouldFilter={false}');
+    expect(leadRecordNavigator).toContain('Up to 30 results · refine to narrow');
+    expect(leads).toContain('<LeadRecordNavigator');
+    expect(leads).not.toContain('<select id="lead-record-selector"');
   });
 
   it('uses compact lead commands with filtered task and activity registers', () => {

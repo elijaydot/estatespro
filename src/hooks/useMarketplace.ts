@@ -376,6 +376,66 @@ export function useCrmLeads(companyId?: string | null) {
   });
 }
 
+export function useCrmLeadRecord(companyId?: string | null, leadId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'crm-lead-record', companyId, leadId],
+    queryFn: async () => {
+      if (!companyId || !leadId) return null;
+
+      const { data, error } = await supabase
+        .from('leads')
+        .select('id, company_id, listing_id, pipeline_kind, stage, status, priority, score, assigned_to, created_at, last_activity_at, converted_at, lost_reason, marketplace_listings(title, slug), lead_contacts(full_name, email, phone_e164)')
+        .eq('company_id', companyId)
+        .eq('id', leadId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return null;
+
+      const lead = data as LeadRow;
+      const contacts = normalizeLeadContacts(lead.lead_contacts);
+      return {
+        ...lead,
+        pipeline_kind: lead.pipeline_kind || 'leasing',
+        listing_title: lead.marketplace_listings?.title ?? null,
+        listing_slug: lead.marketplace_listings?.slug ?? null,
+        contact_name: contacts[0]?.full_name ?? null,
+        contact_email: contacts[0]?.email ?? null,
+        contact_phone: contacts[0]?.phone_e164 ?? null,
+      } as CrmLead;
+    },
+    enabled: !!companyId && !!leadId,
+  });
+}
+
+export function useCrmLeadSearch(
+  companyId?: string | null,
+  query = '',
+  stage = 'all',
+  status = 'all',
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ['marketplace', 'crm-lead-search', companyId, query, stage, status],
+    queryFn: async () => {
+      if (!companyId) return [] as CrmLead[];
+
+      const { data, error } = await supabase.rpc('search_crm_leads' as never, {
+        p_company_id: companyId,
+        p_query: query.trim(),
+        p_stage: stage === 'all' ? null : stage,
+        p_status: status === 'all' ? null : status,
+        p_limit: 30,
+      } as never);
+
+      if (error) throw error;
+      return (data || []) as CrmLead[];
+    },
+    enabled: !!companyId && enabled,
+    staleTime: 30_000,
+  });
+}
+
 export function useUpdateCrmLeadStage(companyId?: string | null) {
   const queryClient = useQueryClient();
 
