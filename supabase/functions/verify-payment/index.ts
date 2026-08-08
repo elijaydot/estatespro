@@ -672,32 +672,6 @@ serve(async (req: Request) => {
         },
       });
 
-      try {
-        await dispatchPaymentVerifiedWebhooks(supabase, {
-          source: "guest_booking",
-          invoiceId: invoice.id,
-          paymentId: result.paymentId,
-          reference: verification.reference,
-          amount: verification.amount,
-          correlationId,
-          actorUserId: caller.id,
-        });
-      } catch (webhookError: unknown) {
-        await emitAuditEvent({
-          event_type: "payment.verify.webhook_dispatch_failed",
-          source: "verify-payment",
-          actor_user_id: caller.id,
-          severity: "warning",
-          correlation_id: correlationId,
-          entity_type: "invoice",
-          entity_id: invoice.id,
-          details: {
-            source: "guest_booking",
-            message: getErrorMessage(webhookError),
-          },
-        });
-      }
-
       return jsonResponse(req, {
         success: true,
         message: `${payload.gateway} credentials verified`,

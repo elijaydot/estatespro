@@ -32,7 +32,10 @@ const paymentSettingsSchema = z.object({
   flutterwave_enabled: z.boolean(),
   flutterwave_public_key: z.string().optional(),
   paystack_enabled: z.boolean(),
-  paystack_public_key: z.string().optional(),
+  paystack_public_key: z.string().trim().refine(
+    (value) => !value || /^pk_(test|live)_/.test(value),
+    'Enter a Paystack public key beginning with pk_test_ or pk_live_. Secret keys belong in Supabase Function Secrets.',
+  ).optional(),
   preferred_method: z.string().optional(),
   payment_instructions: z.string().optional(),
 }).refine((data) => {
@@ -60,6 +63,20 @@ type GatewayStatus = {
   lastVerified?: Date;
   error?: string;
 };
+
+async function gatewayErrorMessage(data: unknown, error: unknown) {
+  if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
+    return data.error;
+  }
+
+  if (error && typeof error === 'object' && 'context' in error && error.context instanceof Response) {
+    const responseBody = await error.context.clone().json().catch(() => null) as { error?: string } | null;
+    if (responseBody?.error) return responseBody.error;
+  }
+
+  if (error instanceof Error && error.message) return error.message;
+  return 'Gateway verification failed';
+}
 
 export function PaymentSettings() {
   const { data: companies } = useMyCompanies();
@@ -109,7 +126,7 @@ export function PaymentSettings() {
         flutterwave_enabled: settings.flutterwave_enabled || false,
         flutterwave_public_key: settings.flutterwave_public_key || '',
         paystack_enabled: settings.paystack_enabled || false,
-        paystack_public_key: settings.paystack_public_key || '',
+        paystack_public_key: settings.paystack_public_key?.startsWith('pk_') ? settings.paystack_public_key : '',
         preferred_method: settings.preferred_method || 'bank_transfer',
         payment_instructions: settings.payment_instructions || '',
       });
@@ -138,6 +155,13 @@ export function PaymentSettings() {
         toast({ title: 'Error', description: 'Please enter a Paystack public key', variant: 'destructive' });
         return;
       }
+      if (!/^pk_(test|live)_/.test(values.paystack_public_key)) {
+        form.setError('paystack_public_key', {
+          message: 'Use the pk_test_ or pk_live_ public key here. Configure sk_ secret keys in Supabase Function Secrets.',
+        });
+        toast({ title: 'Secret key cannot be used here', description: 'Rotate the exposed key, then add the replacement as PAYSTACK_SECRET_KEY in Supabase Function Secrets.', variant: 'destructive' });
+        return;
+      }
       setPaystackStatus({ status: 'verifying' });
     }
 
@@ -159,22 +183,24 @@ export function PaymentSettings() {
         }
         toast({ title: 'Success', description: `${gateway === 'flutterwave' ? 'Flutterwave' : 'Paystack'} connection verified successfully` });
       } else {
-        const errorStatus: GatewayStatus = { status: 'error', error: data.error || 'Verification failed' };
+        const message = await gatewayErrorMessage(data, error);
+        const errorStatus: GatewayStatus = { status: 'error', error: message };
         if (gateway === 'flutterwave') {
           setFlutterwaveStatus(errorStatus);
         } else {
           setPaystackStatus(errorStatus);
         }
-        toast({ title: 'Error', description: data.error || 'Gateway verification failed', variant: 'destructive' });
+        toast({ title: 'Gateway verification failed', description: message, variant: 'destructive' });
       }
     } catch (error) {
-      const errorStatus: GatewayStatus = { status: 'error', error: 'Network error' };
+      const message = await gatewayErrorMessage(null, error);
+      const errorStatus: GatewayStatus = { status: 'error', error: message };
       if (gateway === 'flutterwave') {
         setFlutterwaveStatus(errorStatus);
       } else {
         setPaystackStatus(errorStatus);
       }
-      toast({ title: 'Error', description: 'Failed to verify gateway connection', variant: 'destructive' });
+      toast({ title: 'Gateway verification failed', description: message, variant: 'destructive' });
     }
   };
 
@@ -506,7 +532,7 @@ export function PaymentSettings() {
                           <FormItem>
                             <FormLabel>Public Key *</FormLabel>
                             <FormControl>
-                              <Input placeholder="pk_..." {...field} />
+                              <Input placeholder="pk_test_... or pk_live_..." autoComplete="off" spellCheck={false} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
