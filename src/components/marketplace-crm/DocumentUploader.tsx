@@ -27,6 +27,10 @@ function humanFileSize(bytes: number) {
   return `${bytes}B`;
 }
 
+function displayFileName(storagePath: string) {
+  return (storagePath.split('/').pop() || 'Uploaded file').replace(/^\d+_/, '').replace(/_/g, ' ');
+}
+
 export function DocumentUploader({
   bucket,
   pathPrefix,
@@ -132,9 +136,9 @@ export function DocumentUploader({
       </div>
 
       {uploadedPath && (
-        <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border/70 bg-muted/20 p-2">
+        <div className="w-full min-w-0 max-w-full overflow-hidden rounded-md border border-border/70 bg-muted/20 p-2">
           <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-            <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={uploadedPath}>{uploadedPath}</p>
+            <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={displayFileName(uploadedPath)}>{displayFileName(uploadedPath)}</p>
             <button
               type="button"
               className="inline-flex h-6 w-6 items-center justify-center rounded border border-input"

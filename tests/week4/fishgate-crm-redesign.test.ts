@@ -178,7 +178,7 @@ describe('FishGate CRM redesign contracts', () => {
     expect(provisionActionMigration).toContain('public.crm_complete_handoff(');
     expect(provisionActionMigration).toContain('v_error_count := v_error_count + 1');
     expect(provisionActionMigration).toContain('CRM_AUTOMATION_EXECUTOR_ACTION_BOUNDARY_NOT_FOUND');
-    expect(automation).toContain('<option value="provision_tenant">provision_tenant</option>');
+    expect(automation).toContain("provision_tenant: 'Create the tenant and lease'");
   });
 
   it('creates idempotent renewal and collections leads from the existing alert evaluator', () => {

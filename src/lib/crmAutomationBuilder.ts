@@ -49,6 +49,9 @@ export interface ActionBuilderRow {
 export interface EventDefinition {
   value: AutomationEventType;
   label: string;
+  description: string;
+  conditionFields: Array<{ value: string; label: string }>;
+  allowedActionTypes: ActionBuilderType[];
   allowedConditionFields?: string[];
   defaultConditionRows: ConditionBuilderRow[];
   defaultActionRows: ActionBuilderRow[];
@@ -59,6 +62,14 @@ export const CRM_AUTOMATION_EVENT_DEFINITIONS: EventDefinition[] = [
   {
     value: 'deal.stage_changed',
     label: 'Deal Stage Changed',
+    description: 'Runs when a lead moves from one pipeline stage to another.',
+    conditionFields: [
+      { value: 'from_stage', label: 'Previous stage' },
+      { value: 'to_stage', label: 'New stage' },
+      { value: 'lead_id', label: 'Lead' },
+      { value: 'owner_user_id', label: 'Lead owner' },
+    ],
+    allowedActionTypes: ['create_task', 'audit_event', 'set_handoff_status', 'send_notification', 'send_message', 'update_lead_stage', 'reassign_lead', 'provision_tenant'],
     defaultConditionRows: [
       { id: 'condition-1', field: 'to_stage', operator: 'equals', value: 'converted' },
     ],
@@ -92,6 +103,14 @@ export const CRM_AUTOMATION_EVENT_DEFINITIONS: EventDefinition[] = [
   {
     value: 'call.logged',
     label: 'Call Logged',
+    description: 'Runs as soon as an inbound or outbound call is saved.',
+    conditionFields: [
+      { value: 'lead_id', label: 'Related lead' },
+      { value: 'owner_user_id', label: 'Call owner' },
+      { value: 'result', label: 'Call outcome' },
+      { value: 'subject', label: 'Call subject' },
+    ],
+    allowedActionTypes: ['create_task', 'audit_event', 'send_notification', 'send_message', 'update_lead_stage', 'reassign_lead'],
     defaultConditionRows: [
       { id: 'condition-1', field: 'lead_id', operator: 'required', value: '' },
     ],
@@ -124,6 +143,13 @@ export const CRM_AUTOMATION_EVENT_DEFINITIONS: EventDefinition[] = [
   {
     value: 'meeting.completed',
     label: 'Meeting Completed',
+    description: 'Runs when a meeting is marked done for the first time.',
+    conditionFields: [
+      { value: 'lead_id', label: 'Related lead' },
+      { value: 'owner_user_id', label: 'Meeting host' },
+      { value: 'title', label: 'Meeting title' },
+    ],
+    allowedActionTypes: ['create_task', 'audit_event', 'send_notification', 'send_message', 'update_lead_stage', 'reassign_lead'],
     defaultConditionRows: [
       { id: 'condition-1', field: 'lead_id', operator: 'required', value: '' },
     ],
@@ -156,6 +182,14 @@ export const CRM_AUTOMATION_EVENT_DEFINITIONS: EventDefinition[] = [
   {
     value: 'visit.completed',
     label: 'Visit Completed',
+    description: 'Runs when a property visit is completed and its outcome is saved.',
+    conditionFields: [
+      { value: 'related_type', label: 'Related record type' },
+      { value: 'related_id', label: 'Related record' },
+      { value: 'outcome', label: 'Visit outcome' },
+      { value: 'owner_user_id', label: 'Visit creator' },
+    ],
+    allowedActionTypes: ['audit_event', 'send_notification', 'send_message'],
     defaultConditionRows: [],
     defaultActionRows: [
       {
@@ -186,6 +220,15 @@ export const CRM_AUTOMATION_EVENT_DEFINITIONS: EventDefinition[] = [
   {
     value: 'lease.expiry_threshold_crossed',
     label: 'Lease Expiry Threshold Crossed',
+    description: 'Runs when an active lease enters a configured expiry alert window.',
+    conditionFields: [
+      { value: 'severity', label: 'Alert severity' },
+      { value: 'days_until_expiry', label: 'Days until expiry' },
+      { value: 'lease_id', label: 'Lease' },
+      { value: 'lead_id', label: 'Renewal lead' },
+      { value: 'owner_user_id', label: 'Company owner' },
+    ],
+    allowedActionTypes: ['create_task', 'audit_event', 'send_notification', 'send_message', 'update_lead_stage', 'reassign_lead'],
     allowedConditionFields: ['alert_id', 'company_id', 'lease_id', 'reference_id', 'severity', 'days_until_expiry', 'owner_user_id'],
     defaultConditionRows: [
       { id: 'condition-1', field: 'reference_id', operator: 'required', value: '' },
@@ -222,6 +265,15 @@ export const CRM_AUTOMATION_EVENT_DEFINITIONS: EventDefinition[] = [
   {
     value: 'payment.overdue_threshold_crossed',
     label: 'Payment Overdue Threshold Crossed',
+    description: 'Runs when an unpaid invoice enters a configured overdue alert window.',
+    conditionFields: [
+      { value: 'severity', label: 'Alert severity' },
+      { value: 'overdue_days', label: 'Days overdue' },
+      { value: 'invoice_id', label: 'Invoice' },
+      { value: 'lead_id', label: 'Collections lead' },
+      { value: 'owner_user_id', label: 'Company owner' },
+    ],
+    allowedActionTypes: ['create_task', 'audit_event', 'send_notification', 'send_message', 'update_lead_stage', 'reassign_lead'],
     allowedConditionFields: ['alert_id', 'company_id', 'invoice_id', 'reference_id', 'severity', 'overdue_days', 'owner_user_id'],
     defaultConditionRows: [
       { id: 'condition-1', field: 'reference_id', operator: 'required', value: '' },

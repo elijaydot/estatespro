@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CalendarPlus } from 'lucide-react';
 import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
+import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -26,6 +27,10 @@ export default function MarketplaceCrmMeetingsPage() {
   const updateMeeting = useUpdateCrmMeeting(activeCompanyId);
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'upcoming' | 'past' | 'all'>('upcoming');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [hostFilter, setHostFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [createOpen, setCreateOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [relatedLeadId, setRelatedLeadId] = useState('');
@@ -44,8 +49,16 @@ export default function MarketplaceCrmMeetingsPage() {
     return records.filter((row) => (
       (!query || (`${row.title} ${row.status} ${row.notes || ''}`).toLowerCase().includes(query))
       && (view === 'all' || (view === 'upcoming' ? row.status === 'planned' && new Date(row.ends_at).getTime() >= now : row.status !== 'planned' || new Date(row.ends_at).getTime() < now))
+      && (statusFilter === 'all' || row.status === statusFilter)
+      && (hostFilter === 'all' || (hostFilter === 'unassigned' ? !row.host_user_id : row.host_user_id === hostFilter))
     ));
-  }, [meetingsQuery.data, search, view]);
+  }, [hostFilter, meetingsQuery.data, search, statusFilter, view]);
+
+  const paginatedRows = rows.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [hostFilter, pageSize, search, statusFilter, view]);
 
   const create = () => {
     if (!title.trim()) return;
@@ -99,13 +112,22 @@ export default function MarketplaceCrmMeetingsPage() {
             {(['upcoming', 'past', 'all'] as const).map((item) => <Button key={item} size="sm" variant={view === item ? 'secondary' : 'ghost'} className="capitalize" onClick={() => setView(item)}>{item}</Button>)}
           </div>
         </div>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <select aria-label="Filter meetings by status" className="h-9 rounded-md border border-input bg-background px-3 text-xs" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="all">All statuses</option>{MEETING_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
+          </select>
+          <select aria-label="Filter meetings by host" className="h-9 rounded-md border border-input bg-background px-3 text-xs" value={hostFilter} onChange={(event) => setHostFilter(event.target.value)}>
+            <option value="all">All hosts</option><option value="unassigned">Unassigned</option>{(assignableUsersQuery.data || []).map((user) => <option key={user.user_id} value={user.user_id}>{user.name}</option>)}
+          </select>
+          {(statusFilter !== 'all' || hostFilter !== 'all') && <Button variant="ghost" size="sm" onClick={() => { setStatusFilter('all'); setHostFilter('all'); }}>Reset filters</Button>}
+        </div>
         <div className="overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr><th className="px-3 py-2.5">Title</th><th className="px-3 py-2.5">From</th><th className="px-3 py-2.5">To</th><th className="px-3 py-2.5">Status</th><th className="px-3 py-2.5">Notes</th><th className="px-3 py-2.5">Action</th></tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {paginatedRows.map((row) => (
                 <tr key={row.id} className="border-t border-border/60 hover:bg-muted/20">
                   <td className="px-3 py-2 font-medium">{row.title}</td>
                   <td className="px-3 py-2">{new Date(row.starts_at).toLocaleString()}</td>
@@ -128,6 +150,7 @@ export default function MarketplaceCrmMeetingsPage() {
             </tbody>
           </table>
           {rows.length === 0 ? <div className="p-4"><EmptyState label={`No ${view} meetings found.`} /></div> : null}
+          <TablePagination page={page} pageSize={pageSize} total={rows.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
         </div>
       </CrmDataCard>
 

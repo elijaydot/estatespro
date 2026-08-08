@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PhoneCall } from 'lucide-react';
 import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
+import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -34,6 +35,10 @@ export default function MarketplaceCrmCallsPage() {
   const updateCall = useUpdateCrmCall(activeCompanyId);
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'all' | 'inbound' | 'outbound'>('all');
+  const [resultFilter, setResultFilter] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [createOpen, setCreateOpen] = useState(false);
   const [subject, setSubject] = useState('');
   const [callType, setCallType] = useState<'inbound' | 'outbound'>('outbound');
@@ -54,8 +59,16 @@ export default function MarketplaceCrmCallsPage() {
     return records.filter((row) => (
       (!query || (`${row.subject} ${row.call_type} ${row.result || ''} ${row.contact_name || ''}`).toLowerCase().includes(query))
       && (view === 'all' || row.call_type === view)
+      && (resultFilter === 'all' || (resultFilter === 'pending' ? !row.result : row.result === resultFilter))
+      && (ownerFilter === 'all' || (ownerFilter === 'unassigned' ? !row.owner_user_id : row.owner_user_id === ownerFilter))
     ));
-  }, [callsQuery.data, search, view]);
+  }, [callsQuery.data, ownerFilter, resultFilter, search, view]);
+
+  const paginatedRows = rows.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [ownerFilter, pageSize, resultFilter, search, view]);
 
   const create = () => {
     if (!subject.trim()) return;
@@ -119,13 +132,22 @@ export default function MarketplaceCrmCallsPage() {
             {(['all', 'inbound', 'outbound'] as const).map((item) => <Button key={item} size="sm" variant={view === item ? 'secondary' : 'ghost'} className="capitalize" onClick={() => setView(item)}>{item}</Button>)}
           </div>
         </div>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <select aria-label="Filter calls by outcome" className="h-9 rounded-md border border-input bg-background px-3 text-xs" value={resultFilter} onChange={(event) => setResultFilter(event.target.value)}>
+            <option value="all">All outcomes</option><option value="pending">No outcome</option>{CALL_RESULTS.map((item) => <option key={item} value={item}>{item.replace(/_/g, ' ')}</option>)}
+          </select>
+          <select aria-label="Filter calls by owner" className="h-9 rounded-md border border-input bg-background px-3 text-xs" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
+            <option value="all">All owners</option><option value="unassigned">Unassigned</option>{(assignableUsersQuery.data || []).map((user) => <option key={user.user_id} value={user.user_id}>{user.name}</option>)}
+          </select>
+          {(resultFilter !== 'all' || ownerFilter !== 'all') && <Button variant="ghost" size="sm" onClick={() => { setResultFilter('all'); setOwnerFilter('all'); }}>Reset filters</Button>}
+        </div>
         <div className="overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr><th className="px-3 py-2.5">Subject</th><th className="px-3 py-2.5">Type</th><th className="px-3 py-2.5">Result</th><th className="px-3 py-2.5">Start Time</th><th className="px-3 py-2.5">Duration</th><th className="px-3 py-2.5">Action</th></tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {paginatedRows.map((row) => (
                 <tr key={row.id} className="border-t border-border/60 hover:bg-muted/20">
                   <td className="px-3 py-2 font-medium">{editingCallId === row.id ? <input className="h-8 w-full rounded-md border border-input px-2 text-xs" value={editSubject} onChange={(event) => setEditSubject(event.target.value)} /> : row.subject}</td>
                   <td className="px-3 py-2 capitalize">{row.call_type}</td>
@@ -138,6 +160,7 @@ export default function MarketplaceCrmCallsPage() {
             </tbody>
           </table>
           {rows.length === 0 ? <div className="p-4"><EmptyState label={`No ${view === 'all' ? '' : view} calls found.`} /></div> : null}
+          <TablePagination page={page} pageSize={pageSize} total={rows.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
         </div>
       </CrmDataCard>
 

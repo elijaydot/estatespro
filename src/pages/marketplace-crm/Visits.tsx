@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, MapPinPlus } from 'lucide-react';
 import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { DocumentUploader } from '@/components/marketplace-crm/DocumentUploader';
+import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
@@ -30,6 +31,10 @@ export default function MarketplaceCrmVisitsPage() {
 
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'upcoming' | 'in_progress' | 'completed'>('upcoming');
+  const [assigneeFilter, setAssigneeFilter] = useState('all');
+  const [scheduleFilter, setScheduleFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [createOpen, setCreateOpen] = useState(false);
   const [locality, setLocality] = useState('');
   const [address, setAddress] = useState('');
@@ -45,11 +50,26 @@ export default function MarketplaceCrmVisitsPage() {
   const rows = useMemo(() => {
     const records = visitsQuery.data || [];
     const query = search.toLowerCase().trim();
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const tomorrowStart = todayStart + 24 * 60 * 60 * 1000;
+    const nextWeek = todayStart + 7 * 24 * 60 * 60 * 1000;
     return records.filter((row) => (
       (!query || (`${row.locality || ''} ${row.address_text || ''} ${row.status} ${row.notes || ''}`).toLowerCase().includes(query))
       && (view === 'upcoming' ? row.status === 'planned' : row.status === view)
+      && (assigneeFilter === 'all' || (assigneeFilter === 'unassigned' ? !row.assigned_to : row.assigned_to === assigneeFilter))
+      && (scheduleFilter === 'all'
+        || (scheduleFilter === 'overdue' && !!row.scheduled_at && new Date(row.scheduled_at).getTime() < now.getTime() && row.status === 'planned')
+        || (scheduleFilter === 'today' && !!row.scheduled_at && new Date(row.scheduled_at).getTime() >= todayStart && new Date(row.scheduled_at).getTime() < tomorrowStart)
+        || (scheduleFilter === 'next_7_days' && !!row.scheduled_at && new Date(row.scheduled_at).getTime() >= todayStart && new Date(row.scheduled_at).getTime() < nextWeek))
     ));
-  }, [search, view, visitsQuery.data]);
+  }, [assigneeFilter, scheduleFilter, search, view, visitsQuery.data]);
+
+  const paginatedRows = rows.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [assigneeFilter, pageSize, scheduleFilter, search, view]);
 
   const create = () => {
     if (!locality.trim() || !scheduledAt) return;
@@ -150,13 +170,22 @@ export default function MarketplaceCrmVisitsPage() {
             {(['upcoming', 'in_progress', 'completed'] as const).map((item) => <Button key={item} size="sm" variant={view === item ? 'secondary' : 'ghost'} className="capitalize" onClick={() => setView(item)}>{item.replace('_', ' ')}</Button>)}
           </div>
         </div>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <select aria-label="Filter visits by assignee" className="h-9 rounded-md border border-input bg-background px-3 text-xs" value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)}>
+            <option value="all">All assignees</option><option value="unassigned">Unassigned</option>{(assignableUsersQuery.data || []).map((user) => <option key={user.user_id} value={user.user_id}>{user.name}</option>)}
+          </select>
+          <select aria-label="Filter visits by scheduled date" className="h-9 rounded-md border border-input bg-background px-3 text-xs" value={scheduleFilter} onChange={(event) => setScheduleFilter(event.target.value)}>
+            <option value="all">All scheduled dates</option><option value="overdue">Overdue</option><option value="today">Today</option><option value="next_7_days">Next 7 days</option>
+          </select>
+          {(assigneeFilter !== 'all' || scheduleFilter !== 'all') && <Button variant="ghost" size="sm" onClick={() => { setAssigneeFilter('all'); setScheduleFilter('all'); }}>Reset filters</Button>}
+        </div>
         <div className="overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr><th className="px-3 py-2">Location</th><th className="px-3 py-2">Scheduled</th><th className="px-3 py-2">Owner</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Check-In</th><th className="px-3 py-2">Proof</th><th className="px-3 py-2">Actions</th></tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {paginatedRows.map((row) => (
                 <tr key={row.id} className="border-t border-border/60">
                   <td className="px-3 py-2"><p className="font-medium">{row.locality || '-'}</p><p className="max-w-64 truncate text-xs text-muted-foreground">{row.address_text || 'No address supplied'}</p></td>
                   <td className="px-3 py-2">{row.scheduled_at ? new Date(row.scheduled_at).toLocaleString() : '-'}</td>
@@ -180,6 +209,7 @@ export default function MarketplaceCrmVisitsPage() {
             </tbody>
           </table>
           {rows.length === 0 ? <div className="p-4"><EmptyState label={`No ${view.replace('_', ' ')} visits found.`} /></div> : null}
+          <TablePagination page={page} pageSize={pageSize} total={rows.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
         </div>
       </CrmDataCard>
 
@@ -199,10 +229,10 @@ export default function MarketplaceCrmVisitsPage() {
       </Dialog>
 
       <Dialog open={!!completingVisitId} onOpenChange={(open) => { if (!open) void closeCompletion(); }}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl overflow-x-hidden">
           <DialogHeader><DialogTitle>Complete property visit</DialogTitle><DialogDescription>Upload one private evidence file and record the visit outcome before checkout.</DialogDescription></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
+          <div className="min-w-0 space-y-4">
+            <div className="min-w-0 space-y-1.5 overflow-hidden">
               <p className="text-sm font-medium">Visit evidence</p>
               <p className="text-xs text-muted-foreground">Use a clear checkout photo of the property or a signed PDF visit report. The file is private and visible only to authorized company users.</p>
               <DocumentUploader
@@ -219,7 +249,7 @@ export default function MarketplaceCrmVisitsPage() {
             </div>
             <label className="block space-y-1.5 text-sm"><span>Visit outcome</span><textarea aria-label="Visit outcome" className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Record attendance, observations, client feedback, decisions, and the next action." value={outcome} onChange={(event) => setOutcome(event.target.value)} /></label>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => void closeCompletion()}>Cancel</Button><Button onClick={() => completingVisitId && completeVisit(completingVisitId)} disabled={!proofPath || !outcome.trim() || updateVisit.isPending}>Complete visit</Button></DialogFooter>
+          <DialogFooter className="min-w-0"><Button variant="outline" onClick={() => void closeCompletion()}>Cancel</Button><Button onClick={() => completingVisitId && completeVisit(completingVisitId)} disabled={!proofPath || !outcome.trim() || updateVisit.isPending}>Complete visit</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </CrmWorkspace>

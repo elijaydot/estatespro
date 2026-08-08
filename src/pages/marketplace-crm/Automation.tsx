@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
+import { CheckCircle2, ChevronDown, CircleHelp, Pause, Play, Plus, RotateCcw, Trash2, Workflow } from 'lucide-react';
 import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState } from '@/components/marketplace-crm/CrmWidgets';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
 import { toast } from '@/components/ui/use-toast';
@@ -15,14 +18,46 @@ import {
 } from '@/hooks/useMarketplaceCrm';
 import {
   CRM_AUTOMATION_EVENT_DEFINITIONS,
-  deserializeConditionRows,
   getEventDefinition,
   getInvalidConditionFields,
   serializeActionRows,
   serializeConditionRows,
   type ActionBuilderRow,
+  type ActionBuilderType,
   type ConditionBuilderRow,
 } from '@/lib/crmAutomationBuilder';
+
+const ACTION_LABELS: Record<ActionBuilderType, string> = {
+  create_task: 'Create a follow-up task',
+  audit_event: 'Add an audit record',
+  set_handoff_status: 'Update handoff status',
+  send_notification: 'Send an in-app notification',
+  send_message: 'Send a message',
+  update_lead_stage: 'Move the lead to another stage',
+  reassign_lead: 'Assign the lead to a teammate',
+  provision_tenant: 'Create the tenant and lease',
+};
+
+const AUTOMATION_TASK_TYPES = [
+  ['follow_up', 'General follow-up'],
+  ['handoff_prep', 'Prepare customer handoff'],
+  ['call_follow_up', 'Call follow-up'],
+  ['meeting_follow_up', 'Meeting follow-up'],
+  ['lease_renewal_follow_up', 'Lease renewal follow-up'],
+  ['collections_follow_up', 'Payment collection follow-up'],
+  ['automation_follow_up', 'Automation follow-up'],
+] as const;
+
+function eventLabel(eventType: string) {
+  return getEventDefinition(eventType).label;
+}
+
+function actionSummary(actions: Array<Record<string, unknown>>) {
+  if (!actions.length) return 'No actions';
+  const firstType = String(actions[0].type || '') as ActionBuilderType;
+  const firstLabel = ACTION_LABELS[firstType] || 'Custom action';
+  return actions.length === 1 ? firstLabel : `${firstLabel} +${actions.length - 1}`;
+}
 
 function createConditionRow(): ConditionBuilderRow {
   return {
@@ -75,7 +110,6 @@ export default function MarketplaceCrmAutomationPage() {
   const [advancedMode, setAdvancedMode] = useState(false);
   const [advancedConditionsJson, setAdvancedConditionsJson] = useState(JSON.stringify(serializeConditionRows(CRM_AUTOMATION_EVENT_DEFINITIONS[0].defaultConditionRows), null, 2));
   const [advancedActionsJson, setAdvancedActionsJson] = useState(JSON.stringify(serializeActionRows(CRM_AUTOMATION_EVENT_DEFINITIONS[0].defaultActionRows), null, 2));
-  const [samplePayloadJson, setSamplePayloadJson] = useState(JSON.stringify(CRM_AUTOMATION_EVENT_DEFINITIONS[0].samplePayload, null, 2));
   const [retryLimit, setRetryLimit] = useState('3');
   const [statusFilter, setStatusFilter] = useState('all');
   const [previewByRuleId, setPreviewByRuleId] = useState<Record<string, Record<string, unknown>>>({});
@@ -88,6 +122,7 @@ export default function MarketplaceCrmAutomationPage() {
 
   const builderConditions = useMemo(() => serializeConditionRows(conditionRows), [conditionRows]);
   const builderActions = useMemo(() => serializeActionRows(actionRows), [actionRows]);
+  const eventDefinition = getEventDefinition(eventType);
 
   const syncAdvancedFromBuilder = () => {
     setAdvancedConditionsJson(JSON.stringify(builderConditions, null, 2));
@@ -95,19 +130,22 @@ export default function MarketplaceCrmAutomationPage() {
   };
 
   const onChangeEventType = (nextEventType: string) => {
-    setEventType(getEventDefinition(nextEventType).value);
-
     const defaults = getEventDefinition(nextEventType);
+    setEventType(defaults.value);
     setConditionRows(defaults.defaultConditionRows);
     setActionRows(defaults.defaultActionRows);
-    setSamplePayloadJson(JSON.stringify(defaults.samplePayload, null, 2));
     setAdvancedConditionsJson(JSON.stringify(serializeConditionRows(defaults.defaultConditionRows), null, 2));
     setAdvancedActionsJson(JSON.stringify(serializeActionRows(defaults.defaultActionRows), null, 2));
   };
 
   const onCreateRule = () => {
     if (!name.trim()) {
-      toast({ title: 'Rule Name Required', description: 'Provide a rule name before creating automation.' });
+      toast({ title: 'Rule name required', description: 'Give this automation a name your team will recognize.' });
+      return;
+    }
+
+    if (actionRows.length === 0 && !advancedMode) {
+      toast({ title: 'Action required', description: 'Add at least one action for this automation.', variant: 'destructive' });
       return;
     }
 
@@ -138,34 +176,32 @@ export default function MarketplaceCrmAutomationPage() {
 
     const parsedRetry = Number.parseInt(retryLimit, 10);
 
-    createRule.mutate({
-      name: name.trim(),
-      eventType,
-      conditions,
-      actions,
-      retryLimit: Number.isNaN(parsedRetry) ? 3 : parsedRetry,
-      isActive: true,
-    });
-
-    setName('');
-    setRetryLimit('3');
+    createRule.mutate(
+      {
+        name: name.trim(),
+        eventType,
+        conditions,
+        actions,
+        retryLimit: Number.isNaN(parsedRetry) ? 3 : Math.min(Math.max(parsedRetry, 1), 10),
+        isActive: true,
+      },
+      {
+        onSuccess: () => {
+          setName('');
+          setRetryLimit('3');
+          setConditionRows(eventDefinition.defaultConditionRows);
+          setActionRows(eventDefinition.defaultActionRows);
+          setAdvancedMode(false);
+        },
+      },
+    );
   };
 
-  const runPreview = (ruleId: string) => {
-    let payload: Record<string, unknown>;
-
-    try {
-      const parsed = JSON.parse(samplePayloadJson || '{}');
-      payload = parsed && typeof parsed === 'object' ? parsed : {};
-    } catch {
-      toast({ title: 'Invalid Sample Payload', description: 'Sample payload JSON must be valid.', variant: 'destructive' });
-      return;
-    }
-
+  const runPreview = (ruleId: string, ruleEventType: string) => {
     previewRule.mutate(
       {
         ruleId,
-        samplePayload: payload,
+        samplePayload: getEventDefinition(ruleEventType).samplePayload,
       },
       {
         onSuccess: (result) => {
@@ -179,111 +215,146 @@ export default function MarketplaceCrmAutomationPage() {
   };
 
   return (
-    <CrmWorkspace title="Automation" subtitle="Create and monitor automated CRM actions.">
-      <CrmDataCard title="Create Automation Rule" description="Define a trigger, conditions, and resulting actions.">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <input
-            aria-label="Rule name"
-            className="h-9 rounded-md border border-input px-3 text-sm"
-            placeholder="Rule name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-          <select aria-label="Trigger event" className="h-9 rounded-md border border-input px-3 text-sm" value={eventType} onChange={(event) => onChangeEventType(event.target.value)}>
-            {CRM_AUTOMATION_EVENT_DEFINITIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+    <CrmWorkspace title="Automation" subtitle="Let FishGate handle routine follow-up when CRM activity happens.">
+      <CrmDataCard title="How automation works" description="Rules watch for a specific CRM event and perform the actions you choose.">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="flex gap-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span>
+            <div><p className="text-sm font-medium">Choose a moment</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">A call is logged, a meeting or visit is completed, a lead changes stage, or an alert threshold is crossed.</p></div>
+          </div>
+          <div className="flex gap-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">2</span>
+            <div><p className="text-sm font-medium">Narrow it down</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Optional filters make the rule run only for the records that need it.</p></div>
+          </div>
+          <div className="flex gap-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">3</span>
+            <div><p className="text-sm font-medium">Let FishGate act</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Create work, notify a teammate, update a lead, or record the event automatically.</p></div>
+          </div>
+        </div>
+        <div className="mt-4 flex items-start gap-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+          <CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <p>New rules start active. They run automatically after the selected event occurs. Use <span className="font-medium text-foreground">Test rule</span> to check matching without performing actions, and pause a rule whenever needed.</p>
+        </div>
+      </CrmDataCard>
 
-          <div className="rounded-md border border-border/70 p-3 md:col-span-2">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-medium">Conditions</p>
-              <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => setConditionRows((rows) => [...rows, createConditionRow()])}>
-                Add Condition
-              </button>
+      <CrmDataCard title="Build an automation" description="Start with a supported event. FishGate supplies a practical default you can adjust.">
+        <div className="space-y-6">
+          <section className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 text-xs font-semibold text-primary">1</span>
+              <div><p className="text-sm font-semibold">When this happens</p><p className="text-xs text-muted-foreground">This event starts the rule.</p></div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-1.5 text-xs font-medium">
+                Rule name
+                <input
+                  aria-label="Rule name"
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm font-normal"
+                  placeholder="Example: Follow up after every viewing"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </label>
+              <label className="space-y-1.5 text-xs font-medium">
+                Trigger
+                <select aria-label="Trigger event" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm font-normal" value={eventType} onChange={(event) => onChangeEventType(event.target.value)}>
+                  {CRM_AUTOMATION_EVENT_DEFINITIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="flex items-start gap-2 rounded-md bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+              <Workflow className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>{eventDefinition.description}</span>
+            </div>
+          </section>
+
+          <section className="space-y-3 border-t border-border/60 pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 text-xs font-semibold text-primary">2</span>
+                <div><p className="text-sm font-semibold">Only if</p><p className="text-xs text-muted-foreground">Optional filters control which records qualify.</p></div>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => setConditionRows((rows) => [...rows, createConditionRow()])}>
+                <Plus className="h-4 w-4" />Add filter
+              </Button>
             </div>
             <div className="space-y-2">
               {conditionRows.map((row) => (
-                <div key={row.id} className="grid grid-cols-1 gap-2 md:grid-cols-12">
-                  <input
+                <div key={row.id} className="grid grid-cols-1 gap-2 rounded-md bg-muted/30 p-2 md:grid-cols-12">
+                  <select
                     aria-label="Payload field"
-                    className="h-9 rounded-md border border-input px-2 text-sm md:col-span-4"
-                    placeholder="Payload field"
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm md:col-span-4"
                     value={row.field}
                     onChange={(event) => setConditionRows((current) => current.map((item) => item.id === row.id ? { ...item, field: event.target.value } : item))}
-                  />
+                  >
+                    <option value="">Choose a field</option>
+                    {eventDefinition.conditionFields.map((field) => <option key={field.value} value={field.value}>{field.label}</option>)}
+                  </select>
                   <select
                     aria-label="Condition operator"
-                    className="h-9 rounded-md border border-input px-2 text-sm md:col-span-3"
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm md:col-span-3"
                     value={row.operator}
                     onChange={(event) => setConditionRows((current) => current.map((item) => item.id === row.id ? { ...item, operator: event.target.value as 'equals' | 'required' } : item))}
                   >
-                    <option value="equals">equals</option>
-                    <option value="required">required</option>
+                    <option value="equals">is exactly</option>
+                    <option value="required">has any value</option>
                   </select>
                   <input
                     aria-label="Expected value"
                     className="h-9 rounded-md border border-input px-2 text-sm md:col-span-4"
-                    placeholder="Expected value"
+                    placeholder={row.operator === 'required' ? 'Any value' : 'Enter the value to match'}
                     value={row.value}
                     onChange={(event) => setConditionRows((current) => current.map((item) => item.id === row.id ? { ...item, value: event.target.value } : item))}
                     disabled={row.operator === 'required'}
                   />
-                  <button
-                    className="h-9 rounded border border-input px-2 text-xs md:col-span-1"
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-full md:col-span-1"
+                    aria-label="Remove filter"
                     onClick={() => setConditionRows((current) => current.filter((item) => item.id !== row.id))}
                   >
-                    Remove
-                  </button>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               ))}
-              {conditionRows.length === 0 ? <p className="text-xs text-muted-foreground">No conditions means this rule always evaluates as matched.</p> : null}
+              {conditionRows.length === 0 ? <p className="rounded-md bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">No filters: this rule will run every time the selected event occurs.</p> : null}
             </div>
-          </div>
+          </section>
 
-          <div className="rounded-md border border-border/70 p-3 md:col-span-2">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-medium">Actions</p>
-              <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => setActionRows((rows) => [...rows, createActionRow()])}>
-                Add Action
-              </button>
+          <section className="space-y-3 border-t border-border/60 pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 text-xs font-semibold text-primary">3</span>
+                <div><p className="text-sm font-semibold">Then do this</p><p className="text-xs text-muted-foreground">Actions run in the order shown.</p></div>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => setActionRows((rows) => [...rows, createActionRow()])}>
+                <Plus className="h-4 w-4" />Add action
+              </Button>
             </div>
             <div className="space-y-3">
               {actionRows.map((row) => (
-                <div key={row.id} className="rounded-md border border-border/50 p-2">
+                <div key={row.id} className="rounded-md border border-border/70 bg-background p-3">
                   <div className="mb-2 grid grid-cols-1 gap-2 md:grid-cols-12">
                     <select
-                      className="h-9 rounded-md border border-input px-2 text-sm md:col-span-4"
+                      aria-label="Automation action"
+                      className="h-9 rounded-md border border-input bg-background px-2 text-sm md:col-span-6"
                       value={row.type}
                       onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, type: event.target.value as ActionBuilderRow['type'] } : item))}
                     >
-                      <option value="create_task">create_task</option>
-                      <option value="audit_event">audit_event</option>
-                      <option value="set_handoff_status">set_handoff_status</option>
-                      <option value="send_notification">send_notification</option>
-                      <option value="send_message">send_message</option>
-                      <option value="update_lead_stage">update_lead_stage</option>
-                      <option value="reassign_lead">reassign_lead</option>
-                      <option value="provision_tenant">provision_tenant</option>
+                      {eventDefinition.allowedActionTypes.map((actionType) => <option key={actionType} value={actionType}>{ACTION_LABELS[actionType]}</option>)}
                     </select>
-                    <button className="h-9 rounded border border-input px-2 text-xs md:col-span-2 md:col-start-11" onClick={() => setActionRows((current) => current.filter((item) => item.id !== row.id))}>Remove</button>
+                    <Button type="button" variant="ghost" size="sm" className="md:col-span-2 md:col-start-11" onClick={() => setActionRows((current) => current.filter((item) => item.id !== row.id))}><Trash2 className="h-4 w-4" />Remove</Button>
                   </div>
 
                   {row.type === 'create_task' ? (
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-                      <input
-                        className="h-9 rounded-md border border-input px-2 text-sm md:col-span-3"
-                        placeholder="Task type"
-                        value={row.taskType}
-                        onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, taskType: event.target.value } : item))}
-                      />
-                      <input
-                        className="h-9 rounded-md border border-input px-2 text-sm md:col-span-2"
-                        placeholder="Due (hours)"
-                        value={row.dueInHours}
-                        onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, dueInHours: event.target.value } : item))}
-                      />
-                      <div className="md:col-span-4">
+                      <label className="space-y-1 text-xs font-medium md:col-span-3">Task type<select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm font-normal" value={row.taskType} onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, taskType: event.target.value } : item))}>{AUTOMATION_TASK_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                      <label className="space-y-1 text-xs font-medium md:col-span-2">Due after<input className="h-9 w-full rounded-md border border-input px-2 text-sm font-normal" aria-label="Task due after hours" type="number" min="1" value={row.dueInHours} onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, dueInHours: event.target.value } : item))} /><span className="block font-normal text-muted-foreground">hours</span></label>
+                      <label className="space-y-1 text-xs font-medium md:col-span-4">Assignee
                         <AssigneePicker
                           users={assignableUsersQuery.data || []}
                           value={row.ownerUserId || null}
@@ -291,50 +362,40 @@ export default function MarketplaceCrmAutomationPage() {
                           placeholder="Assignee (optional)"
                           className="h-9"
                         />
-                      </div>
-                      <input
-                        className="h-9 rounded-md border border-input px-2 text-sm md:col-span-3"
-                        placeholder="Task notes (optional)"
-                        value={row.notes}
-                        onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, notes: event.target.value } : item))}
-                      />
+                      </label>
+                      <label className="space-y-1 text-xs font-medium md:col-span-3">Instructions<input className="h-9 w-full rounded-md border border-input px-2 text-sm font-normal" placeholder="Optional context" value={row.notes} onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, notes: event.target.value } : item))} /></label>
                     </div>
                   ) : null}
 
                   {row.type === 'audit_event' ? (
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-                      <input
-                        className="h-9 rounded-md border border-input px-2 text-sm md:col-span-8"
-                        placeholder="Audit event type"
-                        value={row.eventType}
-                        onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, eventType: event.target.value } : item))}
-                      />
-                      <select
-                        className="h-9 rounded-md border border-input px-2 text-sm md:col-span-4"
+                      <label className="space-y-1 text-xs font-medium md:col-span-8">Audit event name<input className="h-9 w-full rounded-md border border-input px-2 text-sm font-normal" placeholder="Example: crm.visit.completed.review" value={row.eventType} onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, eventType: event.target.value } : item))} /></label>
+                      <label className="space-y-1 text-xs font-medium md:col-span-4">Severity<select
+                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm font-normal"
                         value={row.severity}
                         onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, severity: event.target.value as ActionBuilderRow['severity'] } : item))}
                       >
-                        <option value="info">info</option>
-                        <option value="warning">warning</option>
-                        <option value="critical">critical</option>
-                      </select>
+                        <option value="info">Information</option>
+                        <option value="warning">Warning</option>
+                        <option value="critical">Critical</option>
+                      </select></label>
                     </div>
                   ) : null}
 
                   {row.type === 'set_handoff_status' ? (
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-                      <select
-                        className="h-9 rounded-md border border-input px-2 text-sm md:col-span-5"
+                      <label className="space-y-1 text-xs font-medium md:col-span-5">New handoff status<select
+                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm font-normal"
                         value={row.status}
                         onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, status: event.target.value } : item))}
                       >
-                        <option value="pending">pending</option>
-                        <option value="requires_input">requires_input</option>
-                        <option value="ready">ready</option>
-                        <option value="in_progress">in_progress</option>
-                        <option value="completed">completed</option>
-                        <option value="failed">failed</option>
-                      </select>
+                        <option value="pending">Pending</option>
+                        <option value="requires_input">Requires input</option>
+                        <option value="ready">Ready</option>
+                        <option value="in_progress">In progress</option>
+                        <option value="completed">Completed</option>
+                        <option value="failed">Failed</option>
+                      </select></label>
                     </div>
                   ) : null}
 
@@ -400,27 +461,22 @@ export default function MarketplaceCrmAutomationPage() {
 
                   {row.type === 'update_lead_stage' ? (
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-                      <select
-                        className="h-9 rounded-md border border-input px-2 text-sm md:col-span-4"
+                      <label className="space-y-1 text-xs font-medium md:col-span-4">New lead stage<select
+                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm font-normal"
                         value={row.leadStage}
                         onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, leadStage: event.target.value } : item))}
                       >
-                        <option value="new">new</option>
-                        <option value="attempted_contact">attempted_contact</option>
-                        <option value="contacted">contacted</option>
-                        <option value="qualified">qualified</option>
-                        <option value="viewing_scheduled">viewing_scheduled</option>
-                        <option value="offer_made">offer_made</option>
-                        <option value="lease_in_progress">lease_in_progress</option>
-                        <option value="converted">converted</option>
-                        <option value="lost">lost</option>
-                      </select>
-                      <input
-                        className="h-9 rounded-md border border-input px-2 text-sm md:col-span-8"
-                        placeholder="Reason (optional)"
-                        value={row.notes}
-                        onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, notes: event.target.value } : item))}
-                      />
+                        <option value="new">New</option>
+                        <option value="attempted_contact">Attempted contact</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="qualified">Qualified</option>
+                        <option value="viewing_scheduled">Viewing scheduled</option>
+                        <option value="offer_made">Offer made</option>
+                        <option value="lease_in_progress">Lease in progress</option>
+                        <option value="converted">Converted</option>
+                        <option value="lost">Lost</option>
+                      </select></label>
+                      <label className="space-y-1 text-xs font-medium md:col-span-8">Reason<input className="h-9 w-full rounded-md border border-input px-2 text-sm font-normal" placeholder="Optional note for the lead timeline" value={row.notes} onChange={(event) => setActionRows((current) => current.map((item) => item.id === row.id ? { ...item, notes: event.target.value } : item))} /></label>
                     </div>
                   ) : null}
 
@@ -449,114 +505,102 @@ export default function MarketplaceCrmAutomationPage() {
                   ) : null}
                 </div>
               ))}
-              {actionRows.length === 0 ? <p className="text-xs text-muted-foreground">No actions configured yet.</p> : null}
+              {actionRows.length === 0 ? <p className="rounded-md bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">Add at least one action to save this rule.</p> : null}
             </div>
+          </section>
+
+          <details className="group border-t border-border/60 pt-4">
+            <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium">
+              Technical settings
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+            </summary>
+            <p className="mt-1 text-xs text-muted-foreground">Retries are automatic after an action fails. Custom JSON is intended for administrators integrating supported payload fields.</p>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <label className="space-y-1.5 text-xs font-medium">
+                Maximum attempts
+                <input
+                  aria-label="Maximum retry attempts"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-normal"
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={retryLimit}
+                  onChange={(event) => setRetryLimit(event.target.value)}
+                />
+              </label>
+              <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                <input type="checkbox" checked={advancedMode} onChange={(event) => {
+                  const enabled = event.target.checked;
+                  setAdvancedMode(enabled);
+                  if (enabled) syncAdvancedFromBuilder();
+                }} />
+                Edit generated JSON
+              </label>
+              {advancedMode ? (
+                <>
+                  <label className="space-y-1.5 text-xs font-medium">Conditions JSON<textarea className="mt-1 min-h-32 w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs font-normal" value={advancedConditionsJson} onChange={(event) => setAdvancedConditionsJson(event.target.value)} /></label>
+                  <label className="space-y-1.5 text-xs font-medium">Actions JSON<textarea className="mt-1 min-h-32 w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs font-normal" value={advancedActionsJson} onChange={(event) => setAdvancedActionsJson(event.target.value)} /></label>
+                  <Button type="button" variant="outline" size="sm" className="md:col-span-2" onClick={syncAdvancedFromBuilder}><RotateCcw className="h-4 w-4" />Reset JSON from builder</Button>
+                </>
+              ) : null}
+            </div>
+          </details>
+
+          <div className="flex flex-col gap-3 border-t border-border/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">The rule will be active immediately. Test or pause it from the rules register below.</p>
+            <Button onClick={onCreateRule} disabled={createRule.isPending || !name.trim() || actionRows.length === 0}>
+              <Workflow className="h-4 w-4" />{createRule.isPending ? 'Creating...' : 'Create automation'}
+            </Button>
           </div>
-
-          <label className="flex items-center gap-2 text-sm md:col-span-2">
-            <input type="checkbox" checked={advancedMode} onChange={(event) => {
-              const enabled = event.target.checked;
-              setAdvancedMode(enabled);
-              if (enabled) syncAdvancedFromBuilder();
-            }} />
-            Advanced JSON mode
-          </label>
-
-          {advancedMode ? (
-            <>
-              <textarea
-                className="min-h-[88px] rounded-md border border-input px-3 py-2 text-sm md:col-span-2"
-                placeholder="Conditions JSON"
-                value={advancedConditionsJson}
-                onChange={(event) => setAdvancedConditionsJson(event.target.value)}
-              />
-              <textarea
-                className="min-h-[88px] rounded-md border border-input px-3 py-2 text-sm md:col-span-2"
-                placeholder="Actions JSON"
-                value={advancedActionsJson}
-                onChange={(event) => setAdvancedActionsJson(event.target.value)}
-              />
-              <button className="h-9 rounded-md border border-input px-3 text-sm md:col-span-2" onClick={syncAdvancedFromBuilder}>
-                Reset JSON From Builder
-              </button>
-            </>
-          ) : (
-            <div className="rounded-md border border-border/70 bg-muted/30 p-3 text-xs md:col-span-2">
-              <p className="font-medium">Generated Payload</p>
-              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap">{JSON.stringify({ conditions: builderConditions, actions: builderActions }, null, 2)}</pre>
-            </div>
-          )}
-
-          <input
-            className="h-9 rounded-md border border-input px-3 text-sm"
-            placeholder="Retry limit"
-            value={retryLimit}
-            onChange={(event) => setRetryLimit(event.target.value)}
-          />
-          <button className="h-9 rounded-md bg-primary px-3 text-sm text-primary-foreground" onClick={onCreateRule} disabled={createRule.isPending}>
-            Create Rule
-          </button>
         </div>
       </CrmDataCard>
 
-      <CrmDataCard title="Rules" description="Activate, pause, and preview automation rules before live execution.">
-        <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-2">
-          <textarea
-            className="min-h-[90px] rounded-md border border-input px-3 py-2 text-sm"
-            value={samplePayloadJson}
-            onChange={(event) => setSamplePayloadJson(event.target.value)}
-            placeholder="Sample payload JSON"
-          />
-          <div className="rounded-md border border-border/70 bg-muted/20 p-3 text-xs text-muted-foreground">
-            <p className="font-medium text-foreground">Test this rule</p>
-            <p className="mt-1">Click Preview on any rule row to run crm_preview_automation_rule against this sample payload without creating run records or executing actions.</p>
-          </div>
-        </div>
-
+      <CrmDataCard title="Automation rules" description="Test matching safely, then activate or pause each rule." action={<Badge variant="outline">{(rulesQuery.data || []).filter((rule) => rule.is_active).length} active</Badge>}>
         <div className="overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Event</th>
-                <th className="px-3 py-2">Retry Limit</th>
+                <th className="px-3 py-2">When</th>
+                <th className="px-3 py-2">Then</th>
                 <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Preview</th>
-                <th className="px-3 py-2">Action</th>
+                <th className="px-3 py-2">Last test</th>
+                <th className="px-3 py-2">Controls</th>
               </tr>
             </thead>
             <tbody>
               {(rulesQuery.data || []).map((rule) => (
                 <tr key={rule.id} className="border-t border-border/60">
                   <td className="px-3 py-2 font-medium">{rule.name}</td>
-                  <td className="px-3 py-2">{rule.event_type}</td>
-                  <td className="px-3 py-2">{rule.retry_limit}</td>
-                  <td className="px-3 py-2">{rule.is_active ? 'active' : 'inactive'}</td>
+                  <td className="px-3 py-2">{eventLabel(rule.event_type)}</td>
+                  <td className="max-w-64 px-3 py-2 text-xs text-muted-foreground">{actionSummary(rule.actions_json)}</td>
+                  <td className="px-3 py-2"><Badge variant={rule.is_active ? 'default' : 'secondary'}>{rule.is_active ? 'Active' : 'Paused'}</Badge></td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">
                     {previewByRuleId[rule.id] ? (
-                      <span>
-                        {previewByRuleId[rule.id].would_run_actions ? 'matched' : 'skipped'}
-                        {' · actions: '}
-                        {String(previewByRuleId[rule.id].action_count ?? 0)}
+                      <span className="inline-flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {previewByRuleId[rule.id].would_run_actions ? `Matched · ${String(previewByRuleId[rule.id].action_count ?? 0)} actions` : 'Did not match'}
                       </span>
-                    ) : '-'}
+                    ) : 'Not tested'}
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex gap-2">
-                      <button
-                        className="rounded border border-border px-2 py-1 text-xs"
-                        onClick={() => runPreview(rule.id)}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => runPreview(rule.id, rule.event_type)}
                         disabled={previewRule.isPending}
                       >
-                        Preview
-                      </button>
-                      <button
-                        className="rounded border border-border px-2 py-1 text-xs"
+                        <Play className="h-4 w-4" />Test rule
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => updateRule.mutate({ ruleId: rule.id, payload: { is_active: !rule.is_active } })}
                         disabled={updateRule.isPending}
                       >
-                        {rule.is_active ? 'Pause' : 'Activate'}
-                      </button>
+                        {rule.is_active ? <><Pause className="h-4 w-4" />Pause</> : <><Play className="h-4 w-4" />Activate</>}
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -568,8 +612,8 @@ export default function MarketplaceCrmAutomationPage() {
       </CrmDataCard>
 
       <CrmDataCard
-        title="Run History"
-        description="Recent automation results by event and run reference."
+        title="Run history"
+        description="See what ran, what was skipped, and what needs attention. Failed actions retry automatically."
         action={
           <select className="h-8 rounded-md border border-input px-2 text-xs" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
             <option value="all">All statuses</option>
@@ -597,20 +641,21 @@ export default function MarketplaceCrmAutomationPage() {
               {filteredRuns.map((run) => (
                 <tr key={run.id} className="border-t border-border/60">
                   <td className="px-3 py-2">{new Date(run.created_at).toLocaleString()}</td>
-                  <td className="px-3 py-2">{run.event_type}</td>
-                  <td className="px-3 py-2">{run.status}</td>
+                  <td className="px-3 py-2">{eventLabel(run.event_type)}</td>
+                  <td className="px-3 py-2"><Badge variant={run.status === 'failed' ? 'destructive' : run.status === 'success' ? 'default' : 'secondary'} className="capitalize">{run.status}</Badge></td>
                   <td className="px-3 py-2">{run.attempts}/{run.max_attempts}</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{run.correlation_id || '-'}</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{run.last_error || '-'}</td>
                   <td className="px-3 py-2">
                     {(run.status === 'failed' || run.status === 'pending') ? (
-                      <button
-                        className="rounded border border-border px-2 py-1 text-xs"
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => replayRun.mutate({ runId: run.id })}
                         disabled={replayRun.isPending}
                       >
-                        Replay
-                      </button>
+                        <RotateCcw className="h-4 w-4" />Retry now
+                      </Button>
                     ) : '-'}
                   </td>
                 </tr>

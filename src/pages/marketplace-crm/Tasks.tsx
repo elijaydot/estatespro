@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ListTodo } from 'lucide-react';
 import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
+import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -27,6 +28,11 @@ export default function MarketplaceCrmTasksPage() {
   const updateTaskDetails = useUpdateCrmTask(activeCompanyId);
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'open' | 'closed' | 'all'>('open');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [dueFilter, setDueFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [createOpen, setCreateOpen] = useState(false);
   const [leadId, setLeadId] = useState('');
   const [ownerUserId, setOwnerUserId] = useState('');
@@ -42,11 +48,26 @@ export default function MarketplaceCrmTasksPage() {
   const rows = useMemo(() => {
     const records = tasksQuery.data || [];
     const query = search.toLowerCase().trim();
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const tomorrowStart = todayStart + 24 * 60 * 60 * 1000;
     return records.filter((row) => (
       (!query || (`${row.task_type} ${row.notes || ''} ${row.status}`).toLowerCase().includes(query))
       && (view === 'all' || (view === 'open' ? row.status === 'open' : row.status !== 'open'))
+      && (typeFilter === 'all' || row.task_type === typeFilter)
+      && (ownerFilter === 'all' || row.owner_user_id === ownerFilter)
+      && (dueFilter === 'all'
+        || (dueFilter === 'overdue' && new Date(row.due_at).getTime() < now.getTime() && row.status === 'open')
+        || (dueFilter === 'today' && new Date(row.due_at).getTime() >= todayStart && new Date(row.due_at).getTime() < tomorrowStart)
+        || (dueFilter === 'upcoming' && new Date(row.due_at).getTime() >= tomorrowStart))
     ));
-  }, [tasksQuery.data, search, view]);
+  }, [dueFilter, ownerFilter, search, tasksQuery.data, typeFilter, view]);
+
+  const paginatedRows = rows.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [dueFilter, ownerFilter, pageSize, search, typeFilter, view]);
 
   const create = () => {
     if (!leadId || !ownerUserId || !dueAt) return;
@@ -102,6 +123,18 @@ export default function MarketplaceCrmTasksPage() {
             {(['open', 'closed', 'all'] as const).map((item) => <Button key={item} size="sm" variant={view === item ? 'secondary' : 'ghost'} className="capitalize" onClick={() => setView(item)}>{item}</Button>)}
           </div>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <select aria-label="Filter tasks by type" className="h-9 rounded-md border border-input bg-background px-3 text-xs" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+            <option value="all">All task types</option>{TASK_TYPES.map((type) => <option key={type} value={type}>{type.replace(/_/g, ' ')}</option>)}
+          </select>
+          <select aria-label="Filter tasks by owner" className="h-9 rounded-md border border-input bg-background px-3 text-xs" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
+            <option value="all">All owners</option>{(assignableUsersQuery.data || []).map((user) => <option key={user.user_id} value={user.user_id}>{user.name}</option>)}
+          </select>
+          <select aria-label="Filter tasks by due date" className="h-9 rounded-md border border-input bg-background px-3 text-xs" value={dueFilter} onChange={(event) => setDueFilter(event.target.value)}>
+            <option value="all">Any due date</option><option value="overdue">Overdue</option><option value="today">Due today</option><option value="upcoming">Due later</option>
+          </select>
+          {(typeFilter !== 'all' || ownerFilter !== 'all' || dueFilter !== 'all') && <Button variant="ghost" size="sm" onClick={() => { setTypeFilter('all'); setOwnerFilter('all'); setDueFilter('all'); }}>Reset filters</Button>}
+        </div>
         <div className="mt-3 overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -115,7 +148,7 @@ export default function MarketplaceCrmTasksPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {paginatedRows.map((row) => (
                 <tr key={row.id} className="border-t border-border/60 hover:bg-muted/20">
                   <td className="px-3 py-2 font-medium">
                     {editingTaskId === row.id ? (
@@ -178,6 +211,7 @@ export default function MarketplaceCrmTasksPage() {
             </tbody>
           </table>
           {rows.length === 0 ? <div className="p-4"><EmptyState label={`No ${view} tasks found.`} /></div> : null}
+          <TablePagination page={page} pageSize={pageSize} total={rows.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
         </div>
       </CrmDataCard>
 
