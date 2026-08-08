@@ -173,6 +173,16 @@ describe('FishGate CRM redesign contracts', () => {
     expect(leadDetail).toContain('Complete activity timeline ·');
   });
 
+  it('uses a responsive lead dashboard with operational status and activity hierarchy', () => {
+    expect(leadDetail).toContain('xl:grid-cols-[minmax(0,7fr)_minmax(360px,5fr)]');
+    expect(leadDetail).toContain("status === 'won'");
+    expect(leadDetail).toContain("status === 'open'");
+    expect(leadDetail).toContain("isTaskOverdue(task) ? 'overdue' : task.status");
+    expect(leadDetail).toContain('<ActivityTypeIcon type={activity.activity_type} />');
+    expect(leadDetail).toContain('group-last:hidden');
+    expect(leadDetail).toContain('xl:sticky xl:top-4');
+  });
+
   it('captures GPS evidence required by the visit check-in constraint', () => {
     expect(visits).toContain('navigator.geolocation.getCurrentPosition');
     expect(visits).toContain('check_in_lat: coords.latitude');
