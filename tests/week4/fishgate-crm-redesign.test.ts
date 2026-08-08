@@ -37,6 +37,7 @@ const deals = readFileSync(resolve('src/pages/marketplace-crm/Deals.tsx'), 'utf8
 const contacts = readFileSync(resolve('src/pages/marketplace-crm/Contacts.tsx'), 'utf8');
 const accounts = readFileSync(resolve('src/pages/marketplace-crm/Accounts.tsx'), 'utf8');
 const tasks = readFileSync(resolve('src/pages/marketplace-crm/Tasks.tsx'), 'utf8');
+const visits = readFileSync(resolve('src/pages/marketplace-crm/Visits.tsx'), 'utf8');
 const reports = readFileSync(resolve('src/pages/marketplace-crm/Reports.tsx'), 'utf8');
 
 describe('FishGate CRM redesign contracts', () => {
@@ -127,6 +128,19 @@ describe('FishGate CRM redesign contracts', () => {
     expect(tasks).toContain('<DialogTitle>Create task</DialogTitle>');
     expect(tasks).toContain('action={<Button onClick={() => setCreateOpen(true)}>');
     expect(tasks).not.toContain('title="Create Task"');
+  });
+
+  it('uses a table-first deal workspace with modal creation and outcome views', () => {
+    expect(deals).toContain("useState<'open' | 'won' | 'lost'>('open')");
+    expect(deals).toContain('<DialogTitle>Create deal</DialogTitle>');
+    expect(deals).toContain('aria-label="Deal views"');
+    expect(deals).not.toContain('title="Create Deal"');
+  });
+
+  it('captures GPS evidence required by the visit check-in constraint', () => {
+    expect(visits).toContain('navigator.geolocation.getCurrentPosition');
+    expect(visits).toContain('check_in_lat: coords.latitude');
+    expect(visits).toContain('check_in_lng: coords.longitude');
   });
 
   it('persists threshold event rules through the existing automation mutation', () => {

@@ -5,6 +5,7 @@ import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { toast } from '@/components/ui/use-toast';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
 import { useCreateCrmVisit, useCrmDeals, useCrmVisits, useUpdateCrmVisit } from '@/hooks/useMarketplaceCrm';
@@ -40,7 +41,7 @@ export default function MarketplaceCrmVisitsPage() {
   }, [search, view, visitsQuery.data]);
 
   const create = () => {
-    if (!locality.trim()) return;
+    if (!locality.trim() || !scheduledAt) return;
     createVisit.mutate({
       related_type: 'deal',
       related_id: relatedDealId || null,
@@ -63,13 +64,28 @@ export default function MarketplaceCrmVisitsPage() {
   };
 
   const startVisit = (visitId: string) => {
-    updateVisit.mutate({
-      visitId,
-      payload: {
-        status: 'in_progress',
-        check_in_at: new Date().toISOString(),
+    if (!navigator.geolocation) {
+      toast({ title: 'Location unavailable', description: 'This browser cannot capture the GPS location required for check-in.', variant: 'destructive' });
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        updateVisit.mutate({
+          visitId,
+          payload: {
+            status: 'in_progress',
+            check_in_at: new Date().toISOString(),
+            check_in_lat: coords.latitude,
+            check_in_lng: coords.longitude,
+          },
+        });
       },
-    });
+      () => {
+        toast({ title: 'Check-in needs your location', description: 'Allow location access and try again. FishGate records GPS evidence for every field check-in.', variant: 'destructive' });
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
   };
 
   const completeVisit = (visitId: string) => {

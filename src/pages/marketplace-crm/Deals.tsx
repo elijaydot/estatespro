@@ -1,413 +1,73 @@
 import { useMemo, useState } from 'react';
-import { ArrowRight, Handshake, Loader2, SearchX } from 'lucide-react';
+import { ArrowRight, Handshake, Loader2, Plus, SearchX } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, QueryErrorState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
+import { StatusPill } from '@/components/shared/StatusPill';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useSettings } from '@/contexts/useSettings';
 import { useCrmAssignableUsers, useCrmLeads } from '@/hooks/useMarketplace';
-import {
-  useCompleteCrmDealHandoff,
-  useCreateCrmDeal,
-  useCrmAccounts,
-  useCrmContacts,
-  useCrmDealHandoffs,
-  useCrmDeals,
-  useStartCrmDealHandoff,
-  useTransitionCrmDealStage,
-} from '@/hooks/useMarketplaceCrm';
-import { StatusPill } from '@/components/shared/StatusPill';
+import { useCompleteCrmDealHandoff, useCreateCrmDeal, useCrmAccounts, useCrmContacts, useCrmDealHandoffs, useCrmDeals, useStartCrmDealHandoff, useTransitionCrmDealStage } from '@/hooks/useMarketplaceCrm';
 
 const LEAD_STAGES = ['new', 'attempted_contact', 'contacted', 'qualified', 'viewing_scheduled', 'offer_made', 'lease_in_progress', 'converted', 'lost'];
-
-function dealStageVariant(stage: string) {
+function stageVariant(stage: string) {
   if (stage === 'converted') return 'success' as const;
   if (stage === 'lost') return 'destructive' as const;
   if (stage === 'offer_made' || stage === 'lease_in_progress') return 'warning' as const;
   return 'info' as const;
 }
 
-const SUMMARY_STAGES = ['new', 'contacted', 'qualified', 'offer_made', 'converted'] as const;
-
 export default function MarketplaceCrmDealsPage() {
   const { activeCompanyId } = useActiveCompany();
   const { settings } = useSettings();
-  const dealsQuery = useCrmDeals(activeCompanyId);
-  const leadsQuery = useCrmLeads(activeCompanyId);
-  const accountsQuery = useCrmAccounts(activeCompanyId);
-  const contactsQuery = useCrmContacts(activeCompanyId);
-  const assignableUsersQuery = useCrmAssignableUsers(activeCompanyId);
-  const handoffsQuery = useCrmDealHandoffs(activeCompanyId);
-  const createDeal = useCreateCrmDeal(activeCompanyId);
-  const transitionDeal = useTransitionCrmDealStage(activeCompanyId);
-  const startHandoff = useStartCrmDealHandoff(activeCompanyId);
-  const completeHandoff = useCompleteCrmDealHandoff(activeCompanyId);
+  const deals = useCrmDeals(activeCompanyId), leads = useCrmLeads(activeCompanyId), accounts = useCrmAccounts(activeCompanyId), contacts = useCrmContacts(activeCompanyId);
+  const users = useCrmAssignableUsers(activeCompanyId), handoffs = useCrmDealHandoffs(activeCompanyId);
+  const createDeal = useCreateCrmDeal(activeCompanyId), updateDeal = useTransitionCrmDealStage(activeCompanyId);
+  const startHandoff = useStartCrmDealHandoff(activeCompanyId), completeHandoff = useCompleteCrmDealHandoff(activeCompanyId);
+  const [search, setSearch] = useState(''), [view, setView] = useState<'open' | 'won' | 'lost'>('open'), [createOpen, setCreateOpen] = useState(false);
+  const [name, setName] = useState(''), [amount, setAmount] = useState(''), [createLeadId, setCreateLeadId] = useState(''), [ownerId, setOwnerId] = useState('');
+  const [accountId, setAccountId] = useState(''), [contactId, setContactId] = useState(''), [probability, setProbability] = useState('10'), [closeDate, setCloseDate] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null), [editStage, setEditStage] = useState('new'), [editAmount, setEditAmount] = useState('');
+  const [editProbability, setEditProbability] = useState('10'), [editOwner, setEditOwner] = useState(''), [editClose, setEditClose] = useState('');
+  const [handoffId, setHandoffId] = useState<string | null>(null), [leaseStart, setLeaseStart] = useState(''), [leaseEnd, setLeaseEnd] = useState('');
+  const [rent, setRent] = useState(''), [deposit, setDeposit] = useState('');
+  const currency = settings.currencyCode || 'NGN', symbol = settings.currencySymbol || currency;
+  const owners = useMemo(() => new Map((users.data || []).map((row) => [row.user_id, row.name])), [users.data]);
+  const accountNames = useMemo(() => new Map((accounts.data || []).map((row) => [row.id, row.name])), [accounts.data]);
+  const contactNames = useMemo(() => new Map((contacts.data || []).map((row) => [row.id, row.full_name])), [contacts.data]);
+  const handoffMap = useMemo(() => new Map((handoffs.data || []).map((row) => [row.deal_id, row])), [handoffs.data]);
+  const rows = useMemo(() => (deals.data || []).filter((row) => (!search.trim() || `${row.deal_name} ${row.stage}`.toLowerCase().includes(search.toLowerCase())) && (view === 'open' ? !['converted', 'lost'].includes(row.stage) : row.stage === (view === 'won' ? 'converted' : 'lost'))), [deals.data, search, view]);
+  const loadError = deals.error || leads.error || accounts.error || contacts.error || users.error || handoffs.error;
+  const loading = deals.isLoading || leads.isLoading || accounts.isLoading || contacts.isLoading || users.isLoading || handoffs.isLoading;
+  const resetCreate = () => { setName(''); setAmount(''); setCreateLeadId(''); setOwnerId(''); setAccountId(''); setContactId(''); setProbability('10'); setCloseDate(''); setCreateOpen(false); };
+  const create = () => { const chance = Number(probability); if (!name.trim() || !createLeadId || chance < 0 || chance > 100) return; createDeal.mutate({ deal_name: name.trim(), amount: amount ? Number(amount) : null, lead_id: createLeadId, owner_user_id: ownerId || null, account_id: accountId || null, contact_id: contactId || null, currency, probability: chance, expected_close_date: closeDate || null }, { onSuccess: resetCreate }); };
+  const edit = (deal: NonNullable<typeof deals.data>[number]) => { setEditingId(deal.id); setEditStage(deal.stage); setEditAmount(deal.amount == null ? '' : String(deal.amount)); setEditProbability(String(deal.probability)); setEditOwner(deal.owner_user_id || ''); setEditClose(deal.expected_close_date || ''); };
+  const save = () => { const chance = Number(editProbability); if (!editingId || chance < 0 || chance > 100) return; updateDeal.mutate({ dealId: editingId, stage: editStage, probability: chance, amount: editAmount ? Number(editAmount) : null, ownerUserId: editOwner || null, expectedCloseDate: editClose || null }, { onSuccess: () => setEditingId(null) }); };
+  const finishHandoff = () => { if (!handoffId || !leaseStart || !leaseEnd || Number(rent) <= 0) return; completeHandoff.mutate({ handoffId, leaseStart, leaseEnd, monthlyRent: Number(rent), securityDeposit: Number(deposit || 0) }, { onSuccess: () => { setHandoffId(null); setLeaseStart(''); setLeaseEnd(''); setRent(''); setDeposit(''); } }); };
 
-  const [search, setSearch] = useState('');
-  const [dealName, setDealName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [createOwnerUserId, setCreateOwnerUserId] = useState('');
-  const [createAccountId, setCreateAccountId] = useState('');
-  const [createContactId, setCreateContactId] = useState('');
-  const [createLeadId, setCreateLeadId] = useState('');
-  const [createProbability, setCreateProbability] = useState('10');
-  const [createExpectedCloseDate, setCreateExpectedCloseDate] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editStage, setEditStage] = useState('new');
-  const [editProbability, setEditProbability] = useState('10');
-  const [editAmount, setEditAmount] = useState('');
-  const [editOwnerUserId, setEditOwnerUserId] = useState('');
-  const [editExpectedCloseDate, setEditExpectedCloseDate] = useState('');
-  const [completingHandoffId, setCompletingHandoffId] = useState<string | null>(null);
-  const [leaseStart, setLeaseStart] = useState('');
-  const [leaseEnd, setLeaseEnd] = useState('');
-  const [monthlyRent, setMonthlyRent] = useState('');
-  const [securityDeposit, setSecurityDeposit] = useState('');
-
-  const rows = useMemo(() => {
-    const records = dealsQuery.data || [];
-    const query = search.toLowerCase().trim();
-    if (!query) return records;
-    return records.filter((row) => (`${row.deal_name} ${row.stage}`).toLowerCase().includes(query));
-  }, [dealsQuery.data, search]);
-
-  const grouped = useMemo(() => {
-    const bucket: Record<string, typeof rows> = {};
-    LEAD_STAGES.forEach((stage) => { bucket[stage] = []; });
-    rows.forEach((row) => {
-      const key = bucket[row.stage] ? row.stage : 'new';
-      bucket[key].push(row);
-    });
-    return bucket;
-  }, [rows]);
-
-  const ownerNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    (assignableUsersQuery.data || []).forEach((user) => {
-      map.set(user.user_id, user.name);
-    });
-    return map;
-  }, [assignableUsersQuery.data]);
-
-  const handoffByDealId = useMemo(() => {
-    const map = new Map<string, { id: string; status: string; readiness_notes: string | null }>();
-    (handoffsQuery.data || []).forEach((handoff) => {
-      map.set(handoff.deal_id, { id: handoff.id, status: handoff.status, readiness_notes: handoff.readiness_notes });
-    });
-    return map;
-  }, [handoffsQuery.data]);
-
-  const currencyCode = settings.currencyCode || 'NGN';
-  const currencySymbol = settings.currencySymbol || currencyCode;
-  const loadError = dealsQuery.error || leadsQuery.error || accountsQuery.error || contactsQuery.error || assignableUsersQuery.error || handoffsQuery.error;
-  const isLoading = dealsQuery.isLoading || leadsQuery.isLoading || accountsQuery.isLoading || contactsQuery.isLoading || assignableUsersQuery.isLoading || handoffsQuery.isLoading;
-
-  const formatDealAmount = (value: number | null) => {
-    if (value == null) return 'No amount';
-    return `${currencySymbol} ${Number(value).toLocaleString()}`;
-  };
-
-  const onCreate = () => {
-    if (!dealName.trim() || !createLeadId) return;
-    const parsedProbability = Number(createProbability);
-    if (Number.isNaN(parsedProbability) || parsedProbability < 0 || parsedProbability > 100) return;
-
-    createDeal.mutate({
-      deal_name: dealName.trim(),
-      amount: amount ? Number(amount) : null,
-      owner_user_id: createOwnerUserId || null,
-      account_id: createAccountId || null,
-      contact_id: createContactId || null,
-      lead_id: createLeadId,
-      currency: currencyCode,
-      probability: parsedProbability,
-      expected_close_date: createExpectedCloseDate || null,
-    });
-    setDealName('');
-    setAmount('');
-    setCreateOwnerUserId('');
-    setCreateAccountId('');
-    setCreateContactId('');
-    setCreateLeadId('');
-    setCreateProbability('10');
-    setCreateExpectedCloseDate('');
-  };
-
-  const startEdit = (
-    id: string,
-    stage: string,
-    probability: number,
-    currentAmount: number | null,
-    currentOwnerUserId: string | null,
-    currentExpectedCloseDate: string | null,
-  ) => {
-    setEditingId(id);
-    setEditStage(stage);
-    setEditProbability(String(probability));
-    setEditAmount(currentAmount == null ? '' : String(currentAmount));
-    setEditOwnerUserId(currentOwnerUserId || '');
-    setEditExpectedCloseDate(currentExpectedCloseDate || '');
-  };
-
-  const saveEdit = () => {
-    if (!editingId) return;
-    const parsed = Number(editProbability);
-    if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) return;
-
-    transitionDeal.mutate(
-      {
-        dealId: editingId,
-        stage: editStage,
-        probability: parsed,
-        amount: editAmount ? Number(editAmount) : null,
-        ownerUserId: editOwnerUserId.trim() || null,
-        expectedCloseDate: editExpectedCloseDate || null,
-      },
-      {
-        onSuccess: () => {
-          setEditingId(null);
-          setEditAmount('');
-          setEditOwnerUserId('');
-          setEditExpectedCloseDate('');
-        },
-      },
-    );
-  };
-
-  const submitHandoffCompletion = (handoffId: string, dealAmount: number | null) => {
-    if (!leaseStart || !leaseEnd) return;
-    const rent = Number(monthlyRent || dealAmount || 0);
-    const deposit = Number(securityDeposit || 0);
-    if (Number.isNaN(rent) || rent <= 0) return;
-    if (Number.isNaN(deposit) || deposit < 0) return;
-
-    completeHandoff.mutate({
-      handoffId,
-      leaseStart,
-      leaseEnd,
-      monthlyRent: rent,
-      securityDeposit: deposit,
-    }, {
-      onSuccess: () => {
-        setCompletingHandoffId(null);
-        setLeaseStart('');
-        setLeaseEnd('');
-        setMonthlyRent('');
-        setSecurityDeposit('');
-      },
-    });
-  };
-
-  return (
-    <CrmWorkspace title="Deals" subtitle="Track opportunity economics against the authoritative lead pipeline.">
-      {loadError ? (
-        <CrmDataCard title="Deals unavailable" description="The CRM could not retrieve the records needed for this pipeline.">
-          <QueryErrorState message={loadError.message} onRetry={() => { void dealsQuery.refetch(); void leadsQuery.refetch(); void accountsQuery.refetch(); void contactsQuery.refetch(); void assignableUsersQuery.refetch(); void handoffsQuery.refetch(); }} />
-        </CrmDataCard>
-      ) : isLoading ? (
-        <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-border/70 bg-card">
-          <div className="text-center text-sm text-muted-foreground"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin" />Loading deal pipeline...</div>
-        </div>
-      ) : (
-      <>
-      {(leadsQuery.data || []).length > 0 ? (
-      <CrmDataCard title="Create Deal" description="Add a new sales opportunity.">
-        <div className="mb-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          Add a focused opportunity with ownership, confidence, and close-date context in one step.
-        </div>
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-4" placeholder="Deal name" value={dealName} onChange={(event) => setDealName(event.target.value)} />
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" placeholder={`Amount (${currencyCode})`} value={amount} onChange={(event) => setAmount(event.target.value)} />
-          <select aria-label="Lead" className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-2" value={createLeadId} onChange={(event) => setCreateLeadId(event.target.value)}>
-            <option value="">Select lead</option>
-            {(leadsQuery.data || []).map((lead) => (
-              <option key={lead.id} value={lead.id}>{lead.contact_name || lead.listing_title || lead.id} ({lead.stage.replace(/_/g, ' ')})</option>
-            ))}
-          </select>
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" placeholder="Probability %" value={createProbability} onChange={(event) => setCreateProbability(event.target.value)} />
-          <input className="h-10 rounded-md border border-input px-3 text-sm lg:col-span-2" type="date" value={createExpectedCloseDate} onChange={(event) => setCreateExpectedCloseDate(event.target.value)} />
-
-          <div className="lg:col-span-4">
-            <AssigneePicker
-              users={assignableUsersQuery.data || []}
-              value={createOwnerUserId || null}
-              onChange={(next) => setCreateOwnerUserId(next || '')}
-              placeholder="Owner (optional)"
-              className="h-10"
-            />
-          </div>
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-4" value={createAccountId} onChange={(event) => setCreateAccountId(event.target.value)}>
-            <option value="">Link Account (optional)</option>
-            {(accountsQuery.data || []).map((account) => (
-              <option key={account.id} value={account.id}>{account.name}</option>
-            ))}
-          </select>
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:col-span-4" value={createContactId} onChange={(event) => setCreateContactId(event.target.value)}>
-            <option value="">Link Contact (optional)</option>
-            {(contactsQuery.data || []).map((contact) => (
-              <option key={contact.id} value={contact.id}>{contact.full_name}</option>
-            ))}
-          </select>
-
-          <button className="h-10 rounded-md bg-primary text-primary-foreground text-sm lg:col-span-3" onClick={onCreate} disabled={createDeal.isPending}>Create Deal</button>
-        </div>
-      </CrmDataCard>
-      ) : null}
-
-      <CrmDataCard title="Pipeline Board" description="Review and update opportunities by stage.">
-        {rows.length === 0 ? (
-          <EmptyState
-            icon={(dealsQuery.data || []).length ? SearchX : Handshake}
-            label={(dealsQuery.data || []).length ? 'No deals match your search' : (leadsQuery.data || []).length ? 'Create your first qualified opportunity' : 'Deals begin with a qualified lead'}
-            description={(dealsQuery.data || []).length ? 'Clear the search to return to the complete opportunity pipeline.' : (leadsQuery.data || []).length ? 'Use the deal form above to add economics, ownership, confidence, and a close date to a lead.' : 'Qualify a marketplace inquiry first, then create a deal without losing its contact or listing context.'}
-            action={(dealsQuery.data || []).length ? <Button variant="outline" onClick={() => setSearch('')}>Clear search</Button> : (leadsQuery.data || []).length === 0 ? <Button asChild><Link to="/marketplace/crm/leads">Open lead pipeline<ArrowRight className="ml-2 h-4 w-4" /></Link></Button> : undefined}
-          />
-        ) : (
-        <>
-        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
-          {SUMMARY_STAGES.map((stage) => (
-            <div key={stage} className="rounded-lg border border-border bg-card p-3 shadow-[var(--shadow-card)]">
-              <p className="text-xs font-medium capitalize text-muted-foreground">{stage.replace(/_/g, ' ')}</p>
-              <p className="mt-1 text-2xl font-semibold text-foreground">{(grouped[stage] || []).length}</p>
-            </div>
-          ))}
-        </div>
-        <SimpleToolbar search={search} setSearch={setSearch} />
-        <div className="mt-3 overflow-x-auto">
-          <div className="flex min-w-max gap-3 pb-2">
-            {LEAD_STAGES.map((stage) => (
-              <div key={stage} className="w-72 rounded-xl border border-border/70 bg-card/80 p-3 shadow-sm">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{stage.replace(/_/g, ' ')}</p>
-                  <span className="rounded-full border border-border/60 bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{(grouped[stage] || []).length}</span>
-                </div>
-                <div className="space-y-2">
-                  {(grouped[stage] || []).map((deal) => (
-                    <div key={deal.id} className="rounded-lg border border-border/70 bg-background/90 p-2.5 text-sm shadow-sm">
-                      <div className="mb-1 flex items-start justify-between gap-2">
-                        <p className="font-medium leading-tight">{deal.deal_name}</p>
-                        <StatusPill variant={dealStageVariant(deal.stage)}>{deal.stage.replace(/_/g, ' ')}</StatusPill>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{formatDealAmount(deal.amount)}</p>
-                      <p className="text-xs text-muted-foreground">Probability: {deal.probability}%</p>
-                      <p className="text-xs text-muted-foreground">Owner: {deal.owner_user_id ? (ownerNameById.get(deal.owner_user_id) || deal.owner_user_id) : '-'}</p>
-                      {handoffByDealId.get(deal.id) ? (
-                        <p className="text-xs text-muted-foreground">
-                          Handoff: {handoffByDealId.get(deal.id)?.status}
-                        </p>
-                      ) : null}
-                      {editingId === deal.id ? (
-                        <div className="mt-2 space-y-2">
-                          <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={editStage} onChange={(event) => setEditStage(event.target.value)}>
-                            {LEAD_STAGES.map((s) => (
-                              <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
-                            ))}
-                          </select>
-                          <input
-                            className="h-8 w-full rounded-md border border-input px-2 text-xs"
-                            value={editProbability}
-                            onChange={(event) => setEditProbability(event.target.value)}
-                            placeholder="Probability (0-100)"
-                          />
-                          <input
-                            className="h-8 w-full rounded-md border border-input px-2 text-xs"
-                            value={editAmount}
-                            onChange={(event) => setEditAmount(event.target.value)}
-                            placeholder="Amount (required for closed won)"
-                          />
-                          <AssigneePicker
-                            users={assignableUsersQuery.data || []}
-                            value={editOwnerUserId || null}
-                            onChange={(next) => setEditOwnerUserId(next || '')}
-                            placeholder="Owner"
-                            className="h-8"
-                          />
-                          <input
-                            className="h-8 w-full rounded-md border border-input px-2 text-xs"
-                            type="date"
-                            value={editExpectedCloseDate}
-                            onChange={(event) => setEditExpectedCloseDate(event.target.value)}
-                          />
-                          <div className="flex gap-2">
-                            <button className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground" onClick={saveEdit} disabled={transitionDeal.isPending}>Save</button>
-                            <button
-                              className="h-8 rounded-md border border-input px-2 text-xs"
-                              onClick={() => {
-                                setEditingId(null);
-                                setEditOwnerUserId('');
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-2 space-y-2">
-                          <button
-                            className="h-8 rounded-md border border-input px-2 text-xs"
-                            onClick={() => startEdit(deal.id, deal.stage, deal.probability, deal.amount, deal.owner_user_id, deal.expected_close_date)}
-                          >
-                            Edit Stage
-                          </button>
-                          {deal.stage === 'converted' && handoffByDealId.get(deal.id) ? (
-                            <div className="space-y-2">
-                              {handoffByDealId.get(deal.id)?.status !== 'in_progress' && handoffByDealId.get(deal.id)?.status !== 'completed' ? (
-                                <button
-                                  className="h-8 rounded-md border border-input px-2 text-xs"
-                                  onClick={() => startHandoff.mutate({ handoffId: handoffByDealId.get(deal.id)!.id })}
-                                  disabled={startHandoff.isPending}
-                                >
-                                  Start Handoff
-                                </button>
-                              ) : null}
-                              {handoffByDealId.get(deal.id)?.status !== 'completed' ? (
-                                completingHandoffId === handoffByDealId.get(deal.id)!.id ? (
-                                  <div className="space-y-2">
-                                    <input aria-label="Lease start date" className="h-8 w-full rounded-md border border-input px-2 text-xs" type="date" value={leaseStart} onChange={(event) => setLeaseStart(event.target.value)} />
-                                    <input aria-label="Lease end date" className="h-8 w-full rounded-md border border-input px-2 text-xs" type="date" value={leaseEnd} onChange={(event) => setLeaseEnd(event.target.value)} />
-                                    <input aria-label="Monthly rent" className="h-8 w-full rounded-md border border-input px-2 text-xs" inputMode="decimal" placeholder="Monthly rent" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} />
-                                    <input aria-label="Security deposit" className="h-8 w-full rounded-md border border-input px-2 text-xs" inputMode="decimal" placeholder="Security deposit" value={securityDeposit} onChange={(event) => setSecurityDeposit(event.target.value)} />
-                                    <div className="flex gap-2">
-                                      <button
-                                        className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground"
-                                        onClick={() => submitHandoffCompletion(handoffByDealId.get(deal.id)!.id, deal.amount)}
-                                        disabled={completeHandoff.isPending}
-                                      >
-                                        Complete Handoff
-                                      </button>
-                                      <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => setCompletingHandoffId(null)}>Close</button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <button
-                                    className="h-8 rounded-md border border-input px-2 text-xs"
-                                    onClick={() => {
-                                      setCompletingHandoffId(handoffByDealId.get(deal.id)!.id);
-                                      setMonthlyRent(deal.amount ? String(deal.amount) : '');
-                                    }}
-                                  >
-                                    Complete Handoff
-                                  </button>
-                                )
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        </>
-        )}
-      </CrmDataCard>
-      </>
-      )}
-    </CrmWorkspace>
-  );
+  return <CrmWorkspace title="Deals" subtitle="Track opportunity economics against the authoritative lead pipeline.">
+    {loadError ? <CrmDataCard title="Deals unavailable" description="The CRM could not retrieve the records needed for this pipeline."><QueryErrorState message={loadError.message} onRetry={() => { void deals.refetch(); void leads.refetch(); void accounts.refetch(); void contacts.refetch(); void users.refetch(); void handoffs.refetch(); }} /></CrmDataCard> : loading ? <div className="flex min-h-80 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div> :
+      <CrmDataCard title="Deals" description="Review active opportunities, closed wins, and losses in one commercial register." action={<Button onClick={() => setCreateOpen(true)} disabled={!leads.data?.length}><Plus className="mr-2 h-4 w-4" />New deal</Button>}>
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><SimpleToolbar search={search} setSearch={setSearch} /><div className="flex rounded-md border border-border p-1" aria-label="Deal views">{(['open', 'won', 'lost'] as const).map((item) => <Button key={item} size="sm" variant={view === item ? 'secondary' : 'ghost'} className="capitalize" onClick={() => setView(item)}>{item}</Button>)}</div></div>
+        <div className="overflow-x-auto rounded-lg border border-border/70"><table className="w-full min-w-[1050px] text-sm"><thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="px-3 py-2.5">Deal</th><th className="px-3 py-2.5">Amount</th><th className="px-3 py-2.5">Stage</th><th className="px-3 py-2.5">Probability</th><th className="px-3 py-2.5">Expected close</th><th className="px-3 py-2.5">Owner</th><th className="px-3 py-2.5">Relationship</th><th className="px-3 py-2.5">Handoff</th><th className="px-3 py-2.5">Actions</th></tr></thead><tbody>
+          {rows.map((deal) => { const handoff = handoffMap.get(deal.id), editing = editingId === deal.id; return <tr key={deal.id} className="border-t border-border/60 align-top hover:bg-muted/20">
+            <td className="px-3 py-3 font-medium">{deal.deal_name}<p className="mt-1 text-xs font-normal capitalize text-muted-foreground">{deal.pipeline_kind}</p></td>
+            <td className="px-3 py-3">{editing ? <input aria-label="Deal amount" className="h-8 w-24 rounded-md border px-2" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} /> : deal.amount == null ? '-' : `${symbol} ${Number(deal.amount).toLocaleString()}`}</td>
+            <td className="px-3 py-3">{editing ? <select aria-label="Deal stage" className="h-8 rounded-md border bg-background px-2" value={editStage} onChange={(e) => setEditStage(e.target.value)}>{LEAD_STAGES.map((stage) => <option key={stage} value={stage}>{stage.replace(/_/g, ' ')}</option>)}</select> : <StatusPill variant={stageVariant(deal.stage)}>{deal.stage.replace(/_/g, ' ')}</StatusPill>}</td>
+            <td className="px-3 py-3">{editing ? <input aria-label="Deal probability" className="h-8 w-16 rounded-md border px-2" value={editProbability} onChange={(e) => setEditProbability(e.target.value)} /> : `${deal.probability}%`}</td>
+            <td className="px-3 py-3">{editing ? <input aria-label="Expected close date" className="h-8 rounded-md border px-2" type="date" value={editClose} onChange={(e) => setEditClose(e.target.value)} /> : deal.expected_close_date ? new Date(deal.expected_close_date).toLocaleDateString() : '-'}</td>
+            <td className="px-3 py-3">{editing ? <AssigneePicker users={users.data || []} value={editOwner || null} onChange={(next) => setEditOwner(next || '')} className="h-8 min-w-40" /> : deal.owner_user_id ? owners.get(deal.owner_user_id) || 'Assigned user' : 'Unassigned'}</td>
+            <td className="px-3 py-3 text-xs">{deal.account_id ? accountNames.get(deal.account_id) || 'Linked account' : '-'}{deal.contact_id ? <p className="mt-1 text-muted-foreground">{contactNames.get(deal.contact_id) || 'Linked contact'}</p> : null}</td><td className="px-3 py-3 capitalize">{handoff ? handoff.status.replace(/_/g, ' ') : '-'}</td>
+            <td className="px-3 py-3"><div className="flex min-w-36 flex-wrap gap-2">{editing ? <><Button size="sm" onClick={save}>Save</Button><Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button></> : <Button size="sm" variant="outline" onClick={() => edit(deal)}>Edit</Button>}{!editing && deal.stage === 'converted' && handoff && !['in_progress', 'completed'].includes(handoff.status) ? <Button size="sm" variant="outline" onClick={() => startHandoff.mutate({ handoffId: handoff.id })}>Start handoff</Button> : null}{!editing && deal.stage === 'converted' && handoff?.status !== 'completed' && handoff ? <Button size="sm" variant="outline" onClick={() => { setHandoffId(handoff.id); setRent(deal.amount ? String(deal.amount) : ''); }}>Complete</Button> : null}</div></td>
+          </tr>; })}</tbody></table>{!rows.length ? <div className="p-6"><EmptyState icon={deals.data?.length ? SearchX : Handshake} label={deals.data?.length ? `No ${view} deals found` : leads.data?.length ? 'Create your first qualified opportunity' : 'Deals begin with a qualified lead'} description={deals.data?.length ? 'Try another view or clear the search.' : 'Create a commercial opportunity from a qualified marketplace lead.'} action={!leads.data?.length ? <Button asChild><Link to="/marketplace/crm/leads">Open lead pipeline<ArrowRight className="ml-2 h-4 w-4" /></Link></Button> : undefined} /></div> : null}</div>
+      </CrmDataCard>}
+    <Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Create deal</DialogTitle><DialogDescription>Add commercial value, ownership, relationships, and an expected close date.</DialogDescription></DialogHeader><div className="grid gap-4 sm:grid-cols-2">
+      <label className="space-y-1.5 text-sm sm:col-span-2"><span>Deal name</span><input className="h-10 w-full rounded-md border px-3" value={name} onChange={(e) => setName(e.target.value)} /></label><label className="space-y-1.5 text-sm"><span>Lead</span><select className="h-10 w-full rounded-md border bg-background px-3" value={createLeadId} onChange={(e) => setCreateLeadId(e.target.value)}><option value="">Select lead</option>{(leads.data || []).map((lead) => <option key={lead.id} value={lead.id}>{lead.contact_name || lead.listing_title || lead.id}</option>)}</select></label><label className="space-y-1.5 text-sm"><span>Owner</span><AssigneePicker users={users.data || []} value={ownerId || null} onChange={(next) => setOwnerId(next || '')} className="h-10" /></label>
+      <label className="space-y-1.5 text-sm"><span>Amount ({currency})</span><input className="h-10 w-full rounded-md border px-3" value={amount} onChange={(e) => setAmount(e.target.value)} /></label><label className="space-y-1.5 text-sm"><span>Probability (%)</span><input className="h-10 w-full rounded-md border px-3" value={probability} onChange={(e) => setProbability(e.target.value)} /></label><label className="space-y-1.5 text-sm"><span>Expected close</span><input className="h-10 w-full rounded-md border px-3" type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} /></label><label className="space-y-1.5 text-sm"><span>Account</span><select className="h-10 w-full rounded-md border bg-background px-3" value={accountId} onChange={(e) => setAccountId(e.target.value)}><option value="">No linked account</option>{(accounts.data || []).map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label><label className="space-y-1.5 text-sm sm:col-span-2"><span>Contact</span><select className="h-10 w-full rounded-md border bg-background px-3" value={contactId} onChange={(e) => setContactId(e.target.value)}><option value="">No linked contact</option>{(contacts.data || []).map((row) => <option key={row.id} value={row.id}>{row.full_name}</option>)}</select></label>
+    </div><DialogFooter><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button onClick={create} disabled={!name.trim() || !createLeadId || createDeal.isPending}>Create deal</Button></DialogFooter></DialogContent></Dialog>
+    <Dialog open={!!handoffId} onOpenChange={(open) => { if (!open) setHandoffId(null); }}><DialogContent><DialogHeader><DialogTitle>Complete deal handoff</DialogTitle><DialogDescription>Enter the lease terms required to move this win into operations.</DialogDescription></DialogHeader><div className="grid gap-4 sm:grid-cols-2"><label className="space-y-1.5 text-sm"><span>Lease start</span><input className="h-10 w-full rounded-md border px-3" type="date" value={leaseStart} onChange={(e) => setLeaseStart(e.target.value)} /></label><label className="space-y-1.5 text-sm"><span>Lease end</span><input className="h-10 w-full rounded-md border px-3" type="date" value={leaseEnd} onChange={(e) => setLeaseEnd(e.target.value)} /></label><label className="space-y-1.5 text-sm"><span>Monthly rent</span><input className="h-10 w-full rounded-md border px-3" value={rent} onChange={(e) => setRent(e.target.value)} /></label><label className="space-y-1.5 text-sm"><span>Security deposit</span><input className="h-10 w-full rounded-md border px-3" value={deposit} onChange={(e) => setDeposit(e.target.value)} /></label></div><DialogFooter><Button variant="outline" onClick={() => setHandoffId(null)}>Cancel</Button><Button onClick={finishHandoff} disabled={!leaseStart || !leaseEnd || completeHandoff.isPending}>Complete handoff</Button></DialogFooter></DialogContent></Dialog>
+  </CrmWorkspace>;
 }
