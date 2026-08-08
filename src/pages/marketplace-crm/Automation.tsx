@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ChevronDown, CircleHelp, Pause, Play, Plus, RotateCcw, Trash2, Workflow } from 'lucide-react';
 import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState } from '@/components/marketplace-crm/CrmWidgets';
+import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
 import { toast } from '@/components/ui/use-toast';
@@ -113,6 +115,12 @@ export default function MarketplaceCrmAutomationPage() {
   const [retryLimit, setRetryLimit] = useState('3');
   const [statusFilter, setStatusFilter] = useState('all');
   const [previewByRuleId, setPreviewByRuleId] = useState<Record<string, Record<string, unknown>>>({});
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [rulesPage, setRulesPage] = useState(1);
+  const [rulesPageSize, setRulesPageSize] = useState(10);
+  const [runsPage, setRunsPage] = useState(1);
+  const [runsPageSize, setRunsPageSize] = useState(10);
 
   const filteredRuns = useMemo(() => {
     const rows = runsQuery.data || [];
@@ -123,6 +131,23 @@ export default function MarketplaceCrmAutomationPage() {
   const builderConditions = useMemo(() => serializeConditionRows(conditionRows), [conditionRows]);
   const builderActions = useMemo(() => serializeActionRows(actionRows), [actionRows]);
   const eventDefinition = getEventDefinition(eventType);
+  const conditionValueOptions = (fieldName: string) => {
+    const configured = eventDefinition.conditionFields.find((field) => field.value === fieldName)?.valueOptions;
+    if (configured) return configured;
+    if (fieldName === 'owner_user_id') return (assignableUsersQuery.data || []).map((user) => ({ value: user.user_id, label: user.name }));
+    return undefined;
+  };
+  const rules = rulesQuery.data || [];
+  const paginatedRules = rules.slice((rulesPage - 1) * rulesPageSize, rulesPage * rulesPageSize);
+  const paginatedRuns = filteredRuns.slice((runsPage - 1) * runsPageSize, runsPage * runsPageSize);
+
+  useEffect(() => {
+    setRulesPage(1);
+  }, [rulesPageSize]);
+
+  useEffect(() => {
+    setRunsPage(1);
+  }, [runsPageSize, statusFilter]);
 
   const syncAdvancedFromBuilder = () => {
     setAdvancedConditionsJson(JSON.stringify(builderConditions, null, 2));
@@ -192,6 +217,7 @@ export default function MarketplaceCrmAutomationPage() {
           setConditionRows(eventDefinition.defaultConditionRows);
           setActionRows(eventDefinition.defaultActionRows);
           setAdvancedMode(false);
+          setBuilderOpen(false);
         },
       },
     );
@@ -216,7 +242,9 @@ export default function MarketplaceCrmAutomationPage() {
 
   return (
     <CrmWorkspace title="Automation" subtitle="Let FishGate handle routine follow-up when CRM activity happens.">
-      <CrmDataCard title="How automation works" description="Rules watch for a specific CRM event and perform the actions you choose.">
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>How automation works</DialogTitle><DialogDescription>Rules watch for a specific CRM event and perform the actions you choose.</DialogDescription></DialogHeader>
         <div className="grid gap-4 md:grid-cols-3">
           <div className="flex gap-3">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span>
@@ -235,9 +263,13 @@ export default function MarketplaceCrmAutomationPage() {
           <CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <p>New rules start active. They run automatically after the selected event occurs. Use <span className="font-medium text-foreground">Test rule</span> to check matching without performing actions, and pause a rule whenever needed.</p>
         </div>
-      </CrmDataCard>
+          <DialogFooter><Button onClick={() => setHelpOpen(false)}>Got it</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <CrmDataCard title="Build an automation" description="Start with a supported event. FishGate supplies a practical default you can adjust.">
+      <Dialog open={builderOpen} onOpenChange={setBuilderOpen}>
+        <DialogContent className="max-w-5xl overflow-x-hidden">
+          <DialogHeader><DialogTitle>Create automation</DialogTitle><DialogDescription>Choose when FishGate should act, which records qualify, and what should happen next.</DialogDescription></DialogHeader>
         <div className="space-y-6">
           <section className="space-y-3">
             <div className="flex items-center gap-3">
@@ -287,7 +319,11 @@ export default function MarketplaceCrmAutomationPage() {
                     aria-label="Payload field"
                     className="h-9 rounded-md border border-input bg-background px-2 text-sm md:col-span-4"
                     value={row.field}
-                    onChange={(event) => setConditionRows((current) => current.map((item) => item.id === row.id ? { ...item, field: event.target.value } : item))}
+                    onChange={(event) => {
+                      const nextField = event.target.value;
+                      const nextOptions = conditionValueOptions(nextField);
+                      setConditionRows((current) => current.map((item) => item.id === row.id ? { ...item, field: nextField, value: nextOptions?.[0]?.value || '' } : item));
+                    }}
                   >
                     <option value="">Choose a field</option>
                     {eventDefinition.conditionFields.map((field) => <option key={field.value} value={field.value}>{field.label}</option>)}
@@ -301,14 +337,13 @@ export default function MarketplaceCrmAutomationPage() {
                     <option value="equals">is exactly</option>
                     <option value="required">has any value</option>
                   </select>
-                  <input
-                    aria-label="Expected value"
-                    className="h-9 rounded-md border border-input px-2 text-sm md:col-span-4"
-                    placeholder={row.operator === 'required' ? 'Any value' : 'Enter the value to match'}
-                    value={row.value}
-                    onChange={(event) => setConditionRows((current) => current.map((item) => item.id === row.id ? { ...item, value: event.target.value } : item))}
-                    disabled={row.operator === 'required'}
-                  />
+                  {conditionValueOptions(row.field)?.length && row.operator === 'equals' ? (
+                    <select aria-label="Expected value" className="h-9 rounded-md border border-input bg-background px-2 text-sm md:col-span-4" value={row.value} onChange={(event) => setConditionRows((current) => current.map((item) => item.id === row.id ? { ...item, value: event.target.value } : item))}>
+                      {conditionValueOptions(row.field)?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                  ) : (
+                    <input aria-label="Expected value" className="h-9 rounded-md border border-input px-2 text-sm md:col-span-4" placeholder={row.operator === 'required' ? 'Any value' : 'Enter the value to match'} value={row.value} onChange={(event) => setConditionRows((current) => current.map((item) => item.id === row.id ? { ...item, value: event.target.value } : item))} disabled={row.operator === 'required'} />
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
@@ -548,14 +583,13 @@ export default function MarketplaceCrmAutomationPage() {
 
           <div className="flex flex-col gap-3 border-t border-border/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">The rule will be active immediately. Test or pause it from the rules register below.</p>
-            <Button onClick={onCreateRule} disabled={createRule.isPending || !name.trim() || actionRows.length === 0}>
-              <Workflow className="h-4 w-4" />{createRule.isPending ? 'Creating...' : 'Create automation'}
-            </Button>
+            <div className="flex gap-2"><Button variant="outline" onClick={() => setBuilderOpen(false)}>Cancel</Button><Button onClick={onCreateRule} disabled={createRule.isPending || !name.trim() || actionRows.length === 0}><Workflow className="h-4 w-4" />{createRule.isPending ? 'Creating...' : 'Create automation'}</Button></div>
           </div>
         </div>
-      </CrmDataCard>
+        </DialogContent>
+      </Dialog>
 
-      <CrmDataCard title="Automation rules" description="Test matching safely, then activate or pause each rule." action={<Badge variant="outline">{(rulesQuery.data || []).filter((rule) => rule.is_active).length} active</Badge>}>
+      <CrmDataCard title="Automation rules" description="Test matching safely, then activate or pause each rule." action={<div className="flex items-center gap-2"><Badge variant="outline">{rules.filter((rule) => rule.is_active).length} active</Badge><Button variant="outline" size="icon" aria-label="How automation works" title="How automation works" onClick={() => setHelpOpen(true)}><CircleHelp className="h-4 w-4" /></Button><Button onClick={() => setBuilderOpen(true)}><Plus className="h-4 w-4" />New automation</Button></div>}>
         <div className="overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -569,7 +603,7 @@ export default function MarketplaceCrmAutomationPage() {
               </tr>
             </thead>
             <tbody>
-              {(rulesQuery.data || []).map((rule) => (
+              {paginatedRules.map((rule) => (
                 <tr key={rule.id} className="border-t border-border/60">
                   <td className="px-3 py-2 font-medium">{rule.name}</td>
                   <td className="px-3 py-2">{eventLabel(rule.event_type)}</td>
@@ -607,7 +641,8 @@ export default function MarketplaceCrmAutomationPage() {
               ))}
             </tbody>
           </table>
-          {(rulesQuery.data || []).length === 0 ? <div className="p-4"><EmptyState label="No automation rules yet." /></div> : null}
+          {rules.length === 0 ? <div className="p-4"><EmptyState label="No automation rules yet." description="Create a rule to automate routine CRM follow-up." action={<Button size="sm" onClick={() => setBuilderOpen(true)}><Plus className="h-4 w-4" />New automation</Button>} /></div> : null}
+          <TablePagination page={rulesPage} pageSize={rulesPageSize} total={rules.length} onPageChange={setRulesPage} onPageSizeChange={setRulesPageSize} />
         </div>
       </CrmDataCard>
 
@@ -638,7 +673,7 @@ export default function MarketplaceCrmAutomationPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredRuns.map((run) => (
+              {paginatedRuns.map((run) => (
                 <tr key={run.id} className="border-t border-border/60">
                   <td className="px-3 py-2">{new Date(run.created_at).toLocaleString()}</td>
                   <td className="px-3 py-2">{eventLabel(run.event_type)}</td>
@@ -663,6 +698,7 @@ export default function MarketplaceCrmAutomationPage() {
             </tbody>
           </table>
           {filteredRuns.length === 0 ? <div className="p-4"><EmptyState label="No automation runs for this filter." /></div> : null}
+          <TablePagination page={runsPage} pageSize={runsPageSize} total={filteredRuns.length} onPageChange={setRunsPage} onPageSizeChange={setRunsPageSize} />
         </div>
       </CrmDataCard>
     </CrmWorkspace>

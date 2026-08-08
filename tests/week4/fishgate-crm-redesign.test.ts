@@ -37,6 +37,7 @@ const provisionActionMigration = readFileSync(
 const marketplaceHooks = readFileSync(resolve('src/hooks/useMarketplace.ts'), 'utf8');
 const crmHooks = readFileSync(resolve('src/hooks/useMarketplaceCrm.ts'), 'utf8');
 const automation = readFileSync(resolve('src/pages/marketplace-crm/Automation.tsx'), 'utf8');
+const automationBuilder = readFileSync(resolve('src/lib/crmAutomationBuilder.ts'), 'utf8');
 const deals = readFileSync(resolve('src/pages/marketplace-crm/Deals.tsx'), 'utf8');
 const contacts = readFileSync(resolve('src/pages/marketplace-crm/Contacts.tsx'), 'utf8');
 const accounts = readFileSync(resolve('src/pages/marketplace-crm/Accounts.tsx'), 'utf8');
@@ -171,6 +172,16 @@ describe('FishGate CRM redesign contracts', () => {
     expect(automation).toContain('eventType,');
     expect(crmHooks).toContain('event_type: eventType');
     expect(crmHooks).toContain("queryKey: ['marketplace-crm', 'automation-rules', companyId]");
+  });
+
+  it('uses controlled automation values and modal-first operational registers', () => {
+    expect(automationBuilder).toContain("{ value: 'converted', label: 'Converted' }");
+    expect(automationBuilder).toContain("{ value: 'answered_follow_up_required', label: 'Answered · follow-up required' }");
+    expect(automation).toContain('conditionValueOptions(row.field)?.map');
+    expect(automation).toContain('<DialogTitle>Create automation</DialogTitle>');
+    expect(automation).toContain('<DialogTitle>How automation works</DialogTitle>');
+    expect(automation).toContain('page={rulesPage}');
+    expect(automation).toContain('page={runsPage}');
   });
 
   it('executes tenant provisioning inside the existing automation retry boundary', () => {
