@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Download, Printer, RefreshCw } from 'lucide-react';
+import { ArrowLeft, BarChart3, Download, Flag, ListTodo, PhoneCall, Printer, RefreshCw, Sparkles, Target } from 'lucide-react';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
-import { CrmDataCard, EmptyState, MetricCard, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
+import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
+import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
@@ -54,6 +55,10 @@ export default function MarketplaceCrmReportsPage() {
   const [pipelineKind, setPipelineKind] = useState<'leasing' | 'renewal' | 'collections'>('leasing');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(searchParams.get('report'));
   const [generatedAt, setGeneratedAt] = useState(() => new Date());
+  const [libraryPage, setLibraryPage] = useState(1);
+  const [libraryPageSize, setLibraryPageSize] = useState(10);
+  const [resultPage, setResultPage] = useState(1);
+  const [resultPageSize, setResultPageSize] = useState(10);
 
   const rows = useMemo(() => {
     const reportRows = reportsQuery.data || [];
@@ -112,6 +117,7 @@ export default function MarketplaceCrmReportsPage() {
   ]);
   const leadStageRows = useMemo(() => computeLeadStageRows(filteredLeads), [filteredLeads]);
   const maxStageCount = Math.max(1, ...leadStageRows.map((row) => row.count));
+  const paginatedLibraryRows = rows.slice((libraryPage - 1) * libraryPageSize, libraryPage * libraryPageSize);
 
   const selectedReport = useMemo(() => (reportsQuery.data || []).find((row) => row.id === selectedReportId) || null, [reportsQuery.data, selectedReportId]);
 
@@ -288,6 +294,15 @@ export default function MarketplaceCrmReportsPage() {
     visitsQuery.data,
     contactsQuery.data,
   ]);
+  const paginatedPreviewRows = reportPreviewRows.slice((resultPage - 1) * resultPageSize, resultPage * resultPageSize);
+
+  useEffect(() => {
+    setLibraryPage(1);
+  }, [libraryPageSize, search]);
+
+  useEffect(() => {
+    setResultPage(1);
+  }, [dateRange, ownerFilter, pipelineKind, resultPageSize, selectedReportId]);
 
   type ReportQueryState = {
     isLoading: boolean;
@@ -416,7 +431,7 @@ export default function MarketplaceCrmReportsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {reportPreviewRows.map((row) => (
+                  {paginatedPreviewRows.map((row) => (
                     <tr key={`${selectedReport.id}-${row.label}`} className="border-t border-border/60">
                       <td className="px-3 py-2 font-medium">{row.label}</td>
                       <td className="px-3 py-2">{String(row.value)}</td>
@@ -425,6 +440,7 @@ export default function MarketplaceCrmReportsPage() {
                 </tbody>
               </table>
               {reportPreviewRows.length === 0 ? <div className="p-4"><EmptyState label="No data available for this report in the selected scope." /></div> : null}
+              <TablePagination page={resultPage} pageSize={resultPageSize} total={reportPreviewRows.length} onPageChange={setResultPage} onPageSizeChange={setResultPageSize} />
             </div>
           )}
         </CrmDataCard>
@@ -434,30 +450,42 @@ export default function MarketplaceCrmReportsPage() {
 
   return (
     <CrmWorkspace title="Reports" subtitle="Pipeline, activity, and conversion reporting.">
-      <CrmDataCard title="Report Filters" description="Filter reports by owner and date range.">
+      <CrmDataCard title="Reporting scope" description="All insights below update with this owner, period, and pipeline.">
         {reportFilters}
       </CrmDataCard>
 
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Open Leads" value={pipelineSummary.openDeals} helper="Leads not yet converted or lost in this pipeline." />
-        <MetricCard label="Open Pipeline Value" value={formatCurrency(pipelineSummary.openValue)} helper="Gross value of non-closed deals." />
-        <MetricCard label="Weighted Pipeline" value={formatCurrency(Math.round(pipelineSummary.weightedValue))} helper="Probability-adjusted open pipeline." />
-        <MetricCard label="Inquiry to Won %" value={`${executionSummary.inquiryToWonRate}%`} helper="30-day marketplace conversion." />
-        <MetricCard label="Open Tasks" value={executionSummary.openTasks} helper="Tasks awaiting completion." />
-        <MetricCard label="Calls Logged" value={executionSummary.callsLogged} helper="Total call records in current scope." />
-        <MetricCard label="Active Trust Flags" value={executionSummary.activeTrustFlags} helper="Verification and moderation escalations." />
-        <MetricCard label="Handoffs Ready" value={executionSummary.handoffsReady} helper="Closed-won deals ready for property operations." />
+      <section className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/70 bg-border/70 lg:grid-cols-4">
+        {[
+          { label: 'Open leads', value: pipelineSummary.openDeals, helper: `${pipelineKind} pipeline`, icon: Target },
+          { label: 'Open pipeline', value: formatCurrency(pipelineSummary.openValue), helper: 'Gross opportunity value', icon: BarChart3 },
+          { label: 'Weighted pipeline', value: formatCurrency(Math.round(pipelineSummary.weightedValue)), helper: 'Probability adjusted', icon: Sparkles },
+          { label: 'Inquiry to won', value: `${executionSummary.inquiryToWonRate}%`, helper: 'Marketplace conversion', icon: Flag },
+        ].map((item) => (
+          <div key={item.label} className="bg-card p-4">
+            <div className="flex items-center justify-between gap-2"><p className="text-xs font-medium text-muted-foreground">{item.label}</p><item.icon className="h-4 w-4 text-primary" /></div>
+            <p className="mt-3 text-2xl font-semibold tracking-tight">{item.value}</p><p className="mt-1 text-xs text-muted-foreground">{item.helper}</p>
+          </div>
+        ))}
+      </section>
+
+      <section className="grid gap-3 border-y border-border/70 py-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Execution health">
+        {[
+          { label: 'Open tasks', value: executionSummary.openTasks, icon: ListTodo },
+          { label: 'Calls logged', value: executionSummary.callsLogged, icon: PhoneCall },
+          { label: 'Trust flags', value: executionSummary.activeTrustFlags, icon: Flag },
+          { label: 'Handoffs ready', value: executionSummary.handoffsReady, icon: Target },
+        ].map((item) => <div key={item.label} className="flex items-center gap-3"><item.icon className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">{item.label}</p><p className="text-lg font-semibold">{item.value}</p></div></div>)}
       </section>
 
       <CrmDataCard title="Pipeline Stage Aging" description="Lead-stage bottlenecks and stagnation risk for the selected pipeline.">
         {leadStageRows.length > 0 ? (
-          <div className="mb-4 space-y-3 rounded-lg border border-border bg-muted/20 p-4" aria-label="Lead distribution by pipeline stage">
+          <div className="mb-4 space-y-3" aria-label="Lead distribution by pipeline stage">
             {leadStageRows.map((row) => (
               <div key={row.stage} className="grid grid-cols-[minmax(100px,160px)_1fr_36px] items-center gap-3">
                 <span className="truncate text-xs font-medium capitalize text-muted-foreground">{row.stage.replace(/_/g, ' ')}</span>
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-primary to-info"
+                    className="h-full rounded-full bg-primary"
                     style={{ width: `${Math.max(3, (row.count / maxStageCount) * 100)}%` }}
                   />
                 </div>
@@ -503,7 +531,7 @@ export default function MarketplaceCrmReportsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {paginatedLibraryRows.map((row) => (
                 <tr key={row.id} className="border-t border-border/60">
                   <td className="px-3 py-2 font-medium">
                     <button className="text-left text-primary hover:underline" onClick={() => openReport(row.id)}>
@@ -517,6 +545,7 @@ export default function MarketplaceCrmReportsPage() {
             </tbody>
           </table>
           {rows.length === 0 ? <div className="p-4"><EmptyState label="No reports found for this filter." /></div> : null}
+          <TablePagination page={libraryPage} pageSize={libraryPageSize} total={rows.length} onPageChange={setLibraryPage} onPageSizeChange={setLibraryPageSize} />
         </div>
       </CrmDataCard>
 

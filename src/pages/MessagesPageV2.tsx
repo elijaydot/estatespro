@@ -4,24 +4,21 @@ import {
   Send,
   Mail,
   Search,
+  ArrowLeft,
   Plus,
   Trash2,
   Paperclip,
   Download,
   X,
   Forward,
-  ReplyAll,
   CalendarClock,
-  Users,
   ChevronRight,
-  MessageCircle,
   Loader2,
   Check,
   CheckCheck,
   Radio,
   RefreshCcw,
-  Sparkles,
-  WandSparkles,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -166,6 +163,7 @@ export default function MessagesPageV2() {
   const [searchDateFrom, setSearchDateFrom] = useState('');
   const [searchDateTo, setSearchDateTo] = useState('');
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [showSearchFilters, setShowSearchFilters] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [composeScheduledFor, setComposeScheduledFor] = useState('');
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
@@ -684,54 +682,28 @@ export default function MessagesPageV2() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/80 flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5" />
-            Comms hub
-          </p>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Messages</h1>
-          <p className="text-muted-foreground mt-1">Communicate with tenants in a focused, real-time workspace</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Messages</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Tenant conversations, files, and follow-up in one inbox.</p>
+          <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground"><span>{threads.length} conversations</span><span aria-hidden="true">·</span><span className={unreadCount ? 'font-medium text-primary' : ''}>{unreadCount} unread</span><span aria-hidden="true">·</span><span>{allMessages.length} messages</span></div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full sm:w-auto">
+        <div className="flex w-full gap-2 sm:w-auto">
           <Button
             variant={showUnreadOnly ? 'default' : 'outline'}
             onClick={() => setShowUnreadOnly((current) => !current)}
-            className="gap-2 w-full rounded-full px-4"
+            className="flex-1 gap-2 sm:flex-none"
           >
             <Mail className="h-4 w-4" />
             {showUnreadOnly ? 'Unread Only' : 'All Threads'}
           </Button>
-          <Button onClick={() => setIsComposeOpen(true)} className="gap-2 w-full rounded-full px-4">
+          <Button onClick={() => setIsComposeOpen(true)} className="flex-1 gap-2 sm:flex-none">
             <Plus className="h-4 w-4" />
             New Message
           </Button>
         </div>
       </div>
-
-      <Card className="border border-border/70 bg-card/85 backdrop-blur-sm card-shadow-md overflow-hidden">
-        <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <WandSparkles className="h-4 w-4 text-primary" />
-              Conversation cockpit
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">Search threads faster, focus unread messages, and reply with AI suggestions.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="rounded-full px-3 py-1 border-primary/30 text-primary">
-              Threads {threads.length}
-            </Badge>
-            <Badge variant="outline" className="rounded-full px-3 py-1 border-warning/30 text-warning">
-              Unread {unreadCount}
-            </Badge>
-            <Badge variant="outline" className="rounded-full px-3 py-1 border-success/30 text-success">
-              Messages {allMessages.length}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
 
       {isError && (
         <Card className="card-shadow-md border-destructive/20">
@@ -749,68 +721,26 @@ export default function MessagesPageV2() {
         </Card>
       )}
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <Card className="card-shadow-sm animate-enter stagger-1">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-primary/10">
-                <Users className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Conversations</p>
-                <p className="text-2xl font-bold">{threads.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-sm animate-enter stagger-2">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-warning/10">
-                <Mail className="h-6 w-6 text-warning" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Unread</p>
-                <p className="text-2xl font-bold">{unreadCount}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-sm animate-enter stagger-3">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-success/10">
-                <MessageCircle className="h-6 w-6 text-success" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Messages</p>
-                <p className="text-2xl font-bold">{allMessages.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-[calc(100vh-255px)]">
-        <Card className="lg:col-span-1 card-shadow-md border-border/70 animate-enter stagger-2 flex flex-col min-h-0">
-          <CardHeader className="pb-3">
-            <div className="relative">
+      <div className="grid min-h-[620px] grid-cols-1 gap-3 lg:h-[calc(100vh-175px)] lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
+        <Card className={`${selectedThread ? 'hidden lg:flex' : 'flex'} min-h-0 flex-col overflow-hidden border-border/70`}>
+          <CardHeader className="space-y-3 border-b border-border/60 p-3">
+            <div className="flex gap-2"><div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 ref={searchInputRef}
                 placeholder="Search conversations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-11 border-border/70 bg-card/80"
+                className="h-9 border-border/70 bg-background pl-9"
               />
-            </div>
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            </div><Button variant={showSearchFilters ? 'secondary' : 'outline'} size="icon" className="h-9 w-9" aria-label="Conversation date filters" onClick={() => setShowSearchFilters((current) => !current)}><SlidersHorizontal className="h-4 w-4" /></Button></div>
+            {showSearchFilters ? <div className="grid grid-cols-2 gap-2">
               <Input type="date" value={searchDateFrom} onChange={(e) => setSearchDateFrom(e.target.value)} />
               <Input type="date" value={searchDateTo} onChange={(e) => setSearchDateTo(e.target.value)} />
-            </div>
+            </div> : null}
           </CardHeader>
           <ScrollArea className="flex-1 min-h-0">
-            <div className="space-y-1 p-2">
+            <div>
               {isLoading ? (
                 <div className="p-4 text-center text-muted-foreground">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 pulse-soft" />
@@ -832,11 +762,11 @@ export default function MessagesPageV2() {
                     key={thread.tenantId}
                     onClick={() => handleSelectThread(thread)}
                     style={{ animationDelay: `${Math.min(index, 6) * 45}ms` }}
-                    className={`w-full text-left p-4 rounded-lg transition-colors border ${
+                    className={`w-full border-b border-border/60 p-3 text-left transition-colors last:border-b-0 ${
                       selectedThread?.tenantId === thread.tenantId
-                        ? 'bg-primary/10 border-primary/20 shadow-sm'
-                        : 'border-transparent hover:bg-muted/70'
-                    } animate-enter`}
+                        ? 'bg-primary/10'
+                        : 'hover:bg-muted/50'
+                    }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className="relative">
@@ -877,12 +807,13 @@ export default function MessagesPageV2() {
           </ScrollArea>
         </Card>
 
-        <Card className="lg:col-span-2 card-shadow-md border-border/70 flex flex-col min-h-0 animate-enter stagger-3">
+        <Card className={`${selectedThread ? 'flex' : 'hidden lg:flex'} min-h-0 flex-col overflow-hidden border-border/70`}>
           {selectedThread ? (
             <>
               <CardHeader className="pb-3 border-b">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 lg:hidden" aria-label="Back to conversations" onClick={() => setSelectedThread(null)}><ArrowLeft className="h-4 w-4" /></Button>
                     <Avatar className="h-10 w-10">
                       <AvatarFallback className="bg-primary/10 text-primary">
                         {getInitials(selectedThread.tenantName)}
@@ -898,20 +829,11 @@ export default function MessagesPageV2() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
-                      size="sm"
+                      size="icon"
                       variant="outline"
-                      className="h-8 rounded-full gap-1.5"
-                      onClick={() => {
-                        toast({ title: 'Reply-all', description: 'Enabled for multi-recipient threads. This is a 1:1 conversation.' });
-                      }}
-                    >
-                      <ReplyAll className="h-3.5 w-3.5" />
-                      Reply all
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 rounded-full gap-1.5"
+                      className="h-8 w-8"
+                      aria-label="Forward latest message"
+                      title="Forward latest message"
                       onClick={() => {
                         const last = selectedThread.messages[selectedThread.messages.length - 1];
                         setNewMessage({
@@ -923,9 +845,8 @@ export default function MessagesPageV2() {
                       }}
                     >
                       <Forward className="h-3.5 w-3.5" />
-                      Forward
                     </Button>
-                    <Badge variant="outline">
+                    <Badge variant="outline" className="hidden sm:inline-flex">
                       {selectedThread.messages.length} messages
                     </Badge>
                   </div>
