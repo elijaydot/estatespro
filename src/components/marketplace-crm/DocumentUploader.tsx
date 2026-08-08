@@ -14,6 +14,7 @@ interface DocumentUploaderProps {
   disabled?: boolean;
   resetKey?: string;
   uploadLabel?: string;
+  onCleared?: () => void;
 }
 
 function sanitizeFileName(fileName: string) {
@@ -35,9 +36,11 @@ export function DocumentUploader({
   disabled = false,
   resetKey,
   uploadLabel = 'Upload document',
+  onCleared,
 }: DocumentUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const [uploadedMimeType, setUploadedMimeType] = useState<string | null>(null);
   const { signedUrl, isLoading: isLoadingPreview } = useSignedUrl(bucket, uploadedPath);
@@ -135,13 +138,25 @@ export function DocumentUploader({
             <button
               type="button"
               className="inline-flex h-6 w-6 items-center justify-center rounded border border-input"
-              onClick={() => {
-                setUploadedPath(null);
-                setUploadedMimeType(null);
+              disabled={isRemoving}
+              onClick={async () => {
+                setIsRemoving(true);
+                try {
+                  const { error } = await supabase.storage.from(bucket).remove([uploadedPath]);
+                  if (error) {
+                    toast({ title: 'Unable to remove upload', description: error.message, variant: 'destructive' });
+                    return;
+                  }
+                  setUploadedPath(null);
+                  setUploadedMimeType(null);
+                  onCleared?.();
+                } finally {
+                  setIsRemoving(false);
+                }
               }}
               aria-label="Clear uploaded file"
             >
-              <X className="h-3.5 w-3.5" />
+              {isRemoving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
             </button>
           </div>
 

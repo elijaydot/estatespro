@@ -22,6 +22,10 @@ const accountMigration = readFileSync(
   resolve('supabase/migrations/20260804140000_fishgate_crm_account_specialization.sql'),
   'utf8',
 );
+const documentCommentsMigration = readFileSync(
+  resolve('supabase/migrations/20260808110000_crm_document_comments.sql'),
+  'utf8',
+);
 const alertLeadMigration = readFileSync(
   resolve('supabase/migrations/20260804150000_fishgate_crm_operational_alert_leads.sql'),
   'utf8',
@@ -38,6 +42,7 @@ const contacts = readFileSync(resolve('src/pages/marketplace-crm/Contacts.tsx'),
 const accounts = readFileSync(resolve('src/pages/marketplace-crm/Accounts.tsx'), 'utf8');
 const tasks = readFileSync(resolve('src/pages/marketplace-crm/Tasks.tsx'), 'utf8');
 const visits = readFileSync(resolve('src/pages/marketplace-crm/Visits.tsx'), 'utf8');
+const documents = readFileSync(resolve('src/pages/marketplace-crm/Documents.tsx'), 'utf8');
 const reports = readFileSync(resolve('src/pages/marketplace-crm/Reports.tsx'), 'utf8');
 
 describe('FishGate CRM redesign contracts', () => {
@@ -141,6 +146,24 @@ describe('FishGate CRM redesign contracts', () => {
     expect(visits).toContain('navigator.geolocation.getCurrentPosition');
     expect(visits).toContain('check_in_lat: coords.latitude');
     expect(visits).toContain('check_in_lng: coords.longitude');
+    expect(visits).toContain('uploadLabel="Upload visit evidence"');
+    expect(visits).toContain('<VisitProofLink path={row.proof_path} />');
+  });
+
+  it('uses a private table-first document register with readable previews', () => {
+    expect(documents).toContain('<DialogTitle>Add document</DialogTitle>');
+    expect(documents).toContain('readableFileName(row.storage_path)');
+    expect(documents).toContain('setViewDocumentId(row.id)');
+    expect(documents).toContain('useCrmDocumentComments(activeCompanyId, viewDocumentId)');
+    expect(documents).toContain('aria-label="Document comment"');
+    expect(documents).not.toContain('<th className="px-3 py-2">Storage Path</th>');
+  });
+
+  it('keeps document discussion company-scoped and author-attributed', () => {
+    expect(documentCommentsMigration).toContain('CREATE TABLE IF NOT EXISTS public.crm_document_comments');
+    expect(documentCommentsMigration).toContain('author_user_id = auth.uid()');
+    expect(documentCommentsMigration).toContain('document.company_id = crm_document_comments.company_id');
+    expect(documentCommentsMigration).toContain("member.status = 'approved'");
   });
 
   it('persists threshold event rules through the existing automation mutation', () => {

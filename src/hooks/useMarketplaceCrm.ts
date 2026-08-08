@@ -100,6 +100,16 @@ export interface CrmDocument {
   updated_at: string;
 }
 
+export interface CrmDocumentComment {
+  id: string;
+  company_id: string;
+  document_id: string;
+  author_user_id: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CrmVisit {
   id: string;
   company_id: string;
@@ -436,6 +446,48 @@ export function useCrmCampaigns(companyId?: string | null) {
 
 export function useCrmDocuments(companyId?: string | null) {
   return useCompanyTableQuery<CrmDocument>('documents', 'crm_documents', companyId, 'id, company_id, related_type, related_id, title, storage_path, status, compliance_state, version_no, expires_at, reviewed_by, reviewed_at, review_notes, mime_type, uploaded_by, created_at, updated_at');
+}
+
+export function useCrmDocumentComments(companyId?: string | null, documentId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace-crm', 'document-comments', companyId, documentId],
+    queryFn: async () => {
+      if (!companyId || !documentId) return [] as CrmDocumentComment[];
+      const { data, error } = await supabase
+        .from('crm_document_comments' as never)
+        .select('id, company_id, document_id, author_user_id, body, created_at, updated_at' as never)
+        .eq('company_id', companyId)
+        .eq('document_id', documentId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data || []) as CrmDocumentComment[];
+    },
+    enabled: !!companyId && !!documentId,
+  });
+}
+
+export function useCreateCrmDocumentComment(companyId?: string | null, documentId?: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: string) => {
+      if (!companyId || !documentId) throw new Error('Open a document before adding a comment');
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) throw authError || new Error('Sign in to add a comment');
+      const { data, error } = await supabase
+        .from('crm_document_comments' as never)
+        .insert({ company_id: companyId, document_id: documentId, author_user_id: authData.user.id, body: body.trim() } as never)
+        .select('id, company_id, document_id, author_user_id, body, created_at, updated_at')
+        .single();
+      if (error) throw error;
+      return data as CrmDocumentComment;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-crm', 'document-comments', companyId, documentId] });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Comment failed', description: error.message, variant: 'destructive' });
+    },
+  });
 }
 
 export function useCrmVisits(companyId?: string | null) {

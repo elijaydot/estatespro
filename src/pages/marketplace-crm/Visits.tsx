@@ -1,14 +1,24 @@
 import { useMemo, useState } from 'react';
-import { MapPinPlus } from 'lucide-react';
+import { ExternalLink, MapPinPlus } from 'lucide-react';
 import { AssigneePicker } from '@/components/marketplace-crm/AssigneePicker';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { CrmDataCard, EmptyState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';
+import { DocumentUploader } from '@/components/marketplace-crm/DocumentUploader';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
 import { useCreateCrmVisit, useCrmDeals, useCrmVisits, useUpdateCrmVisit } from '@/hooks/useMarketplaceCrm';
+import { useSignedUrl } from '@/hooks/useSignedUrl';
+import { supabase } from '@/integrations/supabase/client';
+
+function VisitProofLink({ path }: { path: string }) {
+  const { signedUrl, isLoading } = useSignedUrl('crm-documents', path);
+  if (isLoading) return <span className="text-xs text-muted-foreground">Preparing...</span>;
+  if (!signedUrl) return <span className="text-xs text-muted-foreground">Unavailable</span>;
+  return <a className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline" href={signedUrl} target="_blank" rel="noreferrer">View evidence<ExternalLink className="h-3.5 w-3.5" /></a>;
+}
 
 export default function MarketplaceCrmVisitsPage() {
   const { activeCompanyId } = useActiveCompany();
@@ -30,6 +40,7 @@ export default function MarketplaceCrmVisitsPage() {
   const [completingVisitId, setCompletingVisitId] = useState<string | null>(null);
   const [proofPath, setProofPath] = useState('');
   const [outcome, setOutcome] = useState('');
+  const [proofUploadResetKey, setProofUploadResetKey] = useState(0);
 
   const rows = useMemo(() => {
     const records = visitsQuery.data || [];
@@ -104,6 +115,7 @@ export default function MarketplaceCrmVisitsPage() {
         setCompletingVisitId(null);
         setProofPath('');
         setOutcome('');
+        setProofUploadResetKey((current) => current + 1);
       },
     });
   };
@@ -115,6 +127,18 @@ export default function MarketplaceCrmVisitsPage() {
         status: 'canceled',
       },
     });
+  };
+
+  const closeCompletion = async () => {
+    const abandonedPath = proofPath;
+    setCompletingVisitId(null);
+    setProofPath('');
+    setOutcome('');
+    setProofUploadResetKey((current) => current + 1);
+    if (abandonedPath) {
+      const { error } = await supabase.storage.from('crm-documents').remove([abandonedPath]);
+      if (error) toast({ title: 'Evidence cleanup failed', description: error.message, variant: 'destructive' });
+    }
   };
 
   return (
@@ -139,38 +163,15 @@ export default function MarketplaceCrmVisitsPage() {
                   <td className="px-3 py-2">{(assignableUsersQuery.data || []).find((user) => user.user_id === row.assigned_to)?.name || 'Unassigned'}</td>
                   <td className="px-3 py-2 capitalize">{row.status.replace('_', ' ')}</td>
                   <td className="px-3 py-2">{row.check_in_at ? new Date(row.check_in_at).toLocaleString() : '-'}</td>
-                  <td className="px-3 py-2">{row.proof_path || 'Pending'}</td>
+                  <td className="px-3 py-2">{row.proof_path ? <VisitProofLink path={row.proof_path} /> : 'Pending'}</td>
                   <td className="px-3 py-2">
                     {row.status === 'planned' ? (
                       <button className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground" onClick={() => startVisit(row.id)} disabled={updateVisit.isPending}>Check In</button>
                     ) : null}
                     {row.status === 'in_progress' ? (
-                      <div className="space-y-2">
-                        {completingVisitId === row.id ? (
-                          <>
-                            <input
-                              className="h-8 w-full rounded-md border border-input px-2 text-xs"
-                              value={proofPath}
-                              onChange={(event) => setProofPath(event.target.value)}
-                              placeholder="Proof URL or file reference"
-                            />
-                            <input
-                              className="h-8 w-full rounded-md border border-input px-2 text-xs"
-                              value={outcome}
-                              onChange={(event) => setOutcome(event.target.value)}
-                              placeholder="Visit outcome"
-                            />
-                            <div className="flex gap-2">
-                              <button className="h-8 rounded-md bg-primary px-2 text-xs text-primary-foreground" onClick={() => completeVisit(row.id)} disabled={updateVisit.isPending}>Complete</button>
-                              <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => setCompletingVisitId(null)}>Close</button>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="flex gap-2">
-                            <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => setCompletingVisitId(row.id)}>Complete Visit</button>
-                            <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => cancelVisit(row.id)} disabled={updateVisit.isPending}>Cancel</button>
-                          </div>
-                        )}
+                      <div className="flex gap-2">
+                        <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => setCompletingVisitId(row.id)}>Complete Visit</button>
+                        <button className="h-8 rounded-md border border-input px-2 text-xs" onClick={() => cancelVisit(row.id)} disabled={updateVisit.isPending}>Cancel</button>
                       </div>
                     ) : null}
                   </td>
@@ -194,6 +195,31 @@ export default function MarketplaceCrmVisitsPage() {
             <label className="space-y-1.5 text-sm sm:col-span-2"><span>Access instructions and notes</span><textarea className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Contact person, access code, meeting point, preparation, or safety notes" value={visitNotes} onChange={(event) => setVisitNotes(event.target.value)} /></label>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button onClick={create} disabled={!locality.trim() || !scheduledAt || createVisit.isPending}>Schedule visit</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!completingVisitId} onOpenChange={(open) => { if (!open) void closeCompletion(); }}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader><DialogTitle>Complete property visit</DialogTitle><DialogDescription>Upload one private evidence file and record the visit outcome before checkout.</DialogDescription></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">Visit evidence</p>
+              <p className="text-xs text-muted-foreground">Use a clear checkout photo of the property or a signed PDF visit report. The file is private and visible only to authorized company users.</p>
+              <DocumentUploader
+                bucket="crm-documents"
+                pathPrefix={`${activeCompanyId || 'unknown-company'}/visits/${completingVisitId || 'unknown-visit'}`}
+                acceptedMimeTypes={['image/jpeg', 'image/png', 'image/webp', 'application/pdf']}
+                maxFileSizeBytes={10 * 1024 * 1024}
+                resetKey={String(proofUploadResetKey)}
+                uploadLabel="Upload visit evidence"
+                disabled={!activeCompanyId || updateVisit.isPending}
+                onUploaded={(path) => setProofPath(path)}
+                onCleared={() => setProofPath('')}
+              />
+            </div>
+            <label className="block space-y-1.5 text-sm"><span>Visit outcome</span><textarea aria-label="Visit outcome" className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Record attendance, observations, client feedback, decisions, and the next action." value={outcome} onChange={(event) => setOutcome(event.target.value)} /></label>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => void closeCompletion()}>Cancel</Button><Button onClick={() => completingVisitId && completeVisit(completingVisitId)} disabled={!proofPath || !outcome.trim() || updateVisit.isPending}>Complete visit</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </CrmWorkspace>
