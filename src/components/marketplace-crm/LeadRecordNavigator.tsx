@@ -107,17 +107,17 @@ export function LeadRecordNavigator({ companyId, selectedLead, fallbackLeads, on
                 <CommandItem
                   key={lead.id}
                   value={lead.id}
-                  className="gap-3 border-b border-border/40 px-3 py-3 last:border-0"
+                  className="group gap-3 border-b border-border/40 px-3 py-3 text-foreground transition-colors duration-150 last:border-0 data-[selected=true]:bg-cyan-500/10 data-[selected=true]:text-foreground data-[selected=true]:shadow-[inset_3px_0_0_0_rgb(34_211_238/0.8)]"
                   onSelect={() => {
                     onSelectLead(lead.id);
                     setOpen(false);
                   }}
                 >
-                  <Avatar className="h-9 w-9 shrink-0"><AvatarFallback className="bg-muted text-xs">{initials(lead.contact_name)}</AvatarFallback></Avatar>
+                  <Avatar className="h-9 w-9 shrink-0 border border-transparent transition-colors group-data-[selected=true]:border-cyan-400/30"><AvatarFallback className="bg-muted text-xs text-foreground group-data-[selected=true]:bg-cyan-500/15 group-data-[selected=true]:text-cyan-100">{initials(lead.contact_name)}</AvatarFallback></Avatar>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2"><p className="truncate font-medium">{lead.contact_name || 'Unnamed lead'}</p><Badge variant="outline" className={cn('shrink-0 capitalize', statusClasses(lead.status))}>{lead.status}</Badge></div>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">{lead.contact_phone || lead.contact_email || 'No contact details'} · {lead.listing_title || 'No listing'}</p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">{LEAD_STAGE_LABEL[lead.stage] || lead.stage} · Score {lead.score} · Last activity {lead.last_activity_at ? new Date(lead.last_activity_at).toLocaleDateString() : 'not recorded'}</p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground group-data-[selected=true]:text-foreground/75">{lead.contact_phone || lead.contact_email || 'No contact details'} · {lead.listing_title || 'No listing'}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground group-data-[selected=true]:text-foreground/65">{LEAD_STAGE_LABEL[lead.stage] || lead.stage} · Score {lead.score} · Last activity {lead.last_activity_at ? new Date(lead.last_activity_at).toLocaleDateString() : 'not recorded'}</p>
                   </div>
                   <Check className={cn('h-4 w-4 shrink-0 text-cyan-400', selectedLead?.id === lead.id ? 'opacity-100' : 'opacity-0')} />
                 </CommandItem>

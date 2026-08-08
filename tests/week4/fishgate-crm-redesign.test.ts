@@ -181,6 +181,8 @@ describe('FishGate CRM redesign contracts', () => {
     expect(leadRecordNavigator).toContain('Showing loaded pipeline results while indexed search is being deployed.');
     expect(leadRecordNavigator).toContain('.slice(0, 30)');
     expect(leadRecordNavigator).toContain('Up to 30 results · refine to narrow');
+    expect(leadRecordNavigator).toContain('data-[selected=true]:bg-cyan-500/10');
+    expect(leadRecordNavigator).toContain('group-data-[selected=true]:text-foreground/75');
     expect(leads).toContain('<LeadRecordNavigator');
     expect(leads).not.toContain('<select id="lead-record-selector"');
   });
