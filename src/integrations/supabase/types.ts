@@ -3906,6 +3906,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          default_company_id: string | null
           email: string
           id: string
           name: string
@@ -3917,6 +3918,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          default_company_id?: string | null
           email: string
           id?: string
           name: string
@@ -3928,6 +3930,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          default_company_id?: string | null
           email?: string
           id?: string
           name?: string
@@ -3936,7 +3939,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_default_company_id_fkey"
+            columns: ["default_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       properties: {
         Row: {

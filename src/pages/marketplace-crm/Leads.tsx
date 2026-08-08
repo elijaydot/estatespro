@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Columns3, List, Loader2, SearchX, Users } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Columns3, List, Loader2, SearchX, Users } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { LeadDetailPanel } from '@/components/marketplace-crm/LeadDetailPanel';
@@ -83,6 +83,7 @@ export default function MarketplaceCrmLeadsPage() {
   }, [filteredLeads, selectedLeadId]);
 
   const selectedLead = filteredLeads.find((lead) => lead.id === selectedLeadId) || null;
+  const selectedLeadIndex = filteredLeads.findIndex((lead) => lead.id === selectedLeadId);
   const staleLeadCount = filteredLeads.filter((lead) => (
     !lead.last_activity_at || Date.now() - new Date(lead.last_activity_at).getTime() > 48 * 3600000
   )).length;
@@ -116,6 +117,18 @@ export default function MarketplaceCrmLeadsPage() {
     if (assignee !== currentAssignedTo) updates.push(assignLead.mutateAsync({ leadId, assigneeUserId: assignee }));
     await Promise.all(updates);
     cancelEdit();
+  };
+
+  const selectLead = (leadId: string) => {
+    setSelectedLeadId(leadId);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('lead', leadId);
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const openLeadRecord = (leadId: string) => {
+    selectLead(leadId);
+    setView('board');
   };
 
   return (
@@ -161,11 +174,24 @@ export default function MarketplaceCrmLeadsPage() {
           <LeadPipelineBoard
             leads={activeBoardLeads}
             selectedLeadId={selectedLeadId}
-            onSelectLead={setSelectedLeadId}
+            onSelectLead={selectLead}
             onChangeStage={(leadId, stage) => updateLeadStage.mutate({ leadId, stage })}
             isLoading={leadsQuery.isLoading}
             isUpdating={updateLeadStage.isPending}
           />
+          <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1">
+              <label htmlFor="lead-record-selector" className="mb-1 block text-[11px] font-medium uppercase text-muted-foreground">Lead record</label>
+              <select id="lead-record-selector" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={selectedLeadId || ''} onChange={(event) => selectLead(event.target.value)}>
+                {filteredLeads.map((lead) => <option key={lead.id} value={lead.id}>{lead.contact_name || 'Lead'} · {lead.stage.replace(/_/g, ' ')} · Score {lead.score}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center justify-between gap-2 sm:justify-end">
+              <span className="text-xs text-muted-foreground">{selectedLeadIndex + 1} of {filteredLeads.length}</span>
+              <Button variant="outline" size="icon" className="h-10 w-10" aria-label="Previous lead" disabled={selectedLeadIndex <= 0} onClick={() => selectLead(filteredLeads[selectedLeadIndex - 1].id)}><ChevronLeft className="h-4 w-4" /></Button>
+              <Button variant="outline" size="icon" className="h-10 w-10" aria-label="Next lead" disabled={selectedLeadIndex < 0 || selectedLeadIndex >= filteredLeads.length - 1} onClick={() => selectLead(filteredLeads[selectedLeadIndex + 1].id)}><ChevronRight className="h-4 w-4" /></Button>
+            </div>
+          </div>
           <LeadDetailPanel companyId={activeCompanyId} lead={selectedLead} assignableUsers={assignableUsers} staleLeadCount={staleLeadCount} />
         </div>
       ) : (
@@ -216,7 +242,7 @@ export default function MarketplaceCrmLeadsPage() {
                     <td className="px-3 py-2">
                       {editingLeadId === row.id ? (
                         <div className="flex gap-2"><Button size="sm" onClick={() => saveEdit(row.id, row.stage, row.assigned_to)} disabled={isSaving}>Save</Button><Button size="sm" variant="outline" onClick={cancelEdit}>Cancel</Button></div>
-                      ) : <Button size="sm" variant="outline" onClick={() => startEdit(row.id, row.stage, row.assigned_to)}>Edit</Button>}
+                      ) : <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => openLeadRecord(row.id)}>Open</Button><Button size="sm" variant="ghost" onClick={() => startEdit(row.id, row.stage, row.assigned_to)}>Edit</Button></div>}
                     </td>
                   </tr>
                 ))}

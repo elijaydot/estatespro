@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { 
   Users, UserPlus, Building2, Shield, Clock, CheckCircle2, 
-  XCircle, Copy, Ban, MapPin, Loader2, Plus, Trash2, Pencil 
+  XCircle, Copy, Ban, MapPin, Loader2, Plus, Trash2, Pencil, Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,7 +50,7 @@ type PmInvite = {
 export default function TeamManagement() {
   const { isLandlord, isSuperAdmin } = useUserRole();
   const { data: companies, isLoading: loadingCompanies } = useMyCompanies();
-  const { activeCompanyId, setActiveCompanyId } = useActiveCompany();
+  const { activeCompanyId, setActiveCompanyId, defaultCompanyId, setDefaultCompanyId } = useActiveCompany();
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
@@ -59,6 +59,7 @@ export default function TeamManagement() {
   const [assignPropertyId, setAssignPropertyId] = useState('');
   const [editCompanyDialogOpen, setEditCompanyDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<{ id: string; name: string; email: string; phone: string; address: string } | null>(null);
+  const [savingDefaultCompanyId, setSavingDefaultCompanyId] = useState<string | null>(null);
   const resolvedCompanyId = activeCompanyId || '';
   
   const { data: members, isLoading: loadingMembers } = useCompanyMembers(resolvedCompanyId);
@@ -178,6 +179,19 @@ export default function TeamManagement() {
     await logSecurityEvent('company_deleted', { companyId: company.id, name: company.name });
     if (resolvedCompanyId === company.id) {
       setActiveCompanyId(null);
+    }
+  };
+
+  const handleSetDefaultCompany = async (company: Company) => {
+    setSavingDefaultCompanyId(company.id);
+    try {
+      await setDefaultCompanyId(company.id);
+      setActiveCompanyId(company.id);
+      toast({ title: 'Login company updated', description: `${company.name} will open automatically when you sign in.` });
+    } catch (error) {
+      toast({ title: 'Unable to update login company', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSavingDefaultCompanyId(null);
     }
   };
 
@@ -315,18 +329,19 @@ export default function TeamManagement() {
       {companies && companies.length > 1 && (
         <Card>
           <CardContent className="pt-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-              <Label className="whitespace-nowrap">Active Company:</Label>
-              <Select value={resolvedCompanyId} onValueChange={setActiveCompanyId}>
-                <SelectTrigger className="w-full sm:max-w-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="w-full max-w-md space-y-1.5">
+                <Label>Active company</Label>
+                <Select value={resolvedCompanyId} onValueChange={setActiveCompanyId}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>{companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}{defaultCompanyId === c.id ? ' · Login default' : ''}</SelectItem>)}</SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Active changes this workspace now. Login default controls which company opens next time you sign in.</p>
+              </div>
+              <Button variant={defaultCompanyId === resolvedCompanyId ? 'secondary' : 'outline'} disabled={!resolvedCompanyId || defaultCompanyId === resolvedCompanyId || savingDefaultCompanyId !== null} onClick={() => { const company = companies.find((item) => item.id === resolvedCompanyId); if (company) void handleSetDefaultCompany(company); }}>
+                {savingDefaultCompanyId === resolvedCompanyId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Star className="mr-2 h-4 w-4" />}
+                {defaultCompanyId === resolvedCompanyId ? 'Login default' : 'Set active as login default'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -685,6 +700,7 @@ export default function TeamManagement() {
                                 <p className="text-xs text-muted-foreground">{company.address}</p>
                               )}
                               <div className="flex gap-2 mt-1">
+                                {defaultCompanyId === company.id && <Badge className="text-xs"><Star className="mr-1 h-3 w-3 fill-current" />Login default</Badge>}
                                 {resolvedCompanyId === company.id && (
                                   <>
                                     <Badge variant="secondary" className="text-xs">{memberCount} managers</Badge>
@@ -695,6 +711,11 @@ export default function TeamManagement() {
                             </div>
                           </div>
                           <div className="flex flex-wrap gap-2">
+                            {defaultCompanyId !== company.id && (
+                              <Button size="sm" variant="outline" className="gap-1" disabled={savingDefaultCompanyId !== null} onClick={() => void handleSetDefaultCompany(company)}>
+                                {savingDefaultCompanyId === company.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Star className="h-3 w-3" />} Set as login default
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"

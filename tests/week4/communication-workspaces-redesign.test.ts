@@ -11,6 +11,9 @@ describe('communication workspace redesign contracts', () => {
   it('renders complete conversation dates and restricts destructive controls to landlords', () => {
     expect(messages).toContain("return format(date, 'MMM d, yyyy')");
     expect(messages).toContain("format(new Date(msg.created_at), 'MMM d, yyyy · h:mm a')");
+    expect(messages).toContain('grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2');
+    expect(messages).toContain('w-full overflow-hidden border-b');
+    expect(messages).not.toContain('ChevronRight');
     expect(messages).toContain('isLandlord && msg.isFromMe');
     expect(messages).toContain('Delete sent message');
   });

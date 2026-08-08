@@ -1,5 +1,5 @@
 import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -27,6 +27,7 @@ function getStorageKey(userId?: string) {
 export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { role } = useUserRole();
+  const queryClient = useQueryClient();
   const [activeCompanyId, setActiveCompanyIdState] = useState<string | null>(null);
 
   const { data: companies = [], isLoading } = useQuery({
@@ -98,6 +99,21 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
     enabled: !!user?.id && !!role,
   });
 
+  const { data: storedDefaultCompanyId = null, isLoading: isDefaultLoading } = useQuery({
+    queryKey: ['profile-default-company', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('default_company_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.default_company_id || null;
+    },
+    enabled: Boolean(user?.id),
+  });
+
   useEffect(() => {
     if (!user?.id) {
       setActiveCompanyIdState(null);
@@ -106,6 +122,17 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
 
     if (companies.length === 0) {
       setActiveCompanyIdState(null);
+      return;
+    }
+
+    if (isDefaultLoading) return;
+
+    const hasAccessibleDefault = storedDefaultCompanyId
+      && companies.some((company) => company.id === storedDefaultCompanyId);
+
+    if (hasAccessibleDefault) {
+      setActiveCompanyIdState(storedDefaultCompanyId);
+      localStorage.setItem(getStorageKey(user.id), storedDefaultCompanyId);
       return;
     }
 
@@ -118,14 +145,17 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
     }
 
     setActiveCompanyIdState(companies[0].id);
-  }, [companies, user?.id]);
+  }, [companies, isDefaultLoading, storedDefaultCompanyId, user?.id]);
 
   const activeCompany = useMemo(
     () => companies.find((company) => company.id === activeCompanyId) ?? null,
     [activeCompanyId, companies],
   );
   const validatedActiveCompanyId = activeCompany?.id ?? null;
-  const isResolved = !isLoading && (companies.length === 0 || activeCompany !== null);
+  const defaultCompanyId = storedDefaultCompanyId && companies.some((company) => company.id === storedDefaultCompanyId)
+    ? storedDefaultCompanyId
+    : null;
+  const isResolved = !isLoading && !isDefaultLoading && (companies.length === 0 || activeCompany !== null);
 
   const setActiveCompanyId = useCallback((companyId: string | null) => {
     const validatedCompanyId = companyId && companies.some((company) => company.id === companyId)
@@ -141,16 +171,32 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
     }
   }, [companies, user?.id]);
 
+  const setDefaultCompanyId = useCallback(async (companyId: string) => {
+    if (!user?.id || !companies.some((company) => company.id === companyId)) {
+      throw new Error('Select a company you can access.');
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ default_company_id: companyId })
+      .eq('user_id', user.id);
+    if (error) throw error;
+
+    queryClient.setQueryData(['profile-default-company', user.id], companyId);
+  }, [companies, queryClient, user?.id]);
+
   const value = useMemo(
     () => ({
       activeCompanyId: validatedActiveCompanyId,
       activeCompany,
       setActiveCompanyId,
+      defaultCompanyId,
+      setDefaultCompanyId,
       companies,
-      isLoading,
+      isLoading: isLoading || isDefaultLoading,
       isResolved,
     }),
-    [activeCompany, companies, isLoading, isResolved, setActiveCompanyId, validatedActiveCompanyId]
+    [activeCompany, companies, defaultCompanyId, isDefaultLoading, isLoading, isResolved, setActiveCompanyId, setDefaultCompanyId, validatedActiveCompanyId]
   );
 
   return <ActiveCompanyContext.Provider value={value}>{children}</ActiveCompanyContext.Provider>;

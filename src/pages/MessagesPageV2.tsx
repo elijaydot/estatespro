@@ -12,7 +12,6 @@ import {
   X,
   Forward,
   CalendarClock,
-  ChevronRight,
   Loader2,
   Check,
   CheckCheck,
@@ -773,14 +772,14 @@ export default function MessagesPageV2() {
                     key={thread.tenantId}
                     onClick={() => handleSelectThread(thread)}
                     style={{ animationDelay: `${Math.min(index, 6) * 45}ms` }}
-                    className={`w-full border-b border-border/60 p-3 text-left transition-colors last:border-b-0 ${
+                    className={`w-full overflow-hidden border-b border-border/60 p-3 text-left transition-colors last:border-b-0 ${
                       selectedThread?.tenantId === thread.tenantId
                         ? 'bg-primary/10'
                         : 'hover:bg-muted/50'
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="relative">
+                      <div className="relative shrink-0">
                         {thread.unreadCount > 0 && (
                           <div className="absolute -top-1 -right-1 h-5 w-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
                             {thread.unreadCount}
@@ -793,8 +792,8 @@ export default function MessagesPageV2() {
                         </Avatar>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className={`min-w-0 flex-1 truncate font-medium ${thread.unreadCount > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                          <p className={`truncate font-medium ${thread.unreadCount > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
                             {thread.tenantName}
                           </p>
                           <span className="shrink-0 whitespace-nowrap text-[11px] text-muted-foreground" title={format(new Date(thread.lastMessage.created_at), 'PPpp')}>
@@ -809,7 +808,6 @@ export default function MessagesPageV2() {
                           {thread.lastMessage.content?.substring(0, 50)}
                         </p>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     </div>
                   </button>
                 ))

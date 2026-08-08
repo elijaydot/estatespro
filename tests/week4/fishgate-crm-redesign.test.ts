@@ -154,6 +154,10 @@ describe('FishGate CRM redesign contracts', () => {
     expect(leads).toContain('paginatedTableRows.map');
     expect(marketplaceHooks).toContain("payload.status = 'open'");
     expect(marketplaceHooks).toContain("activity_type: 'status_change'");
+    expect(leads).toContain('id="lead-record-selector"');
+    expect(leads).toContain('Previous lead');
+    expect(leads).toContain('Next lead');
+    expect(leads).toContain('openLeadRecord(row.id)');
   });
 
   it('uses compact lead commands with filtered task and activity registers', () => {
@@ -163,6 +167,10 @@ describe('FishGate CRM redesign contracts', () => {
     expect(leadDetail).toContain('aria-label="Activity type"');
     expect(leadDetail).toContain('page={taskPage}');
     expect(leadDetail).toContain('page={activityPage}');
+    expect(leadDetail).toContain('setTaskRegisterOpen(true)');
+    expect(leadDetail).toContain('setActivityRegisterOpen(true)');
+    expect(leadDetail).toContain('All lead tasks ·');
+    expect(leadDetail).toContain('Complete activity timeline ·');
   });
 
   it('captures GPS evidence required by the visit check-in constraint', () => {

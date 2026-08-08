@@ -9,6 +9,8 @@ export type ActiveCompanyContextType = {
   activeCompanyId: string | null;
   activeCompany: CompanyOption | null;
   setActiveCompanyId: (companyId: string | null) => void;
+  defaultCompanyId: string | null;
+  setDefaultCompanyId: (companyId: string) => Promise<void>;
   companies: CompanyOption[];
   isLoading: boolean;
   isResolved: boolean;
