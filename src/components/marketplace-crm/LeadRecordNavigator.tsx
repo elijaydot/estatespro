@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronsUpDown, Loader2, Search, SlidersHorizontal, UserRoundSearch } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { LEAD_STAGE_LABEL, LEAD_STAGE_ORDER } from './LeadPipelineBoard';
 type LeadRecordNavigatorProps = {
   companyId?: string | null;
   selectedLead: CrmLead | null;
+  fallbackLeads: CrmLead[];
   onSelectLead: (leadId: string) => void;
 };
 
@@ -30,14 +31,26 @@ function statusClasses(status: string) {
   return 'border-amber-400/30 bg-amber-500/15 text-amber-300';
 }
 
-export function LeadRecordNavigator({ companyId, selectedLead, onSelectLead }: LeadRecordNavigatorProps) {
+export function LeadRecordNavigator({ companyId, selectedLead, fallbackLeads, onSelectLead }: LeadRecordNavigatorProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [stage, setStage] = useState('all');
   const [status, setStatus] = useState('all');
   const searchQuery = useCrmLeadSearch(companyId, debouncedSearch, stage, status, open);
-  const results = searchQuery.data || [];
+  const fallbackResults = useMemo(() => {
+    const query = debouncedSearch.toLowerCase().trim();
+    return fallbackLeads
+      .filter((lead) => (
+        (stage === 'all' || lead.stage === stage)
+        && (status === 'all' || lead.status === status)
+        && (!query || `${lead.contact_name || ''} ${lead.contact_email || ''} ${lead.contact_phone || ''} ${lead.listing_title || ''} ${lead.stage} ${lead.status}`.toLowerCase().includes(query))
+      ))
+      .sort((left, right) => right.score - left.score || Date.parse(right.created_at) - Date.parse(left.created_at))
+      .slice(0, 30);
+  }, [debouncedSearch, fallbackLeads, stage, status]);
+  const isUsingFallback = searchQuery.isError;
+  const results = isUsingFallback ? fallbackResults : searchQuery.data || [];
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search), 250);
@@ -86,11 +99,11 @@ export function LeadRecordNavigator({ companyId, selectedLead, onSelectLead }: L
             <CommandList className="max-h-[420px]">
               {searchQuery.isLoading || search !== debouncedSearch ? (
                 <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Searching company leads...</div>
-              ) : searchQuery.isError ? (
-                <div className="px-4 py-8 text-center text-sm"><p className="font-medium text-destructive">Lead search is unavailable</p><p className="mt-1 text-xs text-muted-foreground">Retry after checking the search migration.</p></div>
               ) : results.length === 0 ? (
                 <CommandEmpty>No leads match this search and filter combination.</CommandEmpty>
-              ) : results.map((lead) => (
+              ) : <>
+                {isUsingFallback && <div className="border-b border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">Showing loaded pipeline results while indexed search is being deployed.</div>}
+                {results.map((lead) => (
                 <CommandItem
                   key={lead.id}
                   value={lead.id}
@@ -108,7 +121,8 @@ export function LeadRecordNavigator({ companyId, selectedLead, onSelectLead }: L
                   </div>
                   <Check className={cn('h-4 w-4 shrink-0 text-cyan-400', selectedLead?.id === lead.id ? 'opacity-100' : 'opacity-0')} />
                 </CommandItem>
-              ))}
+                ))}
+              </>}
             </CommandList>
             <div className="flex items-center justify-between border-t border-border/60 px-3 py-2 text-[11px] text-muted-foreground"><span>{debouncedSearch ? `${results.length} best matches` : 'Recent high-score leads'}</span><span>Up to 30 results · refine to narrow</span></div>
           </Command>

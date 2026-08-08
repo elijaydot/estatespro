@@ -181,7 +181,7 @@ export default function MarketplaceCrmLeadsPage() {
             isLoading={leadsQuery.isLoading}
             isUpdating={updateLeadStage.isPending}
           />
-          <LeadRecordNavigator companyId={activeCompanyId} selectedLead={selectedLead} onSelectLead={selectLead} />
+          <LeadRecordNavigator companyId={activeCompanyId} selectedLead={selectedLead} fallbackLeads={leadsQuery.data || []} onSelectLead={selectLead} />
           <LeadDetailPanel companyId={activeCompanyId} lead={selectedLead} assignableUsers={assignableUsers} staleLeadCount={staleLeadCount} />
         </div>
       ) : (

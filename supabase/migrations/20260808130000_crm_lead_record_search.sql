@@ -49,7 +49,7 @@ AS $$
     lead.id,
     lead.company_id,
     lead.listing_id,
-    lead.pipeline_kind,
+    'leasing'::text AS pipeline_kind,
     lead.stage,
     lead.status,
     lead.priority,

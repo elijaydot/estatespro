@@ -382,12 +382,25 @@ export function useCrmLeadRecord(companyId?: string | null, leadId?: string | nu
     queryFn: async () => {
       if (!companyId || !leadId) return null;
 
-      const { data, error } = await supabase
+      const currentSchemaResult = await supabase
         .from('leads')
         .select('id, company_id, listing_id, pipeline_kind, stage, status, priority, score, assigned_to, created_at, last_activity_at, converted_at, lost_reason, marketplace_listings(title, slug), lead_contacts(full_name, email, phone_e164)')
         .eq('company_id', companyId)
         .eq('id', leadId)
         .maybeSingle();
+
+      const usesLegacySchema = currentSchemaResult.error?.code === '42703'
+        && currentSchemaResult.error.message.includes('pipeline_kind');
+      const legacySchemaResult = usesLegacySchema
+        ? await supabase
+            .from('leads')
+            .select('id, company_id, listing_id, stage, status, priority, score, assigned_to, created_at, last_activity_at, converted_at, lost_reason, marketplace_listings(title, slug), lead_contacts(full_name, email, phone_e164)')
+            .eq('company_id', companyId)
+            .eq('id', leadId)
+            .maybeSingle()
+        : null;
+      const data = legacySchemaResult?.data ?? currentSchemaResult.data;
+      const error = legacySchemaResult?.error ?? (usesLegacySchema ? null : currentSchemaResult.error);
 
       if (error) throw error;
       if (!data) return null;

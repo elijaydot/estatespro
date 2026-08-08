@@ -169,11 +169,17 @@ describe('FishGate CRM redesign contracts', () => {
     expect(leadRecordSearchMigration).toContain('CREATE EXTENSION IF NOT EXISTS pg_trgm');
     expect(leadRecordSearchMigration).toContain('CREATE OR REPLACE FUNCTION public.search_crm_leads');
     expect(leadRecordSearchMigration).toContain('SECURITY INVOKER');
+    expect(leadRecordSearchMigration).toContain("'leasing'::text AS pipeline_kind");
+    expect(leadRecordSearchMigration).not.toContain('lead.pipeline_kind');
     expect(leadRecordSearchMigration).toContain('LIMIT LEAST(GREATEST(COALESCE(p_limit, 30), 1), 50)');
     expect(marketplaceHooks).toContain("queryKey: ['marketplace', 'crm-lead-search'");
     expect(marketplaceHooks).toContain("queryKey: ['marketplace', 'crm-lead-record'");
+    expect(marketplaceHooks).toContain("currentSchemaResult.error.message.includes('pipeline_kind')");
     expect(leadRecordNavigator).toContain('Search name, phone, email, listing, stage...');
     expect(leadRecordNavigator).toContain('shouldFilter={false}');
+    expect(leadRecordNavigator).toContain('isUsingFallback ? fallbackResults');
+    expect(leadRecordNavigator).toContain('Showing loaded pipeline results while indexed search is being deployed.');
+    expect(leadRecordNavigator).toContain('.slice(0, 30)');
     expect(leadRecordNavigator).toContain('Up to 30 results · refine to narrow');
     expect(leads).toContain('<LeadRecordNavigator');
     expect(leads).not.toContain('<select id="lead-record-selector"');
