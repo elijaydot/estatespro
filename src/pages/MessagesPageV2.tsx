@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, isThisYear, isToday } from 'date-fns';
 import {
   Send,
   Mail,
@@ -19,6 +19,7 @@ import {
   Radio,
   RefreshCcw,
   SlidersHorizontal,
+  MoreHorizontal,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,6 +48,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from '@/components/ui/use-toast';
 import {
   useMessages,
@@ -61,6 +63,7 @@ import { useAuth } from '@/contexts/useAuth';
 import { SuggestedReplies } from '@/components/ai/SuggestedReplies';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/integrations/supabase/client';
+import { useUserRole } from '@/hooks/useUserRole';
 
 type TenantWithRelations = Tenant & {
   tenant_user_id: string | null;
@@ -112,6 +115,13 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatThreadDate(value: string) {
+  const date = new Date(value);
+  if (isToday(date)) return format(date, 'h:mm a');
+  if (isThisYear(date)) return format(date, 'MMM d');
+  return format(date, 'MMM d, yyyy');
+}
+
 function appendAttachmentsMetadata(content: string, attachments: MessageAttachment[]) {
   if (!attachments.length) return content;
   return `${content}\n\n${ATTACHMENTS_META_PREFIX}${JSON.stringify(attachments)}${ATTACHMENTS_META_SUFFIX}`;
@@ -155,6 +165,7 @@ function RenderContent({ content, className }: { content: string; className?: st
 
 export default function MessagesPageV2() {
   const { user } = useAuth();
+  const { isLandlord } = useUserRole();
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -783,11 +794,11 @@ export default function MessagesPageV2() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <p className={`font-medium truncate ${thread.unreadCount > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          <p className={`min-w-0 flex-1 truncate font-medium ${thread.unreadCount > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
                             {thread.tenantName}
                           </p>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {format(new Date(thread.lastMessage.created_at), 'MMM d')}
+                          <span className="shrink-0 whitespace-nowrap text-[11px] text-muted-foreground" title={format(new Date(thread.lastMessage.created_at), 'PPpp')}>
+                            {formatThreadDate(thread.lastMessage.created_at)}
                           </span>
                         </div>
                         <p className="text-sm text-muted-foreground truncate mt-0.5">
@@ -867,13 +878,32 @@ export default function MessagesPageV2() {
                             : 'bg-muted'
                         }`}
                       >
-                        <div className="flex items-center justify-between gap-4 mb-2">
+                        <div className="mb-2 flex items-center justify-between gap-2">
                           <p className={`text-xs font-medium ${msg.isFromMe ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                             {msg.senderName}
                           </p>
-                          <p className={`text-xs ${msg.isFromMe ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                            {format(new Date(msg.created_at), 'MMM d, h:mm a')}
-                          </p>
+                          <div className="flex items-center gap-1">
+                            <p className={`whitespace-nowrap text-xs ${msg.isFromMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`} title={format(new Date(msg.created_at), 'PPpp')}>
+                              {format(new Date(msg.created_at), 'MMM d, yyyy · h:mm a')}
+                            </p>
+                            {isLandlord && msg.isFromMe && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className={`h-6 w-6 ${msg.isFromMe ? 'text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground' : ''}`} aria-label="Message actions">
+                                    <MoreHorizontal className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => {
+                                    setMessageToDelete(msg.id);
+                                    setDeleteDialogOpen(true);
+                                  }} className="text-destructive">
+                                    <Trash2 className="mr-2 h-4 w-4" />Delete sent message
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
                         </div>
                         {msg.subject && !msg.subject.startsWith('Re:') && (
                           <p className={`text-sm font-medium mb-1 ${msg.isFromMe ? 'text-primary-foreground' : 'text-foreground'}`}>

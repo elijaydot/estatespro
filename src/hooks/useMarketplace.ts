@@ -272,8 +272,9 @@ type LeadTaskRow = {
 type LeadStageUpdatePayload = {
   stage: string;
   last_activity_at: string;
-  status?: 'won' | 'lost';
-  converted_at?: string;
+  status?: 'open' | 'won' | 'lost';
+  converted_at?: string | null;
+  lost_reason?: string | null;
 };
 
 type ListingPublishUpdatePayload = {
@@ -388,10 +389,18 @@ export function useUpdateCrmLeadStage(companyId?: string | null) {
       if (stage === 'converted') {
         payload.status = 'won';
         payload.converted_at = new Date().toISOString();
+        payload.lost_reason = null;
       }
 
       if (stage === 'lost') {
         payload.status = 'lost';
+        payload.converted_at = null;
+      }
+
+      if (stage !== 'converted' && stage !== 'lost') {
+        payload.status = 'open';
+        payload.converted_at = null;
+        payload.lost_reason = null;
       }
 
       const { data, error } = await supabase
@@ -402,10 +411,23 @@ export function useUpdateCrmLeadStage(companyId?: string | null) {
         .single();
 
       if (error) throw error;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error: activityError } = await supabase.from('lead_activities').insert({
+        lead_id: leadId,
+        activity_type: 'status_change',
+        channel: 'internal',
+        actor_user_id: user?.id || null,
+        payload_json: { stage },
+        occurred_at: new Date().toISOString(),
+      } as never);
+      if (activityError) throw activityError;
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-lead-activities'] });
       toast({ title: 'Lead Updated', description: 'Lead stage updated successfully' });
     },
     onError: (error: Error) => {

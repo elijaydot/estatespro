@@ -89,3 +89,46 @@ export function useSendBroadcast() {
     },
   });
 }
+
+export function useUpdateBroadcast() {
+  const queryClient = useQueryClient();
+  const { activeCompanyId } = useActiveCompany();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Pick<Broadcast, 'id' | 'title' | 'message' | 'target_role' | 'property_id' | 'unit_id'>) => {
+      if (!activeCompanyId) throw new Error('No active company selected.');
+      const { data, error } = await supabase
+        .from('broadcasts')
+        .update(updates)
+        .eq('id', id)
+        .eq('company_id', activeCompanyId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as Broadcast;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['broadcasts', activeCompanyId] });
+      toast({ title: 'Broadcast updated', description: 'The announcement record now reflects your changes.' });
+    },
+    onError: (error: Error) => toast({ title: 'Unable to update broadcast', description: error.message, variant: 'destructive' }),
+  });
+}
+
+export function useDeleteBroadcast() {
+  const queryClient = useQueryClient();
+  const { activeCompanyId } = useActiveCompany();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!activeCompanyId) throw new Error('No active company selected.');
+      const { error } = await supabase.from('broadcasts').delete().eq('id', id).eq('company_id', activeCompanyId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['broadcasts', activeCompanyId] });
+      toast({ title: 'Broadcast deleted', description: 'The announcement was removed from broadcast history.' });
+    },
+    onError: (error: Error) => toast({ title: 'Unable to delete broadcast', description: error.message, variant: 'destructive' }),
+  });
+}

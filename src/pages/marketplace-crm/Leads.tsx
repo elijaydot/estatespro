@@ -71,6 +71,7 @@ export default function MarketplaceCrmLeadsPage() {
   }, [filteredLeads, ownerFilter, sortBy, stageFilter, statusFilter]);
 
   const paginatedTableRows = tableRows.slice((tablePage - 1) * tablePageSize, tablePage * tablePageSize);
+  const activeBoardLeads = filteredLeads.filter((lead) => lead.status === 'open' && lead.stage !== 'converted' && lead.stage !== 'lost');
 
   useEffect(() => {
     setTablePage(1);
@@ -158,7 +159,7 @@ export default function MarketplaceCrmLeadsPage() {
       ) : view === 'board' ? (
         <div className="space-y-4">
           <LeadPipelineBoard
-            leads={filteredLeads}
+            leads={activeBoardLeads}
             selectedLeadId={selectedLeadId}
             onSelectLead={setSelectedLeadId}
             onChangeStage={(leadId, stage) => updateLeadStage.mutate({ leadId, stage })}

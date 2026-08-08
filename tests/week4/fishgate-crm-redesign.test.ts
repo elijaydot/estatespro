@@ -45,6 +45,9 @@ const tasks = readFileSync(resolve('src/pages/marketplace-crm/Tasks.tsx'), 'utf8
 const visits = readFileSync(resolve('src/pages/marketplace-crm/Visits.tsx'), 'utf8');
 const documents = readFileSync(resolve('src/pages/marketplace-crm/Documents.tsx'), 'utf8');
 const reports = readFileSync(resolve('src/pages/marketplace-crm/Reports.tsx'), 'utf8');
+const leads = readFileSync(resolve('src/pages/marketplace-crm/Leads.tsx'), 'utf8');
+const leadBoard = readFileSync(resolve('src/components/marketplace-crm/LeadPipelineBoard.tsx'), 'utf8');
+const leadDetail = readFileSync(resolve('src/components/marketplace-crm/LeadDetailPanel.tsx'), 'utf8');
 
 describe('FishGate CRM redesign contracts', () => {
   it('adds a constrained and indexed lead pipeline discriminator', () => {
@@ -141,6 +144,25 @@ describe('FishGate CRM redesign contracts', () => {
     expect(deals).toContain('<DialogTitle>Create deal</DialogTitle>');
     expect(deals).toContain('aria-label="Deal views"');
     expect(deals).not.toContain('title="Create Deal"');
+  });
+
+  it('keeps the lead board compact and active while retaining terminal records in Table', () => {
+    expect(leadBoard).toContain("stage !== 'converted' && stage !== 'lost'");
+    expect(leadBoard).toContain('h-[360px]');
+    expect(leadBoard).toContain('overflow-y-auto');
+    expect(leads).toContain("lead.status === 'open'");
+    expect(leads).toContain('paginatedTableRows.map');
+    expect(marketplaceHooks).toContain("payload.status = 'open'");
+    expect(marketplaceHooks).toContain("activity_type: 'status_change'");
+  });
+
+  it('uses compact lead commands with filtered task and activity registers', () => {
+    expect(leadDetail).toContain('<DialogTitle>Add lead note</DialogTitle>');
+    expect(leadDetail).toContain('<DialogTitle>Create follow-up task</DialogTitle>');
+    expect(leadDetail).toContain('aria-label="Task status"');
+    expect(leadDetail).toContain('aria-label="Activity type"');
+    expect(leadDetail).toContain('page={taskPage}');
+    expect(leadDetail).toContain('page={activityPage}');
   });
 
   it('captures GPS evidence required by the visit check-in constraint', () => {

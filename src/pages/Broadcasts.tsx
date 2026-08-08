@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, Megaphone, Plus, Send, Users } from 'lucide-react';
+import { Building2, Eye, Megaphone, MoreHorizontal, Pencil, Plus, Send, Trash2, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { useBroadcastAnnouncements, useSendBroadcast } from '@/hooks/useBroadcasts';
+import { useBroadcastAnnouncements, useDeleteBroadcast, useSendBroadcast, useUpdateBroadcast, type Broadcast } from '@/hooks/useBroadcasts';
 import { useProperties, type Property } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
@@ -18,6 +20,7 @@ import { useStepUpGuard } from '@/hooks/useStepUpGuard';
 import { logSecurityEvent } from '@/lib/security';
 import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { useAuth } from '@/contexts/useAuth';
 
 const audienceLabel: Record<string, string> = {
   all: 'All users',
@@ -39,6 +42,7 @@ const getErrorMessage = (error: unknown) => {
 };
 
 export default function Broadcasts() {
+  const { user } = useAuth();
   const { isManager, isLoading: roleLoading } = useUserRole();
   const { companies, activeCompanyId } = useActiveCompany();
   const { data: broadcasts = [], isLoading } = useBroadcastAnnouncements();
@@ -52,6 +56,9 @@ export default function Broadcasts() {
   const [composerOpen, setComposerOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [editingBroadcast, setEditingBroadcast] = useState<Broadcast | null>(null);
+  const [viewingBroadcast, setViewingBroadcast] = useState<Broadcast | null>(null);
+  const [deletingBroadcast, setDeletingBroadcast] = useState<Broadcast | null>(null);
 
   const selectedPropertyId = propertyId === 'all' ? undefined : propertyId;
   const selectedUnitId = unitId === 'all' ? undefined : unitId;
@@ -59,6 +66,8 @@ export default function Broadcasts() {
   const { data: units = [] } = useUnits(selectedPropertyId);
   const unitRows = units as UnitRow[];
   const sendBroadcast = useSendBroadcast();
+  const updateBroadcast = useUpdateBroadcast();
+  const deleteBroadcast = useDeleteBroadcast();
   const { ensureAal2 } = useStepUpGuard();
 
   const activeCompanyName = useMemo(
@@ -77,11 +86,39 @@ export default function Broadcasts() {
     setTargetRole('all');
     setPropertyId('all');
     setUnitId('all');
+    setEditingBroadcast(null);
+  };
+
+  const openEditor = (broadcast: Broadcast) => {
+    setEditingBroadcast(broadcast);
+    setTitle(broadcast.title);
+    setMessage(broadcast.message);
+    setTargetRole(broadcast.target_role);
+    setPropertyId(broadcast.property_id || 'all');
+    setUnitId(broadcast.unit_id || 'all');
+    setComposerOpen(true);
   };
 
   const handleSend = async () => {
-    const canProceed = await ensureAal2('broadcasts.send');
+    const canProceed = await ensureAal2(editingBroadcast ? 'broadcasts.update' : 'broadcasts.send');
     if (!canProceed) return;
+
+    if (editingBroadcast) {
+      updateBroadcast.mutate({
+        id: editingBroadcast.id,
+        title: title.trim(),
+        message: message.trim(),
+        target_role: targetRole,
+        property_id: selectedPropertyId || null,
+        unit_id: selectedUnitId || null,
+      }, {
+        onSuccess: () => {
+          resetComposer();
+          setComposerOpen(false);
+        },
+      });
+      return;
+    }
 
     sendBroadcast.mutate({
       title,
@@ -138,9 +175,9 @@ export default function Broadcasts() {
         <div className="flex items-center gap-2"><Users className="h-4 w-4 text-muted-foreground" /><div><p className="text-[11px] text-muted-foreground">Default reach</p><p className="text-sm font-medium">All users</p></div></div>
       </div>
 
-      <Dialog open={composerOpen} onOpenChange={(open) => { setComposerOpen(open); if (!open && !sendBroadcast.isPending) resetComposer(); }}>
+      <Dialog open={composerOpen} onOpenChange={(open) => { setComposerOpen(open); if (!open && !sendBroadcast.isPending && !updateBroadcast.isPending) resetComposer(); }}>
         <DialogContent className="max-w-3xl">
-          <DialogHeader><DialogTitle>New broadcast</DialogTitle><DialogDescription>Write the announcement, then narrow its audience only when necessary.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>{editingBroadcast ? 'Edit broadcast' : 'New broadcast'}</DialogTitle><DialogDescription>{editingBroadcast ? 'Changes update the announcement record visible in this workspace.' : 'Write the announcement, then narrow its audience only when necessary.'}</DialogDescription></DialogHeader>
           <div className="space-y-5">
             <div className="space-y-2"><Label>Title</Label><Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="A short, specific announcement title" /></div>
             <div className="space-y-2"><div className="flex items-center justify-between"><Label>Message</Label><span className="text-xs text-muted-foreground">{message.length} characters</span></div><Textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Write the announcement recipients should act on..." rows={7} /></div>
@@ -151,9 +188,17 @@ export default function Broadcasts() {
             </div>
             <div className="flex items-start gap-3 rounded-md border border-border/70 bg-muted/30 p-3"><Users className="mt-0.5 h-4 w-4 text-primary" /><div><p className="text-sm font-medium">Audience preview</p><p className="mt-0.5 text-xs text-muted-foreground">{audienceLabel[targetRole]} · {selectedPropertyId ? properties.find((property) => property.id === selectedPropertyId)?.name : 'All properties'} · {selectedUnitId ? unitRows.find((unit) => unit.id === selectedUnitId)?.unit_number : 'All units'}</p></div></div>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setComposerOpen(false)}>Cancel</Button><Button onClick={handleSend} disabled={!title.trim() || !message.trim() || sendBroadcast.isPending || !activeCompanyId}><Send className="h-4 w-4" />{sendBroadcast.isPending ? 'Sending...' : 'Send broadcast'}</Button></DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => setComposerOpen(false)}>Cancel</Button><Button onClick={handleSend} disabled={!title.trim() || !message.trim() || sendBroadcast.isPending || updateBroadcast.isPending || !activeCompanyId}><Send className="h-4 w-4" />{editingBroadcast ? (updateBroadcast.isPending ? 'Saving...' : 'Save changes') : (sendBroadcast.isPending ? 'Sending...' : 'Send broadcast')}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={Boolean(viewingBroadcast)} onOpenChange={(open) => { if (!open) setViewingBroadcast(null); }}>
+        <DialogContent className="max-w-xl"><DialogHeader><DialogTitle>{viewingBroadcast?.title}</DialogTitle><DialogDescription>{viewingBroadcast ? `${audienceLabel[viewingBroadcast.target_role]} · ${formatDistanceToNow(new Date(viewingBroadcast.created_at), { addSuffix: true })}` : ''}</DialogDescription></DialogHeader><p className="whitespace-pre-wrap text-sm leading-6 text-foreground">{viewingBroadcast?.message}</p></DialogContent>
+      </Dialog>
+
+      <AlertDialog open={Boolean(deletingBroadcast)} onOpenChange={(open) => { if (!open) setDeletingBroadcast(null); }}>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete broadcast?</AlertDialogTitle><AlertDialogDescription>This removes “{deletingBroadcast?.title}” from broadcast history. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteBroadcast.isPending} onClick={() => deletingBroadcast && deleteBroadcast.mutate(deletingBroadcast.id, { onSuccess: () => setDeletingBroadcast(null) })}>Delete broadcast</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+      </AlertDialog>
 
       <Card>
         <CardHeader className="pb-3">
@@ -167,8 +212,8 @@ export default function Broadcasts() {
             <EmptyState icon={Megaphone} title="No broadcasts yet" description="Send the first announcement for this company." action={<Button size="sm" onClick={() => setComposerOpen(true)}><Plus className="h-4 w-4" />New broadcast</Button>} />
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border/70">
-              <table className="w-full text-sm"><thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground"><tr><th className="px-3 py-2.5">Announcement</th><th className="px-3 py-2.5">Audience</th><th className="px-3 py-2.5">Scope</th><th className="px-3 py-2.5">Sent</th></tr></thead><tbody>
-                {paginatedBroadcasts.map((item) => <tr key={item.id} className="border-t border-border/60"><td className="max-w-xl px-3 py-3"><p className="font-medium">{item.title}</p><p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.message}</p></td><td className="px-3 py-3"><Badge variant="secondary">{audienceLabel[item.target_role]}</Badge></td><td className="px-3 py-3 text-xs text-muted-foreground">{item.unit_id ? 'Specific unit' : item.property_id ? 'Specific property' : 'All properties'}</td><td className="whitespace-nowrap px-3 py-3 text-xs text-muted-foreground">{formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}</td></tr>)}
+              <table className="w-full text-sm"><thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground"><tr><th className="px-3 py-2.5">Announcement</th><th className="px-3 py-2.5">Audience</th><th className="px-3 py-2.5">Scope</th><th className="px-3 py-2.5">Sent</th><th className="w-12 px-3 py-2.5"><span className="sr-only">Actions</span></th></tr></thead><tbody>
+                {paginatedBroadcasts.map((item) => <tr key={item.id} className="border-t border-border/60"><td className="max-w-xl px-3 py-3"><p className="font-medium">{item.title}</p><p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.message}</p></td><td className="px-3 py-3"><Badge variant="secondary">{audienceLabel[item.target_role]}</Badge></td><td className="px-3 py-3 text-xs text-muted-foreground">{item.unit_id ? 'Specific unit' : item.property_id ? 'Specific property' : 'All properties'}</td><td className="whitespace-nowrap px-3 py-3 text-xs text-muted-foreground" title={new Date(item.created_at).toLocaleString()}>{formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}</td><td className="px-3 py-3"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Actions for ${item.title}`}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => setViewingBroadcast(item)}><Eye className="mr-2 h-4 w-4" />View</DropdownMenuItem>{item.created_by === user?.id && <><DropdownMenuItem onClick={() => openEditor(item)}><Pencil className="mr-2 h-4 w-4" />Edit</DropdownMenuItem><DropdownMenuItem className="text-destructive" onClick={() => setDeletingBroadcast(item)}><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem></>}</DropdownMenuContent></DropdownMenu></td></tr>)}
               </tbody></table>
               <TablePagination page={page} pageSize={pageSize} total={broadcasts.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
             </div>

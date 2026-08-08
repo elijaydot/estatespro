@@ -19,6 +19,8 @@ export const LEAD_STAGE_ORDER = [
   'lost',
 ] as const;
 
+const ACTIVE_LEAD_STAGE_ORDER = LEAD_STAGE_ORDER.filter((stage) => stage !== 'converted' && stage !== 'lost');
+
 export const LEAD_STAGE_LABEL: Record<string, string> = {
   new: 'New',
   attempted_contact: 'Attempted',
@@ -115,7 +117,7 @@ export function LeadPipelineBoard({
 }: LeadPipelineBoardProps) {
   const groupedLeads = useMemo(() => {
     const groups: Record<string, CrmLead[]> = {};
-    for (const stage of LEAD_STAGE_ORDER) groups[stage] = [];
+    for (const stage of ACTIVE_LEAD_STAGE_ORDER) groups[stage] = [];
     for (const lead of leads) groups[groups[lead.stage] ? lead.stage : 'new'].push(lead);
     return groups;
   }, [leads]);
@@ -128,13 +130,13 @@ export function LeadPipelineBoard({
           Pipeline Board
           {(isLoading || isUpdating) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </CardTitle>
-        <CardDescription>Move work through each stage and select a lead to open its complete record below.</CardDescription>
+        <CardDescription>Active work only. Converted and lost leads remain available in Table and can be reopened.</CardDescription>
       </CardHeader>
       <CardContent className="px-3 pb-3 sm:px-4">
         <ScrollArea className="w-full pb-3">
           <div className="flex w-max min-w-full items-start gap-3 pb-2">
-            {LEAD_STAGE_ORDER.map((stage) => (
-              <section key={stage} className={cn('flex h-[560px] w-64 shrink-0 flex-col overflow-hidden rounded-md border', STAGE_ACCENT[stage] || 'border-border')}>
+            {ACTIVE_LEAD_STAGE_ORDER.map((stage) => (
+              <section key={stage} className={cn('flex h-[360px] w-64 shrink-0 flex-col overflow-hidden rounded-md border', STAGE_ACCENT[stage] || 'border-border')}>
                 <div className="flex h-11 shrink-0 items-center justify-between border-b border-border/60 bg-background/80 px-3 backdrop-blur-sm">
                   <p className="truncate text-xs font-semibold uppercase text-foreground/80">{LEAD_STAGE_LABEL[stage]}</p>
                   <Badge variant="secondary" className="h-5 min-w-5 justify-center px-1.5 text-[10px]">{groupedLeads[stage]?.length || 0}</Badge>

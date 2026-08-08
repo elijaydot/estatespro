@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/useAuth';
 import {
   useAssignCrmLead,
@@ -22,6 +24,7 @@ import {
 } from '@/hooks/useMarketplace';
 import { cn } from '@/lib/utils';
 import { LEAD_STAGE_LABEL, LEAD_STAGE_ORDER } from './LeadPipelineBoard';
+import { TablePagination } from './TablePagination';
 
 function formatRelativeTime(value?: string | null) {
   if (!value) return 'No activity recorded';
@@ -34,6 +37,7 @@ function formatRelativeTime(value?: string | null) {
 function activityMessage(payload: Record<string, unknown>) {
   if (typeof payload.note === 'string' && payload.note.trim()) return payload.note;
   if (typeof payload.assigned_to === 'string' && payload.assigned_to) return 'Lead reassigned';
+  if (typeof payload.stage === 'string' && payload.stage) return `Moved to ${LEAD_STAGE_LABEL[payload.stage] || payload.stage.replace(/_/g, ' ')}`;
   return 'Activity recorded';
 }
 
@@ -54,6 +58,18 @@ export function LeadDetailPanel({ companyId, lead, assignableUsers, staleLeadCou
   const [taskOwner, setTaskOwner] = useState('');
   const [taskDueAt, setTaskDueAt] = useState('');
   const [taskNote, setTaskNote] = useState('');
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskStatusFilter, setTaskStatusFilter] = useState('all');
+  const [taskDateFrom, setTaskDateFrom] = useState('');
+  const [taskDateTo, setTaskDateTo] = useState('');
+  const [taskPage, setTaskPage] = useState(1);
+  const [taskPageSize, setTaskPageSize] = useState(10);
+  const [activityTypeFilter, setActivityTypeFilter] = useState('all');
+  const [activityDateFrom, setActivityDateFrom] = useState('');
+  const [activityDateTo, setActivityDateTo] = useState('');
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityPageSize, setActivityPageSize] = useState(10);
 
   const activitiesQuery = useCrmLeadActivities(lead?.id);
   const tasksQuery = useCrmLeadTasks(lead?.id);
@@ -64,10 +80,26 @@ export function LeadDetailPanel({ companyId, lead, assignableUsers, staleLeadCou
   const createTask = useCreateCrmLeadTask(companyId);
   const updateTaskStatus = useUpdateCrmLeadTaskStatus(companyId);
 
-  const activities = activitiesQuery.data || [];
-  const tasks = tasksQuery.data || [];
+  const activities = useMemo(() => activitiesQuery.data || [], [activitiesQuery.data]);
+  const tasks = useMemo(() => tasksQuery.data || [], [tasksQuery.data]);
   const openTaskCount = tasks.filter((task) => task.status === 'open').length;
   const overdueTaskCount = tasks.filter(isTaskOverdue).length;
+  const matchesDateRange = (value: string, from: string, to: string) => {
+    const timestamp = new Date(value).getTime();
+    return (!from || timestamp >= new Date(`${from}T00:00:00`).getTime())
+      && (!to || timestamp <= new Date(`${to}T23:59:59.999`).getTime());
+  };
+  const filteredTasks = useMemo(() => tasks.filter((task) => (
+    (taskStatusFilter === 'all' || task.status === taskStatusFilter)
+    && matchesDateRange(task.due_at, taskDateFrom, taskDateTo)
+  )), [taskDateFrom, taskDateTo, taskStatusFilter, tasks]);
+  const filteredActivities = useMemo(() => activities.filter((activity) => (
+    (activityTypeFilter === 'all' || activity.activity_type === activityTypeFilter)
+    && matchesDateRange(activity.occurred_at, activityDateFrom, activityDateTo)
+  )), [activities, activityDateFrom, activityDateTo, activityTypeFilter]);
+  const taskRows = filteredTasks.slice((taskPage - 1) * taskPageSize, taskPage * taskPageSize);
+  const activityRows = filteredActivities.slice((activityPage - 1) * activityPageSize, activityPage * activityPageSize);
+  const activityTypes = useMemo(() => Array.from(new Set(activities.map((activity) => activity.activity_type))), [activities]);
 
   useEffect(() => {
     if (!taskDueAt) {
@@ -80,6 +112,9 @@ export function LeadDetailPanel({ companyId, lead, assignableUsers, staleLeadCou
   useEffect(() => {
     setTaskOwner(lead?.assigned_to || '');
   }, [lead?.assigned_to, lead?.id]);
+
+  useEffect(() => setTaskPage(1), [lead?.id, taskStatusFilter, taskDateFrom, taskDateTo, taskPageSize]);
+  useEffect(() => setActivityPage(1), [lead?.id, activityTypeFilter, activityDateFrom, activityDateTo, activityPageSize]);
 
   const isWorking = assignLead.isPending || updateLeadStage.isPending || convertLead.isPending
     || createNote.isPending || createTask.isPending || updateTaskStatus.isPending;
@@ -101,33 +136,16 @@ export function LeadDetailPanel({ companyId, lead, assignableUsers, staleLeadCou
   return (
     <div className="space-y-4">
       <Card className="border-cyan-500/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Users className="h-4 w-4 text-cyan-600" />Lead Intelligence Panel</CardTitle>
-          <CardDescription>Assign, convert, add notes, and execute follow-up tasks.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="rounded-lg border border-border/60 p-3">
-            <div className="mb-3 flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Avatar className="h-9 w-9 border border-border/80"><AvatarFallback>{(lead.contact_name || 'LD').slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
-                <div>
-                  <p className="text-sm font-semibold">{lead.contact_name || 'Lead'}</p>
-                  <p className="text-xs text-muted-foreground">{lead.contact_phone || lead.contact_email || 'No phone or email'}</p>
-                </div>
-              </div>
-              <Badge variant="outline">{lead.priority}</Badge>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-md border p-2"><p className="text-muted-foreground">Score</p><p className="font-medium">{lead.score || 0}</p></div>
-              <div className="rounded-md border p-2"><p className="text-muted-foreground">Last activity</p><p className="font-medium">{formatRelativeTime(lead.last_activity_at)}</p></div>
-              <div className="rounded-md border p-2"><p className="text-muted-foreground">Status</p><p className="font-medium">{lead.status}</p></div>
-              <div className="rounded-md border p-2"><p className="text-muted-foreground">Listing</p><p className="truncate font-medium">{lead.listing_title || 'No listing'}</p></div>
-            </div>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3"><Avatar className="h-10 w-10 border border-border/80"><AvatarFallback>{(lead.contact_name || 'LD').slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><div className="min-w-0"><CardTitle className="flex items-center gap-2 text-base"><Users className="h-4 w-4 text-cyan-600" />{lead.contact_name || 'Lead'}</CardTitle><CardDescription className="truncate">{lead.contact_phone || lead.contact_email || 'No phone or email'} · {lead.listing_title || 'No listing linked'}</CardDescription></div></div>
+            <div className="flex items-center gap-2"><Badge variant="outline" className="capitalize">{lead.priority}</Badge><Badge variant="secondary" className="capitalize">{lead.status}</Badge><Badge>Score {lead.score || 0}</Badge></div>
           </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div className="rounded-lg border p-3">
-              <p className="mb-1 text-xs uppercase text-muted-foreground">Assign owner</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1fr_auto]">
+            <div>
+              <p className="mb-1 text-[11px] uppercase text-muted-foreground">Owner</p>
               <Select value={lead.assigned_to || 'unassigned'} onValueChange={(value) => assignLead.mutate({ leadId: lead.id, assigneeUserId: value === 'unassigned' ? null : value, actorUserId: user?.id })} disabled={isWorking}>
                 <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -136,41 +154,22 @@ export function LeadDetailPanel({ companyId, lead, assignableUsers, staleLeadCou
                 </SelectContent>
               </Select>
             </div>
-            <div className="rounded-lg border p-3">
-              <p className="mb-1 text-xs uppercase text-muted-foreground">Advance stage</p>
+            <div>
+              <p className="mb-1 text-[11px] uppercase text-muted-foreground">Stage</p>
               <Select value={lead.stage} onValueChange={(stage) => updateLeadStage.mutate({ leadId: lead.id, stage })} disabled={isWorking}>
                 <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>{LEAD_STAGE_ORDER.map((stage) => <SelectItem key={stage} value={stage}>{LEAD_STAGE_LABEL[stage]}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <div className="flex items-end gap-2"><Button size="sm" variant="outline" onClick={() => setNoteDialogOpen(true)}><MessageSquareText className="mr-1.5 h-3.5 w-3.5" />Note</Button><Button size="sm" variant="outline" onClick={() => setTaskDialogOpen(true)}><Plus className="mr-1.5 h-3.5 w-3.5" />Task</Button><Button size="sm" disabled={convertLead.isPending || lead.stage === 'converted'} onClick={() => convertLead.mutate({ leadId: lead.id })}><Rocket className="mr-1.5 h-3.5 w-3.5" />Convert</Button></div>
           </div>
+          <div className="grid grid-cols-2 gap-3 border-t border-border/60 pt-3 text-xs sm:grid-cols-4"><div><p className="text-muted-foreground">Last activity</p><p className="mt-1 font-semibold">{formatRelativeTime(lead.last_activity_at)}</p></div><div><p className="text-muted-foreground">Open tasks</p><p className="mt-1 font-semibold">{openTaskCount}</p></div><div><p className="text-muted-foreground">Overdue</p><p className="mt-1 font-semibold text-rose-600">{overdueTaskCount}</p></div><div><p className="text-muted-foreground">Stale pipeline</p><p className="mt-1 font-semibold text-amber-600">{staleLeadCount}</p></div></div>
+        </CardContent>
+      </Card>
 
-          <div className="rounded-lg border p-3">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-xs uppercase text-muted-foreground">Quick actions</p>
-              <Button size="sm" disabled={convertLead.isPending || lead.stage === 'converted'} onClick={() => convertLead.mutate({ leadId: lead.id })}>
-                <Rocket className="mr-1.5 h-3.5 w-3.5" />Convert Lead
-              </Button>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="rounded-md border p-2"><p className="text-muted-foreground">Open tasks</p><p className="font-semibold">{openTaskCount}</p></div>
-              <div className="rounded-md border p-2"><p className="text-muted-foreground">Overdue</p><p className="font-semibold text-rose-600">{overdueTaskCount}</p></div>
-              <div className="rounded-md border p-2"><p className="text-muted-foreground">Stale leads</p><p className="font-semibold text-amber-600">{staleLeadCount}</p></div>
-            </div>
-          </div>
+      <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}><DialogContent><DialogHeader><DialogTitle>Add lead note</DialogTitle><DialogDescription>Capture context that should remain on this lead’s activity record.</DialogDescription></DialogHeader><Textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} rows={5} placeholder="Budget fit, objections, preferred move-in date..." /><DialogFooter><Button variant="outline" onClick={() => setNoteDialogOpen(false)}>Cancel</Button><Button disabled={createNote.isPending || !noteDraft.trim()} onClick={() => createNote.mutate({ leadId: lead.id, actorUserId: user?.id, note: noteDraft }, { onSuccess: () => { setNoteDraft(''); setNoteDialogOpen(false); } })}><MessageSquareText className="mr-1.5 h-4 w-4" />Save note</Button></DialogFooter></DialogContent></Dialog>
 
-          <div className="rounded-lg border p-3">
-            <p className="mb-2 text-xs uppercase text-muted-foreground">Add note</p>
-            <Textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} rows={3} placeholder="Capture budget fit, objections, or preferred move-in date" />
-            <div className="mt-2 flex justify-end">
-              <Button size="sm" variant="secondary" disabled={createNote.isPending || !noteDraft.trim()} onClick={() => createNote.mutate({ leadId: lead.id, actorUserId: user?.id, note: noteDraft }, { onSuccess: () => setNoteDraft('') })}>
-                <MessageSquareText className="mr-1.5 h-3.5 w-3.5" />Save note
-              </Button>
-            </div>
-          </div>
-
-          <div className="rounded-lg border p-3">
-            <p className="mb-2 text-xs uppercase text-muted-foreground">Create follow-up task</p>
+      <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}><DialogContent><DialogHeader><DialogTitle>Create follow-up task</DialogTitle><DialogDescription>Assign the next action and give it a clear deadline.</DialogDescription></DialogHeader><div className="space-y-3">
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               <Select value={taskOwner} onValueChange={setTaskOwner}>
                 <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Task owner" /></SelectTrigger>
@@ -178,22 +177,15 @@ export function LeadDetailPanel({ companyId, lead, assignableUsers, staleLeadCou
               </Select>
               <input className="h-9 rounded-md border border-input bg-background px-3 text-xs" type="datetime-local" value={taskDueAt} onChange={(event) => setTaskDueAt(event.target.value)} />
             </div>
-            <Textarea value={taskNote} onChange={(event) => setTaskNote(event.target.value)} rows={2} className="mt-2" placeholder="Task notes (optional)" />
-            <div className="mt-2 flex justify-end">
-              <Button size="sm" variant="outline" disabled={createTask.isPending || !taskOwner || !taskDueAt} onClick={() => createTask.mutate({ leadId: lead.id, ownerUserId: taskOwner, dueAt: new Date(taskDueAt).toISOString(), notes: taskNote, taskType: 'follow_up' }, { onSuccess: () => setTaskNote('') })}>
-                <Plus className="mr-1.5 h-3.5 w-3.5" />Add task
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            <Textarea value={taskNote} onChange={(event) => setTaskNote(event.target.value)} rows={3} placeholder="Task notes (optional)" />
+          </div><DialogFooter><Button variant="outline" onClick={() => setTaskDialogOpen(false)}>Cancel</Button><Button disabled={createTask.isPending || !taskOwner || !taskDueAt} onClick={() => createTask.mutate({ leadId: lead.id, ownerUserId: taskOwner, dueAt: new Date(taskDueAt).toISOString(), notes: taskNote, taskType: 'follow_up' }, { onSuccess: () => { setTaskNote(''); setTaskDialogOpen(false); } })}><Plus className="mr-1.5 h-4 w-4" />Add task</Button></DialogFooter></DialogContent></Dialog>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><CheckSquare className="h-4 w-4" />Lead Tasks</CardTitle><CardDescription>SLA execution for this lead.</CardDescription></CardHeader>
-          <CardContent className="space-y-2">
-            {tasks.map((task) => (
-              <div key={task.id} className={cn('rounded-lg border p-3', isTaskOverdue(task) && 'border-rose-500/40 bg-rose-500/5')}>
+          <CardHeader className="pb-3"><div className="flex items-start justify-between gap-3"><div><CardTitle className="flex items-center gap-2 text-base"><CheckSquare className="h-4 w-4" />Lead Tasks</CardTitle><CardDescription>SLA execution for this lead.</CardDescription></div><Button size="sm" variant="ghost" onClick={() => { setTaskStatusFilter('all'); setTaskDateFrom(''); setTaskDateTo(''); }}>View all</Button></div></CardHeader>
+          <CardContent className="space-y-3"><div className="grid grid-cols-1 gap-2 sm:grid-cols-3"><select aria-label="Task status" className="h-9 rounded-md border border-input bg-background px-2 text-xs" value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value)}><option value="all">All status</option><option value="open">Open</option><option value="done">Completed</option><option value="canceled">Canceled</option></select><Input aria-label="Tasks due from" type="date" value={taskDateFrom} onChange={(event) => setTaskDateFrom(event.target.value)} /><Input aria-label="Tasks due to" type="date" value={taskDateTo} onChange={(event) => setTaskDateTo(event.target.value)} /></div><div className="overflow-hidden rounded-lg border border-border/70"><div className="divide-y divide-border/60">
+            {taskRows.map((task) => (
+              <div key={task.id} className={cn('p-3', isTaskOverdue(task) && 'bg-rose-500/5')}>
                 <div className="flex items-start justify-between gap-2">
                   <div><p className="text-sm font-medium">{task.task_type}</p><p className="text-xs text-muted-foreground">Due {new Date(task.due_at).toLocaleString()}</p>{task.notes && <p className="mt-1 text-xs text-muted-foreground">{task.notes}</p>}</div>
                   <Badge variant={task.status === 'done' ? 'default' : task.status === 'canceled' ? 'outline' : 'secondary'}>{task.status}</Badge>
@@ -204,18 +196,20 @@ export function LeadDetailPanel({ companyId, lead, assignableUsers, staleLeadCou
                 </div>
               </div>
             ))}
-            {!tasksQuery.isLoading && tasks.length === 0 && <p className="text-sm text-muted-foreground">No tasks for this lead yet.</p>}
+            {!tasksQuery.isLoading && filteredTasks.length === 0 && <p className="p-4 text-sm text-muted-foreground">No tasks match this view.</p>}
+            </div>{filteredTasks.length > 0 && <TablePagination page={taskPage} pageSize={taskPageSize} total={filteredTasks.length} onPageChange={setTaskPage} onPageSizeChange={setTaskPageSize} />}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock3 className="h-4 w-4" />Activity Timeline</CardTitle><CardDescription>Full contact and internal activity trace.</CardDescription></CardHeader>
-          <CardContent className="space-y-2">
-            {activities.map((activity) => (
-              <div key={activity.id} className="rounded-lg border p-3">
+          <CardHeader className="pb-3"><div className="flex items-start justify-between gap-3"><div><CardTitle className="flex items-center gap-2 text-base"><Clock3 className="h-4 w-4" />Activity Timeline</CardTitle><CardDescription>Full contact and internal activity trace.</CardDescription></div><Button size="sm" variant="ghost" onClick={() => { setActivityTypeFilter('all'); setActivityDateFrom(''); setActivityDateTo(''); }}>View all</Button></div></CardHeader>
+          <CardContent className="space-y-3"><div className="grid grid-cols-1 gap-2 sm:grid-cols-3"><select aria-label="Activity type" className="h-9 rounded-md border border-input bg-background px-2 text-xs" value={activityTypeFilter} onChange={(event) => setActivityTypeFilter(event.target.value)}><option value="all">All activity</option>{activityTypes.map((type) => <option key={type} value={type}>{type.replace(/_/g, ' ')}</option>)}</select><Input aria-label="Activities from date" type="date" value={activityDateFrom} onChange={(event) => setActivityDateFrom(event.target.value)} /><Input aria-label="Activities to date" type="date" value={activityDateTo} onChange={(event) => setActivityDateTo(event.target.value)} /></div><div className="overflow-hidden rounded-lg border border-border/70"><div className="divide-y divide-border/60">
+            {activityRows.map((activity) => (
+              <div key={activity.id} className="p-3">
                 <div className="flex items-start justify-between gap-2"><div><p className="text-sm font-medium capitalize">{activity.activity_type.replace('_', ' ')}</p><p className="text-xs text-muted-foreground">{activityMessage(activity.payload_json)}</p></div><p className="text-[11px] text-muted-foreground">{formatRelativeTime(activity.occurred_at)}</p></div>
               </div>
             ))}
-            {!activitiesQuery.isLoading && activities.length === 0 && <p className="text-sm text-muted-foreground">No activities logged yet.</p>}
+            {!activitiesQuery.isLoading && filteredActivities.length === 0 && <p className="p-4 text-sm text-muted-foreground">No activities match this view.</p>}
+            </div>{filteredActivities.length > 0 && <TablePagination page={activityPage} pageSize={activityPageSize} total={filteredActivities.length} onPageChange={setActivityPage} onPageSizeChange={setActivityPageSize} />}</div>
           </CardContent>
         </Card>
       </div>
