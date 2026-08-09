@@ -408,7 +408,6 @@ export type Database = {
           created_at: string | null
           email: string | null
           id: string
-          is_verified: boolean | null
           logo_url: string | null
           name: string
           owner_id: string
@@ -420,7 +419,6 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
-          is_verified?: boolean | null
           logo_url?: string | null
           name: string
           owner_id: string
@@ -432,7 +430,6 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
-          is_verified?: boolean | null
           logo_url?: string | null
           name?: string
           owner_id?: string
@@ -6447,7 +6444,6 @@ export type Database = {
           company_id: string
           company_name: string
           company_phone: string
-          is_verified: boolean
           occupancy_rate: number
           occupied_unit_count: number
           open_maintenance_count: number

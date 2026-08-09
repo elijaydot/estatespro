@@ -28,7 +28,6 @@ function emptyCompanyAdminSnapshot(companyId: string | null): CompanyAdminSnapsh
       owner_id: null,
       created_at: null,
       updated_at: null,
-      is_verified: null,
     },
     portfolio: {
       property_count: 0,
@@ -207,7 +206,6 @@ export type CompanyAdminSnapshot = {
     owner_id: string | null;
     created_at: string | null;
     updated_at: string | null;
-    is_verified: boolean | null;
   };
   portfolio: {
     property_count: number;

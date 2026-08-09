@@ -78,6 +78,9 @@ export interface ManagedMarketplaceListing {
   area: string | null;
   rent_amount: number;
   currency: string;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  cover_media_path: string | null;
   published_at: string | null;
   inquiry_count: number;
   created_at: string;
@@ -139,6 +142,18 @@ export interface PublisherVerification {
   last_submitted_at: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface PublisherAutoTrustEvaluation {
+  verification_id: string;
+  state: PublisherVerification['state'];
+  auto_qualified: boolean;
+  has_tenancy_history: boolean;
+  has_active_paid_plan: boolean;
+  property_count: number;
+  account_age_days: number;
+  min_account_age_days: number;
+  verified_at: string | null;
 }
 
 export interface VerificationDocument {
@@ -973,6 +988,14 @@ export function useToggleMarketplacePublish(companyId?: string | null) {
       listingId: string;
       publish: boolean;
     }) => {
+      if (publish) {
+        if (!companyId) throw new Error('Active company is required');
+        const { error: trustError } = await supabase.rpc('evaluate_publisher_auto_trust' as never, {
+          p_company_id: companyId,
+        } as never);
+        if (trustError) throw trustError;
+      }
+
       const status = publish ? 'live' : 'paused';
       const payload: ListingPublishUpdatePayload = {
         status,
@@ -1116,6 +1139,28 @@ export function usePublisherVerification(companyId?: string | null) {
       return (data || null) as PublisherVerification | null;
     },
     enabled: !!companyId,
+  });
+}
+
+export function useEvaluatePublisherAutoTrust(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!companyId) throw new Error('Active company is required');
+      const { data, error } = await supabase.rpc('evaluate_publisher_auto_trust' as never, {
+        p_company_id: companyId,
+      } as never);
+      if (error) throw error;
+      return ((data as unknown as PublisherAutoTrustEvaluation[]) || [])[0] || null;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'publisher-verification', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'managed-listings', companyId] });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Trust evaluation failed', description: error.message, variant: 'destructive' });
+    },
   });
 }
 
@@ -1281,6 +1326,60 @@ export function useReviewerPublisherVerificationQueue(companyId?: string | null)
         };
       }) as ReviewerPublisherVerificationQueueItem[];
     },
+  });
+}
+
+export function useReviewerAutoVerifiedPublishers(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'reviewer-auto-verified', companyId || 'all'],
+    queryFn: async () => {
+      let query = supabase
+        .from('publisher_verifications')
+        .select('id, company_id, state, last_submitted_at, rejection_reason, verified_by, verified_at, companies:company_id(name)')
+        .eq('state', 'verified')
+        .is('verified_by', null)
+        .order('verified_at', { ascending: false })
+        .limit(300);
+
+      if (companyId) query = query.eq('company_id', companyId);
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return ((data || []) as Array<Record<string, unknown>>).map((row) => {
+        const company = row.companies as { name?: string } | null;
+        return {
+          id: String(row.id),
+          company_id: String(row.company_id),
+          company_name: company?.name || 'Unknown company',
+          state: row.state as PublisherVerification['state'],
+          last_submitted_at: String(row.last_submitted_at),
+          rejection_reason: null,
+          verified_by: null,
+          verified_at: (row.verified_at as string | null) || null,
+        } satisfies ReviewerPublisherVerificationQueueItem;
+      });
+    },
+  });
+}
+
+export function useRevokePublisherVerification(companyId?: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ verificationId, reason }: { verificationId: string; reason: string }) => {
+      const { error } = await supabase.rpc('revoke_publisher_verification_to_manual_review' as never, {
+        p_verification_id: verificationId,
+        p_reason: reason,
+      } as never);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'reviewer-auto-verified'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'reviewer-publisher-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'reviewer-publisher-history'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'managed-listings', companyId] });
+      toast({ title: 'Publisher sent to manual review', description: 'Trust was revoked and the reason was logged.' });
+    },
+    onError: (error: Error) => toast({ title: 'Trust revocation failed', description: error.message, variant: 'destructive' }),
   });
 }
 

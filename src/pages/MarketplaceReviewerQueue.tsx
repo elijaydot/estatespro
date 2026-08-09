@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,8 @@ import {
   useReviewerDecisionOnPublisherVerification,
   useReviewerDecisionOnVerificationDocument,
   useIsInternalMarketplaceReviewer,
+  useRevokePublisherVerification,
+  useReviewerAutoVerifiedPublishers,
   useReviewerModerationCaseHistory,
   useReviewerModerationCaseQueue,
   useReviewerProfiles,
@@ -45,7 +47,7 @@ export default function MarketplaceReviewerQueue() {
   const reviewerAccessQuery = useIsInternalMarketplaceReviewer(user?.id);
 
   const [scopeAllCompanies, setScopeAllCompanies] = useState(true);
-  const [activeQueue, setActiveQueue] = useState<'publishers' | 'documents' | 'moderation' | 'history'>('publishers');
+  const [activeQueue, setActiveQueue] = useState<'publishers' | 'auto_verified' | 'documents' | 'moderation' | 'history'>('publishers');
   const [search, setSearch] = useState('');
   const [publisherSlaFilter, setPublisherSlaFilter] = useState<'all' | 'healthy' | 'warning' | 'critical'>('all');
   const [documentSlaFilter, setDocumentSlaFilter] = useState<'all' | 'healthy' | 'warning' | 'critical'>('all');
@@ -62,12 +64,14 @@ export default function MarketplaceReviewerQueue() {
   const scopedCompanyId = scopeAllCompanies ? null : activeCompanyId;
 
   const publisherQueue = useReviewerPublisherVerificationQueue(scopedCompanyId);
+  const autoVerifiedQueue = useReviewerAutoVerifiedPublishers(scopedCompanyId);
   const documentQueue = useReviewerVerificationDocumentQueue(scopedCompanyId);
   const moderationQueue = useReviewerModerationCaseQueue(scopedCompanyId);
   const publisherHistory = useReviewerPublisherDecisionHistory(scopedCompanyId);
   const documentHistory = useReviewerVerificationDocumentHistory(scopedCompanyId);
   const moderationHistory = useReviewerModerationCaseHistory(scopedCompanyId);
   const reviewPublisher = useReviewerDecisionOnPublisherVerification(scopedCompanyId);
+  const revokePublisher = useRevokePublisherVerification(scopedCompanyId);
   const reviewDocument = useReviewerDecisionOnVerificationDocument();
   const updateModerationState = useUpdateModerationCaseState(scopedCompanyId);
 
@@ -110,12 +114,12 @@ export default function MarketplaceReviewerQueue() {
     return map;
   }, [reviewerProfiles.data]);
 
-  const resolveReviewerLabel = (reviewerId?: string | null) => {
+  const resolveReviewerLabel = useCallback((reviewerId?: string | null) => {
     if (!reviewerId) return 'Unknown reviewer';
     const profile = reviewerMap.get(reviewerId);
     if (!profile) return reviewerId;
     return `${profile.name} (${profile.email})`;
-  };
+  }, [reviewerMap]);
 
   const publisherRows = useMemo(() => {
     const rows = publisherQueue.data || [];
@@ -200,6 +204,8 @@ export default function MarketplaceReviewerQueue() {
 
   const activeQueueError = activeQueue === 'publishers'
     ? publisherQueue.error
+    : activeQueue === 'auto_verified'
+      ? autoVerifiedQueue.error
     : activeQueue === 'documents'
       ? documentQueue.error
       : activeQueue === 'moderation'
@@ -207,6 +213,7 @@ export default function MarketplaceReviewerQueue() {
         : publisherHistory.error || documentHistory.error || moderationHistory.error;
   const retryActiveQueue = () => {
     if (activeQueue === 'publishers') void publisherQueue.refetch();
+    else if (activeQueue === 'auto_verified') void autoVerifiedQueue.refetch();
     else if (activeQueue === 'documents') void documentQueue.refetch();
     else if (activeQueue === 'moderation') void moderationQueue.refetch();
     else void Promise.all([publisherHistory.refetch(), documentHistory.refetch(), moderationHistory.refetch()]);
@@ -223,6 +230,8 @@ export default function MarketplaceReviewerQueue() {
       actor: reviewer ? `${reviewer.name} (${reviewer.email})` : row.reviewed_by || 'Unknown reviewer',
       at: row.reviewed_at,
       reason: row.rejection_reason,
+      verificationId: row.id,
+      revocable: row.state === 'verified',
       };
     });
 
@@ -236,6 +245,8 @@ export default function MarketplaceReviewerQueue() {
       actor: reviewer ? `${reviewer.name} (${reviewer.email})` : row.reviewed_by || 'Unknown reviewer',
       at: row.reviewed_at,
       reason: row.rejection_reason,
+      verificationId: null,
+      revocable: false,
       };
     });
 
@@ -247,13 +258,15 @@ export default function MarketplaceReviewerQueue() {
       actor: resolveReviewerLabel(row.resolved_by),
       at: row.resolved_at,
       reason: row.resolution_notes,
+      verificationId: null,
+      revocable: false,
     }));
 
     return [...publisherEvents, ...documentEvents, ...moderationEvents]
       .filter((event) => matchesDecisionFilter(event.decision, auditDecisionFilter))
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
       .slice(0, 200);
-  }, [publisherHistory.data, documentHistory.data, moderationHistory.data, reviewerMap, auditDecisionFilter]);
+  }, [publisherHistory.data, documentHistory.data, moderationHistory.data, reviewerMap, auditDecisionFilter, resolveReviewerLabel]);
 
   const visibleAuditTrail = useMemo(
     () => sliceRows(auditTrail, auditVisibleCount),
@@ -349,6 +362,7 @@ export default function MarketplaceReviewerQueue() {
       <Tabs value={activeQueue} onValueChange={(value) => setActiveQueue(value as typeof activeQueue)} className="space-y-4">
         <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto p-1">
           <TabsTrigger value="publishers">Publishers <Badge variant="secondary" className="ml-2">{filteredPublisherRows.length}</Badge></TabsTrigger>
+          <TabsTrigger value="auto_verified">Auto-verified <Badge variant="secondary" className="ml-2">{autoVerifiedQueue.data?.length ?? 0}</Badge></TabsTrigger>
           <TabsTrigger value="documents">Documents <Badge variant="secondary" className="ml-2">{filteredDocumentRows.length}</Badge></TabsTrigger>
           <TabsTrigger value="moderation">Moderation <Badge variant="secondary" className="ml-2">{filteredModerationRows.length}</Badge></TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
@@ -427,7 +441,7 @@ export default function MarketplaceReviewerQueue() {
           ))}
 
           {!publisherQueue.isLoading && filteredPublisherRows.length === 0 && (
-            <EmptyState icon={Building2} title="No publisher verifications" description="No publisher records match the current queue filters." />
+            <EmptyState icon={Building2} title="No manual reviews pending" description="Most publishers are verified automatically from account history." />
           )}
           {filteredPublisherRows.length > visiblePublisherRows.length ? (
             <div className="pt-2">
@@ -445,6 +459,46 @@ export default function MarketplaceReviewerQueue() {
           ) : null}
         </CardContent>
       </Card>
+      </TabsContent>
+
+      <TabsContent value="auto_verified" className={activeQueueError ? 'hidden' : undefined}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Automatic Trust Decisions</CardTitle>
+            <CardDescription>Read-only system decisions from account history. Revoke trust only when abuse or moderation evidence requires manual review.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(autoVerifiedQueue.data || []).map((row) => (
+              <div key={row.id} className="rounded-lg border border-border/70 p-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium">{row.company_name}</p>
+                    <p className="text-xs text-muted-foreground">System verified {row.verified_at ? new Date(row.verified_at).toLocaleString() : 'automatically'} · No human reviewer</p>
+                  </div>
+                  <Badge variant="outline"><ShieldCheck className="mr-1 h-3.5 w-3.5" /> Auto-verified</Badge>
+                </div>
+                <Input
+                  className="mt-3"
+                  placeholder="Reason required to revoke trust"
+                  value={verificationReasons[row.id] || ''}
+                  onChange={(event) => setVerificationReasons((current) => ({ ...current, [row.id]: event.target.value }))}
+                />
+                <Button
+                  className="mt-2"
+                  size="sm"
+                  variant="destructive"
+                  disabled={revokePublisher.isPending || !(verificationReasons[row.id] || '').trim()}
+                  onClick={() => revokePublisher.mutate({ verificationId: row.id, reason: verificationReasons[row.id] || '' })}
+                >
+                  Revoke and send to manual review
+                </Button>
+              </div>
+            ))}
+            {!autoVerifiedQueue.isLoading && (autoVerifiedQueue.data || []).length === 0 && (
+              <EmptyState icon={ShieldCheck} title="No automatic decisions yet" description="Publishers qualified from account history will appear here for audit." />
+            )}
+          </CardContent>
+        </Card>
       </TabsContent>
 
       <TabsContent value="documents" className={activeQueueError ? 'hidden' : undefined}>
@@ -623,6 +677,22 @@ export default function MarketplaceReviewerQueue() {
               <p className="mt-1 text-xs text-muted-foreground">Reviewed by: {event.actor}</p>
               <p className="text-xs text-muted-foreground">At: {new Date(event.at).toLocaleString()}</p>
               {event.reason ? <p className="text-xs text-muted-foreground">Reason: {event.reason}</p> : null}
+              {event.revocable && event.verificationId ? (
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    placeholder="Reason required to revoke trust"
+                    value={verificationReasons[event.id] || ''}
+                    onChange={(changeEvent) => setVerificationReasons((current) => ({ ...current, [event.id]: changeEvent.target.value }))}
+                  />
+                  <Button
+                    variant="destructive"
+                    disabled={revokePublisher.isPending || !(verificationReasons[event.id] || '').trim()}
+                    onClick={() => revokePublisher.mutate({ verificationId: event.verificationId!, reason: verificationReasons[event.id] || '' })}
+                  >
+                    Revoke and send to manual review
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ))}
 

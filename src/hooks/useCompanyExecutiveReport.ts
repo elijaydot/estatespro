@@ -8,7 +8,6 @@ export interface CompanyExecutiveReportRow {
   company_email: string | null;
   company_phone: string | null;
   company_address: string | null;
-  is_verified: boolean;
   access_role: 'owner' | 'property_manager' | 'super_admin';
   property_count: number;
   unit_count: number;

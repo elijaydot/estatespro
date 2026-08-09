@@ -83,7 +83,6 @@ function ExecutiveCompanyDrilldown({
           <h3 className="font-semibold">{row.company_name}</h3>
           <p className="text-sm text-muted-foreground">{[row.company_address, row.company_phone, row.company_email].filter(Boolean).join(' · ') || 'No contact details recorded'}</p>
         </div>
-        <Badge variant={row.is_verified ? 'default' : 'secondary'}>{row.is_verified ? 'Verified' : 'Not verified'}</Badge>
       </div>
       <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
         <div><p className="text-xs text-muted-foreground">Portfolio</p><p className="font-medium">{row.property_count} properties, {row.unit_count} units</p></div>
@@ -224,8 +223,8 @@ export default function Reports() {
     if (activeReport === 'executive') {
       fileName = 'all-companies-executive-report';
       csvContent = rowsToCsv(
-        ['Company', 'Access', 'Email', 'Phone', 'Address', 'Verified', 'Properties', 'Units', 'Occupied Units', 'Occupancy Rate', 'Active Tenants', 'Team Members', 'Collected', 'Outstanding', 'Open Maintenance', 'AI Credits Used'],
-        executiveRows.map((row) => [row.company_name, row.access_role, row.company_email ?? '', row.company_phone ?? '', row.company_address ?? '', row.is_verified ? 'Yes' : 'No', row.property_count, row.unit_count, row.occupied_unit_count, `${row.occupancy_rate}%`, row.active_tenant_count, row.team_member_count, row.total_collected, row.outstanding_balance, row.open_maintenance_count, row.ai_credits_used ?? 'Restricted']),
+        ['Company', 'Access', 'Email', 'Phone', 'Address', 'Properties', 'Units', 'Occupied Units', 'Occupancy Rate', 'Active Tenants', 'Team Members', 'Collected', 'Outstanding', 'Open Maintenance', 'AI Credits Used'],
+        executiveRows.map((row) => [row.company_name, row.access_role, row.company_email ?? '', row.company_phone ?? '', row.company_address ?? '', row.property_count, row.unit_count, row.occupied_unit_count, `${row.occupancy_rate}%`, row.active_tenant_count, row.team_member_count, row.total_collected, row.outstanding_balance, row.open_maintenance_count, row.ai_credits_used ?? 'Restricted']),
       );
     } else if (activeReport === 'rent-roll') {
       fileName = 'rent-roll';

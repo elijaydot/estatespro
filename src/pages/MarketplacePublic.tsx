@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { BedDouble, Bath, Building2, ChevronLeft, ChevronRight, Heart, Loader2, MapPin, Search } from 'lucide-react';
+import { BedDouble, Bath, Building2, ChevronLeft, ChevronRight, Heart, Loader2, MapPin, Search, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -353,6 +353,9 @@ export default function MarketplacePublic() {
                         <span className="inline-flex items-center gap-1"><BedDouble className="h-3.5 w-3.5" /> {listing.bedrooms ?? '-'} bed</span>
                         <span className="inline-flex items-center gap-1"><Bath className="h-3.5 w-3.5" /> {listing.bathrooms ?? '-'} bath</span>
                       </div>
+                      {listing.verification_state === 'verified' && (
+                        <Badge variant="secondary" className="mt-2 gap-1"><ShieldCheck className="h-3.5 w-3.5" /> Verified publisher</Badge>
+                      )}
                     </div>
                   );
                 })}
@@ -388,7 +391,7 @@ export default function MarketplacePublic() {
                   <div className="space-y-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge>{detail.currency} {Number(detail.rent_amount || 0).toLocaleString()}</Badge>
-                      <Badge variant="outline">{detail.verification_state}</Badge>
+                      {detail.verification_state === 'verified' && <Badge variant="secondary" className="gap-1"><ShieldCheck className="h-3.5 w-3.5" /> Verified publisher</Badge>}
                     </div>
 
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
