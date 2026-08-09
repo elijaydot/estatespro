@@ -9,6 +9,12 @@ verify_jwt = false
 [functions.check-lease-renewals]
 verify_jwt = false
 
+[functions.check-trial-expirations]
+verify_jwt = false
+
+[functions.send-trial-expiry-notice]
+verify_jwt = false
+
 [functions.evaluate-operational-alerts]
 verify_jwt = true
 

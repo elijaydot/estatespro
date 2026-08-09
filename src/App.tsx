@@ -98,6 +98,8 @@ const MarketplaceCrmDocuments = lazy(() => import("./pages/marketplace-crm/Docum
 const MarketplaceCrmVisits = lazy(() => import("./pages/marketplace-crm/Visits"));
 const MarketplaceCrmProjects = lazy(() => import("./pages/marketplace-crm/Projects"));
 const SuperAdminControlPlane = lazy(() => import("./pages/SuperAdminControlPlane"));
+const CatalogManagement = lazy(() => import("./pages/CatalogManagement"));
+const Upgrade = lazy(() => import("./pages/Upgrade"));
 
 const queryClient = new QueryClient();
 
@@ -551,9 +553,11 @@ function AppRoutes() {
       <Route path="/vendors/:id" element={<PrivateRoute>{withSuspense(<VendorDetail />)}</PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute>{withSuspense(<Reports />)}</PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute>{withSuspense(<Settings />)}</PrivateRoute>} />
+      <Route path="/upgrade" element={<PrivateRoute>{withSuspense(<Upgrade />)}</PrivateRoute>} />
       <Route path="/support" element={<PrivateRoute>{withSuspense(<HelpSupport />)}</PrivateRoute>} />
       <Route path="/broadcasts" element={<PrivateRoute>{withSuspense(<Broadcasts />)}</PrivateRoute>} />
       <Route path="/super-admin/control-plane" element={<SuperAdminRoute>{withSuspense(<SuperAdminControlPlane />)}</SuperAdminRoute>} />
+      <Route path="/super-admin/catalog" element={<SuperAdminRoute>{withSuspense(<CatalogManagement />)}</SuperAdminRoute>} />
 
       <Route path="/tenant/login" element={withSuspense(<TenantLogin />)} />
       <Route path="/tenant/signup" element={withSuspense(<TenantSignup />)} />

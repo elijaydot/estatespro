@@ -32,6 +32,7 @@ import {
   Wallet,
   Lock,
   Radar,
+  LayoutGrid,
   CircleHelp,
   BriefcaseBusiness,
 } from 'lucide-react';
@@ -161,7 +162,10 @@ const superAdminSection: NavSection = {
   title: 'Platform',
   icon: Radar,
   workspaceId: 'control-plane',
-  items: [{ icon: Radar, label: 'Control Plane', href: '/super-admin/control-plane' }],
+  items: [
+    { icon: Radar, label: 'Control Plane', href: '/super-admin/control-plane' },
+    { icon: LayoutGrid, label: 'Catalog Management', href: '/super-admin/catalog' },
+  ],
 };
 
 const bottomNavItems = [
