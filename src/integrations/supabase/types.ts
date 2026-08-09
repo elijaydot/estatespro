@@ -521,12 +521,12 @@ export type Database = {
       }
       crm_accounts: {
         Row: {
-          account_type: string | null
-          annual_revenue: number | null
+          account_kind: string
           company_id: string
           created_at: string
           created_by: string | null
           id: string
+          metadata: Json
           name: string
           owner_user_id: string | null
           phone: string | null
@@ -534,12 +534,12 @@ export type Database = {
           website: string | null
         }
         Insert: {
-          account_type?: string | null
-          annual_revenue?: number | null
+          account_kind?: string
           company_id: string
           created_at?: string
           created_by?: string | null
           id?: string
+          metadata?: Json
           name: string
           owner_user_id?: string | null
           phone?: string | null
@@ -547,12 +547,12 @@ export type Database = {
           website?: string | null
         }
         Update: {
-          account_type?: string | null
-          annual_revenue?: number | null
+          account_kind?: string
           company_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
+          metadata?: Json
           name?: string
           owner_user_id?: string | null
           phone?: string | null
@@ -1096,6 +1096,58 @@ export type Database = {
           },
         ]
       }
+      crm_document_comments: {
+        Row: {
+          author_user_id: string
+          body: string
+          company_id: string
+          created_at: string
+          document_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          author_user_id?: string
+          body: string
+          company_id: string
+          created_at?: string
+          document_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          author_user_id?: string
+          body?: string
+          company_id?: string
+          created_at?: string
+          document_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_document_comments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_document_comments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "crm_document_comments_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "crm_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_documents: {
         Row: {
           company_id: string
@@ -1422,6 +1474,7 @@ export type Database = {
       crm_visits: {
         Row: {
           address_text: string | null
+          assigned_to: string | null
           check_in_at: string | null
           check_in_lat: number | null
           check_in_lng: number | null
@@ -1436,11 +1489,13 @@ export type Database = {
           proof_path: string | null
           related_id: string | null
           related_type: string
+          scheduled_at: string | null
           status: string
           updated_at: string
         }
         Insert: {
           address_text?: string | null
+          assigned_to?: string | null
           check_in_at?: string | null
           check_in_lat?: number | null
           check_in_lng?: number | null
@@ -1455,11 +1510,13 @@ export type Database = {
           proof_path?: string | null
           related_id?: string | null
           related_type?: string
+          scheduled_at?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
           address_text?: string | null
+          assigned_to?: string | null
           check_in_at?: string | null
           check_in_lat?: number | null
           check_in_lng?: number | null
@@ -1474,6 +1531,7 @@ export type Database = {
           proof_path?: string | null
           related_id?: string | null
           related_type?: string
+          scheduled_at?: string | null
           status?: string
           updated_at?: string
         }
@@ -1965,6 +2023,7 @@ export type Database = {
           lead_id: string
           phone_e164: string
           preferred_channel: string | null
+          tenant_id: string | null
         }
         Insert: {
           consent_marketing?: boolean
@@ -1975,6 +2034,7 @@ export type Database = {
           lead_id: string
           phone_e164: string
           preferred_channel?: string | null
+          tenant_id?: string | null
         }
         Update: {
           consent_marketing?: boolean
@@ -1985,6 +2045,7 @@ export type Database = {
           lead_id?: string
           phone_e164?: string
           preferred_channel?: string | null
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -1992,6 +2053,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: true
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_contacts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -2090,6 +2158,7 @@ export type Database = {
           last_activity_at: string | null
           listing_id: string | null
           lost_reason: string | null
+          pipeline_kind: string
           priority: string
           score: number
           source: string
@@ -2108,6 +2177,7 @@ export type Database = {
           last_activity_at?: string | null
           listing_id?: string | null
           lost_reason?: string | null
+          pipeline_kind?: string
           priority?: string
           score?: number
           source?: string
@@ -2126,6 +2196,7 @@ export type Database = {
           last_activity_at?: string | null
           listing_id?: string | null
           lost_reason?: string | null
+          pipeline_kind?: string
           priority?: string
           score?: number
           source?: string
@@ -2883,6 +2954,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      marketplace_trust_config: {
+        Row: {
+          min_account_age_days: number
+          singleton: boolean
+        }
+        Insert: {
+          min_account_age_days?: number
+          singleton?: boolean
+        }
+        Update: {
+          min_account_age_days?: number
+          singleton?: boolean
+        }
+        Relationships: []
       }
       message_attachments: {
         Row: {
@@ -3944,6 +4030,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "profiles_default_company_id_fkey"
+            columns: ["default_company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       properties: {
@@ -3959,6 +4052,7 @@ export type Database = {
           image_urls: string[] | null
           name: string
           occupied_units: number
+          owner_account_id: string | null
           state: string
           total_units: number
           type: string
@@ -3978,6 +4072,7 @@ export type Database = {
           image_urls?: string[] | null
           name: string
           occupied_units?: number
+          owner_account_id?: string | null
           state: string
           total_units?: number
           type?: string
@@ -3997,6 +4092,7 @@ export type Database = {
           image_urls?: string[] | null
           name?: string
           occupied_units?: number
+          owner_account_id?: string | null
           state?: string
           total_units?: number
           type?: string
@@ -4018,6 +4114,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "crm_marketplace_funnel_metrics"
             referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "properties_owner_account_id_fkey"
+            columns: ["owner_account_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -4066,6 +4169,67 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      publisher_verification_audit: {
+        Row: {
+          action_type: string
+          actor_user_id: string | null
+          company_id: string
+          created_at: string
+          from_state: string | null
+          id: string
+          metadata: Json
+          reason: string | null
+          to_state: string
+          verification_id: string
+        }
+        Insert: {
+          action_type: string
+          actor_user_id?: string | null
+          company_id: string
+          created_at?: string
+          from_state?: string | null
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          to_state: string
+          verification_id: string
+        }
+        Update: {
+          action_type?: string
+          actor_user_id?: string | null
+          company_id?: string
+          created_at?: string
+          from_state?: string | null
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          to_state?: string
+          verification_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "publisher_verification_audit_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "publisher_verification_audit_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "publisher_verification_audit_verification_id_fkey"
+            columns: ["verification_id"]
+            isOneToOne: false
+            referencedRelation: "publisher_verifications"
             referencedColumns: ["id"]
           },
         ]
@@ -4455,6 +4619,42 @@ export type Database = {
         }
         Relationships: []
       }
+      saas_catalog_change_sets: {
+        Row: {
+          changes: Json
+          created_at: string
+          created_by: string
+          id: string
+          published_at: string | null
+          published_by: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          changes?: Json
+          created_at?: string
+          created_by?: string
+          id?: string
+          published_at?: string | null
+          published_by?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          changes?: Json
+          created_at?: string
+          created_by?: string
+          id?: string
+          published_at?: string | null
+          published_by?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       saas_company_addon_subscriptions: {
         Row: {
           addon_id: string
@@ -4756,6 +4956,7 @@ export type Database = {
           created_at: string
           hard_limit: number
           id: string
+          is_unlimited: boolean
           plan_id: string
           quota_dimension_id: string
           soft_limit: number
@@ -4765,6 +4966,7 @@ export type Database = {
           created_at?: string
           hard_limit: number
           id?: string
+          is_unlimited?: boolean
           plan_id: string
           quota_dimension_id: string
           soft_limit: number
@@ -4774,6 +4976,7 @@ export type Database = {
           created_at?: string
           hard_limit?: number
           id?: string
+          is_unlimited?: boolean
           plan_id?: string
           quota_dimension_id?: string
           soft_limit?: number
@@ -4805,9 +5008,10 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
-          product_id: string
+          product_id: string | null
           sort_order: number
           tier: string
+          trial_days: number
           updated_at: string
         }
         Insert: {
@@ -4818,9 +5022,10 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
-          product_id: string
+          product_id?: string | null
           sort_order?: number
           tier: string
+          trial_days?: number
           updated_at?: string
         }
         Update: {
@@ -4831,9 +5036,10 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
-          product_id?: string
+          product_id?: string | null
           sort_order?: number
           tier?: string
+          trial_days?: number
           updated_at?: string
         }
         Relationships: [
@@ -5633,6 +5839,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          account_id: string | null
           avatar_url: string | null
           balance: number
           created_at: string
@@ -5657,6 +5864,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_id?: string | null
           avatar_url?: string | null
           balance?: number
           created_at?: string
@@ -5681,6 +5889,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_id?: string | null
           avatar_url?: string | null
           balance?: number
           created_at?: string
@@ -5705,6 +5914,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tenants_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tenants_property_id_fkey"
             columns: ["property_id"]
@@ -6429,6 +6645,20 @@ export type Database = {
         Args: { p_company_id?: string }
         Returns: Json
       }
+      evaluate_publisher_auto_trust: {
+        Args: { p_company_id: string }
+        Returns: {
+          account_age_days: number
+          auto_qualified: boolean
+          has_active_paid_plan: boolean
+          has_tenancy_history: boolean
+          min_account_age_days: number
+          property_count: number
+          state: string
+          verification_id: string
+          verified_at: string
+        }[]
+      }
       generate_crm_followup_tasks: {
         Args: { p_company_id: string }
         Returns: number
@@ -6462,8 +6692,11 @@ export type Database = {
         Args: { p_company_id: string }
         Returns: {
           area: string
+          bathrooms: number
+          bedrooms: number
           city: string
           company_id: string
+          cover_media_path: string
           created_at: string
           currency: string
           id: string
@@ -6690,6 +6923,10 @@ export type Database = {
           p_title: string
         }
         Returns: string
+      }
+      platform_get_company_admin_snapshot: {
+        Args: { p_company_id: string }
+        Returns: Json
       }
       platform_get_risk_queue: {
         Args: { p_company_id?: string; p_limit?: number }
@@ -6926,6 +7163,10 @@ export type Database = {
         Args: { p_entity_id: string; p_entity_type: string }
         Returns: string
       }
+      revoke_publisher_verification_to_manual_review: {
+        Args: { p_reason: string; p_verification_id: string }
+        Returns: undefined
+      }
       saas_adjust_usage_counter: {
         Args: {
           p_company_id: string
@@ -6947,6 +7188,10 @@ export type Database = {
           p_reason?: string
         }
         Returns: string
+      }
+      saas_catalog_active_subscription_count: {
+        Args: { p_plan_id: string }
+        Returns: number
       }
       saas_change_subscription_plan: {
         Args: {
@@ -7124,9 +7369,17 @@ export type Database = {
         Args: { p_correlation_id?: string; p_limit?: number }
         Returns: Json
       }
+      saas_publish_catalog_change_set: {
+        Args: { p_change_set_id: string }
+        Returns: Json
+      }
       saas_queue_subscription_renewal_invoices: {
         Args: { p_correlation_id?: string; p_limit?: number }
         Returns: Json
+      }
+      saas_quota_is_unlimited: {
+        Args: { p_plan_id: string; p_quota_code: string }
+        Returns: boolean
       }
       saas_reactivate_subscription: {
         Args: {
@@ -7170,6 +7423,13 @@ export type Database = {
         }
         Returns: string
       }
+      saas_trial_expiry_candidates: {
+        Args: { p_as_of?: string }
+        Returns: {
+          days_remaining: number
+          subscription_id: string
+        }[]
+      }
       saas_user_can_access_company: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
@@ -7183,6 +7443,35 @@ export type Database = {
         Returns: undefined
       }
       schedule_operational_alert_evaluation: { Args: never; Returns: boolean }
+      search_crm_leads: {
+        Args: {
+          p_company_id: string
+          p_limit?: number
+          p_query?: string
+          p_stage?: string
+          p_status?: string
+        }
+        Returns: {
+          assigned_to: string
+          company_id: string
+          contact_email: string
+          contact_name: string
+          contact_phone: string
+          converted_at: string
+          created_at: string
+          id: string
+          last_activity_at: string
+          listing_id: string
+          listing_slug: string
+          listing_title: string
+          lost_reason: string
+          pipeline_kind: string
+          priority: string
+          score: number
+          stage: string
+          status: string
+        }[]
+      }
       seed_exit_inspection_items_from_scope: {
         Args: { p_exit_id: string }
         Returns: number
@@ -7197,6 +7486,8 @@ export type Database = {
         Returns: string
       }
       set_recovery_codes: { Args: { p_codes: string[] }; Returns: number }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       slugify_text: { Args: { p_input: string }; Returns: string }
       tenant_exit_sync_checkout_snapshot: {
         Args: { p_exit_id: string }
