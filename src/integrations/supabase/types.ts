@@ -3372,6 +3372,88 @@ export type Database = {
           },
         ]
       }
+      owner_billing_group_members: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          company_id: string
+          group_id: string
+          id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          company_id: string
+          group_id: string
+          id?: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          company_id?: string
+          group_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_billing_group_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_billing_group_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "owner_billing_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "owner_billing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_billing_groups: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          dissolved_at: string | null
+          id: string
+          metadata: Json
+          name: string
+          owner_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          dissolved_at?: string | null
+          id?: string
+          metadata?: Json
+          name: string
+          owner_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          dissolved_at?: string | null
+          id?: string
+          metadata?: Json
+          name?: string
+          owner_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -4725,6 +4807,61 @@ export type Database = {
           },
         ]
       }
+      saas_company_billing_access_states: {
+        Row: {
+          access_state: string
+          company_id: string
+          created_at: string
+          needs_plan_since: string | null
+          source_group_id: string | null
+          transition_reason: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          access_state?: string
+          company_id: string
+          created_at?: string
+          needs_plan_since?: string | null
+          source_group_id?: string | null
+          transition_reason?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          access_state?: string
+          company_id?: string
+          created_at?: string
+          needs_plan_since?: string | null
+          source_group_id?: string | null
+          transition_reason?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_company_billing_access_states_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_company_billing_access_states_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "saas_company_billing_access_states_source_group_id_fkey"
+            columns: ["source_group_id"]
+            isOneToOne: false
+            referencedRelation: "owner_billing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saas_company_plan_subscriptions: {
         Row: {
           auto_renew: boolean
@@ -4861,6 +4998,543 @@ export type Database = {
           value_type?: string
         }
         Relationships: []
+      }
+      saas_owner_group_addon_subscriptions: {
+        Row: {
+          addon_id: string
+          created_at: string
+          created_by: string | null
+          end_at: string | null
+          grace_end_at: string | null
+          group_id: string
+          id: string
+          metadata: Json
+          notes: string | null
+          start_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          addon_id: string
+          created_at?: string
+          created_by?: string | null
+          end_at?: string | null
+          grace_end_at?: string | null
+          group_id: string
+          id?: string
+          metadata?: Json
+          notes?: string | null
+          start_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          addon_id?: string
+          created_at?: string
+          created_by?: string | null
+          end_at?: string | null
+          grace_end_at?: string | null
+          group_id?: string
+          id?: string
+          metadata?: Json
+          notes?: string | null
+          start_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_owner_group_addon_subscriptions_addon_id_fkey"
+            columns: ["addon_id"]
+            isOneToOne: false
+            referencedRelation: "saas_addons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_owner_group_addon_subscriptions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "owner_billing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_owner_group_entitlement_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          decision: string
+          entitlement_key_id: string
+          expires_at: string | null
+          group_id: string
+          id: string
+          reason: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          decision: string
+          entitlement_key_id: string
+          expires_at?: string | null
+          group_id: string
+          id?: string
+          reason: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          decision?: string
+          entitlement_key_id?: string
+          expires_at?: string | null
+          group_id?: string
+          id?: string
+          reason?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_owner_group_entitlement_overrides_entitlement_key_id_fkey"
+            columns: ["entitlement_key_id"]
+            isOneToOne: false
+            referencedRelation: "saas_entitlement_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_owner_group_entitlement_overrides_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "owner_billing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_owner_group_plan_subscriptions: {
+        Row: {
+          auto_renew: boolean
+          created_at: string
+          created_by: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          dunning_attempt_count: number
+          end_at: string | null
+          grace_end_at: string | null
+          group_id: string
+          id: string
+          last_dunning_attempt_at: string | null
+          last_paid_at: string | null
+          metadata: Json
+          next_renewal_at: string | null
+          notes: string | null
+          payment_state: string
+          plan_id: string
+          renewal_interval: string
+          start_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          auto_renew?: boolean
+          created_at?: string
+          created_by?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          dunning_attempt_count?: number
+          end_at?: string | null
+          grace_end_at?: string | null
+          group_id: string
+          id?: string
+          last_dunning_attempt_at?: string | null
+          last_paid_at?: string | null
+          metadata?: Json
+          next_renewal_at?: string | null
+          notes?: string | null
+          payment_state?: string
+          plan_id: string
+          renewal_interval?: string
+          start_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          auto_renew?: boolean
+          created_at?: string
+          created_by?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          dunning_attempt_count?: number
+          end_at?: string | null
+          grace_end_at?: string | null
+          group_id?: string
+          id?: string
+          last_dunning_attempt_at?: string | null
+          last_paid_at?: string | null
+          metadata?: Json
+          next_renewal_at?: string | null
+          notes?: string | null
+          payment_state?: string
+          plan_id?: string
+          renewal_interval?: string
+          start_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_owner_group_plan_subscriptions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "owner_billing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_owner_group_plan_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "saas_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_owner_group_quota_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          group_id: string
+          hard_limit_override: number | null
+          id: string
+          increment_by: number | null
+          mode: string
+          quota_dimension_id: string
+          reason: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          group_id: string
+          hard_limit_override?: number | null
+          id?: string
+          increment_by?: number | null
+          mode: string
+          quota_dimension_id: string
+          reason: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          group_id?: string
+          hard_limit_override?: number | null
+          id?: string
+          increment_by?: number | null
+          mode?: string
+          quota_dimension_id?: string
+          reason?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_owner_group_quota_overrides_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "owner_billing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_owner_group_quota_overrides_quota_dimension_id_fkey"
+            columns: ["quota_dimension_id"]
+            isOneToOne: false
+            referencedRelation: "saas_quota_dimensions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_owner_group_subscription_change_log: {
+        Row: {
+          actor_user_id: string | null
+          correlation_id: string | null
+          created_at: string
+          currency_code: string
+          effective_at: string
+          estimated_charge_minor: number | null
+          estimated_credit_minor: number | null
+          group_id: string
+          id: string
+          new_plan_id: string | null
+          previous_plan_id: string | null
+          reason: string | null
+          subscription_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          currency_code: string
+          effective_at: string
+          estimated_charge_minor?: number | null
+          estimated_credit_minor?: number | null
+          group_id: string
+          id?: string
+          new_plan_id?: string | null
+          previous_plan_id?: string | null
+          reason?: string | null
+          subscription_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          currency_code?: string
+          effective_at?: string
+          estimated_charge_minor?: number | null
+          estimated_credit_minor?: number | null
+          group_id?: string
+          id?: string
+          new_plan_id?: string | null
+          previous_plan_id?: string | null
+          reason?: string | null
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_owner_group_subscription_change_log_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "owner_billing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_owner_group_subscription_change_log_new_plan_id_fkey"
+            columns: ["new_plan_id"]
+            isOneToOne: false
+            referencedRelation: "saas_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_owner_group_subscription_change_log_previous_plan_id_fkey"
+            columns: ["previous_plan_id"]
+            isOneToOne: false
+            referencedRelation: "saas_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_owner_group_subscription_change_log_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "saas_owner_group_plan_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_owner_group_subscription_events: {
+        Row: {
+          actor_user_id: string | null
+          correlation_id: string | null
+          created_at: string
+          details: Json
+          event_type: string
+          group_id: string
+          id: string
+          subscription_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          details?: Json
+          event_type: string
+          group_id: string
+          id?: string
+          subscription_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          details?: Json
+          event_type?: string
+          group_id?: string
+          id?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_owner_group_subscription_events_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "owner_billing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_owner_group_subscription_events_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "saas_owner_group_plan_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_owner_group_subscription_invoices: {
+        Row: {
+          amount_minor: number
+          correlation_id: string | null
+          created_at: string
+          currency_code: string
+          due_at: string
+          external_reference: string | null
+          group_id: string
+          id: string
+          invoice_kind: string
+          invoice_status: string
+          metadata: Json
+          paid_at: string | null
+          period_end: string | null
+          period_start: string | null
+          subscription_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_minor: number
+          correlation_id?: string | null
+          created_at?: string
+          currency_code?: string
+          due_at?: string
+          external_reference?: string | null
+          group_id: string
+          id?: string
+          invoice_kind: string
+          invoice_status?: string
+          metadata?: Json
+          paid_at?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          subscription_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_minor?: number
+          correlation_id?: string | null
+          created_at?: string
+          currency_code?: string
+          due_at?: string
+          external_reference?: string | null
+          group_id?: string
+          id?: string
+          invoice_kind?: string
+          invoice_status?: string
+          metadata?: Json
+          paid_at?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          subscription_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_owner_group_subscription_invoices_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "owner_billing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_owner_group_subscription_invoices_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "saas_owner_group_plan_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saas_owner_group_subscription_payment_attempts: {
+        Row: {
+          amount_minor: number
+          attempt_count: number
+          correlation_id: string | null
+          created_at: string
+          currency_code: string
+          failure_reason: string | null
+          gateway: string
+          gateway_reference: string
+          gateway_transaction_id: string | null
+          group_id: string
+          id: string
+          idempotency_key: string
+          invoice_id: string
+          metadata: Json
+          payment_method: string
+          payment_status: string
+          subscription_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_minor: number
+          attempt_count?: number
+          correlation_id?: string | null
+          created_at?: string
+          currency_code: string
+          failure_reason?: string | null
+          gateway: string
+          gateway_reference: string
+          gateway_transaction_id?: string | null
+          group_id: string
+          id?: string
+          idempotency_key: string
+          invoice_id: string
+          metadata?: Json
+          payment_method: string
+          payment_status?: string
+          subscription_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_minor?: number
+          attempt_count?: number
+          correlation_id?: string | null
+          created_at?: string
+          currency_code?: string
+          failure_reason?: string | null
+          gateway?: string
+          gateway_reference?: string
+          gateway_transaction_id?: string | null
+          group_id?: string
+          id?: string
+          idempotency_key?: string
+          invoice_id?: string
+          metadata?: Json
+          payment_method?: string
+          payment_status?: string
+          subscription_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saas_owner_group_subscription_payment_atte_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "saas_owner_group_plan_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_owner_group_subscription_payment_attempts_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "owner_billing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saas_owner_group_subscription_payment_attempts_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "saas_owner_group_subscription_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       saas_plan_entitlements: {
         Row: {
@@ -6899,6 +7573,120 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      owner_billing_group_add_company: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_group_id: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      owner_billing_group_assert_actor: {
+        Args: { p_owner_id: string }
+        Returns: undefined
+      }
+      owner_billing_group_assert_capacity: {
+        Args: { p_company_ids: string[]; p_plan_id: string }
+        Returns: undefined
+      }
+      owner_billing_group_assert_reason: {
+        Args: { p_reason: string }
+        Returns: undefined
+      }
+      owner_billing_group_assert_super_admin: {
+        Args: never
+        Returns: undefined
+      }
+      owner_billing_group_capacity_violations: {
+        Args: { p_company_ids: string[]; p_plan_id: string }
+        Returns: Json
+      }
+      owner_billing_group_change_plan: {
+        Args: {
+          p_correlation_id?: string
+          p_currency_code: string
+          p_group_id: string
+          p_plan_id: string
+          p_reason: string
+        }
+        Returns: string
+      }
+      owner_billing_group_create: {
+        Args: {
+          p_company_ids: string[]
+          p_correlation_id?: string
+          p_name: string
+          p_plan_id: string
+          p_reason: string
+        }
+        Returns: string
+      }
+      owner_billing_group_dissolve: {
+        Args: {
+          p_correlation_id?: string
+          p_group_id: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      owner_billing_group_pause_company_subscriptions: {
+        Args: { p_company_ids: string[]; p_group_id: string; p_reason: string }
+        Returns: number
+      }
+      owner_billing_group_preview_capacity: {
+        Args: { p_company_ids: string[]; p_plan_id: string }
+        Returns: Json
+      }
+      owner_billing_group_remove_company: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_group_id: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      owner_billing_group_rename: {
+        Args: {
+          p_correlation_id?: string
+          p_group_id: string
+          p_name: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      owner_billing_group_set_addon_status: {
+        Args: {
+          p_addon_code: string
+          p_correlation_id?: string
+          p_enabled: boolean
+          p_end_at?: string
+          p_group_id: string
+          p_metadata?: Json
+          p_reason: string
+        }
+        Returns: Json
+      }
+      owner_billing_group_set_company_state: {
+        Args: {
+          p_access_state: string
+          p_company_ids: string[]
+          p_group_id: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      owner_billing_group_write_audit: {
+        Args: {
+          p_action: string
+          p_correlation_id: string
+          p_event_type: string
+          p_group_id: string
+          p_metadata?: Json
+        }
+        Returns: undefined
+      }
       platform_admin_change_company_plan: {
         Args: {
           p_company_id: string
@@ -6910,6 +7698,24 @@ export type Database = {
           p_reason?: string
         }
         Returns: Json
+      }
+      platform_clear_owner_billing_group_entitlement_override: {
+        Args: {
+          p_correlation_id?: string
+          p_entitlement_key: string
+          p_group_id: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      platform_clear_owner_billing_group_quota_override: {
+        Args: {
+          p_correlation_id?: string
+          p_group_id: string
+          p_quota_code: string
+          p_reason: string
+        }
+        Returns: undefined
       }
       platform_create_governance_alert: {
         Args: {
@@ -7087,6 +7893,29 @@ export type Database = {
         }
         Returns: Json
       }
+      platform_set_owner_billing_group_entitlement_override: {
+        Args: {
+          p_correlation_id?: string
+          p_decision: string
+          p_entitlement_key: string
+          p_expires_at?: string
+          p_group_id: string
+          p_reason: string
+        }
+        Returns: string
+      }
+      platform_set_owner_billing_group_quota_override: {
+        Args: {
+          p_correlation_id?: string
+          p_expires_at?: string
+          p_group_id: string
+          p_mode: string
+          p_quota_code: string
+          p_reason: string
+          p_value: number
+        }
+        Returns: string
+      }
       platform_set_principal_suspension: {
         Args: {
           p_metadata?: Json
@@ -7226,6 +8055,27 @@ export type Database = {
         }
         Returns: undefined
       }
+      saas_emit_owner_group_billing_notification: {
+        Args: {
+          p_group_id: string
+          p_link?: string
+          p_message: string
+          p_metadata?: Json
+          p_title: string
+          p_type?: string
+        }
+        Returns: undefined
+      }
+      saas_finalize_owner_group_payment_attempt: {
+        Args: {
+          p_attempt_id: string
+          p_correlation_id?: string
+          p_gateway_reference?: string
+          p_gateway_transaction_id?: string
+          p_metadata?: Json
+        }
+        Returns: Json
+      }
       saas_finalize_plan_change_after_payment: {
         Args: {
           p_attempt_id: string
@@ -7315,6 +8165,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      saas_mark_owner_group_payment_attempt_failed: {
+        Args: {
+          p_attempt_id: string
+          p_correlation_id?: string
+          p_failure_reason: string
+          p_metadata?: Json
+        }
+        Returns: Json
+      }
       saas_mark_plan_change_payment_failed: {
         Args: {
           p_attempt_id: string
@@ -7332,6 +8191,25 @@ export type Database = {
           p_reason?: string
         }
         Returns: string
+      }
+      saas_prepare_owner_group_renewal_payment_attempts: {
+        Args: {
+          p_correlation_id?: string
+          p_gateway?: string
+          p_limit?: number
+          p_payment_method?: string
+        }
+        Returns: {
+          amount_minor: number
+          attempt_id: string
+          currency_code: string
+          gateway: string
+          gateway_reference: string
+          group_id: string
+          invoice_id: string
+          payment_method: string
+          subscription_id: string
+        }[]
       }
       saas_prepare_plan_change_charge: {
         Args: {
@@ -7365,12 +8243,20 @@ export type Database = {
           subscription_id: string
         }[]
       }
+      saas_process_owner_group_renewals: {
+        Args: { p_correlation_id?: string; p_limit?: number }
+        Returns: Json
+      }
       saas_process_subscription_renewals: {
         Args: { p_correlation_id?: string; p_limit?: number }
         Returns: Json
       }
       saas_publish_catalog_change_set: {
         Args: { p_change_set_id: string }
+        Returns: Json
+      }
+      saas_queue_owner_group_renewal_invoices: {
+        Args: { p_correlation_id?: string; p_limit?: number }
         Returns: Json
       }
       saas_queue_subscription_renewal_invoices: {
@@ -7432,6 +8318,10 @@ export type Database = {
       }
       saas_user_can_access_company: {
         Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
+      saas_user_can_access_owner_billing_group: {
+        Args: { p_group_id: string; p_user_id: string }
         Returns: boolean
       }
       saas_user_can_administer_billing: {
