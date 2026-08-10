@@ -8022,6 +8022,10 @@ export type Database = {
         Args: { p_plan_id: string }
         Returns: number
       }
+      saas_catalog_plan_has_active_subscriptions: {
+        Args: { p_plan_id: string }
+        Returns: boolean
+      }
       saas_change_subscription_plan: {
         Args: {
           p_company_id: string
