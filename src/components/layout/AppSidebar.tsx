@@ -155,7 +155,10 @@ const landlordOnlySection: NavSection = {
   title: 'Organization',
   icon: UserCog,
   workspaceId: 'property-management',
-  items: [{ icon: UserCog, label: 'Team', href: '/team' }],
+  items: [
+    { icon: UserCog, label: 'Team', href: '/team' },
+    { icon: CreditCard, label: 'Account Billing', href: '/account/billing' },
+  ],
 };
 
 const superAdminSection: NavSection = {
@@ -165,6 +168,7 @@ const superAdminSection: NavSection = {
   items: [
     { icon: Radar, label: 'Control Plane', href: '/super-admin/control-plane' },
     { icon: LayoutGrid, label: 'Catalog Management', href: '/super-admin/catalog' },
+    { icon: Users, label: 'Billing Groups', href: '/super-admin/billing-groups' },
   ],
 };
 

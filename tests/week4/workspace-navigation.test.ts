@@ -47,9 +47,12 @@ describe('workspace navigation', () => {
 
   it('resolves owned roots and detail routes without stored state', () => {
     expect(getOwnedWorkspaceId('/properties/property-1')).toBe('property-management');
+    expect(getOwnedWorkspaceId('/account/billing')).toBe('property-management');
     expect(getOwnedWorkspaceId('/marketplace/manage')).toBe('marketplace');
     expect(getOwnedWorkspaceId('/marketplace/crm/deals')).toBe('crm');
     expect(getOwnedWorkspaceId('/super-admin/control-plane')).toBe('control-plane');
+    expect(getOwnedWorkspaceId('/super-admin/catalog')).toBe('control-plane');
+    expect(getOwnedWorkspaceId('/super-admin/billing-groups')).toBe('control-plane');
   });
 
   it('classifies only shared staff utilities as global', () => {

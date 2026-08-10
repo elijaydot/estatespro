@@ -35,6 +35,7 @@ export const STAFF_WORKSPACES: StaffWorkspace[] = [
       '/bookings',
       '/guest-booking-portal',
       '/team',
+      '/account/billing',
     ],
   },
   {
@@ -50,7 +51,7 @@ export const STAFF_WORKSPACES: StaffWorkspace[] = [
   {
     id: 'control-plane',
     name: 'Control Plane',
-    routePrefixes: ['/super-admin/control-plane'],
+    routePrefixes: ['/super-admin/control-plane', '/super-admin/catalog', '/super-admin/billing-groups'],
   },
 ];
 

@@ -147,22 +147,24 @@ serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const cronSecret = Deno.env.get("SAAS_RENEWALS_CRON_SECRET")?.trim();
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey || !cronSecret) {
       return jsonResponse(req, { error: "Missing server configuration" }, 500);
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return jsonResponse(req, { error: "Authorization header required" }, 401);
+    const incomingSecret = req.headers.get("x-saas-renewals-cron-secret")?.trim();
+    if (incomingSecret !== cronSecret) {
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
-    const token = authHeader.replace("Bearer ", "").trim();
-    const { data: authData, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !authData.user) {
-      return jsonResponse(req, { error: "Unauthorized" }, 401);
+    let actorUserId: string | null = null;
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.replace("Bearer ", "").trim();
+      const { data: authData } = await supabase.auth.getUser(token);
+      actorUserId = authData.user?.id || null;
     }
 
     const payload = (await req.json().catch(() => ({}))) as { limit?: number; correlationId?: string };
@@ -252,7 +254,7 @@ serve(async (req: Request) => {
         const { data: ownerAuth } = ownerId
           ? await supabase.auth.admin.getUserById(ownerId)
           : { data: { user: null } };
-        const ownerEmail = ownerAuth.user?.email || authData.user.email || "billing@estatespro.local";
+        const ownerEmail = ownerAuth.user?.email || Deno.env.get("SAAS_BILLING_FALLBACK_EMAIL") || "billing@estatespro.local";
         const paymentMetadata = {
           invoice_id: row.invoice_id,
           subscription_id: row.subscription_id,
@@ -329,7 +331,7 @@ serve(async (req: Request) => {
           source: "run-subscription-renewals",
           event_type: "saas.renewals.checkout_initialized",
           severity: "info",
-          actor_user_id: authData.user.id,
+          actor_user_id: actorUserId,
           entity_type: row.billing_scope === "owner_group"
             ? "saas_owner_group_subscription_payment_attempt"
             : "saas_subscription_payment_attempt",
@@ -367,7 +369,7 @@ serve(async (req: Request) => {
           source: "run-subscription-renewals",
           event_type: "saas.renewals.checkout_initialization_failed",
           severity: "warning",
-          actor_user_id: authData.user.id,
+          actor_user_id: actorUserId,
           entity_type: row.billing_scope === "owner_group"
             ? "saas_owner_group_subscription_payment_attempt"
             : "saas_subscription_payment_attempt",
@@ -396,7 +398,7 @@ serve(async (req: Request) => {
         source: "run-subscription-renewals",
         event_type: "saas.renewals.run.failed",
         severity: "error",
-        actor_user_id: authData.user.id,
+        actor_user_id: actorUserId,
         correlation_id: correlationId,
         details: { limit, message: error.message },
       });
@@ -414,7 +416,7 @@ serve(async (req: Request) => {
         source: "run-subscription-renewals",
         event_type: "saas.owner_group_renewals.run.failed",
         severity: "error",
-        actor_user_id: authData.user.id,
+        actor_user_id: actorUserId,
         correlation_id: correlationId,
         details: { limit, message: groupProcessError.message },
       });
@@ -429,7 +431,7 @@ serve(async (req: Request) => {
       source: "run-subscription-renewals",
       event_type: "saas.renewals.run.completed",
       severity: "info",
-      actor_user_id: authData.user.id,
+      actor_user_id: actorUserId,
       correlation_id: correlationId,
       details: { limit, company_result: data, owner_group_result: groupResult },
     });

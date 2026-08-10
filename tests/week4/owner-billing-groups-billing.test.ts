@@ -63,6 +63,9 @@ describe('owner billing group billing orchestration', () => {
   });
 
   it('routes group renewals through the parallel ledger and group owner notification', () => {
+    expect(renewalRunner).toContain('SAAS_RENEWALS_CRON_SECRET');
+    expect(renewalRunner).toContain('x-saas-renewals-cron-secret');
+    expect(renewalRunner).not.toContain('Authorization header required');
     expect(renewalRunner).toContain('saas_queue_owner_group_renewal_invoices');
     expect(renewalRunner).toContain('saas_prepare_owner_group_renewal_payment_attempts');
     expect(renewalRunner).toContain('saas_owner_group_subscription_payment_attempts');
