@@ -12,17 +12,20 @@ import {
 
 type Gateway = "paystack" | "flutterwave";
 type PaymentMethod = "card" | "bank_transfer" | "mtn_momo" | "link";
+type BillingScope = "company" | "owner_group";
 
 type RenewalAttemptRow = {
   attempt_id: string;
   invoice_id: string;
-  company_id: string;
+  company_id?: string;
+  group_id?: string;
   subscription_id: string;
   amount_minor: number;
   currency_code: "USD" | "NGN" | "GBP";
   gateway: Gateway;
   payment_method: PaymentMethod;
   gateway_reference: string;
+  billing_scope: BillingScope;
 };
 
 function mapPaymentChannels(gateway: Gateway, method: PaymentMethod) {
@@ -179,6 +182,15 @@ serve(async (req: Request) => {
       return jsonResponse(req, { error: queueError.message || "Failed to queue renewal invoices", correlationId }, 500);
     }
 
+    const { error: groupQueueError } = await supabase.rpc("saas_queue_owner_group_renewal_invoices", {
+      p_limit: limit,
+      p_correlation_id: correlationId,
+    });
+
+    if (groupQueueError) {
+      return jsonResponse(req, { error: groupQueueError.message || "Failed to queue owner billing group renewal invoices", correlationId }, 500);
+    }
+
     const { data: preparedAttempts, error: prepareError } = await supabase.rpc("saas_prepare_renewal_payment_attempts", {
       p_limit: limit,
       p_gateway: gateway,
@@ -190,24 +202,66 @@ serve(async (req: Request) => {
       return jsonResponse(req, { error: prepareError.message || "Failed to prepare renewal payment attempts", correlationId }, 500);
     }
 
-    const secretKey = getGatewaySecret(gateway);
-    const initialized: Array<{ attemptId: string; invoiceId: string; checkoutUrl: string; reference: string }> = [];
-    const failedInitialization: Array<{ attemptId: string; invoiceId: string; message: string }> = [];
+    const { data: preparedGroupAttempts, error: prepareGroupError } = await supabase.rpc(
+      "saas_prepare_owner_group_renewal_payment_attempts",
+      {
+        p_limit: limit,
+        p_gateway: gateway,
+        p_payment_method: paymentMethod,
+        p_correlation_id: correlationId,
+      },
+    );
 
-    for (const row of (preparedAttempts || []) as RenewalAttemptRow[]) {
+    if (prepareGroupError) {
+      return jsonResponse(req, {
+        error: prepareGroupError.message || "Failed to prepare owner billing group renewal payment attempts",
+        correlationId,
+      }, 500);
+    }
+
+    const renewalAttempts: RenewalAttemptRow[] = [
+      ...((preparedAttempts || []) as Omit<RenewalAttemptRow, "billing_scope">[]).map((row) => ({
+        ...row,
+        billing_scope: "company" as const,
+      })),
+      ...((preparedGroupAttempts || []) as Omit<RenewalAttemptRow, "billing_scope">[]).map((row) => ({
+        ...row,
+        billing_scope: "owner_group" as const,
+      })),
+    ];
+
+    const secretKey = getGatewaySecret(gateway);
+    const initialized: Array<{ attemptId: string; invoiceId: string; checkoutUrl: string; reference: string; billingScope: BillingScope }> = [];
+    const failedInitialization: Array<{ attemptId: string; invoiceId: string; message: string; billingScope: BillingScope }> = [];
+
+    for (const row of renewalAttempts) {
       try {
         if (!secretKey) {
           throw new Error(`Missing ${gateway} secret key`);
         }
 
-        const { data: companyRow } = await supabase
-          .from("companies")
+        const ownerLookupTable = row.billing_scope === "owner_group" ? "owner_billing_groups" : "companies";
+        const ownerLookupId = row.billing_scope === "owner_group" ? row.group_id : row.company_id;
+        const { data: ownerRow } = await supabase
+          .from(ownerLookupTable)
           .select("owner_id")
-          .eq("id", row.company_id)
+          .eq("id", ownerLookupId)
           .maybeSingle();
 
-        const ownerId = (companyRow as { owner_id?: string | null } | null)?.owner_id || null;
-        const ownerEmail = authData.user.email || "billing@estatespro.local";
+        const ownerId = (ownerRow as { owner_id?: string | null } | null)?.owner_id || null;
+        const { data: ownerAuth } = ownerId
+          ? await supabase.auth.admin.getUserById(ownerId)
+          : { data: { user: null } };
+        const ownerEmail = ownerAuth.user?.email || authData.user.email || "billing@estatespro.local";
+        const paymentMetadata = {
+          invoice_id: row.invoice_id,
+          subscription_id: row.subscription_id,
+          attempt_id: row.attempt_id,
+          company_id: row.company_id || null,
+          owner_billing_group_id: row.group_id || null,
+          billing_scope: row.billing_scope,
+          correlation_id: correlationId,
+        };
 
         const checkoutUrl = gateway === "paystack"
           ? await createPaystackCheckout({
@@ -217,13 +271,7 @@ serve(async (req: Request) => {
               callbackUrl,
               reference: row.gateway_reference,
               channels: mapPaymentChannels(gateway, paymentMethod) as string[],
-              metadata: {
-                invoice_id: row.invoice_id,
-                subscription_id: row.subscription_id,
-                attempt_id: row.attempt_id,
-                company_id: row.company_id,
-                correlation_id: correlationId,
-              },
+              metadata: paymentMetadata,
             })
           : await createFlutterwaveCheckout({
               secretKey,
@@ -233,20 +281,18 @@ serve(async (req: Request) => {
               reference: row.gateway_reference,
               paymentOptions: mapPaymentChannels(gateway, paymentMethod) as string,
               currency: row.currency_code,
-              metadata: {
-                invoice_id: row.invoice_id,
-                subscription_id: row.subscription_id,
-                attempt_id: row.attempt_id,
-                company_id: row.company_id,
-                correlation_id: correlationId,
-              },
+              metadata: paymentMetadata,
             });
 
+        const attemptTable = row.billing_scope === "owner_group"
+          ? "saas_owner_group_subscription_payment_attempts"
+          : "saas_subscription_payment_attempts";
         await supabase
-          .from("saas_subscription_payment_attempts")
+          .from(attemptTable)
           .update({
             metadata: {
               source: "renewal_collection_orchestration",
+              billing_scope: row.billing_scope,
               renewal_checkout_url: checkoutUrl,
               renewal_checkout_initialized_at: new Date().toISOString(),
               gateway_reference: row.gateway_reference,
@@ -260,13 +306,19 @@ serve(async (req: Request) => {
             .from("notifications")
             .insert({
               user_id: ownerId,
-              title: "Subscription renewal payment required",
-              message: `Your subscription renewal invoice is due. Complete payment using reference ${row.gateway_reference}.`,
+              title: row.billing_scope === "owner_group"
+                ? "Billing group renewal payment required"
+                : "Subscription renewal payment required",
+              message: row.billing_scope === "owner_group"
+                ? `Your shared subscription renewal is due. Complete payment using reference ${row.gateway_reference}.`
+                : `Your subscription renewal invoice is due. Complete payment using reference ${row.gateway_reference}.`,
               type: "warning",
-              link: "/settings?tab=billing",
+              link: row.billing_scope === "owner_group" ? "/account/billing" : "/settings?tab=billing",
               metadata: {
                 invoice_id: row.invoice_id,
                 attempt_id: row.attempt_id,
+                billing_scope: row.billing_scope,
+                owner_billing_group_id: row.group_id || null,
                 checkout_url: checkoutUrl,
                 correlation_id: correlationId,
               },
@@ -278,12 +330,16 @@ serve(async (req: Request) => {
           event_type: "saas.renewals.checkout_initialized",
           severity: "info",
           actor_user_id: authData.user.id,
-          entity_type: "saas_subscription_payment_attempt",
+          entity_type: row.billing_scope === "owner_group"
+            ? "saas_owner_group_subscription_payment_attempt"
+            : "saas_subscription_payment_attempt",
           entity_id: row.attempt_id,
           correlation_id: correlationId,
           details: {
             invoice_id: row.invoice_id,
             company_id: row.company_id,
+            owner_billing_group_id: row.group_id,
+            billing_scope: row.billing_scope,
             gateway,
             payment_method: paymentMethod,
             reference: row.gateway_reference,
@@ -295,6 +351,7 @@ serve(async (req: Request) => {
           invoiceId: row.invoice_id,
           checkoutUrl,
           reference: row.gateway_reference,
+          billingScope: row.billing_scope,
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Renewal checkout initialization failed";
@@ -303,6 +360,7 @@ serve(async (req: Request) => {
           attemptId: row.attempt_id,
           invoiceId: row.invoice_id,
           message,
+          billingScope: row.billing_scope,
         });
 
         await emitAuditEvent({
@@ -310,12 +368,16 @@ serve(async (req: Request) => {
           event_type: "saas.renewals.checkout_initialization_failed",
           severity: "warning",
           actor_user_id: authData.user.id,
-          entity_type: "saas_subscription_payment_attempt",
+          entity_type: row.billing_scope === "owner_group"
+            ? "saas_owner_group_subscription_payment_attempt"
+            : "saas_subscription_payment_attempt",
           entity_id: row.attempt_id,
           correlation_id: correlationId,
           details: {
             invoice_id: row.invoice_id,
             company_id: row.company_id,
+            owner_billing_group_id: row.group_id,
+            billing_scope: row.billing_scope,
             gateway,
             payment_method: paymentMethod,
             message,
@@ -342,19 +404,43 @@ serve(async (req: Request) => {
       return jsonResponse(req, { error: error.message || "Renewal processing failed", correlationId }, 500);
     }
 
+    const { data: groupResult, error: groupProcessError } = await supabase.rpc("saas_process_owner_group_renewals", {
+      p_limit: limit,
+      p_correlation_id: correlationId,
+    });
+
+    if (groupProcessError) {
+      await emitAuditEvent({
+        source: "run-subscription-renewals",
+        event_type: "saas.owner_group_renewals.run.failed",
+        severity: "error",
+        actor_user_id: authData.user.id,
+        correlation_id: correlationId,
+        details: { limit, message: groupProcessError.message },
+      });
+
+      return jsonResponse(req, {
+        error: groupProcessError.message || "Owner billing group renewal processing failed",
+        correlationId,
+      }, 500);
+    }
+
     await emitAuditEvent({
       source: "run-subscription-renewals",
       event_type: "saas.renewals.run.completed",
       severity: "info",
       actor_user_id: authData.user.id,
       correlation_id: correlationId,
-      details: { limit, result: data },
+      details: { limit, company_result: data, owner_group_result: groupResult },
     });
 
     return jsonResponse(req, {
       success: true,
       result: data,
-      renewalAttemptsPrepared: (preparedAttempts || []).length,
+      ownerGroupResult: groupResult,
+      renewalAttemptsPrepared: renewalAttempts.length,
+      companyRenewalAttemptsPrepared: (preparedAttempts || []).length,
+      ownerGroupRenewalAttemptsPrepared: (preparedGroupAttempts || []).length,
       renewalCheckoutsInitialized: initialized.length,
       renewalCheckoutInitFailures: failedInitialization.length,
       initialized,

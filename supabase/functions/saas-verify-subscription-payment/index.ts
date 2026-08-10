@@ -16,13 +16,27 @@ import {
 } from "../_shared/payment-contract.ts";
 
 type Gateway = "paystack" | "flutterwave";
+type BillingScope = "company" | "owner_group";
 
 type VerifyPayload = {
   attemptId: string;
   gateway: Gateway;
   reference: string;
+  billingScope?: BillingScope;
   test_mode?: boolean;
   correlationId?: string;
+};
+
+type PaymentAttemptRow = {
+  id: string;
+  company_id: string | null;
+  group_id: string | null;
+  payment_status: string;
+  amount_minor: number;
+  currency_code: string;
+  gateway: Gateway;
+  gateway_reference: string;
+  metadata: Record<string, unknown> | null;
 };
 
 type GatewayVerificationResult = {
@@ -193,6 +207,10 @@ serve(async (req: Request) => {
       return paymentError(req, "attemptId, gateway and reference are required", 400, correlationId);
     }
 
+    if (payload.billingScope && !["company", "owner_group"].includes(payload.billingScope)) {
+      return paymentError(req, "billingScope must be company or owner_group", 400, correlationId);
+    }
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return paymentError(req, "Authorization header required", 401, correlationId);
@@ -204,19 +222,56 @@ serve(async (req: Request) => {
       return paymentError(req, "Unauthorized", 401, correlationId);
     }
 
-    const { data: attemptRow, error: attemptError } = await supabase
-      .from("saas_subscription_payment_attempts")
-      .select("id, company_id, payment_status, amount_minor, currency_code, gateway_reference, metadata")
-      .eq("id", payload.attemptId)
-      .single();
+    let billingScope: BillingScope = payload.billingScope || "company";
+    let attemptRow: PaymentAttemptRow | null = null;
 
-    if (attemptError || !attemptRow) {
+    if (billingScope === "company") {
+      const { data, error } = await supabase
+        .from("saas_subscription_payment_attempts")
+        .select("id, company_id, payment_status, amount_minor, currency_code, gateway, gateway_reference, metadata")
+        .eq("id", payload.attemptId)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message || "Failed to load payment attempt");
+      if (data) attemptRow = { ...data, group_id: null } as PaymentAttemptRow;
+    }
+
+    if (!attemptRow && (!payload.billingScope || billingScope === "owner_group")) {
+      const { data, error } = await supabase
+        .from("saas_owner_group_subscription_payment_attempts")
+        .select("id, group_id, payment_status, amount_minor, currency_code, gateway, gateway_reference, metadata")
+        .eq("id", payload.attemptId)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message || "Failed to load owner billing group payment attempt");
+      if (data) {
+        billingScope = "owner_group";
+        attemptRow = { ...data, company_id: null } as PaymentAttemptRow;
+      }
+    }
+
+    if (!attemptRow) {
       return paymentError(req, "Payment attempt not found", 404, correlationId);
     }
 
     if (attemptRow.gateway_reference !== payload.reference) {
       return paymentError(req, "Payment reference mismatch for this attempt", 400, correlationId);
     }
+
+    if (attemptRow.gateway !== payload.gateway) {
+      return paymentError(req, "Payment gateway mismatch for this attempt", 400, correlationId);
+    }
+
+    if (payload.test_mode && Deno.env.get("ALLOW_SAAS_PAYMENT_TEST_MODE") !== "true") {
+      return paymentError(req, "Subscription payment test mode is disabled", 403, correlationId);
+    }
+
+    const attemptTable = billingScope === "owner_group"
+      ? "saas_owner_group_subscription_payment_attempts"
+      : "saas_subscription_payment_attempts";
+    const attemptEntityType = billingScope === "owner_group"
+      ? "saas_owner_group_subscription_payment_attempt"
+      : "saas_subscription_payment_attempt";
 
     if (attemptRow.payment_status === "succeeded") {
       return jsonResponse(req, {
@@ -275,6 +330,8 @@ serve(async (req: Request) => {
           p_metadata: {
             attempt_id: payload.attemptId,
             company_id: attemptRow.company_id,
+            owner_billing_group_id: attemptRow.group_id,
+            billing_scope: billingScope,
             gateway: payload.gateway,
             provider_status: providerStatus,
             pending_verification_count: nextPendingCount,
@@ -311,7 +368,7 @@ serve(async (req: Request) => {
       }
 
       await supabase
-        .from("saas_subscription_payment_attempts")
+        .from(attemptTable)
         .update({
           metadata: nextMetadata,
           updated_at: new Date().toISOString(),
@@ -323,7 +380,7 @@ serve(async (req: Request) => {
         event_type: "saas.billing.payment_verification_pending",
         severity: "warning",
         actor_user_id: authData.user.id,
-        entity_type: "saas_subscription_payment_attempt",
+        entity_type: attemptEntityType,
         entity_id: payload.attemptId,
         correlation_id: correlationId,
         details: {
@@ -342,7 +399,7 @@ serve(async (req: Request) => {
           event_type: "saas.billing.payment_verification_pending_threshold_exceeded",
           severity: "critical",
           actor_user_id: authData.user.id,
-          entity_type: "saas_subscription_payment_attempt",
+          entity_type: attemptEntityType,
           entity_id: payload.attemptId,
           correlation_id: correlationId,
           details: {
@@ -369,7 +426,10 @@ serve(async (req: Request) => {
     }
 
     if (verifiedAmountMinor < Number(attemptRow.amount_minor || 0)) {
-      await supabase.rpc("saas_mark_plan_change_payment_failed", {
+      const failureRpc = billingScope === "owner_group"
+        ? "saas_mark_owner_group_payment_attempt_failed"
+        : "saas_mark_plan_change_payment_failed";
+      await supabase.rpc(failureRpc, {
         p_attempt_id: payload.attemptId,
         p_failure_reason: `verified_amount_too_low:${verifiedAmountMinor}`,
         p_correlation_id: correlationId,
@@ -382,7 +442,7 @@ serve(async (req: Request) => {
       eventBase: "saas.checkout.verify",
       source: "saas-verify-subscription-payment",
       actorUserId: authData.user.id,
-      entityType: "saas_subscription_payment_attempt",
+      entityType: attemptEntityType,
       entityId: payload.attemptId,
       correlationId,
       details: {
@@ -392,7 +452,10 @@ serve(async (req: Request) => {
         provider_status: providerStatus,
       },
     }, async () => {
-      const { data, error } = await supabase.rpc("saas_finalize_subscription_payment_attempt", {
+      const finalizeRpc = billingScope === "owner_group"
+        ? "saas_finalize_owner_group_payment_attempt"
+        : "saas_finalize_subscription_payment_attempt";
+      const { data, error } = await supabase.rpc(finalizeRpc, {
         p_attempt_id: payload.attemptId,
         p_gateway_transaction_id: providerTransactionId,
         p_gateway_reference: payload.reference,
@@ -400,6 +463,7 @@ serve(async (req: Request) => {
         p_metadata: {
           verified_amount_minor: verifiedAmountMinor,
           payment_method: paymentMethod,
+          billing_scope: billingScope,
           source: "edge.saas-verify-subscription-payment",
           test_mode: Boolean(payload.test_mode),
         },
@@ -474,7 +538,7 @@ serve(async (req: Request) => {
     }
 
     await supabase
-      .from("saas_subscription_payment_attempts")
+      .from(attemptTable)
       .update({
         metadata: {
           ...existingMetadata,
@@ -495,11 +559,13 @@ serve(async (req: Request) => {
       event_type: "saas.billing.payment_verified",
       severity: "info",
       actor_user_id: authData.user.id,
-      entity_type: "saas_subscription_payment_attempt",
+      entity_type: attemptEntityType,
       entity_id: payload.attemptId,
       correlation_id: correlationId,
       details: {
         gateway: payload.gateway,
+        billing_scope: billingScope,
+        owner_billing_group_id: attemptRow.group_id,
         verified_amount_minor: verifiedAmountMinor,
         currency_code: attemptRow.currency_code,
         finalize_result: finalizeResult,
