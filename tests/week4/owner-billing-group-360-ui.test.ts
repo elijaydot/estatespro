@@ -27,4 +27,22 @@ describe('owner billing group 360 UI', () => {
     expect(page).toContain('platform_set_owner_billing_group_entitlement_override');
     expect(page).toContain('platform_clear_owner_billing_group_entitlement_override');
   });
+
+  it('persists navigation and paginates the billing group directory', () => {
+    expect(page).toContain('useSearchParams');
+    expect(page).toContain("next.set('group', groupId)");
+    expect(page).toContain("next.set('view', activeTab)");
+    expect(page).toContain('Filter billing groups by status');
+    expect(page).toContain('<TablePagination');
+  });
+
+  it('filters and paginates every group collection with relevant drill-throughs', () => {
+    expect(page).toContain('Filter member companies');
+    expect(page).toContain('Filter invoices by status');
+    expect(page).toContain('Filter overrides by definition or reason');
+    expect(page).toContain('Filter billing events by type');
+    expect(page).toContain('cp_tab=company360&cp_company=');
+    expect(page).toContain('cp_tab=user360&cp_user=');
+    expect(page.match(/<TablePagination/g)?.length).toBeGreaterThanOrEqual(6);
+  });
 });

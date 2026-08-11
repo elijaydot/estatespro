@@ -100,6 +100,7 @@ const MarketplaceCrmProjects = lazy(() => import("./pages/marketplace-crm/Projec
 const SuperAdminControlPlane = lazy(() => import("./pages/SuperAdminControlPlane"));
 const CatalogManagement = lazy(() => import("./pages/CatalogManagement"));
 const AccountBilling = lazy(() => import("./pages/AccountBilling"));
+const OwnerPortal = lazy(() => import("./pages/OwnerPortal"));
 const OwnerBillingGroup360 = lazy(() => import("./pages/OwnerBillingGroup360"));
 const Upgrade = lazy(() => import("./pages/Upgrade"));
 
@@ -238,6 +239,24 @@ function FeatureRoute({
   }
 
   return <>{children}</>;
+}
+
+function OwnerPortalRoute({ children }: { children: ReactNode }) {
+  const { role, isLoading } = useUserRole();
+  const loadingTimedOut = useLoadingTimeout(isLoading);
+
+  if (isLoading) {
+    return loadingTimedOut ? <AccessCheckUnavailable /> : <FullPageLoading />;
+  }
+  if (role !== 'landlord' && role !== 'super_admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return (
+    <FeatureRoute entitlementKey="portal.owner.enabled" featureName="Owner / Investor Portal">
+      {children}
+    </FeatureRoute>
+  );
 }
 
 function MarketplaceReviewerRoute({ children }: { children: ReactNode }) {
@@ -555,6 +574,7 @@ function AppRoutes() {
       <Route path="/vendors/:id" element={<PrivateRoute>{withSuspense(<VendorDetail />)}</PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute>{withSuspense(<Reports />)}</PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute>{withSuspense(<Settings />)}</PrivateRoute>} />
+      <Route path="/owner-portal" element={<PrivateRoute><OwnerPortalRoute>{withSuspense(<OwnerPortal />)}</OwnerPortalRoute></PrivateRoute>} />
       <Route path="/account/billing" element={<PrivateRoute>{withSuspense(<AccountBilling />)}</PrivateRoute>} />
       <Route path="/upgrade" element={<PrivateRoute>{withSuspense(<Upgrade />)}</PrivateRoute>} />
       <Route path="/support" element={<PrivateRoute>{withSuspense(<HelpSupport />)}</PrivateRoute>} />

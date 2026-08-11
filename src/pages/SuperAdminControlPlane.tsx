@@ -101,6 +101,7 @@ import { buildSafetyTimelineRows } from '@/lib/controlPlaneSafety';
 import { formatControlPlaneLabel, shortReference } from '@/lib/controlPlanePresentation';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { MetricCard } from '@/components/shared/MetricCard';
+import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import {
   buildCorrelationFilterOptions,
   matchesCompanyFilter,
@@ -258,6 +259,27 @@ export default function SuperAdminControlPlane() {
   const [userDirectoryPage, setUserDirectoryPage] = useState(1);
   const [triageActionsPage, setTriageActionsPage] = useState(1);
   const [revocationHistoryPageNumber, setRevocationHistoryPageNumber] = useState(1);
+  const [overrideListDecision, setOverrideListDecision] = useState<'all' | 'allow' | 'deny'>('all');
+  const [overridePage, setOverridePage] = useState(1);
+  const [overridePageSize, setOverridePageSize] = useState(10);
+  const [suspensionListType, setSuspensionListType] = useState<'all' | 'company' | 'user'>('all');
+  const [suspensionPage, setSuspensionPage] = useState(1);
+  const [suspensionPageSize, setSuspensionPageSize] = useState(10);
+  const [impersonationPage, setImpersonationPage] = useState(1);
+  const [impersonationPageSize, setImpersonationPageSize] = useState(10);
+  const [riskPage, setRiskPage] = useState(1);
+  const [riskPageSize, setRiskPageSize] = useState(10);
+  const [safetyTimelinePage, setSafetyTimelinePage] = useState(1);
+  const [alertsPage, setAlertsPage] = useState(1);
+  const [eventsPage, setEventsPage] = useState(1);
+  const [decisionsPage, setDecisionsPage] = useState(1);
+  const [usagePage, setUsagePage] = useState(1);
+  const [incidentsPage, setIncidentsPage] = useState(1);
+  const [monitorPageSize, setMonitorPageSize] = useState(25);
+  const [companySubscriptionsPage, setCompanySubscriptionsPage] = useState(1);
+  const [companyAddonsPage, setCompanyAddonsPage] = useState(1);
+  const [companyInvoicesPage, setCompanyInvoicesPage] = useState(1);
+  const [companyBillingPageSize, setCompanyBillingPageSize] = useState(10);
   const [confirmation, setConfirmation] = useState<{
     title: string;
     description: string;
@@ -327,6 +349,12 @@ export default function SuperAdminControlPlane() {
       setBillingCompanyId(companyFilter);
     }
   }, [billingCompanyId, companyFilter]);
+
+  useEffect(() => {
+    setCompanySubscriptionsPage(1);
+    setCompanyAddonsPage(1);
+    setCompanyInvoicesPage(1);
+  }, [effectiveBillingCompanyId]);
 
   useEffect(() => {
     if (!safetyCompanyId && isUuidLike(companyFilter)) {
@@ -671,6 +699,7 @@ export default function SuperAdminControlPlane() {
   const filteredRiskQueue = useMemo(() => {
     return (riskQueue.data || []).filter((item) => {
       if (!isInTimeRange(item.occurred_at, timeRange)) return false;
+      if (triageStatusFilter !== 'all' && item.status !== triageStatusFilter) return false;
       if (severityFilter !== 'all' && item.severity !== severityFilter && !(severityFilter === 'error' && item.severity === 'critical')) {
         return false;
       }
@@ -683,7 +712,30 @@ export default function SuperAdminControlPlane() {
         item.detail,
       ], search);
     });
-  }, [companyDirectory, companyFilter, riskQueue.data, search, severityFilter, timeRange]);
+  }, [companyDirectory, companyFilter, riskQueue.data, search, severityFilter, timeRange, triageStatusFilter]);
+
+  const filteredEntitlementOverrides = useMemo(() => {
+    return (entitlementOverrides.data || []).filter((item) => {
+      if (overrideListDecision !== 'all' && item.decision !== overrideListDecision) return false;
+      return matchesSearch([item.entitlement_key, item.decision, item.reason, item.company_id], search);
+    });
+  }, [entitlementOverrides.data, overrideListDecision, search]);
+
+  const filteredActiveSuspensions = useMemo(() => {
+    return (activeSuspensions.data || []).filter((item) => {
+      if (suspensionListType !== 'all' && item.principal_type !== suspensionListType) return false;
+      return matchesSearch([item.principal_type, item.principal_id, item.reason], search);
+    });
+  }, [activeSuspensions.data, search, suspensionListType]);
+
+  const filteredImpersonationSessions = useMemo(() => {
+    return (impersonationSessions.data || []).filter((item) => matchesSearch([
+      item.actor_user_id,
+      item.target_user_id,
+      item.company_id,
+      item.reason,
+    ], search));
+  }, [impersonationSessions.data, search]);
 
   const filteredRiskTriageActions = useMemo(() => {
     return (riskQueueTriageActions.data || []).filter((item) => {
@@ -2010,7 +2062,7 @@ export default function SuperAdminControlPlane() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {companySubscriptions.slice(0, 12).map((item, index) => (
+                          {companySubscriptions.slice((companySubscriptionsPage - 1) * companyBillingPageSize, companySubscriptionsPage * companyBillingPageSize).map((item, index) => (
                             <TableRow key={`${String(item.id || index)}`}>
                               <TableCell>{String(item.product_name || item.product_code || '-')}</TableCell>
                               <TableCell>{String(item.plan_name || item.plan_code || '-')}</TableCell>
@@ -2022,6 +2074,7 @@ export default function SuperAdminControlPlane() {
                         </TableBody>
                       </Table>
                     )}
+                    <TablePagination page={companySubscriptionsPage} pageSize={companyBillingPageSize} total={companySubscriptions.length} onPageChange={setCompanySubscriptionsPage} onPageSizeChange={(size) => { setCompanyBillingPageSize(size); setCompanySubscriptionsPage(1); setCompanyAddonsPage(1); setCompanyInvoicesPage(1); }} />
                   </CardContent>
                 </Card>
 
@@ -2048,7 +2101,7 @@ export default function SuperAdminControlPlane() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {companyAddons.slice(0, 20).map((item, index) => {
+                          {companyAddons.slice((companyAddonsPage - 1) * companyBillingPageSize, companyAddonsPage * companyBillingPageSize).map((item, index) => {
                             const addonCode = String(item.addon_code || '');
                             const enabled = Boolean(item.enabled);
 
@@ -2079,6 +2132,7 @@ export default function SuperAdminControlPlane() {
                         </TableBody>
                       </Table>
                     )}
+                    <TablePagination page={companyAddonsPage} pageSize={companyBillingPageSize} total={companyAddons.length} onPageChange={setCompanyAddonsPage} onPageSizeChange={(size) => { setCompanyBillingPageSize(size); setCompanySubscriptionsPage(1); setCompanyAddonsPage(1); setCompanyInvoicesPage(1); }} />
                   </CardContent>
                 </Card>
               </div>
@@ -2103,7 +2157,7 @@ export default function SuperAdminControlPlane() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {companyInvoices.slice(0, 12).map((item, index) => (
+                        {companyInvoices.slice((companyInvoicesPage - 1) * companyBillingPageSize, companyInvoicesPage * companyBillingPageSize).map((item, index) => (
                           <TableRow key={`${String(item.id || index)}`}>
                             <TableCell>{item.created_at ? formatDate(String(item.created_at)) : '-'}</TableCell>
                             <TableCell>{String(item.invoice_kind || '-')}</TableCell>
@@ -2116,6 +2170,7 @@ export default function SuperAdminControlPlane() {
                       </TableBody>
                     </Table>
                   )}
+                  <TablePagination page={companyInvoicesPage} pageSize={companyBillingPageSize} total={companyInvoices.length} onPageChange={setCompanyInvoicesPage} onPageSizeChange={(size) => { setCompanyBillingPageSize(size); setCompanySubscriptionsPage(1); setCompanyAddonsPage(1); setCompanyInvoicesPage(1); }} />
                 </CardContent>
               </Card>
             </div>
@@ -2193,7 +2248,11 @@ export default function SuperAdminControlPlane() {
                       onChange={(e) => setOverrideReason(e.target.value)}
                       placeholder="Policy reason for override"
                     />
-                    {(entitlementOverrides.data || []).length === 0 ? (
+                    <Select value={overrideListDecision} onValueChange={(value) => { setOverrideListDecision(value as 'all' | 'allow' | 'deny'); setOverridePage(1); }}>
+                      <SelectTrigger className="max-w-56" aria-label="Filter active overrides by decision"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="all">All decisions</SelectItem><SelectItem value="allow">Allow</SelectItem><SelectItem value="deny">Deny</SelectItem></SelectContent>
+                    </Select>
+                    {filteredEntitlementOverrides.length === 0 ? (
                       <EmptyState title="No active overrides" description="Apply a temporary allow/deny override to manage urgent access anomalies." />
                     ) : (
                       <Table>
@@ -2207,7 +2266,7 @@ export default function SuperAdminControlPlane() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {(entitlementOverrides.data || []).slice(0, 20).map((row) => (
+                          {filteredEntitlementOverrides.slice((overridePage - 1) * overridePageSize, overridePage * overridePageSize).map((row) => (
                             <TableRow key={row.id}>
                               <TableCell>{row.entitlement_key}</TableCell>
                               <TableCell>
@@ -2230,6 +2289,7 @@ export default function SuperAdminControlPlane() {
                         </TableBody>
                       </Table>
                     )}
+                    <TablePagination page={overridePage} pageSize={overridePageSize} total={filteredEntitlementOverrides.length} onPageChange={setOverridePage} onPageSizeChange={(size) => { setOverridePageSize(size); setOverridePage(1); }} />
                   </CardContent>
                 </Card>
 
@@ -2298,7 +2358,11 @@ export default function SuperAdminControlPlane() {
                       {revokeActiveSessions.isPending ? 'Revoking Sessions...' : 'Revoke Active Sessions'}
                     </Button>
 
-                    {(activeSuspensions.data || []).length === 0 ? (
+                    <Select value={suspensionListType} onValueChange={(value) => { setSuspensionListType(value as 'all' | 'company' | 'user'); setSuspensionPage(1); }}>
+                      <SelectTrigger className="max-w-56" aria-label="Filter active suspensions by principal type"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="all">All principal types</SelectItem><SelectItem value="company">Companies</SelectItem><SelectItem value="user">Users</SelectItem></SelectContent>
+                    </Select>
+                    {filteredActiveSuspensions.length === 0 ? (
                       <EmptyState title="No active suspensions" description="Suspended principals appear here until cleared." />
                     ) : (
                       <Table>
@@ -2311,7 +2375,7 @@ export default function SuperAdminControlPlane() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {(activeSuspensions.data || []).slice(0, 20).map((row) => (
+                          {filteredActiveSuspensions.slice((suspensionPage - 1) * suspensionPageSize, suspensionPage * suspensionPageSize).map((row) => (
                             <TableRow key={row.id}>
                               <TableCell>{formatControlPlaneLabel(row.principal_type)}</TableCell>
                               <TableCell title={row.principal_id}>
@@ -2327,6 +2391,7 @@ export default function SuperAdminControlPlane() {
                         </TableBody>
                       </Table>
                     )}
+                    <TablePagination page={suspensionPage} pageSize={suspensionPageSize} total={filteredActiveSuspensions.length} onPageChange={setSuspensionPage} onPageSizeChange={(size) => { setSuspensionPageSize(size); setSuspensionPage(1); }} />
                   </CardContent>
                 </Card>
               </div>
@@ -2361,7 +2426,7 @@ export default function SuperAdminControlPlane() {
                       </Button>
                     </div>
 
-                    {(impersonationSessions.data || []).length === 0 ? (
+                    {filteredImpersonationSessions.length === 0 ? (
                       <EmptyState title="No active impersonation" description="Start a support session to inspect tenant experience safely." />
                     ) : (
                       <Table>
@@ -2375,7 +2440,7 @@ export default function SuperAdminControlPlane() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {(impersonationSessions.data || []).slice(0, 20).map((row) => (
+                          {filteredImpersonationSessions.slice((impersonationPage - 1) * impersonationPageSize, impersonationPage * impersonationPageSize).map((row) => (
                             <TableRow key={row.id}>
                               <TableCell title={row.actor_user_id}>
                                 <p className="font-medium text-foreground">{resolveUserLabel(row.actor_user_id)}</p>
@@ -2402,6 +2467,7 @@ export default function SuperAdminControlPlane() {
                         </TableBody>
                       </Table>
                     )}
+                    <TablePagination page={impersonationPage} pageSize={impersonationPageSize} total={filteredImpersonationSessions.length} onPageChange={setImpersonationPage} onPageSizeChange={(size) => { setImpersonationPageSize(size); setImpersonationPage(1); }} />
                   </CardContent>
                 </Card>
 
@@ -2416,7 +2482,7 @@ export default function SuperAdminControlPlane() {
                       placeholder="Optional triage notes (applies to action buttons)"
                     />
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <Select value={triageStatusFilter} onValueChange={(value) => setTriageStatusFilter(value as 'all' | 'acknowledged' | 'resolved' | 'escalated' | 'false_positive')}>
+                      <Select value={triageStatusFilter} onValueChange={(value) => { setTriageStatusFilter(value as 'all' | 'acknowledged' | 'resolved' | 'escalated' | 'false_positive'); setRiskPage(1); }}>
                         <SelectTrigger>
                           <SelectValue placeholder="Triage status" />
                         </SelectTrigger>
@@ -2444,7 +2510,7 @@ export default function SuperAdminControlPlane() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredRiskQueue.slice(0, 30).map((row) => (
+                          {filteredRiskQueue.slice((riskPage - 1) * riskPageSize, riskPage * riskPageSize).map((row) => (
                             <TableRow key={`${row.row_type}:${row.row_id}`}>
                               <TableCell>{formatDate(row.occurred_at)}</TableCell>
                               <TableCell><SeverityBadge severity={row.severity} /></TableCell>
@@ -2491,6 +2557,7 @@ export default function SuperAdminControlPlane() {
                         </TableBody>
                       </Table>
                     )}
+                    <TablePagination page={riskPage} pageSize={riskPageSize} total={filteredRiskQueue.length} onPageChange={setRiskPage} onPageSizeChange={(size) => { setRiskPageSize(size); setRiskPage(1); }} />
 
                     <div className="pt-2">
                       <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground mb-2">Recent Triage Actions</p>
@@ -2572,7 +2639,7 @@ export default function SuperAdminControlPlane() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {safetyTimelineRows.slice(0, 40).map((item, index) => (
+                        {safetyTimelineRows.slice((safetyTimelinePage - 1) * monitorPageSize, safetyTimelinePage * monitorPageSize).map((item, index) => (
                           <TableRow key={`${item.timeline_type}:${item.occurred_at}:${index}`}>
                             <TableCell>{formatDate(item.occurred_at)}</TableCell>
                             <TableCell>{formatControlPlaneLabel(item.timeline_type)}</TableCell>
@@ -2587,6 +2654,7 @@ export default function SuperAdminControlPlane() {
                       </TableBody>
                     </Table>
                   )}
+                  <TablePagination page={safetyTimelinePage} pageSize={monitorPageSize} total={safetyTimelineRows.length} onPageChange={setSafetyTimelinePage} onPageSizeChange={(size) => { setMonitorPageSize(size); setSafetyTimelinePage(1); }} />
                 </CardContent>
               </Card>
 
@@ -2701,7 +2769,7 @@ export default function SuperAdminControlPlane() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredAlerts.slice(0, 20).map((item) => (
+                      {filteredAlerts.slice((alertsPage - 1) * monitorPageSize, alertsPage * monitorPageSize).map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{formatDate(item.created_at)}</TableCell>
                           <TableCell>{formatDate(item.updated_at)}</TableCell>
@@ -2734,6 +2802,7 @@ export default function SuperAdminControlPlane() {
                     </TableBody>
                   </Table>
                 )}
+                <TablePagination page={alertsPage} pageSize={monitorPageSize} total={filteredAlerts.length} onPageChange={setAlertsPage} onPageSizeChange={(size) => { setMonitorPageSize(size); setAlertsPage(1); }} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -2763,7 +2832,7 @@ export default function SuperAdminControlPlane() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredEvents.slice(0, 25).map((item) => (
+                      {filteredEvents.slice((eventsPage - 1) * monitorPageSize, eventsPage * monitorPageSize).map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{formatDate(item.created_at)}</TableCell>
                           <TableCell>{item.module}</TableCell>
@@ -2776,6 +2845,7 @@ export default function SuperAdminControlPlane() {
                     </TableBody>
                   </Table>
                 )}
+                <TablePagination page={eventsPage} pageSize={monitorPageSize} total={filteredEvents.length} onPageChange={setEventsPage} onPageSizeChange={(size) => { setMonitorPageSize(size); setEventsPage(1); }} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -2816,7 +2886,7 @@ export default function SuperAdminControlPlane() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredDecisions.slice(0, 25).map((item) => (
+                      {filteredDecisions.slice((decisionsPage - 1) * monitorPageSize, decisionsPage * monitorPageSize).map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{formatDate(item.created_at)}</TableCell>
                           <TableCell>{item.module}</TableCell>
@@ -2829,6 +2899,7 @@ export default function SuperAdminControlPlane() {
                     </TableBody>
                   </Table>
                 )}
+                <TablePagination page={decisionsPage} pageSize={monitorPageSize} total={filteredDecisions.length} onPageChange={setDecisionsPage} onPageSizeChange={(size) => { setMonitorPageSize(size); setDecisionsPage(1); }} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -2862,7 +2933,7 @@ export default function SuperAdminControlPlane() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredUsage.slice(0, 25).map((item) => (
+                      {filteredUsage.slice((usagePage - 1) * monitorPageSize, usagePage * monitorPageSize).map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{formatDate(item.snapshot_at)}</TableCell>
                           <TableCell>{item.product_code}</TableCell>
@@ -2875,6 +2946,7 @@ export default function SuperAdminControlPlane() {
                     </TableBody>
                   </Table>
                 )}
+                <TablePagination page={usagePage} pageSize={monitorPageSize} total={filteredUsage.length} onPageChange={setUsagePage} onPageSizeChange={(size) => { setMonitorPageSize(size); setUsagePage(1); }} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -2900,10 +2972,22 @@ export default function SuperAdminControlPlane() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {incidentTimeline.slice(-40).map((row) => (
+                      {incidentTimeline.slice((incidentsPage - 1) * monitorPageSize, incidentsPage * monitorPageSize).map((row) => (
                         <TableRow key={row.id}>
                           <TableCell>{formatDate(row.created_at)}</TableCell>
-                          <TableCell className="max-w-[220px] truncate" title={row.correlation_id}>{row.correlation_id}</TableCell>
+                          <TableCell className="max-w-[220px]">
+                            <Button
+                              variant="link"
+                              className="h-auto max-w-full justify-start truncate p-0 text-xs"
+                              title={row.correlation_id}
+                              onClick={() => {
+                                setCorrelationFilter(row.correlation_id);
+                                setActiveTab('events');
+                              }}
+                            >
+                              {row.correlation_id}
+                            </Button>
+                          </TableCell>
                           <TableCell>{row.module}</TableCell>
                           <TableCell>{row.action}</TableCell>
                           <TableCell>{row.detail}</TableCell>
@@ -2913,6 +2997,7 @@ export default function SuperAdminControlPlane() {
                     </TableBody>
                   </Table>
                 )}
+                <TablePagination page={incidentsPage} pageSize={monitorPageSize} total={incidentTimeline.length} onPageChange={setIncidentsPage} onPageSizeChange={(size) => { setMonitorPageSize(size); setIncidentsPage(1); }} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -2936,6 +3021,7 @@ export default function SuperAdminControlPlane() {
                         <TableHead>Usage Snapshots</TableHead>
                         <TableHead>Blocked Events</TableHead>
                         <TableHead>Last Activity</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2951,6 +3037,19 @@ export default function SuperAdminControlPlane() {
                           <TableCell>{row.usage_snapshots}</TableCell>
                           <TableCell>{row.blocked_events}</TableCell>
                           <TableCell>{formatDate(row.last_activity_at)}</TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setBillingCompanyId(row.company_id);
+                                setCompanyFilter(row.company_id);
+                                setActiveTab('monetization');
+                              }}
+                            >
+                              Billing
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -2983,6 +3082,7 @@ export default function SuperAdminControlPlane() {
                         <TableHead>High Risk</TableHead>
                         <TableHead>Blocked</TableHead>
                         <TableHead>Last Activity</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2997,6 +3097,18 @@ export default function SuperAdminControlPlane() {
                           <TableCell>{row.high_risk_events}</TableCell>
                           <TableCell>{row.blocked_events}</TableCell>
                           <TableCell>{row.last_activity_at ? formatDate(row.last_activity_at) : '-'}</TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setUserFilter(row.user_id);
+                                setActiveTab('events');
+                              }}
+                            >
+                              Activity
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

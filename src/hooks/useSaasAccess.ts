@@ -12,6 +12,7 @@ export type SaasEntitlementKey =
   | 'crm.deals.manage'
   | 'crm.calls_meetings.manage'
   | 'crm.automation.manage'
+  | 'portal.owner.enabled'
   | 'ai.assistant.enabled';
 
 export type SaasQuotaCode =
@@ -19,7 +20,12 @@ export type SaasQuotaCode =
   | 'properties_managed'
   | 'active_tenants'
   | 'property_manager_seats'
-  | 'ai_credits_monthly';
+  | 'ai_credits_monthly'
+  | 'marketplace_listings_active'
+  | 'crm_contacts'
+  | 'guest_bookings_active'
+  | 'mobile_money_collections_monthly'
+  | 'maintenance_tickets_monthly';
 
 export type SaasQuotaSnapshot = {
   quota_code: string;
@@ -44,6 +50,7 @@ const ENTITLEMENT_KEYS: SaasEntitlementKey[] = [
   'crm.deals.manage',
   'crm.calls_meetings.manage',
   'crm.automation.manage',
+  'portal.owner.enabled',
   'ai.assistant.enabled',
 ];
 
@@ -55,6 +62,7 @@ const EMPTY_ENTITLEMENTS: Record<SaasEntitlementKey, boolean> = {
   'crm.deals.manage': false,
   'crm.calls_meetings.manage': false,
   'crm.automation.manage': false,
+  'portal.owner.enabled': false,
   'ai.assistant.enabled': false,
 };
 

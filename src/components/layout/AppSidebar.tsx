@@ -156,6 +156,7 @@ const landlordOnlySection: NavSection = {
   icon: UserCog,
   workspaceId: 'property-management',
   items: [
+    { icon: BriefcaseBusiness, label: 'Owner Portfolio', href: '/owner-portal', entitlementKey: 'portal.owner.enabled' },
     { icon: UserCog, label: 'Team', href: '/team' },
     { icon: CreditCard, label: 'Account Billing', href: '/account/billing' },
   ],
