@@ -1,11 +1,11 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TabsContent } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/control-plane/EmptyState';
+import { RemoteEntitySelect } from '@/components/control-plane/RemoteEntitySelect';
 import type { PlatformOperatorRole } from '@/hooks/useControlPlane';
 import { formatControlPlaneLabel, OPERATOR_ROLE_LABELS, shortReference } from '@/lib/controlPlanePresentation';
 
@@ -46,10 +46,12 @@ export function OperatorsTab({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-[1fr_220px_auto] gap-2">
-            <Input
-              placeholder="User reference ID"
+            <RemoteEntitySelect
+              entityType="user"
+              placeholder="Select user"
               value={operatorUserId}
-              onChange={(e) => onOperatorUserIdChange(e.target.value)}
+              onValueChange={onOperatorUserIdChange}
+              disabled={isAssignPending}
             />
             <Select value={operatorRole} onValueChange={(value) => onOperatorRoleChange(value as OperatorRole)}>
               <SelectTrigger>

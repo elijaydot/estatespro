@@ -1,10 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, ShieldCheck, Users } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { supabase } from '@/integrations/supabase/client';
+import { untypedSupabase } from '@/integrations/supabase/untypedClient';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,14 +46,19 @@ type Group = {
   name: string;
   status: string;
   created_at: string;
+  member_count?: number;
+  subscription_id?: string | null;
+  subscription_status?: string | null;
+  payment_state?: string | null;
+  grace_end_at?: string | null;
 };
 type Member = {
   id: string;
   group_id: string;
   company_id: string;
   added_at: string;
+  company_name: string;
 };
-type Company = { id: string; name: string };
 type Plan = { id: string; name: string; code: string };
 type Subscription = {
   id: string;
@@ -53,6 +69,8 @@ type Subscription = {
   next_renewal_at: string | null;
   grace_end_at: string | null;
   dunning_attempt_count: number;
+  plan_name?: string;
+  plan_code?: string;
 };
 type Invoice = {
   id: string;
@@ -83,6 +101,8 @@ type QuotaOverride = {
   hard_limit_override: number | null;
   reason: string;
   expires_at: string | null;
+  quota_code: string;
+  quota_name: string;
 };
 type EntitlementOverride = {
   id: string;
@@ -91,20 +111,23 @@ type EntitlementOverride = {
   decision: string;
   reason: string;
   expires_at: string | null;
+  entitlement_key: string;
+  entitlement_domain: string;
 };
 
+type Page<T> = { rows: T[]; page: number; page_size: number; total_count: number };
+type GroupDirectoryData = Page<Group>;
 type Group360Data = {
-  groups: Group[];
-  members: Member[];
-  companies: Company[];
-  plans: Plan[];
-  subscriptions: Subscription[];
-  invoices: Invoice[];
-  events: Event[];
-  dimensions: QuotaDimension[];
-  entitlementKeys: EntitlementKey[];
-  quotaOverrides: QuotaOverride[];
-  entitlementOverrides: EntitlementOverride[];
+  group: Group;
+  subscription: Subscription | null;
+  summary: { member_count: number; outstanding_by_currency: Record<string, number> };
+  members: Page<Member>;
+  invoices: Page<Invoice>;
+  events: Page<Event>;
+  quota_overrides: Page<QuotaOverride>;
+  entitlement_overrides: Page<EntitlementOverride>;
+  event_types: string[];
+  catalog: { plans: Plan[]; dimensions: QuotaDimension[]; entitlement_keys: EntitlementKey[] };
 };
 
 function formatDate(value: string | null) {
@@ -167,6 +190,9 @@ export default function OwnerBillingGroup360() {
   const [eventPage, setEventPage] = useState(1);
   const [eventPageSize, setEventPageSize] = useState(10);
   const [reason, setReason] = useState('');
+  const [graceDays, setGraceDays] = useState(7);
+  const [graceMode, setGraceMode] = useState<'from_now' | 'extend'>('from_now');
+  const [confirmGraceOpen, setConfirmGraceOpen] = useState(false);
   const [quotaCode, setQuotaCode] = useState('');
   const [quotaMode, setQuotaMode] = useState<'increment' | 'set'>('increment');
   const [quotaValue, setQuotaValue] = useState('');
@@ -174,125 +200,52 @@ export default function OwnerBillingGroup360() {
   const [entitlementDecision, setEntitlementDecision] = useState<
     'allow' | 'deny'
   >('allow');
+  const deferredSearch = useDeferredValue(search);
+  const deferredMemberSearch = useDeferredValue(memberSearch);
+  const deferredOverrideSearch = useDeferredValue(overrideSearch);
+
+  const directoryQuery = useQuery({
+    queryKey: ['control-plane-owner-billing-groups-page', deferredSearch, groupStatus, groupPage, groupPageSize],
+    queryFn: async (): Promise<GroupDirectoryData> => {
+      const { data, error } = await untypedSupabase.rpc('platform_get_owner_billing_groups_page', {
+        p_search: deferredSearch.trim() || null,
+        p_status: groupStatus === 'all' ? null : groupStatus,
+        p_page: groupPage,
+        p_page_size: groupPageSize,
+      });
+      if (error) throw error;
+      return data as GroupDirectoryData;
+    },
+  });
 
   const query = useQuery({
-    queryKey: ['control-plane-owner-billing-groups'],
+    queryKey: ['control-plane-owner-billing-group-360', groupId, deferredMemberSearch, memberPage, memberPageSize, invoiceStatus, invoicePage, invoicePageSize, deferredOverrideSearch, quotaPage, entitlementPage, quotaPageSize, eventType, eventPage, eventPageSize],
+    enabled: Boolean(groupId),
     queryFn: async (): Promise<Group360Data> => {
-      const client = supabase as any;
-      const [groups, companies, plans, dimensions, entitlementKeys] =
-        await Promise.all([
-          client
-            .from('owner_billing_groups')
-            .select('id,owner_id,name,status,created_at')
-            .order('created_at', { ascending: false }),
-          client.from('companies').select('id,name').order('name'),
-          client
-            .from('saas_plans')
-            .select('id,name,code')
-            .is('product_id', null)
-            .order('sort_order'),
-          client
-            .from('saas_quota_dimensions')
-            .select('id,code,name')
-            .order('name'),
-          client
-            .from('saas_entitlement_keys')
-            .select('id,key,domain')
-            .order('domain'),
-        ]);
-      const firstError =
-        groups.error ||
-        companies.error ||
-        plans.error ||
-        dimensions.error ||
-        entitlementKeys.error;
-      if (firstError) throw firstError;
-      const ids = (groups.data || []).map((group: Group) => group.id);
-      if (!ids.length)
-        return {
-          groups: [],
-          members: [],
-          companies: companies.data || [],
-          plans: plans.data || [],
-          subscriptions: [],
-          invoices: [],
-          events: [],
-          dimensions: dimensions.data || [],
-          entitlementKeys: entitlementKeys.data || [],
-          quotaOverrides: [],
-          entitlementOverrides: [],
-        };
-      const [
-        members,
-        subscriptions,
-        invoices,
-        events,
-        quotaOverrides,
-        entitlementOverrides,
-      ] = await Promise.all([
-        client
-          .from('owner_billing_group_members')
-          .select('id,group_id,company_id,added_at')
-          .in('group_id', ids),
-        client
-          .from('saas_owner_group_plan_subscriptions')
-          .select(
-            'id,group_id,plan_id,status,payment_state,next_renewal_at,grace_end_at,dunning_attempt_count',
-          )
-          .in('group_id', ids)
-          .order('created_at', { ascending: false }),
-        client
-          .from('saas_owner_group_subscription_invoices')
-          .select(
-            'id,group_id,invoice_status,invoice_kind,amount_minor,currency_code,due_at,external_reference',
-          )
-          .in('group_id', ids)
-          .order('created_at', { ascending: false })
-          .limit(250),
-        client
-          .from('saas_owner_group_subscription_events')
-          .select('id,group_id,event_type,actor_user_id,details,created_at')
-          .in('group_id', ids)
-          .order('created_at', { ascending: false })
-          .limit(250),
-        client
-          .from('saas_owner_group_quota_overrides')
-          .select(
-            'id,group_id,quota_dimension_id,mode,increment_by,hard_limit_override,reason,expires_at',
-          )
-          .in('group_id', ids),
-        client
-          .from('saas_owner_group_entitlement_overrides')
-          .select('id,group_id,entitlement_key_id,decision,reason,expires_at')
-          .in('group_id', ids),
-      ]);
-      const secondError =
-        members.error ||
-        subscriptions.error ||
-        invoices.error ||
-        events.error ||
-        quotaOverrides.error ||
-        entitlementOverrides.error;
-      if (secondError) throw secondError;
-      return {
-        groups: groups.data || [],
-        members: members.data || [],
-        companies: companies.data || [],
-        plans: plans.data || [],
-        subscriptions: subscriptions.data || [],
-        invoices: invoices.data || [],
-        events: events.data || [],
-        dimensions: dimensions.data || [],
-        entitlementKeys: entitlementKeys.data || [],
-        quotaOverrides: quotaOverrides.data || [],
-        entitlementOverrides: entitlementOverrides.data || [],
-      };
+      const { data, error } = await untypedSupabase.rpc('platform_get_owner_billing_group_360', {
+        p_group_id: groupId,
+        p_member_search: deferredMemberSearch.trim() || null,
+        p_member_page: memberPage,
+        p_member_page_size: memberPageSize,
+        p_invoice_status: invoiceStatus === 'all' ? null : invoiceStatus,
+        p_invoice_page: invoicePage,
+        p_invoice_page_size: invoicePageSize,
+        p_override_search: deferredOverrideSearch.trim() || null,
+        p_quota_page: quotaPage,
+        p_entitlement_page: entitlementPage,
+        p_override_page_size: quotaPageSize,
+        p_event_type: eventType === 'all' ? null : eventType,
+        p_event_page: eventPage,
+        p_event_page_size: eventPageSize,
+      });
+      if (error) throw error;
+      return data as Group360Data;
     },
   });
 
   useEffect(() => {
-    if (!groupId && query.data?.groups[0]) setGroupId(query.data.groups[0].id);
-  }, [groupId, query.data?.groups]);
+    if (!groupId && directoryQuery.data?.rows[0]) setGroupId(directoryQuery.data.rows[0].id);
+  }, [groupId, directoryQuery.data?.rows]);
 
   useEffect(() => {
     const next = new URLSearchParams();
@@ -319,128 +272,70 @@ export default function OwnerBillingGroup360() {
       fn: string;
       args: Record<string, unknown>;
     }) => {
-      const { error } = await (supabase as any).rpc(fn, args);
+      const { error } = await untypedSupabase.rpc(fn, args);
       if (error) throw error;
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ['control-plane-owner-billing-groups'],
+        queryKey: ['control-plane-owner-billing-group-360'],
       });
       toast.success('Group override updated.');
     },
     onError: (error: Error) => toast.error(error.message),
   });
+  const graceMutation = useMutation({
+    mutationFn: async () => {
+      if (!subscription) throw new Error('No active group subscription selected.');
+      const { error } = await untypedSupabase.rpc('platform_admin_set_owner_group_subscription_grace', {
+        p_group_id: groupId,
+        p_subscription_id: subscription.id,
+        p_grace_days: graceDays,
+        p_mode: graceMode,
+        p_reason: reason.trim(),
+        p_correlation_id: `cp-group-grace-${Date.now()}`,
+        p_metadata: { source: 'owner_billing_group_360' },
+      });
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['control-plane-owner-billing-groups-page'] }),
+        queryClient.invalidateQueries({ queryKey: ['control-plane-owner-billing-group-360'] }),
+      ]);
+      setConfirmGraceOpen(false);
+      toast.success('Billing group grace updated.');
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const data = query.data;
-  const companies = useMemo(
-    () =>
-      new Map((data?.companies || []).map((company) => [company.id, company])),
-    [data?.companies],
-  );
   const plans = useMemo(
-    () => new Map((data?.plans || []).map((plan) => [plan.id, plan])),
-    [data?.plans],
+    () => new Map((data?.catalog.plans || []).map((plan) => [plan.id, plan])),
+    [data?.catalog.plans],
   );
   const dimensions = useMemo(
     () =>
       new Map(
-        (data?.dimensions || []).map((dimension) => [dimension.id, dimension]),
+        (data?.catalog.dimensions || []).map((dimension) => [dimension.id, dimension]),
       ),
-    [data?.dimensions],
+    [data?.catalog.dimensions],
   );
   const keys = useMemo(
-    () => new Map((data?.entitlementKeys || []).map((key) => [key.id, key])),
-    [data?.entitlementKeys],
+    () => new Map((data?.catalog.entitlement_keys || []).map((key) => [key.id, key])),
+    [data?.catalog.entitlement_keys],
   );
-  const filteredGroups = (data?.groups || []).filter(
-    (group) =>
-      (groupStatus === 'all' || group.status === groupStatus) &&
-      (group.name.toLowerCase().includes(search.toLowerCase()) ||
-        group.owner_id.toLowerCase().includes(search.toLowerCase())),
-  );
-  const pagedGroups = filteredGroups.slice(
-    (groupPage - 1) * groupPageSize,
-    groupPage * groupPageSize,
-  );
-  const group = data?.groups.find((item) => item.id === groupId);
-  const members =
-    data?.members.filter((item) => item.group_id === groupId) || [];
-  const subscription = data?.subscriptions.find(
-    (item) =>
-      item.group_id === groupId &&
-      ['active', 'grace_period'].includes(item.status),
-  );
-  const invoices =
-    data?.invoices.filter((item) => item.group_id === groupId) || [];
-  const events = data?.events.filter((item) => item.group_id === groupId) || [];
-  const quotaOverrides =
-    data?.quotaOverrides.filter((item) => item.group_id === groupId) || [];
-  const entitlementOverrides =
-    data?.entitlementOverrides.filter((item) => item.group_id === groupId) ||
-    [];
-  const filteredMembers = members.filter((member) => {
-    const company = companies.get(member.company_id);
-    const needle = memberSearch.toLowerCase();
-    return (
-      company?.name.toLowerCase().includes(needle) ||
-      member.company_id.toLowerCase().includes(needle)
-    );
-  });
-  const pagedMembers = filteredMembers.slice(
-    (memberPage - 1) * memberPageSize,
-    memberPage * memberPageSize,
-  );
-  const filteredInvoices = invoices.filter(
-    (invoice) =>
-      invoiceStatus === 'all' || invoice.invoice_status === invoiceStatus,
-  );
-  const pagedInvoices = filteredInvoices.slice(
-    (invoicePage - 1) * invoicePageSize,
-    invoicePage * invoicePageSize,
-  );
-  const filteredQuotaOverrides = quotaOverrides.filter((override) => {
-    const needle = overrideSearch.toLowerCase();
-    return (
-      override.reason.toLowerCase().includes(needle) ||
-      dimensions
-        .get(override.quota_dimension_id)
-        ?.name.toLowerCase()
-        .includes(needle)
-    );
-  });
-  const filteredEntitlementOverrides = entitlementOverrides.filter(
-    (override) => {
-      const needle = overrideSearch.toLowerCase();
-      return (
-        override.reason.toLowerCase().includes(needle) ||
-        keys
-          .get(override.entitlement_key_id)
-          ?.key.toLowerCase()
-          .includes(needle)
-      );
-    },
-  );
-  const pagedQuotaOverrides = filteredQuotaOverrides.slice(
-    (quotaPage - 1) * quotaPageSize,
-    quotaPage * quotaPageSize,
-  );
-  const pagedEntitlementOverrides = filteredEntitlementOverrides.slice(
-    (entitlementPage - 1) * entitlementPageSize,
-    entitlementPage * entitlementPageSize,
-  );
-  const eventTypes = [...new Set(events.map((event) => event.event_type))];
-  const filteredEvents = events.filter(
-    (event) => eventType === 'all' || event.event_type === eventType,
-  );
-  const pagedEvents = filteredEvents.slice(
-    (eventPage - 1) * eventPageSize,
-    eventPage * eventPageSize,
-  );
-  const outstanding = invoices
-    .filter((invoice) =>
-      ['open', 'uncollectible'].includes(invoice.invoice_status),
-    )
-    .reduce((sum, invoice) => sum + invoice.amount_minor, 0);
+  const pagedGroups = directoryQuery.data?.rows || [];
+  const group = data?.group;
+  const members = data?.members.rows || [];
+  const subscription = data?.subscription;
+  const invoices = data?.invoices.rows || [];
+  const events = data?.events.rows || [];
+  const quotaOverrides = data?.quota_overrides.rows || [];
+  const entitlementOverrides = data?.entitlement_overrides.rows || [];
+  const eventTypes = data?.event_types || [];
+  const outstanding = Object.entries(data?.summary.outstanding_by_currency || {})
+    .map(([currency, amount]) => formatMoney(amount, currency))
+    .join(' · ') || formatMoney(0);
 
   const assertReason = () => {
     if (reason.trim()) return true;
@@ -448,19 +343,19 @@ export default function OwnerBillingGroup360() {
     return false;
   };
 
-  if (query.isLoading)
+  if (directoryQuery.isLoading)
     return (
       <div className="space-y-4 p-4 md:p-6">
         <Skeleton className="h-10 w-80" />
         <Skeleton className="h-96 w-full" />
       </div>
     );
-  if (query.error)
+  if (directoryQuery.error)
     return (
       <div className="p-4 md:p-6">
         <Alert variant="destructive">
           <AlertTitle>Billing groups unavailable</AlertTitle>
-          <AlertDescription>{query.error.message}</AlertDescription>
+          <AlertDescription>{directoryQuery.error.message}</AlertDescription>
         </Alert>
       </div>
     );
@@ -533,7 +428,7 @@ export default function OwnerBillingGroup360() {
           <TablePagination
             page={groupPage}
             pageSize={groupPageSize}
-            total={filteredGroups.length}
+            total={directoryQuery.data?.total_count || 0}
             onPageChange={setGroupPage}
             onPageSizeChange={(size) => {
               setGroupPageSize(size);
@@ -541,7 +436,11 @@ export default function OwnerBillingGroup360() {
             }}
           />
         </aside>
-        {!group ? (
+        {groupId && query.isLoading ? (
+          <div className="space-y-4"><Skeleton className="h-10 w-72" /><Skeleton className="h-80 w-full" /></div>
+        ) : query.error ? (
+          <Alert variant="destructive"><AlertTitle>Billing group record unavailable</AlertTitle><AlertDescription>{query.error.message}</AlertDescription></Alert>
+        ) : !group ? (
           <Alert>
             <AlertTitle>No billing group selected</AlertTitle>
             <AlertDescription>
@@ -573,7 +472,7 @@ export default function OwnerBillingGroup360() {
                   <CardTitle className="text-sm">Companies</CardTitle>
                 </CardHeader>
                 <CardContent className="text-2xl font-semibold">
-                  {members.length}
+                  {data?.summary.member_count || 0}
                 </CardContent>
               </Card>
               <Card>
@@ -589,7 +488,7 @@ export default function OwnerBillingGroup360() {
                   <CardTitle className="text-sm">Outstanding</CardTitle>
                 </CardHeader>
                 <CardContent className="font-semibold">
-                  {formatMoney(outstanding)}
+                  {outstanding}
                 </CardContent>
               </Card>
               <Card>
@@ -625,6 +524,29 @@ export default function OwnerBillingGroup360() {
                     </p>
                   </div>
                 </div>
+                <div className="space-y-3 rounded-md border p-4">
+                  <div><h3 className="font-semibold">Scoped billing grace</h3><p className="text-sm text-muted-foreground">Affects this billing group's subscription and member companies only.</p></div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div><Label>Operation</Label><Select value={graceMode} onValueChange={(value) => setGraceMode(value as 'from_now' | 'extend')}><SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="from_now">Set from now</SelectItem><SelectItem value="extend">Extend existing</SelectItem></SelectContent></Select></div>
+                    <div><Label htmlFor="group-grace-days">Days</Label><Input id="group-grace-days" className="mt-2" type="number" min="1" max="90" value={graceDays} onChange={(event) => setGraceDays(Number(event.target.value))} /></div>
+                    <div><Label htmlFor="group-grace-reason">Audit reason</Label><Input id="group-grace-reason" className="mt-2" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Required justification" /></div>
+                  </div>
+                  <Button disabled={!subscription || reason.trim().length < 8 || graceDays < 1 || graceDays > 90 || graceMutation.isPending} onClick={() => setConfirmGraceOpen(true)}>Review scoped grace</Button>
+                  <AlertDialog open={confirmGraceOpen} onOpenChange={setConfirmGraceOpen}>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Confirm scoped group grace</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {graceMode === 'extend' ? 'Extend' : 'Set'} grace by {graceDays} days for subscription {subscription?.id} only. This action is audited.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => graceMutation.mutate()} disabled={graceMutation.isPending}>{graceMutation.isPending ? 'Applying...' : 'Apply grace'}</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
                 <div>
                   <div className="mb-2 flex items-center gap-2">
                     <Users className="h-4 w-4" />
@@ -648,15 +570,14 @@ export default function OwnerBillingGroup360() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pagedMembers.map((member) => (
+                      {members.map((member) => (
                         <TableRow key={member.id}>
                           <TableCell className="font-medium">
                             <Link
                               className="text-primary hover:underline"
                               to={`/super-admin/control-plane?cp_tab=company360&cp_company=${member.company_id}`}
                             >
-                              {companies.get(member.company_id)?.name ||
-                                'Unknown company'}
+                              {member.company_name}
                             </Link>
                           </TableCell>
                           <TableCell className="font-mono text-xs">
@@ -670,7 +591,7 @@ export default function OwnerBillingGroup360() {
                   <TablePagination
                     page={memberPage}
                     pageSize={memberPageSize}
-                    total={filteredMembers.length}
+                    total={data?.members.total_count || 0}
                     onPageChange={setMemberPage}
                     onPageSizeChange={(size) => {
                       setMemberPageSize(size);
@@ -711,7 +632,7 @@ export default function OwnerBillingGroup360() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pagedInvoices.map((invoice) => (
+                      {invoices.map((invoice) => (
                         <TableRow key={invoice.id}>
                           <TableCell>
                             {invoice.external_reference || invoice.id}
@@ -742,7 +663,7 @@ export default function OwnerBillingGroup360() {
                   <TablePagination
                     page={invoicePage}
                     pageSize={invoicePageSize}
-                    total={filteredInvoices.length}
+                    total={data?.invoices.total_count || 0}
                     onPageChange={setInvoicePage}
                     onPageSizeChange={(size) => {
                       setInvoicePageSize(size);
@@ -788,7 +709,7 @@ export default function OwnerBillingGroup360() {
                           <SelectValue placeholder="Quota" />
                         </SelectTrigger>
                         <SelectContent>
-                          {data?.dimensions.map((dimension) => (
+                          {data?.catalog.dimensions.map((dimension) => (
                             <SelectItem
                               key={dimension.id}
                               value={dimension.code}
@@ -845,7 +766,7 @@ export default function OwnerBillingGroup360() {
                       </Button>
                     </div>
                     <div className="divide-y rounded-md border">
-                      {pagedQuotaOverrides.map((override) => (
+                      {quotaOverrides.map((override) => (
                         <div
                           key={override.id}
                           className="flex items-center justify-between gap-3 p-3 text-sm"
@@ -890,7 +811,7 @@ export default function OwnerBillingGroup360() {
                     <TablePagination
                       page={quotaPage}
                       pageSize={quotaPageSize}
-                      total={filteredQuotaOverrides.length}
+                      total={data?.quota_overrides.total_count || 0}
                       onPageChange={setQuotaPage}
                       onPageSizeChange={(size) => {
                         setQuotaPageSize(size);
@@ -909,7 +830,7 @@ export default function OwnerBillingGroup360() {
                           <SelectValue placeholder="Entitlement" />
                         </SelectTrigger>
                         <SelectContent>
-                          {data?.entitlementKeys.map((key) => (
+                          {data?.catalog.entitlement_keys.map((key) => (
                             <SelectItem key={key.id} value={key.key}>
                               {key.key}
                             </SelectItem>
@@ -952,7 +873,7 @@ export default function OwnerBillingGroup360() {
                       Apply entitlement override
                     </Button>
                     <div className="divide-y rounded-md border">
-                      {pagedEntitlementOverrides.map((override) => (
+                      {entitlementOverrides.map((override) => (
                         <div
                           key={override.id}
                           className="flex items-center justify-between gap-3 p-3 text-sm"
@@ -991,7 +912,7 @@ export default function OwnerBillingGroup360() {
                     <TablePagination
                       page={entitlementPage}
                       pageSize={entitlementPageSize}
-                      total={filteredEntitlementOverrides.length}
+                      total={data?.entitlement_overrides.total_count || 0}
                       onPageChange={setEntitlementPage}
                       onPageSizeChange={(size) => {
                         setEntitlementPageSize(size);
@@ -1020,7 +941,7 @@ export default function OwnerBillingGroup360() {
                   </SelectContent>
                 </Select>
                 <div className="divide-y rounded-md border">
-                  {pagedEvents.map((event) => (
+                  {events.map((event) => (
                     <div
                       key={event.id}
                       className="flex items-start justify-between gap-4 p-3"
@@ -1050,7 +971,7 @@ export default function OwnerBillingGroup360() {
                 <TablePagination
                   page={eventPage}
                   pageSize={eventPageSize}
-                  total={filteredEvents.length}
+                  total={data?.events.total_count || 0}
                   onPageChange={setEventPage}
                   onPageSizeChange={(size) => {
                     setEventPageSize(size);

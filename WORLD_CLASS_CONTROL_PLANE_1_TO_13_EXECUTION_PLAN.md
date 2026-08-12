@@ -17,11 +17,11 @@ Close all open and partial gaps from items 1-13 with production-grade capabiliti
 6) Manual entitlement override: NOT DONE
 7) Billing/revenue control-plane view: PARTIAL
 8) billing_operator role capability: PARTIAL (label only)
-9) Impersonation: NOT DONE
-10) abuse_signals/risk_decisions operationalized: NOT DONE
-11) Suspend/kill-switch for company/user: NOT DONE
-12) Real server-side pagination: NOT DONE
-13) Business/adoption metrics: PARTIAL
+9) Impersonation: COMPLETE (time-boxed sessions, direct active-session lookup, stop flow)
+10) abuse_signals/risk_decisions operationalized: COMPLETE (paged queue, triage history, durable bulk jobs)
+11) Suspend/kill-switch for company/user: COMPLETE
+12) Real server-side pagination: COMPLETE for visible operational and directory tables
+13) Business/adoption metrics: COMPLETE for aggregate snapshots; deeper reporting remains product scope
 
 ## Delivery Program
 
@@ -106,7 +106,7 @@ Acceptance criteria:
 5. Every UI action state must include loading/success/error and retry affordances.
 
 ## Immediate Next Coding Sequence
-1. Implement Phase A RPCs + hooks + UI tabs.
-2. Wire pagination state and controls into Control Plane.
-3. Add Phase A automated tests.
-4. Move to Phase B billing/admin management surfaces.
+1. Deploy and smoke-test `20260811260000_platform_company_user_360_deep_reads.sql`.
+2. Execute `docs/ops/CONTROL_PLANE_PHASE_D_READINESS_RUNBOOK.md` in staging.
+3. Record authorization-matrix and pagination-load evidence.
+4. Burn down measured dependency, type-safety, monitoring, and workflow reliability debt.

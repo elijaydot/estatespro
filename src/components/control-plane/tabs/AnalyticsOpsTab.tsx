@@ -6,6 +6,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/control-plane/EmptyState';
 import type { CompanyRiskRow, ModuleAdoptionRow, OpsSignalRow } from '@/lib/controlPlaneAnalytics';
 import type {
+  AdministrationSnapshot,
   GovernanceAlert,
   PendingPaymentAttemptRow,
   PendingVerificationHealthRow,
@@ -14,6 +15,7 @@ import type {
 } from '@/hooks/useControlPlane';
 
 type AnalyticsOpsTabProps = {
+  administrationSnapshot: AdministrationSnapshot | null;
   moduleRows: ModuleAdoptionRow[];
   opsSignals: OpsSignalRow[];
   companyRiskRows: CompanyRiskRow[];
@@ -23,16 +25,19 @@ type AnalyticsOpsTabProps = {
   pendingHealth: PendingVerificationHealthRow[];
   pendingVerificationAlerts: GovernanceAlert[];
   onRunPhase10: () => void;
+  onRefreshAdministrationSnapshot: () => void;
   onRefreshPhase10: () => void;
   onRefreshPendingVerification: () => void;
   onAcknowledgeAlert: (id: string) => void;
   onResolveAlert: (id: string) => void;
   isAlertActionPending: boolean;
   isRunPending: boolean;
+  isAdministrationRefreshPending: boolean;
   formatDate: (value: string) => string;
 };
 
 export function AnalyticsOpsTab({
+  administrationSnapshot,
   moduleRows,
   opsSignals,
   companyRiskRows,
@@ -42,12 +47,14 @@ export function AnalyticsOpsTab({
   pendingHealth,
   pendingVerificationAlerts,
   onRunPhase10,
+  onRefreshAdministrationSnapshot,
   onRefreshPhase10,
   onRefreshPendingVerification,
   onAcknowledgeAlert,
   onResolveAlert,
   isAlertActionPending,
   isRunPending,
+  isAdministrationRefreshPending,
   formatDate,
 }: AnalyticsOpsTabProps) {
   const getAlertMetadata = (row: GovernanceAlert) => {
@@ -79,6 +86,32 @@ export function AnalyticsOpsTab({
 
   return (
     <TabsContent value="analytics">
+      <Card className="mb-3">
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+          <div><CardTitle className="text-base">Global Administration Snapshot</CardTitle><p className="mt-1 text-xs text-muted-foreground">Persisted fleet totals generated {administrationSnapshot ? formatDate(administrationSnapshot.generated_at) : 'not yet'}.</p></div>
+          <Button size="sm" variant="outline" onClick={onRefreshAdministrationSnapshot} disabled={isAdministrationRefreshPending}>{isAdministrationRefreshPending ? 'Refreshing...' : 'Refresh fleet snapshot'}</Button>
+        </CardHeader>
+        <CardContent>
+          {!administrationSnapshot ? (
+            <EmptyState title="No administration snapshot" description="Generate the first persisted fleet snapshot." />
+          ) : (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+              {[
+                ['Users', administrationSnapshot.total_users],
+                ['Landlords', administrationSnapshot.total_landlords],
+                ['Property Managers', administrationSnapshot.total_property_managers],
+                ['Companies', administrationSnapshot.total_companies],
+                ['Billing Groups', administrationSnapshot.total_billing_groups],
+                ['Subscriptions', administrationSnapshot.company_subscriptions + administrationSnapshot.group_subscriptions],
+              ].map(([label, value]) => <div key={String(label)} className="border-l-2 border-primary/50 pl-3"><p className="text-xs text-muted-foreground">{label}</p><p className="text-xl font-semibold">{Number(value).toLocaleString()}</p></div>)}
+              <div className="col-span-2 text-xs text-muted-foreground md:col-span-3 xl:col-span-6">
+                Company subscriptions: {Object.entries(administrationSnapshot.company_subscription_statuses).map(([status, count]) => `${status} ${Number(count).toLocaleString()}`).join(' · ') || 'none'}<br />
+                Group subscriptions: {Object.entries(administrationSnapshot.group_subscription_statuses).map(([status, count]) => `${status} ${Number(count).toLocaleString()}`).join(' · ') || 'none'}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
         <Card>
           <CardContent className="p-4">

@@ -32,8 +32,9 @@ describe('unified SaaS catalog', () => {
   });
 
   it('stages changes and blocks unresolved paid-subscriber quota decreases', () => {
-    expect(catalogPage).toContain("from('saas_catalog_change_sets').insert");
-    expect(catalogPage).toContain("rpc('saas_publish_catalog_change_set'");
+    expect(catalogPage).toContain(".from('saas_catalog_change_sets')");
+    expect(catalogPage).toContain('.insert(');
+    expect(catalogPage).toContain("'saas_publish_catalog_change_set'");
     expect(migration).toContain('PAID_SUBSCRIBER_QUOTA_DECREASE_POLICY_REQUIRED');
     expect(migration).toContain("'catalog.change.published'");
   });

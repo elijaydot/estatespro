@@ -135,7 +135,7 @@ describe('operational alerts and vendor management foundation', () => {
     expect(uploader).toContain('min-w-0 max-w-full space-y-3 overflow-hidden');
     expect(reports).toContain('Vendor Payments');
     expect(reports).toContain("fileName = 'vendor-payments'");
-    expect(dashboard).toContain('Vendor Analytics');
+    expect(dashboard).toContain('Vendor analytics');
     expect(dashboard).toContain('Pending payables');
   });
 });

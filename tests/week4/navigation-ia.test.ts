@@ -33,7 +33,6 @@ describe('navigation information architecture', () => {
       '/bookings',
       '/guest-booking-portal',
       '/marketplace/manage',
-      '/marketplace/moderation',
       '/marketplace/verification',
       '/marketplace/reviewer',
       '/messages',

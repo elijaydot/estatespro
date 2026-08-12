@@ -5,10 +5,10 @@ import { describe, expect, it } from 'vitest';
 const page = readFileSync(resolve(process.cwd(), 'src/pages/SuperAdminControlPlane.tsx'), 'utf8');
 
 describe('control plane operational list pagination', () => {
-  it('paginates active entitlement overrides, suspensions, and impersonation sessions', () => {
-    expect(page).toContain('filteredEntitlementOverrides.slice((overridePage - 1) * overridePageSize');
-    expect(page).toContain('filteredActiveSuspensions.slice((suspensionPage - 1) * suspensionPageSize');
-    expect(page).toContain('filteredImpersonationSessions.slice((impersonationPage - 1) * impersonationPageSize');
+  it('server-paginates active entitlement overrides, suspensions, and impersonation sessions', () => {
+    expect(page).toContain('total={pagedEntitlementOverrides.data?.totalCount || 0}');
+    expect(page).toContain('total={pagedActiveSuspensions.data?.totalCount || 0}');
+    expect(page).toContain('total={pagedImpersonationSessions.data?.totalCount || 0}');
     expect(page.match(/<TablePagination/g)?.length).toBeGreaterThanOrEqual(3);
   });
 
@@ -19,21 +19,22 @@ describe('control plane operational list pagination', () => {
     expect(page).toContain('suspensionListType');
   });
 
-  it('paginates monitoring, risk, usage, and incident collections', () => {
+  it('paginates monitoring, usage, and incident collections', () => {
     for (const collection of [
-      'filteredRiskQueue',
       'safetyTimelineRows',
-      'filteredAlerts',
-      'filteredEvents',
-      'filteredDecisions',
-      'filteredUsage',
       'incidentTimeline',
     ]) {
       expect(page).toMatch(new RegExp(`${collection}\\.slice\\(\\(`));
     }
     expect(page).not.toContain('filteredAlerts.slice(0, 20)');
+    expect(page).toContain('total={pagedAlerts.data?.totalCount || 0}');
     expect(page).not.toContain('filteredEvents.slice(0, 25)');
-    expect(page).toContain("triageStatusFilter !== 'all' && item.status !== triageStatusFilter");
+    expect(page).toContain('total={pagedEvents.data?.totalCount || 0}');
+    expect(page).toContain('total={pagedDecisions.data?.totalCount || 0}');
+    expect(page).toContain('total={pagedUsage.data?.totalCount || 0}');
+    expect(page).toContain('useRiskQueuePage({');
+    expect(page).toContain('total={riskQueue.data?.totalCount || 0}');
+    expect(page).not.toContain('filteredRiskQueue.slice((riskPage - 1) * riskPageSize');
   });
 
   it('paginates every Company 360 billing collection', () => {

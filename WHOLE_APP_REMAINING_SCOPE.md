@@ -3,20 +3,23 @@
 ## Current Status Snapshot
 - Week 1 delivery: foundational hardening, route-role enforcement, mobile UX pass on key screens, and security CORS/rate-limit rollout.
 - Week 2 delivery: integration test harness, payment idempotency hardening, and observability/audit event plumbing.
-- Build: passing.
-- Week 2 tests: passing.
+- Control Plane Phases A-C: implemented through server-paginated safety operations and deep Company/User 360 reads.
+- Production build: passing as of 2026-08-12.
+- Week 4 tests: 253 passing across 51 files as of 2026-08-12.
+- Dependency audit: passing with 0 low, 0 moderate, 0 high, and 0 critical findings as of 2026-08-12.
+- Full lint: passing with 0 errors and 0 warnings as of 2026-08-12.
 
 ## What Is Still Left (Critical to World-Class)
 
 ### 1) Dependency and Runtime Security Hardening
-1. Resolve npm audit findings (currently moderate/high items).
-2. Upgrade vulnerable toolchain packages (vite/rollup/postcss and transitive deps).
-3. Re-run security scan and document residual accepted risk.
+1. Completed the compatible React Router and PostCSS security upgrades.
+2. Completed non-forced transitive dependency remediation.
+3. Keep `npm run check:audit` in the release gate and review new findings as dependencies change.
 
 ### 2) Type Safety and Lint Debt Burn-down
-1. Large explicit-any footprint remains across hooks/pages.
-2. Complete typed data models for relation-heavy Supabase responses.
-3. Move from targeted lint pass to full clean lint gate for app and edge function TS.
+1. Removed the 34 explicit-any errors from billing, catalog, owner-group, and upgrade surfaces.
+2. Added typed local models for relation-heavy Supabase responses that are not yet in generated schema types.
+3. Full app and edge function lint now passes with zero errors and warnings.
 
 ### 3) Core Workflow Reliability
 1. Expand integration tests from happy-path/idempotency into full matrix:

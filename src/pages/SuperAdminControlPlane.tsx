@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,19 +31,31 @@ import {
 } from '@/components/ui/breadcrumb';
 import {
   useAdminChangeCompanyPlan,
+  useAdminSetCompanySubscriptionGrace,
   useAdminSetCompanyAddonStatus,
+  useAdministrationSnapshot,
   useActiveSuspensions,
+  useActiveSuspensionsPage,
   useAssignPlatformOperatorRole,
   useBillingCatalog,
+  useBulkRiskTriageJobs,
   useCompanyAdminSnapshot,
+  useCompany360Members,
   useCompanyBillingContext,
   useCompanyDirectory,
+  useGlobalEntityDirectory,
   useControlPlaneAlerts,
+  useControlPlaneAlertsPage,
   useControlPlaneEvents,
+  useControlPlaneEventsPage,
   useEntitlementKeyCatalog,
   useEntitlementOverrides,
+  useEntitlementOverridesPage,
   useEntitlementDecisions,
+  useEntitlementDecisionsPage,
   useImpersonationSessions,
+  useImpersonationSessionsPage,
+  useCurrentOperatorImpersonationSession,
   usePendingPaymentAttempts,
   usePendingVerificationHealth,
   usePlatformAnalyticsSnapshots,
@@ -49,10 +63,16 @@ import {
   usePlatformOperatorRoles,
   useRevokeEntitlementOverride,
   useRevenueMetrics,
+  useRefreshAdministrationSnapshot,
   useRevokeActivePlatformSessions,
   useRiskQueue,
+  useRiskQueuePage,
+  useSavedExceptionQueues,
+  useCreateSavedExceptionQueue,
+  useDeleteSavedExceptionQueue,
   useRiskQueueTriageActionsPage,
   useRiskQueueTriageActions,
+  useQueueBulkRiskTriageJob,
   useSessionRevocationHistoryPage,
   useRemovePlatformOperatorRole,
   useRunPlatformPhase10,
@@ -63,13 +83,16 @@ import {
   useTriageRiskQueueItem,
   useUpdateGovernanceAlertStatus,
   useUserDirectory,
+  useUser360Companies,
   useUsageSnapshots,
+  useUsageSnapshotsPage,
+  type GlobalEntityType,
 } from '@/hooks/useControlPlane';
 import { useSuperAdminOverride } from '@/hooks/useSuperAdminOverride';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { downloadCsv, downloadJson, getTimeRangeStartIso, isInTimeRange, matchesSearch, rowsToCsv, type TimeRange } from '@/lib/controlPlane';
 import {
   parseControlPlaneUiState,
@@ -102,6 +125,7 @@ import { formatControlPlaneLabel, shortReference } from '@/lib/controlPlanePrese
 import { FilterBar } from '@/components/shared/FilterBar';
 import { MetricCard } from '@/components/shared/MetricCard';
 import { TablePagination } from '@/components/marketplace-crm/TablePagination';
+import { RemoteEntitySelect } from '@/components/control-plane/RemoteEntitySelect';
 import {
   buildCorrelationFilterOptions,
   matchesCompanyFilter,
@@ -206,6 +230,7 @@ export default function SuperAdminControlPlane() {
   const decisions = useEntitlementDecisions(100);
   const usage = useUsageSnapshots(100);
   const analyticsSnapshots = usePlatformAnalyticsSnapshots(20);
+  const administrationSnapshot = useAdministrationSnapshot();
   const driftChecks = usePlatformDriftChecks(50);
   const operatorRoles = usePlatformOperatorRoles(200);
   const billingCatalog = useBillingCatalog();
@@ -214,6 +239,7 @@ export default function SuperAdminControlPlane() {
   const assignOperatorRole = useAssignPlatformOperatorRole();
   const removeOperatorRole = useRemovePlatformOperatorRole();
   const adminChangeCompanyPlan = useAdminChangeCompanyPlan();
+  const adminSetCompanySubscriptionGrace = useAdminSetCompanySubscriptionGrace();
   const adminSetCompanyAddonStatus = useAdminSetCompanyAddonStatus();
   const setEntitlementOverride = useSetEntitlementOverride();
   const revokeEntitlementOverride = useRevokeEntitlementOverride();
@@ -221,8 +247,14 @@ export default function SuperAdminControlPlane() {
   const startImpersonationSession = useStartImpersonationSession();
   const stopImpersonationSession = useStopImpersonationSession();
   const triageRiskQueueItem = useTriageRiskQueueItem();
+  const queueBulkRiskTriageJob = useQueueBulkRiskTriageJob();
+  const bulkRiskTriageJobs = useBulkRiskTriageJobs(20);
+  const savedExceptionQueues = useSavedExceptionQueues();
+  const createSavedExceptionQueue = useCreateSavedExceptionQueue();
+  const deleteSavedExceptionQueue = useDeleteSavedExceptionQueue();
   const revokeActiveSessions = useRevokeActivePlatformSessions();
   const runPhase10 = useRunPlatformPhase10();
+  const refreshAdministrationSnapshot = useRefreshAdministrationSnapshot();
   const updateAlertStatus = useUpdateGovernanceAlertStatus();
 
   const [activeTab, setActiveTab] = useState<ControlPlaneTab>(parsedState.tab);
@@ -241,6 +273,8 @@ export default function SuperAdminControlPlane() {
   const [billingProductCode, setBillingProductCode] = useState('');
   const [billingPlanCode, setBillingPlanCode] = useState('');
   const [billingReason, setBillingReason] = useState('');
+  const [billingGraceDays, setBillingGraceDays] = useState(7);
+  const [billingGraceMode, setBillingGraceMode] = useState<'from_now' | 'extend'>('from_now');
   const [addonNotes, setAddonNotes] = useState('');
   const [safetyCompanyId, setSafetyCompanyId] = useState('');
   const [entitlementKey, setEntitlementKey] = useState('');
@@ -253,10 +287,19 @@ export default function SuperAdminControlPlane() {
   const [impersonationCompanyId, setImpersonationCompanyId] = useState('');
   const [impersonationReason, setImpersonationReason] = useState('');
   const [riskTriageNotes, setRiskTriageNotes] = useState('');
+  const [selectedGovernanceAlertIds, setSelectedGovernanceAlertIds] = useState<string[]>([]);
+  const [bulkTriageStatus, setBulkTriageStatus] = useState<'acknowledged' | 'resolved' | 'escalated' | 'false_positive'>('acknowledged');
+  const [savedQueueName, setSavedQueueName] = useState('');
+  const [savedQueueVisibility, setSavedQueueVisibility] = useState<'private' | 'team'>('private');
+  const [selectedSavedQueueId, setSelectedSavedQueueId] = useState('');
   const [triageStatusFilter, setTriageStatusFilter] = useState<'all' | 'acknowledged' | 'resolved' | 'escalated' | 'false_positive'>('all');
   const [revocationPrincipalType, setRevocationPrincipalType] = useState<'all' | 'company' | 'user'>('all');
   const [companyDirectoryPage, setCompanyDirectoryPage] = useState(1);
   const [userDirectoryPage, setUserDirectoryPage] = useState(1);
+  const [company360MembersPage, setCompany360MembersPage] = useState(1);
+  const [user360CompaniesPage, setUser360CompaniesPage] = useState(1);
+  const [globalDirectoryPage, setGlobalDirectoryPage] = useState(1);
+  const [globalDirectoryType, setGlobalDirectoryType] = useState<GlobalEntityType>('subscription');
   const [triageActionsPage, setTriageActionsPage] = useState(1);
   const [revocationHistoryPageNumber, setRevocationHistoryPageNumber] = useState(1);
   const [overrideListDecision, setOverrideListDecision] = useState<'all' | 'allow' | 'deny'>('all');
@@ -292,10 +335,15 @@ export default function SuperAdminControlPlane() {
   const pendingVerificationScopeCompanyId = isUuidLike(companyFilter) ? companyFilter : null;
   const effectiveBillingCompanyId = isUuidLike(billingCompanyId) ? billingCompanyId : null;
   const effectiveSafetyCompanyId = isUuidLike(safetyCompanyId) ? safetyCompanyId : null;
+  const selectedCompany360Id = isUuidLike(companyFilter) ? companyFilter : null;
+  const selectedUser360Id = isUuidLike(userFilter) ? userFilter : null;
   const triageCompanyFilterId = isUuidLike(companyFilter) ? companyFilter : effectiveSafetyCompanyId;
   const triageActorFilterId = isUuidLike(userFilter) ? userFilter : null;
   const triageCreatedAfter = getTimeRangeStartIso(timeRange);
   const triageCreatedBefore = null;
+  const eventCompanyFilterId = isUuidLike(companyFilter) ? companyFilter : null;
+  const eventActorFilterId = isUuidLike(userFilter) ? userFilter : null;
+  const eventCreatedAfter = getTimeRangeStartIso(timeRange);
   const revocationCompanyFilterId = isUuidLike(companyFilter) ? companyFilter : effectiveSafetyCompanyId;
   const revocationActorFilterId = isUuidLike(userFilter) ? userFilter : null;
   const revocationCreatedAfter = getTimeRangeStartIso(timeRange);
@@ -304,7 +352,54 @@ export default function SuperAdminControlPlane() {
   const entitlementOverrides = useEntitlementOverrides(effectiveSafetyCompanyId, true, 200);
   const activeSuspensions = useActiveSuspensions('all', 200);
   const impersonationSessions = useImpersonationSessions(true, 100);
-  const riskQueue = useRiskQueue(effectiveSafetyCompanyId, 250);
+  const currentOperatorImpersonation = useCurrentOperatorImpersonationSession();
+  const pagedEntitlementOverrides = useEntitlementOverridesPage({
+    companyId: effectiveSafetyCompanyId, search, decision: overrideListDecision,
+    onlyActive: true, page: overridePage, pageSize: overridePageSize,
+  });
+  const pagedActiveSuspensions = useActiveSuspensionsPage({
+    principalType: suspensionListType, search, page: suspensionPage, pageSize: suspensionPageSize,
+  });
+  const pagedImpersonationSessions = useImpersonationSessionsPage({
+    companyId: eventCompanyFilterId, actorUserId: eventActorFilterId, search,
+    onlyActive: true, page: impersonationPage, pageSize: impersonationPageSize,
+  });
+  const riskQueue = useRiskQueuePage({
+    companyId: triageCompanyFilterId,
+    search,
+    severity: severityFilter,
+    triageStatus: triageStatusFilter,
+    occurredAfter: triageCreatedAfter,
+    occurredBefore: triageCreatedBefore,
+    page: riskPage,
+    pageSize: riskPageSize,
+  });
+  const pagedEvents = useControlPlaneEventsPage({
+    companyId: eventCompanyFilterId,
+    actorUserId: eventActorFilterId,
+    search,
+    severity: severityFilter,
+    resultStatus: eventResultFilter,
+    correlationId: correlationFilter || null,
+    createdAfter: eventCreatedAfter,
+    createdBefore: null,
+    page: eventsPage,
+    pageSize: monitorPageSize,
+  });
+  const pagedAlerts = useControlPlaneAlertsPage({
+    companyId: eventCompanyFilterId, search, severity: severityFilter, status: alertStatusFilter,
+    correlationId: correlationFilter || null, createdAfter: eventCreatedAfter, createdBefore: null,
+    page: alertsPage, pageSize: monitorPageSize,
+  });
+  const pagedDecisions = useEntitlementDecisionsPage({
+    companyId: eventCompanyFilterId, actorUserId: eventActorFilterId, search,
+    decision: decisionFilter, correlationId: correlationFilter || null,
+    createdAfter: eventCreatedAfter, createdBefore: null, page: decisionsPage, pageSize: monitorPageSize,
+  });
+  const pagedUsage = useUsageSnapshotsPage({
+    companyId: eventCompanyFilterId, search, snapshotAfter: eventCreatedAfter,
+    snapshotBefore: null, page: usagePage, pageSize: monitorPageSize,
+  });
   const riskQueueTriageActions = useRiskQueueTriageActions(effectiveSafetyCompanyId, 250);
   const pagedRiskQueueTriageActions = useRiskQueueTriageActionsPage({
     companyId: triageCompanyFilterId,
@@ -343,6 +438,10 @@ export default function SuperAdminControlPlane() {
   const companyBillingContext = useCompanyBillingContext(effectiveBillingCompanyId, 25);
   const pagedCompanies = useCompanyDirectory(companyDirectoryPage, 20, search);
   const pagedUsers = useUserDirectory(userDirectoryPage, 20, search);
+  const company360Snapshot = useCompanyAdminSnapshot(selectedCompany360Id);
+  const company360Members = useCompany360Members(selectedCompany360Id, company360MembersPage, 10);
+  const user360Companies = useUser360Companies(selectedUser360Id, user360CompaniesPage, 10);
+  const globalDirectory = useGlobalEntityDirectory(globalDirectoryType, globalDirectoryPage, 20, search);
 
   useEffect(() => {
     if (!billingCompanyId && isUuidLike(companyFilter)) {
@@ -355,6 +454,14 @@ export default function SuperAdminControlPlane() {
     setCompanyAddonsPage(1);
     setCompanyInvoicesPage(1);
   }, [effectiveBillingCompanyId]);
+
+  useEffect(() => {
+    setCompany360MembersPage(1);
+  }, [selectedCompany360Id]);
+
+  useEffect(() => {
+    setUser360CompaniesPage(1);
+  }, [selectedUser360Id]);
 
   useEffect(() => {
     if (!safetyCompanyId && isUuidLike(companyFilter)) {
@@ -387,11 +494,25 @@ export default function SuperAdminControlPlane() {
   useEffect(() => {
     setCompanyDirectoryPage(1);
     setUserDirectoryPage(1);
+    setGlobalDirectoryPage(1);
+    setRiskPage(1);
+    setEventsPage(1);
+    setAlertsPage(1);
+    setDecisionsPage(1);
+    setUsagePage(1);
+    setOverridePage(1);
+    setSuspensionPage(1);
+    setImpersonationPage(1);
     setTriageActionsPage(1);
     setRevocationHistoryPageNumber(resetRevocationHistoryPage());
   }, [search]);
 
   useEffect(() => {
+    setRiskPage(1);
+    setEventsPage(1);
+    setAlertsPage(1);
+    setDecisionsPage(1);
+    setUsagePage(1);
     setTriageActionsPage(1);
     setRevocationHistoryPageNumber(resetRevocationHistoryPage());
   }, [effectiveSafetyCompanyId, companyFilter, userFilter, timeRange, triageStatusFilter, revocationPrincipalType]);
@@ -696,46 +817,7 @@ export default function SuperAdminControlPlane() {
     });
   }, [companyDirectory, companyFilter, search, timeRange, usage.data]);
 
-  const filteredRiskQueue = useMemo(() => {
-    return (riskQueue.data || []).filter((item) => {
-      if (!isInTimeRange(item.occurred_at, timeRange)) return false;
-      if (triageStatusFilter !== 'all' && item.status !== triageStatusFilter) return false;
-      if (severityFilter !== 'all' && item.severity !== severityFilter && !(severityFilter === 'error' && item.severity === 'critical')) {
-        return false;
-      }
-      if (!matchesCompanyFilter(item.company_id, companyFilter, companyDirectory)) return false;
-      return matchesSearch([
-        item.row_type,
-        item.company_id,
-        item.status,
-        item.title,
-        item.detail,
-      ], search);
-    });
-  }, [companyDirectory, companyFilter, riskQueue.data, search, severityFilter, timeRange, triageStatusFilter]);
-
-  const filteredEntitlementOverrides = useMemo(() => {
-    return (entitlementOverrides.data || []).filter((item) => {
-      if (overrideListDecision !== 'all' && item.decision !== overrideListDecision) return false;
-      return matchesSearch([item.entitlement_key, item.decision, item.reason, item.company_id], search);
-    });
-  }, [entitlementOverrides.data, overrideListDecision, search]);
-
-  const filteredActiveSuspensions = useMemo(() => {
-    return (activeSuspensions.data || []).filter((item) => {
-      if (suspensionListType !== 'all' && item.principal_type !== suspensionListType) return false;
-      return matchesSearch([item.principal_type, item.principal_id, item.reason], search);
-    });
-  }, [activeSuspensions.data, search, suspensionListType]);
-
-  const filteredImpersonationSessions = useMemo(() => {
-    return (impersonationSessions.data || []).filter((item) => matchesSearch([
-      item.actor_user_id,
-      item.target_user_id,
-      item.company_id,
-      item.reason,
-    ], search));
-  }, [impersonationSessions.data, search]);
+  const filteredRiskQueue = useMemo(() => riskQueue.data?.rows || [], [riskQueue.data?.rows]);
 
   const filteredRiskTriageActions = useMemo(() => {
     return (riskQueueTriageActions.data || []).filter((item) => {
@@ -1126,6 +1208,7 @@ export default function SuperAdminControlPlane() {
 
   const companyDirectoryTotalPages = Math.max(1, Math.ceil((pagedCompanies.data?.totalCount || 0) / (pagedCompanies.data?.pageSize || 20)));
   const userDirectoryTotalPages = Math.max(1, Math.ceil((pagedUsers.data?.totalCount || 0) / (pagedUsers.data?.pageSize || 20)));
+  const globalDirectoryTotalPages = Math.max(1, Math.ceil((globalDirectory.data?.total_count || 0) / (globalDirectory.data?.page_size || 20)));
   const triageActionsTotalPages = Math.max(1, Math.ceil((pagedRiskQueueTriageActions.data?.totalCount || 0) / (pagedRiskQueueTriageActions.data?.pageSize || 20)));
   const revocationHistoryTotalPages = getRevocationHistoryTotalPages(
     revocationHistoryPage.data?.totalCount,
@@ -1280,6 +1363,27 @@ export default function SuperAdminControlPlane() {
         description: error instanceof Error ? error.message : 'Unable to update add-on status.',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleSetCompanyGrace = async (subscriptionId: string) => {
+    if (!effectiveBillingCompanyId || billingReason.trim().length < 8) {
+      toast({ title: 'Audit reason required', description: 'Enter at least 8 characters before changing grace.', variant: 'destructive' });
+      return;
+    }
+    try {
+      const result = await adminSetCompanySubscriptionGrace.mutateAsync({
+        companyId: effectiveBillingCompanyId,
+        subscriptionId,
+        graceDays: billingGraceDays,
+        mode: billingGraceMode,
+        reason: billingReason.trim(),
+        correlationId: `cp-company-grace-${Date.now()}`,
+        metadata: { source: 'control_plane_company_360' },
+      });
+      toast({ title: 'Company grace updated', description: `Grace now ends ${formatDate(String(result.grace_end_at))}.` });
+    } catch (error) {
+      toast({ title: 'Grace update failed', description: error instanceof Error ? error.message : 'Unable to update grace.', variant: 'destructive' });
     }
   };
 
@@ -1460,6 +1564,76 @@ export default function SuperAdminControlPlane() {
     }
   };
 
+  const handleQueueBulkRiskTriage = async () => {
+    try {
+      const result = await queueBulkRiskTriageJob.mutateAsync({
+        rowIds: selectedGovernanceAlertIds,
+        triageStatus: bulkTriageStatus,
+        reason: riskTriageNotes.trim(),
+        idempotencyKey: crypto.randomUUID(),
+      });
+      toast({
+        title: 'Bulk triage queued',
+        description: `${result.total_items} alerts queued in job ${result.job_id}.`,
+      });
+      setSelectedGovernanceAlertIds([]);
+      setRiskTriageNotes('');
+    } catch (error) {
+      toast({
+        title: 'Bulk triage queue failed',
+        description: error instanceof Error ? error.message : 'Unable to queue selected governance alerts.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCreateSavedQueue = async () => {
+    if (savedQueueName.trim().length < 3) {
+      toast({ title: 'Queue name required', description: 'Enter at least 3 characters.', variant: 'destructive' });
+      return;
+    }
+    try {
+      const queue = await createSavedExceptionQueue.mutateAsync({
+        name: savedQueueName.trim(),
+        visibility: savedQueueVisibility,
+        filterConfig: {
+          company_id: triageCompanyFilterId || undefined,
+          actor_user_id: triageActorFilterId || undefined,
+          triage_status: triageStatusFilter,
+          time_range: timeRange,
+        },
+      });
+      setSavedQueueName('');
+      setSelectedSavedQueueId(queue.id);
+      toast({ title: 'Exception queue saved', description: `${queue.name} is available to ${queue.visibility === 'team' ? 'the risk team' : 'you only'}.` });
+    } catch (error) {
+      toast({ title: 'Unable to save queue', description: error instanceof Error ? error.message : 'Queue creation failed.', variant: 'destructive' });
+    }
+  };
+
+  const applySavedQueue = (queueId: string) => {
+    setSelectedSavedQueueId(queueId);
+    const queue = savedExceptionQueues.data?.find((item) => item.id === queueId);
+    if (!queue) return;
+    const filters = queue.filter_config;
+    setSafetyCompanyId(filters.company_id || '');
+    setCompanyFilter(filters.company_id || '');
+    setUserFilter(filters.actor_user_id || '');
+    setTriageStatusFilter(filters.triage_status || 'all');
+    setTimeRange(filters.time_range || 'all');
+    setTriageActionsPage(1);
+  };
+
+  const handleDeleteSavedQueue = async (queueId: string) => {
+    try {
+      await deleteSavedExceptionQueue.mutateAsync(queueId);
+      setSelectedSavedQueueId('');
+      toast({ title: 'Saved queue deleted' });
+    } catch (error) {
+      toast({ title: 'Unable to delete queue', description: error instanceof Error ? error.message : 'Queue deletion failed.', variant: 'destructive' });
+    }
+  };
+
   const handleRevokePrincipalSessions = async () => {
     const principalId = suspendPrincipalId.trim();
     if (!isUuidLike(principalId)) {
@@ -1569,6 +1743,7 @@ export default function SuperAdminControlPlane() {
     const userEntry = userDirectory.get(userId);
     return userEntry?.name || userEntry?.email || `User ${shortReference(userId)}`;
   };
+  const activeOperatorImpersonation = currentOperatorImpersonation.data;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -1597,6 +1772,21 @@ export default function SuperAdminControlPlane() {
           </Button>
         </div>
       </div>
+
+      {activeOperatorImpersonation && (
+        <Alert variant="destructive">
+          <Fingerprint className="h-4 w-4" />
+          <AlertTitle>Active support impersonation session</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Target: {resolveUserLabel(activeOperatorImpersonation.target_user_id)}. Reason: {activeOperatorImpersonation.reason}. Sessions expire automatically after 30 minutes.
+            </span>
+            <Button size="sm" variant="outline" disabled={stopImpersonationSession.isPending} onClick={() => void handleStopImpersonation(activeOperatorImpersonation.id)}>
+              Stop session
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <FilterBar className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-8">
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search module, action, company, correlation..." />
@@ -1768,6 +1958,58 @@ export default function SuperAdminControlPlane() {
           />
 
           <TabsContent value="directory">
+            <Card className="mb-3">
+              <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+                <div><CardTitle className="text-base">Global Administration Directory</CardTitle><p className="mt-1 text-xs text-muted-foreground">Server-side identity, relationship, billing scope, and subscription lookup.</p></div>
+                <Select value={globalDirectoryType} onValueChange={(value) => { setGlobalDirectoryType(value as GlobalEntityType); setGlobalDirectoryPage(1); }}>
+                  <SelectTrigger className="w-52" aria-label="Select global directory"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="subscription">Subscriptions</SelectItem>
+                    <SelectItem value="landlord">Landlords</SelectItem>
+                    <SelectItem value="property_manager">Property Managers</SelectItem>
+                    <SelectItem value="billing_group">Billing Groups</SelectItem>
+                    <SelectItem value="company">Companies</SelectItem>
+                    <SelectItem value="user">Users</SelectItem>
+                  </SelectContent>
+                </Select>
+              </CardHeader>
+              <CardContent>
+                {(globalDirectory.data?.rows || []).length === 0 ? (
+                  <EmptyState title="No matching global records" description="Search by name, email, or an exact entity reference ID." />
+                ) : (
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Record</TableHead><TableHead>Status</TableHead><TableHead>Relationships</TableHead><TableHead>Reference</TableHead><TableHead className="text-right">Open</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      {(globalDirectory.data?.rows || []).map((row) => {
+                        const companyCount = Number(row.metadata.company_count || 0);
+                        const scopeType = typeof row.metadata.scope_type === 'string' ? row.metadata.scope_type : null;
+                        return (
+                          <TableRow key={`${row.entity_type}-${row.entity_id}`}>
+                            <TableCell><p className="font-medium">{row.label}</p><p className="text-xs text-muted-foreground">{row.secondary_label || formatControlPlaneLabel(row.entity_type)}</p></TableCell>
+                            <TableCell><Badge variant="outline">{row.status || 'n/a'}</Badge></TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{scopeType ? `${formatControlPlaneLabel(scopeType)} scope` : companyCount ? `${companyCount.toLocaleString()} companies` : '-'}</TableCell>
+                            <TableCell className="font-mono text-xs" title={row.entity_id}>{shortReference(row.entity_id)}</TableCell>
+                            <TableCell className="text-right">
+                              {row.billing_group_id ? (
+                                <Button asChild size="sm" variant="ghost"><Link to={`/super-admin/billing-groups?group=${row.billing_group_id}`}>Group 360</Link></Button>
+                              ) : row.company_id ? (
+                                <Button size="sm" variant="ghost" onClick={() => { setCompanyFilter(row.company_id || ''); setBillingCompanyId(row.company_id || ''); setActiveTab(row.entity_type === 'subscription' ? 'monetization' : 'company360'); }}>Company 360</Button>
+                              ) : row.user_id ? (
+                                <Button size="sm" variant="ghost" onClick={() => { setUserFilter(row.user_id || ''); setActiveTab('user360'); }}>User 360</Button>
+                              ) : null}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+                <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Page {globalDirectory.data?.page || globalDirectoryPage} of {globalDirectoryTotalPages} · {(globalDirectory.data?.total_count || 0).toLocaleString()} total</span>
+                  <div className="flex gap-2"><Button size="sm" variant="outline" disabled={globalDirectoryPage <= 1 || globalDirectory.isFetching} onClick={() => setGlobalDirectoryPage((page) => Math.max(1, page - 1))}><ChevronLeft className="mr-1 h-3.5 w-3.5" /> Prev</Button><Button size="sm" variant="outline" disabled={globalDirectoryPage >= globalDirectoryTotalPages || globalDirectory.isFetching} onClick={() => setGlobalDirectoryPage((page) => Math.min(globalDirectoryTotalPages, page + 1))}>Next <ChevronRight className="ml-1 h-3.5 w-3.5" /></Button></div>
+                </div>
+              </CardContent>
+            </Card>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
               <Card>
                 <CardHeader>
@@ -1935,10 +2177,11 @@ export default function SuperAdminControlPlane() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2">
-                      <Input
+                      <RemoteEntitySelect
+                        entityType="company"
                         value={billingCompanyId}
-                        onChange={(e) => setBillingCompanyId(e.target.value)}
-                        placeholder="Company reference ID"
+                        onValueChange={setBillingCompanyId}
+                        placeholder="Select company"
                         className="xl:col-span-2"
                       />
                       <Select value={billingProductCode} onValueChange={setBillingProductCode}>
@@ -1985,6 +2228,20 @@ export default function SuperAdminControlPlane() {
                       onChange={(e) => setBillingReason(e.target.value)}
                       placeholder="Reason for change (required)"
                     />
+                    <div className="grid gap-2 rounded-md border border-border/60 p-3 sm:grid-cols-[10rem_10rem_1fr] sm:items-end">
+                      <div>
+                        <p className="mb-2 text-xs text-muted-foreground">Grace operation</p>
+                        <Select value={billingGraceMode} onValueChange={(value) => setBillingGraceMode(value as 'from_now' | 'extend')}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent><SelectItem value="from_now">Set from now</SelectItem><SelectItem value="extend">Extend existing</SelectItem></SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <p className="mb-2 text-xs text-muted-foreground">Days</p>
+                        <Input type="number" min="1" max="90" value={billingGraceDays} onChange={(event) => setBillingGraceDays(Number(event.target.value))} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Apply from the exact subscription row below. Changes are scoped, locked, and audited.</p>
+                    </div>
 
                     {companyAdminSnapshot.data ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
@@ -2059,6 +2316,8 @@ export default function SuperAdminControlPlane() {
                             <TableHead>Status</TableHead>
                             <TableHead>Payment</TableHead>
                             <TableHead>Amount</TableHead>
+                            <TableHead>Grace ends</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -2069,6 +2328,8 @@ export default function SuperAdminControlPlane() {
                               <TableCell>{String(item.status || '-')}</TableCell>
                               <TableCell>{String(item.payment_state || '-')}</TableCell>
                               <TableCell>{formatMinor(Number(item.amount_minor || 0), String(item.price_currency || 'USD'))}</TableCell>
+                              <TableCell>{item.grace_end_at ? formatDate(String(item.grace_end_at)) : '-'}</TableCell>
+                              <TableCell className="text-right"><Button size="sm" variant="outline" disabled={adminSetCompanySubscriptionGrace.isPending || billingReason.trim().length < 8} onClick={() => requestConfirmation('Confirm scoped company grace', `${billingGraceMode === 'extend' ? 'Extend' : 'Set'} grace by ${billingGraceDays} days for subscription ${String(item.id)} only.`, 'Apply grace', () => handleSetCompanyGrace(String(item.id)))}>Set grace</Button></TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -2083,6 +2344,20 @@ export default function SuperAdminControlPlane() {
                     <CardTitle className="text-base">Add-on Management</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
+                    <div className="space-y-3 rounded-md border p-3">
+                      <div><p className="text-sm font-medium">Saved exception queues</p><p className="text-xs text-muted-foreground">Reuse server-side company, actor, status, and time-window filters.</p></div>
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_9rem_auto]">
+                        <Input value={savedQueueName} onChange={(event) => setSavedQueueName(event.target.value)} placeholder="Queue name" />
+                        <Select value={savedQueueVisibility} onValueChange={(value) => setSavedQueueVisibility(value as 'private' | 'team')}><SelectTrigger aria-label="Saved queue visibility"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="private">Private</SelectItem><SelectItem value="team">Risk team</SelectItem></SelectContent></Select>
+                        <Button variant="outline" disabled={createSavedExceptionQueue.isPending || savedQueueName.trim().length < 3} onClick={() => void handleCreateSavedQueue()}>{createSavedExceptionQueue.isPending ? 'Saving...' : 'Save current filters'}</Button>
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Select value={selectedSavedQueueId} onValueChange={applySavedQueue}><SelectTrigger className="min-w-0 flex-1" aria-label="Apply saved exception queue"><SelectValue placeholder="Select a saved queue" /></SelectTrigger><SelectContent>{(savedExceptionQueues.data || []).map((queue) => <SelectItem key={queue.id} value={queue.id}>{queue.name} · {queue.visibility === 'team' ? 'team' : 'private'}</SelectItem>)}</SelectContent></Select>
+                        {selectedSavedQueueId && savedExceptionQueues.data?.find((queue) => queue.id === selectedSavedQueueId)?.is_owner && (
+                          <Button variant="ghost" disabled={deleteSavedExceptionQueue.isPending} onClick={() => requestConfirmation('Delete saved exception queue', 'Delete this queue definition. Triage records are not affected.', 'Delete queue', () => handleDeleteSavedQueue(selectedSavedQueueId), true)}>Delete</Button>
+                        )}
+                      </div>
+                    </div>
                     <Input
                       value={addonNotes}
                       onChange={(e) => setAddonNotes(e.target.value)}
@@ -2184,20 +2459,23 @@ export default function SuperAdminControlPlane() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <Input
+                    <RemoteEntitySelect
+                      entityType="company"
                       value={safetyCompanyId}
-                      onChange={(e) => setSafetyCompanyId(e.target.value)}
-                      placeholder="Company reference ID (optional)"
+                      onValueChange={setSafetyCompanyId}
+                      placeholder="Select safety company"
                     />
-                    <Input
+                    <RemoteEntitySelect
+                      entityType={suspendPrincipalType}
                       value={suspendPrincipalId}
-                      onChange={(e) => setSuspendPrincipalId(e.target.value)}
-                      placeholder="Company or user reference ID"
+                      onValueChange={setSuspendPrincipalId}
+                      placeholder={`Select ${suspendPrincipalType}`}
                     />
-                    <Input
+                    <RemoteEntitySelect
+                      entityType="user"
                       value={impersonationTargetUserId}
-                      onChange={(e) => setImpersonationTargetUserId(e.target.value)}
-                      placeholder="User reference ID"
+                      onValueChange={setImpersonationTargetUserId}
+                      placeholder="Select impersonation user"
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -2252,7 +2530,7 @@ export default function SuperAdminControlPlane() {
                       <SelectTrigger className="max-w-56" aria-label="Filter active overrides by decision"><SelectValue /></SelectTrigger>
                       <SelectContent><SelectItem value="all">All decisions</SelectItem><SelectItem value="allow">Allow</SelectItem><SelectItem value="deny">Deny</SelectItem></SelectContent>
                     </Select>
-                    {filteredEntitlementOverrides.length === 0 ? (
+                    {(pagedEntitlementOverrides.data?.rows || []).length === 0 ? (
                       <EmptyState title="No active overrides" description="Apply a temporary allow/deny override to manage urgent access anomalies." />
                     ) : (
                       <Table>
@@ -2266,7 +2544,7 @@ export default function SuperAdminControlPlane() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredEntitlementOverrides.slice((overridePage - 1) * overridePageSize, overridePage * overridePageSize).map((row) => (
+                          {(pagedEntitlementOverrides.data?.rows || []).map((row) => (
                             <TableRow key={row.id}>
                               <TableCell>{row.entitlement_key}</TableCell>
                               <TableCell>
@@ -2289,7 +2567,7 @@ export default function SuperAdminControlPlane() {
                         </TableBody>
                       </Table>
                     )}
-                    <TablePagination page={overridePage} pageSize={overridePageSize} total={filteredEntitlementOverrides.length} onPageChange={setOverridePage} onPageSizeChange={(size) => { setOverridePageSize(size); setOverridePage(1); }} />
+                    <TablePagination page={pagedEntitlementOverrides.data?.page || overridePage} pageSize={pagedEntitlementOverrides.data?.pageSize || overridePageSize} total={pagedEntitlementOverrides.data?.totalCount || 0} onPageChange={setOverridePage} onPageSizeChange={(size) => { setOverridePageSize(size); setOverridePage(1); }} />
                   </CardContent>
                 </Card>
 
@@ -2362,7 +2640,7 @@ export default function SuperAdminControlPlane() {
                       <SelectTrigger className="max-w-56" aria-label="Filter active suspensions by principal type"><SelectValue /></SelectTrigger>
                       <SelectContent><SelectItem value="all">All principal types</SelectItem><SelectItem value="company">Companies</SelectItem><SelectItem value="user">Users</SelectItem></SelectContent>
                     </Select>
-                    {filteredActiveSuspensions.length === 0 ? (
+                    {(pagedActiveSuspensions.data?.rows || []).length === 0 ? (
                       <EmptyState title="No active suspensions" description="Suspended principals appear here until cleared." />
                     ) : (
                       <Table>
@@ -2375,7 +2653,7 @@ export default function SuperAdminControlPlane() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredActiveSuspensions.slice((suspensionPage - 1) * suspensionPageSize, suspensionPage * suspensionPageSize).map((row) => (
+                          {(pagedActiveSuspensions.data?.rows || []).map((row) => (
                             <TableRow key={row.id}>
                               <TableCell>{formatControlPlaneLabel(row.principal_type)}</TableCell>
                               <TableCell title={row.principal_id}>
@@ -2391,7 +2669,7 @@ export default function SuperAdminControlPlane() {
                         </TableBody>
                       </Table>
                     )}
-                    <TablePagination page={suspensionPage} pageSize={suspensionPageSize} total={filteredActiveSuspensions.length} onPageChange={setSuspensionPage} onPageSizeChange={(size) => { setSuspensionPageSize(size); setSuspensionPage(1); }} />
+                    <TablePagination page={pagedActiveSuspensions.data?.page || suspensionPage} pageSize={pagedActiveSuspensions.data?.pageSize || suspensionPageSize} total={pagedActiveSuspensions.data?.totalCount || 0} onPageChange={setSuspensionPage} onPageSizeChange={(size) => { setSuspensionPageSize(size); setSuspensionPage(1); }} />
                   </CardContent>
                 </Card>
               </div>
@@ -2403,10 +2681,11 @@ export default function SuperAdminControlPlane() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <Input
+                      <RemoteEntitySelect
+                        entityType="company"
                         value={impersonationCompanyId}
-                        onChange={(e) => setImpersonationCompanyId(e.target.value)}
-                        placeholder="Company reference ID (optional)"
+                        onValueChange={setImpersonationCompanyId}
+                        placeholder="Select scoped company"
                       />
                       <Input
                         value={impersonationReason}
@@ -2426,7 +2705,7 @@ export default function SuperAdminControlPlane() {
                       </Button>
                     </div>
 
-                    {filteredImpersonationSessions.length === 0 ? (
+                    {(pagedImpersonationSessions.data?.rows || []).length === 0 ? (
                       <EmptyState title="No active impersonation" description="Start a support session to inspect tenant experience safely." />
                     ) : (
                       <Table>
@@ -2440,7 +2719,7 @@ export default function SuperAdminControlPlane() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredImpersonationSessions.slice((impersonationPage - 1) * impersonationPageSize, impersonationPage * impersonationPageSize).map((row) => (
+                          {(pagedImpersonationSessions.data?.rows || []).map((row) => (
                             <TableRow key={row.id}>
                               <TableCell title={row.actor_user_id}>
                                 <p className="font-medium text-foreground">{resolveUserLabel(row.actor_user_id)}</p>
@@ -2467,7 +2746,7 @@ export default function SuperAdminControlPlane() {
                         </TableBody>
                       </Table>
                     )}
-                    <TablePagination page={impersonationPage} pageSize={impersonationPageSize} total={filteredImpersonationSessions.length} onPageChange={setImpersonationPage} onPageSizeChange={(size) => { setImpersonationPageSize(size); setImpersonationPage(1); }} />
+                    <TablePagination page={pagedImpersonationSessions.data?.page || impersonationPage} pageSize={pagedImpersonationSessions.data?.pageSize || impersonationPageSize} total={pagedImpersonationSessions.data?.totalCount || 0} onPageChange={setImpersonationPage} onPageSizeChange={(size) => { setImpersonationPageSize(size); setImpersonationPage(1); }} />
                   </CardContent>
                 </Card>
 
@@ -2481,7 +2760,7 @@ export default function SuperAdminControlPlane() {
                       onChange={(e) => setRiskTriageNotes(e.target.value)}
                       placeholder="Optional triage notes (applies to action buttons)"
                     />
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
                       <Select value={triageStatusFilter} onValueChange={(value) => { setTriageStatusFilter(value as 'all' | 'acknowledged' | 'resolved' | 'escalated' | 'false_positive'); setRiskPage(1); }}>
                         <SelectTrigger>
                           <SelectValue placeholder="Triage status" />
@@ -2494,6 +2773,27 @@ export default function SuperAdminControlPlane() {
                           <SelectItem value="false_positive">False Positive</SelectItem>
                         </SelectContent>
                       </Select>
+                      <Select value={bulkTriageStatus} onValueChange={(value) => setBulkTriageStatus(value as typeof bulkTriageStatus)}>
+                        <SelectTrigger><SelectValue placeholder="Bulk disposition" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="acknowledged">Acknowledge selected</SelectItem>
+                          <SelectItem value="resolved">Resolve selected</SelectItem>
+                          <SelectItem value="escalated">Escalate selected</SelectItem>
+                          <SelectItem value="false_positive">False positive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        disabled={selectedGovernanceAlertIds.length === 0 || riskTriageNotes.trim().length < 10 || queueBulkRiskTriageJob.isPending}
+                        onClick={() => requestConfirmation(
+                          'Queue bulk risk triage',
+                          `Queue ${selectedGovernanceAlertIds.length} governance alerts as ${bulkTriageStatus}. Processing runs asynchronously.`,
+                          'Queue selected',
+                          handleQueueBulkRiskTriage,
+                          bulkTriageStatus === 'escalated' || bulkTriageStatus === 'false_positive',
+                        )}
+                      >
+                        Queue selected ({selectedGovernanceAlertIds.length})
+                      </Button>
                     </div>
                     {filteredRiskQueue.length === 0 ? (
                       <EmptyState title="No risk items" description="No governance alerts, abuse signals, or risk decisions matched current filters." />
@@ -2501,6 +2801,7 @@ export default function SuperAdminControlPlane() {
                       <Table>
                         <TableHeader>
                           <TableRow>
+                            <TableHead className="w-10">Select</TableHead>
                             <TableHead>Occurred</TableHead>
                             <TableHead>Severity</TableHead>
                             <TableHead>Source</TableHead>
@@ -2510,8 +2811,18 @@ export default function SuperAdminControlPlane() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredRiskQueue.slice((riskPage - 1) * riskPageSize, riskPage * riskPageSize).map((row) => (
+                          {filteredRiskQueue.map((row) => (
                             <TableRow key={`${row.row_type}:${row.row_id}`}>
+                              <TableCell>
+                                <Checkbox
+                                  aria-label={`Select ${row.title}`}
+                                  disabled={row.row_type !== 'governance_alert'}
+                                  checked={selectedGovernanceAlertIds.includes(row.row_id)}
+                                  onCheckedChange={(checked) => setSelectedGovernanceAlertIds((current) => checked
+                                    ? [...new Set([...current, row.row_id])]
+                                    : current.filter((id) => id !== row.row_id))}
+                                />
+                              </TableCell>
                               <TableCell>{formatDate(row.occurred_at)}</TableCell>
                               <TableCell><SeverityBadge severity={row.severity} /></TableCell>
                               <TableCell>{row.row_type}</TableCell>
@@ -2557,7 +2868,29 @@ export default function SuperAdminControlPlane() {
                         </TableBody>
                       </Table>
                     )}
-                    <TablePagination page={riskPage} pageSize={riskPageSize} total={filteredRiskQueue.length} onPageChange={setRiskPage} onPageSizeChange={(size) => { setRiskPageSize(size); setRiskPage(1); }} />
+                    <TablePagination page={riskQueue.data?.page || riskPage} pageSize={riskQueue.data?.pageSize || riskPageSize} total={riskQueue.data?.totalCount || 0} onPageChange={setRiskPage} onPageSizeChange={(size) => { setRiskPageSize(size); setRiskPage(1); }} />
+
+                    <div className="pt-2">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground mb-2">Recent Bulk Jobs</p>
+                      {(bulkRiskTriageJobs.data || []).length === 0 ? (
+                        <EmptyState title="No bulk jobs" description="Queued governance-alert triage jobs appear here." />
+                      ) : (
+                        <Table>
+                          <TableHeader><TableRow><TableHead>Queued</TableHead><TableHead>Disposition</TableHead><TableHead>Status</TableHead><TableHead>Progress</TableHead><TableHead>Job ID</TableHead></TableRow></TableHeader>
+                          <TableBody>
+                            {(bulkRiskTriageJobs.data || []).map((job) => (
+                              <TableRow key={job.id}>
+                                <TableCell>{formatDate(job.created_at)}</TableCell>
+                                <TableCell>{formatControlPlaneLabel(job.triage_status)}</TableCell>
+                                <TableCell><Badge variant={job.status === 'failed' || job.status === 'partial_error' ? 'destructive' : 'secondary'}>{formatControlPlaneLabel(job.status)}</Badge></TableCell>
+                                <TableCell>{job.completed_items + job.failed_items}/{job.total_items} ({job.failed_items} failed)</TableCell>
+                                <TableCell className="font-mono text-xs">{job.id}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </div>
 
                     <div className="pt-2">
                       <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground mb-2">Recent Triage Actions</p>
@@ -2748,7 +3081,7 @@ export default function SuperAdminControlPlane() {
                 <CardTitle className="text-base">Governance Alerts</CardTitle>
               </CardHeader>
               <CardContent>
-                {filteredAlerts.length === 0 ? (
+                {(pagedAlerts.data?.rows || []).length === 0 ? (
                   <EmptyState
                     title="No alerts matched your current filters"
                     description="Adjust the filters or create a test event."
@@ -2769,7 +3102,7 @@ export default function SuperAdminControlPlane() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredAlerts.slice((alertsPage - 1) * monitorPageSize, alertsPage * monitorPageSize).map((item) => (
+                      {(pagedAlerts.data?.rows || []).map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{formatDate(item.created_at)}</TableCell>
                           <TableCell>{formatDate(item.updated_at)}</TableCell>
@@ -2802,7 +3135,7 @@ export default function SuperAdminControlPlane() {
                     </TableBody>
                   </Table>
                 )}
-                <TablePagination page={alertsPage} pageSize={monitorPageSize} total={filteredAlerts.length} onPageChange={setAlertsPage} onPageSizeChange={(size) => { setMonitorPageSize(size); setAlertsPage(1); }} />
+                <TablePagination page={pagedAlerts.data?.page || alertsPage} pageSize={pagedAlerts.data?.pageSize || monitorPageSize} total={pagedAlerts.data?.totalCount || 0} onPageChange={setAlertsPage} onPageSizeChange={(size) => { setMonitorPageSize(size); setAlertsPage(1); }} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -2813,7 +3146,7 @@ export default function SuperAdminControlPlane() {
                 <CardTitle className="text-base">Platform Audit Events</CardTitle>
               </CardHeader>
               <CardContent>
-                {filteredEvents.length === 0 ? (
+                {(pagedEvents.data?.rows || []).length === 0 ? (
                   <EmptyState
                     title="No events matched your current filters"
                     description="Adjust the filters or create a test event."
@@ -2832,7 +3165,7 @@ export default function SuperAdminControlPlane() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredEvents.slice((eventsPage - 1) * monitorPageSize, eventsPage * monitorPageSize).map((item) => (
+                      {(pagedEvents.data?.rows || []).map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{formatDate(item.created_at)}</TableCell>
                           <TableCell>{item.module}</TableCell>
@@ -2845,7 +3178,7 @@ export default function SuperAdminControlPlane() {
                     </TableBody>
                   </Table>
                 )}
-                <TablePagination page={eventsPage} pageSize={monitorPageSize} total={filteredEvents.length} onPageChange={setEventsPage} onPageSizeChange={(size) => { setMonitorPageSize(size); setEventsPage(1); }} />
+                <TablePagination page={pagedEvents.data?.page || eventsPage} pageSize={pagedEvents.data?.pageSize || monitorPageSize} total={pagedEvents.data?.totalCount || 0} onPageChange={setEventsPage} onPageSizeChange={(size) => { setMonitorPageSize(size); setEventsPage(1); }} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -2868,7 +3201,7 @@ export default function SuperAdminControlPlane() {
                     </SelectContent>
                   </Select>
                 </div>
-                {filteredDecisions.length === 0 ? (
+                {(pagedDecisions.data?.rows || []).length === 0 ? (
                   <EmptyState
                     title="No entitlement decisions matched"
                     description="Access decisions will appear here when permissions are evaluated."
@@ -2886,7 +3219,7 @@ export default function SuperAdminControlPlane() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredDecisions.slice((decisionsPage - 1) * monitorPageSize, decisionsPage * monitorPageSize).map((item) => (
+                      {(pagedDecisions.data?.rows || []).map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{formatDate(item.created_at)}</TableCell>
                           <TableCell>{item.module}</TableCell>
@@ -2899,7 +3232,7 @@ export default function SuperAdminControlPlane() {
                     </TableBody>
                   </Table>
                 )}
-                <TablePagination page={decisionsPage} pageSize={monitorPageSize} total={filteredDecisions.length} onPageChange={setDecisionsPage} onPageSizeChange={(size) => { setMonitorPageSize(size); setDecisionsPage(1); }} />
+                <TablePagination page={pagedDecisions.data?.page || decisionsPage} pageSize={pagedDecisions.data?.pageSize || monitorPageSize} total={pagedDecisions.data?.totalCount || 0} onPageChange={setDecisionsPage} onPageSizeChange={(size) => { setMonitorPageSize(size); setDecisionsPage(1); }} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -2915,7 +3248,7 @@ export default function SuperAdminControlPlane() {
                     Refresh Snapshot for Company Filter
                   </Button>
                 </div>
-                {filteredUsage.length === 0 ? (
+                {(pagedUsage.data?.rows || []).length === 0 ? (
                   <EmptyState
                     title="No usage snapshots matched"
                     description="Refresh usage for a selected company to create the latest record."
@@ -2933,7 +3266,7 @@ export default function SuperAdminControlPlane() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredUsage.slice((usagePage - 1) * monitorPageSize, usagePage * monitorPageSize).map((item) => (
+                      {(pagedUsage.data?.rows || []).map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{formatDate(item.snapshot_at)}</TableCell>
                           <TableCell>{item.product_code}</TableCell>
@@ -2946,7 +3279,7 @@ export default function SuperAdminControlPlane() {
                     </TableBody>
                   </Table>
                 )}
-                <TablePagination page={usagePage} pageSize={monitorPageSize} total={filteredUsage.length} onPageChange={setUsagePage} onPageSizeChange={(size) => { setMonitorPageSize(size); setUsagePage(1); }} />
+                <TablePagination page={pagedUsage.data?.page || usagePage} pageSize={pagedUsage.data?.pageSize || monitorPageSize} total={pagedUsage.data?.totalCount || 0} onPageChange={setUsagePage} onPageSizeChange={(size) => { setMonitorPageSize(size); setUsagePage(1); }} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -3003,6 +3336,27 @@ export default function SuperAdminControlPlane() {
           </TabsContent>
 
           <TabsContent value="company360">
+            {selectedCompany360Id && company360Snapshot.data && company360Members.data ? (
+              <div className="mb-4 space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="border-l-2 border-primary pl-3"><p className="text-xs text-muted-foreground">Company</p><p className="font-semibold">{company360Snapshot.data.company.name || shortReference(selectedCompany360Id)}</p><p className="text-xs text-muted-foreground">{company360Snapshot.data.company.email || 'No company email'}</p></div>
+                  <div className="border-l-2 border-border pl-3"><p className="text-xs text-muted-foreground">Portfolio</p><p className="font-semibold">{company360Snapshot.data.portfolio.property_count} properties · {company360Snapshot.data.portfolio.unit_count} units</p><p className="text-xs text-muted-foreground">{company360Snapshot.data.portfolio.tenant_count} tenants</p></div>
+                  <div className="border-l-2 border-border pl-3"><p className="text-xs text-muted-foreground">Billing</p><p className="font-semibold">{company360Snapshot.data.billing.active_subscription_count} active subscriptions</p><p className="text-xs text-muted-foreground">{company360Snapshot.data.billing.active_addon_count} active add-ons</p></div>
+                  <div className="border-l-2 border-border pl-3"><p className="text-xs text-muted-foreground">Status</p><Badge variant={company360Members.data.activeSuspension ? 'destructive' : 'outline'}>{company360Members.data.activeSuspension ? 'Suspended' : 'Active'}</Badge><p className="mt-1 text-xs text-muted-foreground">{company360Members.data.activeSuspension?.reason || `${company360Snapshot.data.operations.open_alert_count} open alerts`}</p></div>
+                </div>
+                <Card>
+                  <CardHeader><CardTitle className="text-base">Company memberships</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    {(company360Members.data.rows || []).length === 0 ? <EmptyState title="No company members" description="This company has no matching membership records." /> : (
+                      <Table><TableHeader><TableRow><TableHead>Member</TableHead><TableHead>Role</TableHead><TableHead>Status</TableHead><TableHead>Joined</TableHead></TableRow></TableHeader><TableBody>
+                        {company360Members.data.rows.map((member) => <TableRow key={member.id}><TableCell><p className="font-medium">{member.name || shortReference(member.user_id)}</p><p className="text-xs text-muted-foreground">{member.email || member.user_id}</p></TableCell><TableCell>{formatControlPlaneLabel(member.role)}</TableCell><TableCell><Badge variant="outline">{member.status}</Badge></TableCell><TableCell>{formatDate(member.created_at)}</TableCell></TableRow>)}
+                      </TableBody></Table>
+                    )}
+                    <TablePagination page={company360Members.data.page} pageSize={company360Members.data.pageSize} total={company360Members.data.totalCount} onPageChange={setCompany360MembersPage} onPageSizeChange={() => undefined} />
+                  </CardContent>
+                </Card>
+              </div>
+            ) : null}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Company 360</CardTitle>
@@ -3060,6 +3414,27 @@ export default function SuperAdminControlPlane() {
           </TabsContent>
 
           <TabsContent value="user360">
+            {selectedUser360Id && user360Companies.data ? (
+              <div className="mb-4 space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="border-l-2 border-primary pl-3"><p className="text-xs text-muted-foreground">User</p><p className="font-semibold">{user360Companies.data.profile.name}</p><p className="text-xs text-muted-foreground">{user360Companies.data.profile.email}</p></div>
+                  <div className="border-l-2 border-border pl-3"><p className="text-xs text-muted-foreground">Application role</p><p className="font-semibold">{formatControlPlaneLabel(user360Companies.data.profile.role)}</p><p className="text-xs text-muted-foreground">Joined {formatDate(user360Companies.data.profile.created_at)}</p></div>
+                  <div className="border-l-2 border-border pl-3"><p className="text-xs text-muted-foreground">Platform roles</p><p className="font-semibold">{user360Companies.data.platformRoles.length || 0}</p><p className="text-xs text-muted-foreground">{user360Companies.data.platformRoles.map(formatControlPlaneLabel).join(', ') || 'No operator roles'}</p></div>
+                  <div className="border-l-2 border-border pl-3"><p className="text-xs text-muted-foreground">Status</p><Badge variant={user360Companies.data.activeSuspension ? 'destructive' : 'outline'}>{user360Companies.data.activeSuspension ? 'Suspended' : 'Active'}</Badge><p className="mt-1 text-xs text-muted-foreground">{user360Companies.data.activeSuspension?.reason || 'No active suspension'}</p></div>
+                </div>
+                <Card>
+                  <CardHeader><CardTitle className="text-base">Company access</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    {user360Companies.data.rows.length === 0 ? <EmptyState title="No company access" description="This user has no company ownership or membership records." /> : (
+                      <Table><TableHeader><TableRow><TableHead>Company</TableHead><TableHead>Role</TableHead><TableHead>Status</TableHead><TableHead>Since</TableHead></TableRow></TableHeader><TableBody>
+                        {user360Companies.data.rows.map((membership) => <TableRow key={`${membership.id}-${membership.role}`}><TableCell><p className="font-medium">{membership.company_name}</p><p className="text-xs text-muted-foreground">{membership.company_email || shortReference(membership.company_id)}</p></TableCell><TableCell>{formatControlPlaneLabel(membership.role)}</TableCell><TableCell><Badge variant="outline">{membership.status}</Badge></TableCell><TableCell>{formatDate(membership.created_at)}</TableCell></TableRow>)}
+                      </TableBody></Table>
+                    )}
+                    <TablePagination page={user360Companies.data.page} pageSize={user360Companies.data.pageSize} total={user360Companies.data.totalCount} onPageChange={setUser360CompaniesPage} onPageSizeChange={() => undefined} />
+                  </CardContent>
+                </Card>
+              </div>
+            ) : null}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">User 360</CardTitle>
@@ -3119,6 +3494,7 @@ export default function SuperAdminControlPlane() {
           </TabsContent>
 
           <AnalyticsOpsTab
+            administrationSnapshot={administrationSnapshot.data || null}
             moduleRows={moduleAdoptionRows}
             opsSignals={opsSignals}
             companyRiskRows={companyRiskRows}
@@ -3128,12 +3504,14 @@ export default function SuperAdminControlPlane() {
             pendingHealth={filteredPendingHealth}
             pendingVerificationAlerts={pendingVerificationAlerts}
             onRunPhase10={() => void handleRunPhase10()}
+            onRefreshAdministrationSnapshot={() => void refreshAdministrationSnapshot.mutateAsync().then(() => toast({ title: 'Fleet snapshot refreshed' })).catch((error) => toast({ title: 'Snapshot refresh failed', description: error instanceof Error ? error.message : 'Unable to refresh snapshot.', variant: 'destructive' }))}
             onRefreshPhase10={refreshAll}
             onRefreshPendingVerification={refreshAll}
             onAcknowledgeAlert={(id) => void handleUpdateAlertStatus(id, 'acknowledged')}
             onResolveAlert={(id) => void handleUpdateAlertStatus(id, 'resolved')}
             isAlertActionPending={updateAlertStatus.isPending}
             isRunPending={runPhase10.isPending}
+            isAdministrationRefreshPending={refreshAdministrationSnapshot.isPending}
             formatDate={formatDate}
           />
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building2, CreditCard, Layers3, Plus, RefreshCw, Settings2, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { untypedSupabase } from '@/integrations/supabase/untypedClient';
 import { useAuth } from '@/contexts/useAuth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -82,7 +83,7 @@ export default function AccountBilling() {
     queryKey: ['owner-account-billing', user?.id],
     enabled: Boolean(user?.id),
     queryFn: async (): Promise<BillingData> => {
-      const client = supabase as any;
+      const client = untypedSupabase;
       const [companies, groups, plans, addons] = await Promise.all([
         client.from('companies').select('id,name').eq('owner_id', user!.id).order('name'),
         client.from('owner_billing_groups').select('id,name,status,created_at').eq('owner_id', user!.id).order('created_at', { ascending: false }),
@@ -123,7 +124,7 @@ export default function AccountBilling() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['owner-account-billing'] });
   const rpcMutation = useMutation({
     mutationFn: async ({ fn, args }: { fn: string; args: Record<string, unknown> }) => {
-      const { data, error } = await (supabase as any).rpc(fn, args);
+      const { data, error } = await untypedSupabase.rpc(fn, args);
       if (error) throw error;
       return data;
     },

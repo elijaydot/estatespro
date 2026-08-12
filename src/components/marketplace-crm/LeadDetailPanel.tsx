@@ -36,7 +36,7 @@ import {
   type CrmLeadTask,
 } from '@/hooks/useMarketplace';
 import { cn } from '@/lib/utils';
-import { LEAD_STAGE_LABEL, LEAD_STAGE_ORDER } from './LeadPipelineBoard';
+import { LEAD_STAGE_LABEL, LEAD_STAGE_ORDER } from './leadStageConfig';
 import { TablePagination } from './TablePagination';
 
 function formatRelativeTime(value?: string | null) {

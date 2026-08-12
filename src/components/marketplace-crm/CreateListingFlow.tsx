@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, ImagePlus, Loader2 } from 'lucide-react';
 import { DocumentUploader } from './DocumentUploader';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,7 @@ export function CreateListingFlow({ companyId, open, onOpenChange, initialUnitId
   const [mediaPaths, setMediaPaths] = useState<string[]>([]);
   const [uploadResetKey, setUploadResetKey] = useState(0);
 
-  const units = unitsQuery.data || [];
+  const units = useMemo(() => unitsQuery.data || [], [unitsQuery.data]);
   const selectedUnit = units.find((unit) => unit.id === unitId) || null;
 
   const applyUnit = (unit: VacantMarketplaceUnit) => {

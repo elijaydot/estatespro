@@ -14,11 +14,11 @@ describe('owner billing group 360 UI', () => {
   });
 
   it('shows operational group, member, subscription, invoice, and event state', () => {
-    expect(page).toContain("from('owner_billing_groups')");
-    expect(page).toContain("from('owner_billing_group_members')");
-    expect(page).toContain("from('saas_owner_group_plan_subscriptions')");
-    expect(page).toContain("from('saas_owner_group_subscription_invoices')");
-    expect(page).toContain("from('saas_owner_group_subscription_events')");
+    expect(page).toContain("rpc('platform_get_owner_billing_groups_page'");
+    expect(page).toContain("rpc('platform_get_owner_billing_group_360'");
+    expect(page).toContain('data?.members.total_count');
+    expect(page).toContain('data?.invoices.total_count');
+    expect(page).toContain('data?.events.total_count');
   });
 
   it('uses audited super-admin RPCs for group overrides', () => {
@@ -34,6 +34,7 @@ describe('owner billing group 360 UI', () => {
     expect(page).toContain("next.set('view', activeTab)");
     expect(page).toContain('Filter billing groups by status');
     expect(page).toContain('<TablePagination');
+    expect(page).toContain('directoryQuery.data?.total_count');
   });
 
   it('filters and paginates every group collection with relevant drill-throughs', () => {
@@ -44,5 +45,11 @@ describe('owner billing group 360 UI', () => {
     expect(page).toContain('cp_tab=company360&cp_company=');
     expect(page).toContain('cp_tab=user360&cp_user=');
     expect(page.match(/<TablePagination/g)?.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('does not load global billing datasets into the browser', () => {
+    expect(page).not.toContain("from('owner_billing_groups')");
+    expect(page).not.toContain("from('companies')");
+    expect(page).not.toContain('.limit(250)');
   });
 });

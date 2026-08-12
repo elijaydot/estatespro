@@ -6,32 +6,9 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import type { CrmLead } from '@/hooks/useMarketplace';
-
-export const LEAD_STAGE_ORDER = [
-  'new',
-  'attempted_contact',
-  'contacted',
-  'qualified',
-  'viewing_scheduled',
-  'offer_made',
-  'lease_in_progress',
-  'converted',
-  'lost',
-] as const;
+import { LEAD_STAGE_LABEL, LEAD_STAGE_ORDER } from './leadStageConfig';
 
 const ACTIVE_LEAD_STAGE_ORDER = LEAD_STAGE_ORDER.filter((stage) => stage !== 'converted' && stage !== 'lost');
-
-export const LEAD_STAGE_LABEL: Record<string, string> = {
-  new: 'New',
-  attempted_contact: 'Attempted',
-  contacted: 'Contacted',
-  qualified: 'Qualified',
-  viewing_scheduled: 'Viewing',
-  offer_made: 'Offer',
-  lease_in_progress: 'Lease In Progress',
-  converted: 'Converted',
-  lost: 'Lost',
-};
 
 const STAGE_ACCENT: Record<string, string> = {
   new: 'bg-sky-500/10 border-sky-500/30',

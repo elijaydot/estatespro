@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LayoutGrid, Plus, Save, Search, Send } from 'lucide-react';
 import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { supabase } from '@/integrations/supabase/client';
+import { untypedSupabase } from '@/integrations/supabase/untypedClient';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -91,6 +92,35 @@ type CatalogPlan = {
   }>;
 };
 
+type CatalogQuotaDimension = { id: string; code: string; name: string; unit: string };
+type CatalogEntitlementKey = { id: string; key: string; domain: string; value_type: string; name?: string };
+type CatalogAddon = {
+  id: string;
+  name: string;
+  code: string;
+  attach_scope: string;
+  is_active: boolean;
+  saas_addon_prices: Array<{ currency_code: string; amount_minor: number }>;
+  saas_addon_quota_overrides: Array<{ id: string }>;
+  saas_addon_entitlements: Array<{ id: string }>;
+};
+type CatalogAuditEvent = {
+  id: string;
+  action: string;
+  event_type: string;
+  result_status: string;
+  actor_user_id: string | null;
+  created_at: string;
+};
+type RegistryRow = {
+  id: string;
+  name?: string;
+  key?: string;
+  code?: string;
+  domain?: string;
+  value_type?: string;
+};
+
 const API_KEYS = [
   'notifications.whatsapp.enabled',
   'portal.tenant.enabled',
@@ -137,7 +167,7 @@ export default function CatalogManagement() {
   const catalog = useQuery({
     queryKey: ['catalog-management'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await untypedSupabase
         .from('saas_plans')
         .select(
           'id,name,code,sort_order,trial_days,post_trial_action,post_trial_grace_days,saas_plan_prices(id,currency_code,amount_minor),saas_plan_quotas(id,soft_limit,hard_limit,is_unlimited,saas_quota_dimensions(code,name)),saas_plan_entitlements(id,bool_value,int_value,json_value,saas_entitlement_keys(key))',
@@ -174,10 +204,10 @@ export default function CatalogManagement() {
         auditResult.error;
       if (error) throw error;
       return {
-        quotas: quotaResult.data || [],
-        keys: keyResult.data || [],
-        addons: addonResult.data || [],
-        audit: auditResult.data || [],
+        quotas: (quotaResult.data || []) as CatalogQuotaDimension[],
+        keys: (keyResult.data || []) as CatalogEntitlementKey[],
+        addons: (addonResult.data || []) as CatalogAddon[],
+        audit: (auditResult.data || []) as CatalogAuditEvent[],
       };
     },
   });
@@ -199,7 +229,7 @@ export default function CatalogManagement() {
 
   const saveDraft = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase as any)
+      const { error } = await untypedSupabase
         .from('saas_catalog_change_sets')
         .insert({
           changes,
@@ -218,7 +248,7 @@ export default function CatalogManagement() {
       action: 'grace_period' | 'lockout';
       graceDays: number;
     }) => {
-      const { error } = await (supabase as any).rpc('saas_catalog_set_trial_policy', {
+      const { error } = await untypedSupabase.rpc('saas_catalog_set_trial_policy', {
         p_plan_id: policy.planId,
         p_trial_days: policy.trialDays,
         p_post_trial_action: policy.action,
@@ -236,7 +266,7 @@ export default function CatalogManagement() {
   const publish = useMutation({
     mutationFn: async () => {
       if (!changes.length) return;
-      const { data: draft, error: draftError } = await (supabase as any)
+      const { data: draft, error: draftError } = await untypedSupabase
         .from('saas_catalog_change_sets')
         .insert({ changes, title: 'Published catalog changes' })
         .select('id')
@@ -294,7 +324,7 @@ export default function CatalogManagement() {
                   p_value_type: definition.option,
                 },
               };
-      const { error } = await (supabase as any).rpc(request.fn, request.args);
+      const { error } = await untypedSupabase.rpc(request.fn, request.args);
       if (error) throw error;
     },
     onSuccess: async () => {
@@ -344,7 +374,7 @@ export default function CatalogManagement() {
     setEffect({ kind, targetId, open: true });
   };
   const selectedEntitlement = registry.data?.keys.find(
-    (key: any) => key.key === effectForm.definitionCode,
+    (key) => key.key === effectForm.definitionCode,
   );
   const catalogEffect = useMutation({
     mutationFn: async () => {
@@ -374,7 +404,7 @@ export default function CatalogManagement() {
           : effect.kind === 'addon-quota'
             ? { fn: 'saas_catalog_set_addon_quota_effect', args: { p_addon_id: effect.targetId, p_quota_code: effectForm.definitionCode, p_mode: effectForm.mode, p_value: Number(effectForm.value) } }
             : { fn: 'saas_catalog_set_addon_entitlement_effect', args: { p_addon_id: effect.targetId, p_entitlement_key: effectForm.definitionCode, p_mode: effectForm.mode, ...typedValue } };
-      const { error } = await (supabase as any).rpc(request.fn, request.args);
+      const { error } = await untypedSupabase.rpc(request.fn, request.args);
       if (error) throw error;
     },
     onSuccess: async () => {
@@ -411,16 +441,16 @@ export default function CatalogManagement() {
     },
   });
   const needle = catalogSearch.trim().toLowerCase();
-  const filteredAddons = (registry.data?.addons || []).filter((addon: any) =>
+  const filteredAddons = (registry.data?.addons || []).filter((addon) =>
     [addon.name, addon.code, addon.attach_scope].some((value) => String(value || '').toLowerCase().includes(needle)),
   );
-  const filteredQuotas = (registry.data?.quotas || []).filter((quota: any) =>
+  const filteredQuotas = (registry.data?.quotas || []).filter((quota) =>
     [quota.name, quota.code, quota.unit].some((value) => String(value || '').toLowerCase().includes(needle)),
   );
-  const filteredKeys = (registry.data?.keys || []).filter((key: any) =>
+  const filteredKeys = (registry.data?.keys || []).filter((key) =>
     [key.key, key.domain, key.value_type].some((value) => String(value || '').toLowerCase().includes(needle)),
   );
-  const filteredAudit = (registry.data?.audit || []).filter((event: any) =>
+  const filteredAudit = (registry.data?.audit || []).filter((event) =>
     [event.action, event.event_type, event.result_status, event.actor_user_id].some((value) => String(value || '').toLowerCase().includes(needle)),
   );
   const pagedAddons = filteredAddons.slice((addonPage - 1) * pageSize, addonPage * pageSize);
@@ -498,7 +528,7 @@ export default function CatalogManagement() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Plan quota coverage</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{quotaAssignments}/{expectedQuotaAssignments}</CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Plan entitlement coverage</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{entitlementAssignments}/{expectedEntitlementAssignments}</CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Add-on effects</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{(registry.data?.addons || []).reduce((sum: number, addon: any) => sum + (addon.saas_addon_quota_overrides?.length || 0) + (addon.saas_addon_entitlements?.length || 0), 0)}</CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Add-on effects</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{(registry.data?.addons || []).reduce((sum, addon) => sum + (addon.saas_addon_quota_overrides?.length || 0) + (addon.saas_addon_entitlements?.length || 0), 0)}</CardContent></Card>
       </div>
 
       <div className="relative max-w-md">
@@ -532,7 +562,7 @@ export default function CatalogManagement() {
                       Plan
                     </TableHead>
                     <TableHead>USD / month</TableHead>
-                    {dimensions.map((dimension: any) => (
+                    {dimensions.map((dimension) => (
                       <TableHead key={dimension.id} className="min-w-36">
                         {dimension.name}
                       </TableHead>
@@ -575,7 +605,7 @@ export default function CatalogManagement() {
                             }
                           />
                         </TableCell>
-                        {dimensions.map((dimension: any) => {
+                        {dimensions.map((dimension) => {
                           const quota = plan.saas_plan_quotas.find(
                             (item) =>
                               item.saas_quota_dimensions.code ===
@@ -711,7 +741,7 @@ export default function CatalogManagement() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pagedAddons.map((addon: any) => (
+                  {pagedAddons.map((addon) => (
                     <TableRow key={addon.id}>
                       <TableCell>{addon.name}</TableCell>
                       <TableCell>{addon.attach_scope}</TableCell>
@@ -721,7 +751,7 @@ export default function CatalogManagement() {
                       <TableCell>
                         {addon.saas_addon_prices
                           ?.map(
-                            (price: any) =>
+                            (price) =>
                               `${price.currency_code} ${(price.amount_minor / 100).toFixed(2)}`,
                           )
                           .join(', ')}
@@ -822,7 +852,7 @@ export default function CatalogManagement() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pagedAudit.map((event: any) => (
+                  {pagedAudit.map((event) => (
                     <TableRow key={event.id}>
                       <TableCell>
                         {new Date(event.created_at).toLocaleString()}
@@ -1005,7 +1035,7 @@ export default function CatalogManagement() {
           <DialogHeader><DialogTitle>{effect.kind.startsWith('plan') ? 'Assign definition to plan' : 'Configure add-on effect'}</DialogTitle><DialogDescription>This audited operation updates the live catalog assignment immediately.</DialogDescription></DialogHeader>
           <div className="space-y-4">
             {effect.kind.startsWith('plan') && <div className="space-y-2"><Label>Plan</Label><Select value={effect.targetId} onValueChange={(targetId) => setEffect((current) => ({ ...current, targetId }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{catalog.data?.map((plan) => <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>)}</SelectContent></Select></div>}
-            <div className="space-y-2"><Label>{effect.kind.includes('quota') ? 'Quota dimension' : 'Entitlement key'}</Label><Select value={effectForm.definitionCode} onValueChange={(definitionCode) => setEffectForm((current) => ({ ...current, definitionCode, value: '' }))}><SelectTrigger><SelectValue placeholder="Select definition" /></SelectTrigger><SelectContent>{effect.kind.includes('quota') ? registry.data?.quotas.map((quota: any) => <SelectItem key={quota.id} value={quota.code}>{quota.name}</SelectItem>) : registry.data?.keys.map((key: any) => <SelectItem key={key.id} value={key.key}>{key.key}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2"><Label>{effect.kind.includes('quota') ? 'Quota dimension' : 'Entitlement key'}</Label><Select value={effectForm.definitionCode} onValueChange={(definitionCode) => setEffectForm((current) => ({ ...current, definitionCode, value: '' }))}><SelectTrigger><SelectValue placeholder="Select definition" /></SelectTrigger><SelectContent>{effect.kind.includes('quota') ? registry.data?.quotas.map((quota) => <SelectItem key={quota.id} value={quota.code}>{quota.name}</SelectItem>) : registry.data?.keys.map((key) => <SelectItem key={key.id} value={key.key}>{key.key}</SelectItem>)}</SelectContent></Select></div>
             {effect.kind === 'plan-quota' && <><div className="grid grid-cols-2 gap-3"><div className="space-y-2"><Label htmlFor="effect-soft">Soft limit</Label><Input id="effect-soft" type="number" min="0" value={effectForm.softLimit} onChange={(event) => setEffectForm((current) => ({ ...current, softLimit: event.target.value }))} /></div><div className="space-y-2"><Label htmlFor="effect-hard">Hard limit</Label><Input id="effect-hard" type="number" min="0" value={effectForm.hardLimit} onChange={(event) => setEffectForm((current) => ({ ...current, hardLimit: event.target.value }))} /></div></div><label className="flex items-center gap-2 text-sm"><Switch checked={effectForm.unlimited} onCheckedChange={(unlimited) => setEffectForm((current) => ({ ...current, unlimited }))} />Unlimited</label></>}
             {effect.kind.startsWith('addon') && <div className="space-y-2"><Label>Effect mode</Label><Select value={effectForm.mode} onValueChange={(mode) => setEffectForm((current) => ({ ...current, mode }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="set">Set</SelectItem><SelectItem value="increment">Increment</SelectItem></SelectContent></Select></div>}
             {effect.kind !== 'plan-quota' && effect.kind.includes('quota') && <div className="space-y-2"><Label htmlFor="effect-value">Value</Label><Input id="effect-value" type="number" min="0" value={effectForm.value} onChange={(event) => setEffectForm((current) => ({ ...current, value: event.target.value }))} /></div>}
@@ -1079,7 +1109,7 @@ function RegistryCard({
   onPageSizeChange,
 }: {
   title: string;
-  rows: any[];
+  rows: RegistryRow[];
   onCreate: () => void;
   onAssign: () => void;
   page: number;

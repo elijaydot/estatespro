@@ -3,7 +3,8 @@ import { ArrowRight, Columns3, List, Loader2, SearchX, Users } from 'lucide-reac
 import { Link, useSearchParams } from 'react-router-dom';
 import { CrmWorkspace } from '@/components/marketplace-crm/CrmWorkspace';
 import { LeadDetailPanel } from '@/components/marketplace-crm/LeadDetailPanel';
-import { LeadPipelineBoard, LEAD_STAGE_ORDER } from '@/components/marketplace-crm/LeadPipelineBoard';
+import { LeadPipelineBoard } from '@/components/marketplace-crm/LeadPipelineBoard';
+import { LEAD_STAGE_ORDER } from '@/components/marketplace-crm/leadStageConfig';
 import { LeadRecordNavigator } from '@/components/marketplace-crm/LeadRecordNavigator';
 import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { CrmDataCard, EmptyState, QueryErrorState, SimpleToolbar } from '@/components/marketplace-crm/CrmWidgets';

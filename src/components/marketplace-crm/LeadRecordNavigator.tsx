@@ -7,7 +7,7 @@ import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useCrmLeadSearch, type CrmLead } from '@/hooks/useMarketplace';
 import { cn } from '@/lib/utils';
-import { LEAD_STAGE_LABEL, LEAD_STAGE_ORDER } from './LeadPipelineBoard';
+import { LEAD_STAGE_LABEL, LEAD_STAGE_ORDER } from './leadStageConfig';
 
 type LeadRecordNavigatorProps = {
   companyId?: string | null;
