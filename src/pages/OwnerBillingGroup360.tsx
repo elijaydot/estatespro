@@ -400,11 +400,7 @@ export default function OwnerBillingGroup360() {
             </SelectContent>
           </Select>
           <div className="max-h-72 space-y-1 overflow-auto lg:max-h-[65vh]">
-            {pagedGroups.map((item) => {
-              const count =
-                data?.members.filter((member) => member.group_id === item.id)
-                  .length || 0;
-              return (
+            {pagedGroups.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setGroupId(item.id)}
@@ -419,11 +415,10 @@ export default function OwnerBillingGroup360() {
                     </Badge>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {count} companies
+                    {item.member_count || 0} companies
                   </p>
                 </button>
-              );
-            })}
+            ))}
           </div>
           <TablePagination
             page={groupPage}

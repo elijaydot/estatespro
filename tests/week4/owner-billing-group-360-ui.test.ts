@@ -51,5 +51,7 @@ describe('owner billing group 360 UI', () => {
     expect(page).not.toContain("from('owner_billing_groups')");
     expect(page).not.toContain("from('companies')");
     expect(page).not.toContain('.limit(250)');
+    expect(page).not.toContain('data?.members.filter');
+    expect(page).toContain('item.member_count || 0');
   });
 });
