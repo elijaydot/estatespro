@@ -37,7 +37,7 @@ export default function Upgrade() {
       ]);
       if (plansResult.error) throw plansResult.error;
       if (subscriptionResult.error) throw subscriptionResult.error;
-      return { plans: (plansResult.data || []) as UpgradePlan[], subscription: subscriptionResult.data };
+      return { plans: (plansResult.data || []) as unknown as UpgradePlan[], subscription: subscriptionResult.data };
     },
   });
 
@@ -52,8 +52,8 @@ export default function Upgrade() {
         const usd = plan.saas_plan_prices.find((price) => price.currency_code === 'USD');
         const features = [
           ...plan.saas_plan_quotas.map((quota) => `${quota.is_unlimited ? 'Unlimited' : quota.hard_limit.toLocaleString()} ${quota.saas_quota_dimensions.name}`),
-          ...plan.saas_plan_entitlements.filter((item) => item.bool_value === true).map((item) => item.saas_entitlement_keys.key.replaceAll('.', ' ')),
-          ...plan.saas_plan_entitlements.filter((item) => item.json_value && item.json_value !== 'none').map((item) => `${item.saas_entitlement_keys.key.replaceAll('.', ' ')}: ${String(item.json_value)}`),
+          ...plan.saas_plan_entitlements.filter((item) => item.bool_value === true).map((item) => item.saas_entitlement_keys.key.replace(/\./g, ' ')),
+          ...plan.saas_plan_entitlements.filter((item) => item.json_value && item.json_value !== 'none').map((item) => `${item.saas_entitlement_keys.key.replace(/\./g, ' ')}: ${String(item.json_value)}`),
         ];
         return <Card key={plan.id} className="flex flex-col rounded-md"><CardHeader><CardTitle>{plan.name}</CardTitle><div><span className="text-3xl font-semibold">${((usd?.amount_minor || 0) / 100).toFixed(0)}</span><span className="text-muted-foreground"> / month</span></div></CardHeader><CardContent className="flex-1 space-y-3">{features.map((feature: string) => <div key={feature} className="flex gap-2 text-sm"><Check className="mt-0.5 h-4 w-4 shrink-0" /><span className="capitalize">{feature}</span></div>)}</CardContent><CardFooter><Button className="w-full" asChild><a href={`mailto:sales@fishgate.co?subject=${encodeURIComponent(`Upgrade to ${plan.name}`)}`}>Talk to us about {plan.name}</a></Button></CardFooter></Card>;
       })}</div>

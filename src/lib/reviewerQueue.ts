@@ -21,7 +21,7 @@ export function matchesSlaFilter(ageDays: number, filter: 'all' | ReviewerSlaLev
 
 export function matchesDecisionFilter(
   decision: string,
-  filter: 'all' | 'verified' | 'needs_review' | 'rejected' | 'approved',
+  filter: 'all' | 'verified' | 'needs_review' | 'rejected' | 'approved' | 'resolved' | 'dismissed',
 ): boolean {
   if (filter === 'all') return true;
   return decision === filter;

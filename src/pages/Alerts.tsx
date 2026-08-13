@@ -40,6 +40,7 @@ const alertTypeLabels: Record<OperationalAlert['alert_type'], string> = {
   vacant_unit: 'Vacant unit',
   overdue_payment: 'Overdue payment',
   vendor_document_expiring: 'Vendor document',
+  listing_deal_closed: 'Listing deal closed',
 };
 
 export default function Alerts() {

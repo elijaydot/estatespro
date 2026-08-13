@@ -895,7 +895,7 @@ export function useCompany360Members(companyId: string | null, page = 1, pageSiz
       } as never);
       if (error) throw error;
       const payload = data as unknown as {
-        company: CompanyAdminSnapshot['company']; company?: CompanyAdminSnapshot['company'];
+        company: CompanyAdminSnapshot['company'];
         owner?: Company360MembersResult['owner']; active_suspension?: Entity360Suspension | null;
         rows?: Company360Member[]; page?: number; page_size?: number; total_count?: number;
       };
