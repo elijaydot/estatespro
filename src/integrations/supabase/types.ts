@@ -121,6 +121,197 @@ export type Database = {
           },
         ]
       }
+      api_idempotency_records: {
+        Row: {
+          api_key_id: string
+          created_at: string
+          expires_at: string
+          idempotency_key: string
+          request_fingerprint: string
+          response_body: Json | null
+          response_status: number | null
+        }
+        Insert: {
+          api_key_id: string
+          created_at?: string
+          expires_at?: string
+          idempotency_key: string
+          request_fingerprint: string
+          response_body?: Json | null
+          response_status?: number | null
+        }
+        Update: {
+          api_key_id?: string
+          created_at?: string
+          expires_at?: string
+          idempotency_key?: string
+          request_fingerprint?: string
+          response_body?: Json | null
+          response_status?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_idempotency_records_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_keys: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          rate_limit_per_min: number
+          revoked_at: string | null
+          scopes: string[]
+          tier: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          rate_limit_per_min?: number
+          revoked_at?: string | null
+          scopes?: string[]
+          tier: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          rate_limit_per_min?: number
+          revoked_at?: string | null
+          scopes?: string[]
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_keys_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      api_rate_limit_windows: {
+        Row: {
+          api_key_id: string
+          request_count: number
+          window_started_at: string
+        }
+        Insert: {
+          api_key_id: string
+          request_count?: number
+          window_started_at: string
+        }
+        Update: {
+          api_key_id?: string
+          request_count?: number
+          window_started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_rate_limit_windows_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_request_events: {
+        Row: {
+          api_key_id: string | null
+          company_id: string
+          created_at: string
+          duration_ms: number
+          error_code: string | null
+          id: string
+          ip_address: string | null
+          method: string
+          request_id: string
+          route: string
+          status_code: number
+          user_agent: string | null
+        }
+        Insert: {
+          api_key_id?: string | null
+          company_id: string
+          created_at?: string
+          duration_ms: number
+          error_code?: string | null
+          id?: string
+          ip_address?: string | null
+          method: string
+          request_id: string
+          route: string
+          status_code: number
+          user_agent?: string | null
+        }
+        Update: {
+          api_key_id?: string | null
+          company_id?: string
+          created_at?: string
+          duration_ms?: number
+          error_code?: string | null
+          id?: string
+          ip_address?: string | null
+          method?: string
+          request_id?: string
+          route?: string
+          status_code?: number
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_request_events_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_request_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_request_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           accent_color: string | null
@@ -3536,6 +3727,57 @@ export type Database = {
           },
         ]
       }
+      platform_administration_snapshots: {
+        Row: {
+          active_billing_groups: number
+          company_subscription_statuses: Json
+          company_subscriptions: number
+          generated_at: string
+          generated_by: string | null
+          group_subscription_statuses: Json
+          group_subscriptions: number
+          id: string
+          total_billing_groups: number
+          total_companies: number
+          total_landlords: number
+          total_property_managers: number
+          total_users: number
+          verified_companies: number
+        }
+        Insert: {
+          active_billing_groups: number
+          company_subscription_statuses?: Json
+          company_subscriptions: number
+          generated_at?: string
+          generated_by?: string | null
+          group_subscription_statuses?: Json
+          group_subscriptions: number
+          id?: string
+          total_billing_groups: number
+          total_companies: number
+          total_landlords: number
+          total_property_managers: number
+          total_users: number
+          verified_companies: number
+        }
+        Update: {
+          active_billing_groups?: number
+          company_subscription_statuses?: Json
+          company_subscriptions?: number
+          generated_at?: string
+          generated_by?: string | null
+          group_subscription_statuses?: Json
+          group_subscriptions?: number
+          id?: string
+          total_billing_groups?: number
+          total_companies?: number
+          total_landlords?: number
+          total_property_managers?: number
+          total_users?: number
+          verified_companies?: number
+        }
+        Relationships: []
+      }
       platform_analytics_snapshots: {
         Row: {
           blocked_events: number
@@ -3677,6 +3919,99 @@ export type Database = {
           },
         ]
       }
+      platform_bulk_risk_triage_job_items: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          job_id: string
+          processed_at: string | null
+          row_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_id: string
+          processed_at?: string | null
+          row_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_id?: string
+          processed_at?: string | null
+          row_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_bulk_risk_triage_job_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "platform_bulk_risk_triage_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_bulk_risk_triage_job_items_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "governance_alerts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_bulk_risk_triage_jobs: {
+        Row: {
+          actor_user_id: string
+          completed_at: string | null
+          completed_items: number
+          created_at: string
+          failed_items: number
+          id: string
+          idempotency_key: string
+          reason: string
+          started_at: string | null
+          status: string
+          total_items: number
+          triage_status: string
+          updated_at: string
+        }
+        Insert: {
+          actor_user_id: string
+          completed_at?: string | null
+          completed_items?: number
+          created_at?: string
+          failed_items?: number
+          id?: string
+          idempotency_key: string
+          reason: string
+          started_at?: string | null
+          status?: string
+          total_items: number
+          triage_status: string
+          updated_at?: string
+        }
+        Update: {
+          actor_user_id?: string
+          completed_at?: string | null
+          completed_items?: number
+          created_at?: string
+          failed_items?: number
+          id?: string
+          idempotency_key?: string
+          reason?: string
+          started_at?: string | null
+          status?: string
+          total_items?: number
+          triage_status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       platform_drift_checks: {
         Row: {
           alert_id: string | null
@@ -3790,6 +4125,7 @@ export type Database = {
           company_id: string | null
           created_at: string
           ended_at: string | null
+          expires_at: string
           id: string
           metadata: Json
           reason: string | null
@@ -3802,6 +4138,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           ended_at?: string | null
+          expires_at: string
           id?: string
           metadata?: Json
           reason?: string | null
@@ -3814,6 +4151,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           ended_at?: string | null
+          expires_at?: string
           id?: string
           metadata?: Json
           reason?: string | null
@@ -3958,6 +4296,42 @@ export type Database = {
             referencedColumns: ["company_id"]
           },
         ]
+      }
+      platform_saved_exception_queues: {
+        Row: {
+          created_at: string
+          description: string | null
+          filter_config: Json
+          id: string
+          name: string
+          owner_user_id: string
+          queue_type: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          filter_config?: Json
+          id?: string
+          name: string
+          owner_user_id: string
+          queue_type?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          filter_config?: Json
+          id?: string
+          name?: string
+          owner_user_id?: string
+          queue_type?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: []
       }
       platform_sessions: {
         Row: {
@@ -4887,6 +5261,8 @@ export type Database = {
           start_at: string
           status: string
           trial_end_at: string | null
+          trial_final_action: string | null
+          trial_policy_enforced_at: string | null
           updated_at: string
         }
         Insert: {
@@ -4913,6 +5289,8 @@ export type Database = {
           start_at?: string
           status?: string
           trial_end_at?: string | null
+          trial_final_action?: string | null
+          trial_policy_enforced_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -4939,6 +5317,8 @@ export type Database = {
           start_at?: string
           status?: string
           trial_end_at?: string | null
+          trial_final_action?: string | null
+          trial_policy_enforced_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5682,6 +6062,8 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          post_trial_action: string
+          post_trial_grace_days: number
           product_id: string | null
           sort_order: number
           tier: string
@@ -5696,6 +6078,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          post_trial_action?: string
+          post_trial_grace_days?: number
           product_id?: string | null
           sort_order?: number
           tier: string
@@ -5710,6 +6094,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          post_trial_action?: string
+          post_trial_grace_days?: number
           product_id?: string | null
           sort_order?: number
           tier?: string
@@ -7210,6 +7596,69 @@ export type Database = {
           },
         ]
       }
+      webhook_events: {
+        Row: {
+          attempt_count: number
+          claimed_at: string | null
+          company_id: string
+          correlation_id: string | null
+          created_at: string
+          event_id: string
+          event_type: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          payload: Json
+          processed_at: string | null
+          status: string
+        }
+        Insert: {
+          attempt_count?: number
+          claimed_at?: string | null
+          company_id: string
+          correlation_id?: string | null
+          created_at?: string
+          event_id: string
+          event_type: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          payload?: Json
+          processed_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempt_count?: number
+          claimed_at?: string | null
+          company_id?: string
+          correlation_id?: string | null
+          created_at?: string
+          event_id?: string
+          event_type?: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          payload?: Json
+          processed_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_marketplace_funnel_metrics"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
     }
     Views: {
       crm_marketplace_funnel_metrics: {
@@ -7226,10 +7675,365 @@ export type Database = {
       }
     }
     Functions: {
+      api_authorized_company_id: {
+        Args: {
+          p_api_key_id: string
+          p_required_scope: string
+          p_required_tier?: string
+        }
+        Returns: string
+      }
+      api_begin_idempotency: {
+        Args: {
+          p_api_key_id: string
+          p_idempotency_key: string
+          p_request_fingerprint: string
+        }
+        Returns: Json
+      }
+      api_complete_idempotency: {
+        Args: {
+          p_api_key_id: string
+          p_idempotency_key: string
+          p_response_body: Json
+          p_response_status: number
+        }
+        Returns: undefined
+      }
+      api_consume_rate_limit: {
+        Args: { p_api_key_id: string }
+        Returns: {
+          allowed: boolean
+          remaining: number
+          reset_at: string
+        }[]
+      }
+      api_create_crm_deal: {
+        Args: { p_api_key_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_create_crm_lead: {
+        Args: { p_api_key_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_create_lease: {
+        Args: { p_api_key_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_create_maintenance_request: {
+        Args: { p_api_key_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_create_marketplace_inquiry: {
+        Args: { p_api_key_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_create_marketplace_listing: {
+        Args: { p_api_key_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_create_property: {
+        Args: { p_api_key_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_create_tenant: {
+        Args: { p_api_key_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_create_unit: {
+        Args: { p_api_key_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_get_access_level: { Args: { p_company_id: string }; Returns: string }
+      api_get_company: { Args: { p_api_key_id: string }; Returns: Json }
+      api_get_crm_accounts: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_crm_activity: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_crm_automation_log: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_crm_deals: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_crm_documents: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_crm_leads: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_crm_trust_flags: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_invoices: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_lease_inventory: {
+        Args: { p_api_key_id: string; p_lease_id: string }
+        Returns: Json
+      }
+      api_get_leases: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_maintenance_requests: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_marketplace_inquiries: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_marketplace_listings: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_marketplace_verification_status: {
+        Args: { p_api_key_id: string; p_listing_id: string }
+        Returns: Json
+      }
+      api_get_payments: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_properties: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_property_manager_assignments: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_scoped_resource_page: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_resource: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_subscription: { Args: { p_api_key_id: string }; Returns: Json }
+      api_get_tenants: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_units: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_get_vendors: {
+        Args: {
+          p_api_key_id: string
+          p_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      api_record_request: {
+        Args: {
+          p_api_key_id: string
+          p_duration_ms: number
+          p_error_code?: string
+          p_ip_address?: string
+          p_method: string
+          p_request_id: string
+          p_route: string
+          p_status_code: number
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
+      api_update_crm_deal: {
+        Args: { p_api_key_id: string; p_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_update_crm_lead: {
+        Args: { p_api_key_id: string; p_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_update_lease: {
+        Args: { p_api_key_id: string; p_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_update_marketplace_listing: {
+        Args: { p_api_key_id: string; p_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_update_property: {
+        Args: { p_api_key_id: string; p_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_update_tenant: {
+        Args: { p_api_key_id: string; p_id: string; p_payload: Json }
+        Returns: Json
+      }
+      api_update_unit: {
+        Args: { p_api_key_id: string; p_id: string; p_payload: Json }
+        Returns: Json
+      }
       auto_remove_stale_pending_listings: { Args: never; Returns: number }
       can_access_tenant_exit_inventory: {
         Args: { tenant_id_text: string }
         Returns: boolean
+      }
+      claim_fishgate_webhook_events: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempt_count: number
+          claimed_at: string | null
+          company_id: string
+          correlation_id: string | null
+          created_at: string
+          event_id: string
+          event_type: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          payload: Json
+          processed_at: string | null
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "webhook_events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       consume_recovery_code: { Args: { p_code: string }; Returns: boolean }
       create_marketplace_inquiry: {
@@ -7307,6 +8111,15 @@ export type Database = {
         Returns: undefined
       }
       crm_schedule_automation_retry_worker: { Args: never; Returns: boolean }
+      enqueue_fishgate_webhook_event: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_event_type: string
+          p_payload: Json
+        }
+        Returns: string
+      }
       evaluate_marketplace_inquiry_risk: {
         Args: { p_inquiry_id: string }
         Returns: {
@@ -7699,6 +8512,30 @@ export type Database = {
         }
         Returns: Json
       }
+      platform_admin_set_company_subscription_grace: {
+        Args: {
+          p_company_id: string
+          p_correlation_id?: string
+          p_grace_days: number
+          p_metadata?: Json
+          p_mode: string
+          p_reason: string
+          p_subscription_id: string
+        }
+        Returns: Json
+      }
+      platform_admin_set_owner_group_subscription_grace: {
+        Args: {
+          p_correlation_id?: string
+          p_grace_days: number
+          p_group_id: string
+          p_metadata?: Json
+          p_mode: string
+          p_reason: string
+          p_subscription_id: string
+        }
+        Returns: Json
+      }
       platform_clear_owner_billing_group_entitlement_override: {
         Args: {
           p_correlation_id?: string
@@ -7730,8 +8567,141 @@ export type Database = {
         }
         Returns: string
       }
+      platform_create_saved_exception_queue: {
+        Args: {
+          p_description?: string
+          p_filter_config?: Json
+          p_name: string
+          p_visibility?: string
+        }
+        Returns: Json
+      }
+      platform_delete_saved_exception_queue: {
+        Args: { p_queue_id: string }
+        Returns: Json
+      }
+      platform_expire_impersonation_sessions: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
+      platform_get_active_suspensions_page: {
+        Args: {
+          p_page?: number
+          p_page_size?: number
+          p_principal_type?: string
+          p_search?: string
+        }
+        Returns: Json
+      }
+      platform_get_audit_events_page: {
+        Args: {
+          p_actor_user_id?: string
+          p_company_id?: string
+          p_correlation_id?: string
+          p_created_after?: string
+          p_created_before?: string
+          p_page?: number
+          p_page_size?: number
+          p_result_status?: string
+          p_search?: string
+          p_severity?: string
+        }
+        Returns: Json
+      }
+      platform_get_company_360_members_page: {
+        Args: {
+          p_company_id: string
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
       platform_get_company_admin_snapshot: {
         Args: { p_company_id: string }
+        Returns: Json
+      }
+      platform_get_current_operator_impersonation_session: {
+        Args: never
+        Returns: Json
+      }
+      platform_get_entitlement_decisions_page: {
+        Args: {
+          p_actor_user_id?: string
+          p_allowed?: boolean
+          p_company_id?: string
+          p_correlation_id?: string
+          p_created_after?: string
+          p_created_before?: string
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+        }
+        Returns: Json
+      }
+      platform_get_entitlement_overrides_page: {
+        Args: {
+          p_company_id?: string
+          p_decision?: string
+          p_only_active?: boolean
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+        }
+        Returns: Json
+      }
+      platform_get_governance_alerts_page: {
+        Args: {
+          p_company_id?: string
+          p_correlation_id?: string
+          p_created_after?: string
+          p_created_before?: string
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+          p_severity?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      platform_get_impersonation_sessions_page: {
+        Args: {
+          p_actor_user_id?: string
+          p_company_id?: string
+          p_only_active?: boolean
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+        }
+        Returns: Json
+      }
+      platform_get_owner_billing_group_360: {
+        Args: {
+          p_entitlement_page?: number
+          p_event_page?: number
+          p_event_page_size?: number
+          p_event_type?: string
+          p_group_id: string
+          p_invoice_page?: number
+          p_invoice_page_size?: number
+          p_invoice_status?: string
+          p_member_page?: number
+          p_member_page_size?: number
+          p_member_search?: string
+          p_override_page_size?: number
+          p_override_search?: string
+          p_quota_page?: number
+        }
+        Returns: Json
+      }
+      platform_get_owner_billing_groups_page: {
+        Args: {
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+          p_status?: string
+        }
         Returns: Json
       }
       platform_get_risk_queue: {
@@ -7748,6 +8718,19 @@ export type Database = {
           status: string
           title: string
         }[]
+      }
+      platform_get_risk_queue_page: {
+        Args: {
+          p_company_id?: string
+          p_occurred_after?: string
+          p_occurred_before?: string
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+          p_severity?: string
+          p_triage_status?: string
+        }
+        Returns: Json
       }
       platform_get_risk_queue_triage_actions_page: {
         Args: {
@@ -7773,6 +8756,28 @@ export type Database = {
           p_principal_type?: string
           p_result_status?: string
           p_severity?: string
+        }
+        Returns: Json
+      }
+      platform_get_usage_snapshots_page: {
+        Args: {
+          p_company_id?: string
+          p_limit_state?: string
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+          p_snapshot_after?: string
+          p_snapshot_before?: string
+        }
+        Returns: Json
+      }
+      platform_get_user_360_companies_page: {
+        Args: {
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+          p_status?: string
+          p_user_id: string
         }
         Returns: Json
       }
@@ -7846,11 +8851,28 @@ export type Database = {
           target_user_id: string
         }[]
       }
+      platform_list_saved_exception_queues: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       platform_phase10_run_all: {
         Args: { p_emit_alerts?: boolean; p_window?: string }
         Returns: Json
       }
       platform_phase10_schedule_drift_checks: { Args: never; Returns: boolean }
+      platform_process_bulk_risk_triage_jobs: {
+        Args: { p_item_limit?: number; p_job_limit?: number }
+        Returns: Json
+      }
+      platform_queue_bulk_risk_triage_job: {
+        Args: {
+          p_idempotency_key: string
+          p_reason: string
+          p_row_ids: string[]
+          p_triage_status: string
+        }
+        Returns: Json
+      }
       platform_record_drift_check: {
         Args: {
           p_check_key: string
@@ -7865,6 +8887,7 @@ export type Database = {
         }
         Returns: string
       }
+      platform_refresh_administration_snapshot: { Args: never; Returns: Json }
       platform_refresh_usage_snapshot: {
         Args: { p_company_id: string; p_product_code?: string }
         Returns: number
@@ -7880,6 +8903,28 @@ export type Database = {
       }
       platform_revoke_entitlement_override: {
         Args: { p_metadata?: Json; p_override_id: string; p_reason?: string }
+        Returns: Json
+      }
+      platform_schedule_administration_snapshot_worker: {
+        Args: never
+        Returns: undefined
+      }
+      platform_schedule_bulk_risk_triage_worker: {
+        Args: never
+        Returns: boolean
+      }
+      platform_schedule_impersonation_expiry_worker: {
+        Args: never
+        Returns: boolean
+      }
+      platform_search_global_entities: {
+        Args: {
+          p_entity_type: string
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+          p_status?: string
+        }
         Returns: Json
       }
       platform_set_entitlement_override: {
@@ -8008,6 +9053,15 @@ export type Database = {
         }
         Returns: Json
       }
+      saas_assert_operational_quota: {
+        Args: {
+          p_company_id: string
+          p_current_usage: number
+          p_delta?: number
+          p_quota_code: string
+        }
+        Returns: undefined
+      }
       saas_cancel_subscription: {
         Args: {
           p_at_period_end?: boolean
@@ -8022,9 +9076,86 @@ export type Database = {
         Args: { p_plan_id: string }
         Returns: number
       }
+      saas_catalog_assign_entitlement_to_plan: {
+        Args: {
+          p_bool_value?: boolean
+          p_entitlement_key: string
+          p_int_value?: number
+          p_json_value?: Json
+          p_plan_id: string
+        }
+        Returns: string
+      }
+      saas_catalog_assign_quota_to_plan: {
+        Args: {
+          p_hard_limit: number
+          p_is_unlimited?: boolean
+          p_plan_id: string
+          p_quota_code: string
+          p_soft_limit: number
+        }
+        Returns: string
+      }
+      saas_catalog_create_addon: {
+        Args: {
+          p_attach_scope: string
+          p_code: string
+          p_description: string
+          p_name: string
+          p_usd_amount_minor: number
+        }
+        Returns: string
+      }
+      saas_catalog_create_entitlement_key: {
+        Args: {
+          p_description: string
+          p_domain: string
+          p_key: string
+          p_value_type: string
+        }
+        Returns: string
+      }
+      saas_catalog_create_quota_dimension: {
+        Args: {
+          p_code: string
+          p_description: string
+          p_name: string
+          p_unit: string
+        }
+        Returns: string
+      }
       saas_catalog_plan_has_active_subscriptions: {
         Args: { p_plan_id: string }
         Returns: boolean
+      }
+      saas_catalog_set_addon_entitlement_effect: {
+        Args: {
+          p_addon_id: string
+          p_bool_value?: boolean
+          p_entitlement_key: string
+          p_int_value?: number
+          p_json_value?: Json
+          p_mode?: string
+        }
+        Returns: string
+      }
+      saas_catalog_set_addon_quota_effect: {
+        Args: {
+          p_addon_id: string
+          p_mode: string
+          p_quota_code: string
+          p_value: number
+        }
+        Returns: string
+      }
+      saas_catalog_set_trial_policy: {
+        Args: {
+          p_plan_id: string
+          p_post_trial_action: string
+          p_post_trial_grace_days?: number
+          p_trial_days: number
+        }
+        Returns: string
       }
       saas_change_subscription_plan: {
         Args: {
@@ -8120,6 +9251,10 @@ export type Database = {
           used_value: number
         }[]
       }
+      saas_get_operational_quota_usage: {
+        Args: { p_company_id: string; p_quota_code: string }
+        Returns: number
+      }
       saas_get_pending_payment_attempts: {
         Args: { p_company_id?: string; p_limit?: number }
         Returns: {
@@ -8168,6 +9303,10 @@ export type Database = {
           p_product_code?: string
         }
         Returns: boolean
+      }
+      saas_lock_operational_quota_scope: {
+        Args: { p_company_id: string; p_quota_code: string }
+        Returns: string[]
       }
       saas_mark_owner_group_payment_attempt_failed: {
         Args: {
@@ -8247,6 +9386,10 @@ export type Database = {
           subscription_id: string
         }[]
       }
+      saas_process_expired_trials: {
+        Args: { p_correlation_id?: string; p_limit?: number }
+        Returns: Json
+      }
       saas_process_owner_group_renewals: {
         Args: { p_correlation_id?: string; p_limit?: number }
         Returns: Json
@@ -8302,6 +9445,7 @@ export type Database = {
         Args: never
         Returns: boolean
       }
+      saas_schedule_trial_expiry_worker: { Args: never; Returns: boolean }
       saas_start_or_replace_subscription: {
         Args: {
           p_company_id: string
