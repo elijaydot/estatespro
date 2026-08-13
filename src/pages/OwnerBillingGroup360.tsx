@@ -931,7 +931,7 @@ export default function OwnerBillingGroup360() {
                   <SelectContent>
                     <SelectItem value="all">All event types</SelectItem>
                     {eventTypes.map((type) => (
-                      <SelectItem key={type} value={type}>{type.replaceAll('.', ' ')}</SelectItem>
+                      <SelectItem key={type} value={type}>{type.replace(/\./g, ' ')}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -943,7 +943,7 @@ export default function OwnerBillingGroup360() {
                     >
                       <div>
                         <p className="text-sm font-medium">
-                          {event.event_type.replaceAll('.', ' ')}
+                          {event.event_type.replace(/\./g, ' ')}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
                           {eventSummary(event.details)} · Actor{' '}

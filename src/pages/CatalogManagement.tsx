@@ -176,7 +176,7 @@ export default function CatalogManagement() {
         .like('code', 'fishgate_%')
         .order('sort_order');
       if (error) throw error;
-      return (data || []) as CatalogPlan[];
+      return (data || []) as unknown as CatalogPlan[];
     },
   });
 

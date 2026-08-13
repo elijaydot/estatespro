@@ -379,7 +379,7 @@ export function useCrmAccounts(companyId?: string | null) {
       const error = legacySchemaResult?.error ?? (usesLegacySchema ? null : currentSchemaResult.error);
       if (error) throw error;
 
-      return ((data || []) as Array<Record<string, unknown>>).map((row) => ({
+      return ((data || []) as unknown as Array<Record<string, unknown>>).map((row) => ({
         ...row,
         account_kind: row.account_kind === 'owner_investor' || String(row.account_type || '').toLowerCase().includes('owner')
           ? 'owner_investor'
@@ -780,12 +780,12 @@ export function useCreateCrmAccount(companyId?: string | null) {
 
       const { account_kind: accountKind, metadata: _metadata, ...stablePayload } = payload;
       const legacyResult = await supabase
-        .from('crm_accounts')
+        .from('crm_accounts' as never)
         .insert({
           ...stablePayload,
           company_id: companyId,
           account_type: accountKind === 'owner_investor' ? 'Owner / Investor' : 'Corporate Tenant',
-        })
+        } as never)
         .select('*')
         .single();
       if (legacyResult.error) throw legacyResult.error;
@@ -820,11 +820,11 @@ export function useUpdateCrmAccount(companyId?: string | null) {
 
       const { account_kind: accountKind, metadata: _metadata, ...stablePayload } = payload;
       const legacyResult = await supabase
-        .from('crm_accounts')
+        .from('crm_accounts' as never)
         .update({
           ...stablePayload,
           account_type: accountKind === 'owner_investor' ? 'Owner / Investor' : 'Corporate Tenant',
-        })
+        } as never)
         .eq('id', id)
         .eq('company_id', companyId)
         .select('*')
