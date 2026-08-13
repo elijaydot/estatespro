@@ -103,6 +103,7 @@ const AccountBilling = lazy(() => import("./pages/AccountBilling"));
 const OwnerPortal = lazy(() => import("./pages/OwnerPortal"));
 const OwnerBillingGroup360 = lazy(() => import("./pages/OwnerBillingGroup360"));
 const Upgrade = lazy(() => import("./pages/Upgrade"));
+const ApiDocs = lazy(() => import("./pages/ApiDocs"));
 
 const queryClient = new QueryClient();
 
@@ -477,6 +478,7 @@ function AppRoutes() {
       <Route path="/rent/:citySlug" element={withSuspense(<MarketplacePublic />)} />
       <Route path="/rent/:citySlug/:areaSlug" element={withSuspense(<MarketplacePublic />)} />
       <Route path="/rent/:citySlug/:areaSlug/:idOrSlug" element={withSuspense(<MarketplacePublic />)} />
+      <Route path="/api/docs" element={withSuspense(<ApiDocs />)} />
 
       <Route path="/dashboard" element={<PrivateRoute>{withSuspense(<Dashboard />)}</PrivateRoute>} />
       <Route path="/team" element={<PrivateRoute>{withSuspense(<TeamManagement />)}</PrivateRoute>} />

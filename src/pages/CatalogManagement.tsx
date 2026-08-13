@@ -53,6 +53,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { ApiAccessManagement } from '@/components/control-plane/ApiAccessManagement';
 
 type DraftChange = {
   entity: 'quota' | 'price' | 'entitlement' | 'plan';
@@ -544,6 +545,7 @@ export default function CatalogManagement() {
           <TabsTrigger value="trials">Trial Configuration</TabsTrigger>
           <TabsTrigger value="publish">Draft / Publish</TabsTrigger>
           <TabsTrigger value="audit">Audit Log</TabsTrigger>
+          <TabsTrigger value="api-access">API Access</TabsTrigger>
         </TabsList>
         <TabsContent value="plans">
           <Card>
@@ -867,6 +869,9 @@ export default function CatalogManagement() {
               <TablePagination page={auditPage} pageSize={pageSize} total={filteredAudit.length} onPageChange={setAuditPage} onPageSizeChange={(size) => { setPageSize(size); setAuditPage(1); }} />
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="api-access">
+          <ApiAccessManagement />
         </TabsContent>
       </Tabs>
       <Dialog

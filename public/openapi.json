@@ -1,0 +1,4337 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FishGate Public API",
+    "version": "1.0.0",
+    "description": "Company-scoped Property Management, Marketplace, and CRM API. API keys are disclosed once; breaking deprecations receive at least 90 days notice.",
+    "license": {
+      "name": "Proprietary",
+      "identifier": "LicenseRef-Proprietary"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://zuwpvevqijwkkucmpkkr.supabase.co/functions/v1/fishgate-api",
+      "description": "Supabase production gateway"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Properties",
+      "description": "Property portfolio records."
+    },
+    {
+      "name": "Units",
+      "description": "Property unit records."
+    },
+    {
+      "name": "Leases",
+      "description": "Lease records and inventory."
+    },
+    {
+      "name": "Tenants",
+      "description": "Tenant records."
+    },
+    {
+      "name": "Financials",
+      "description": "Read-only invoices and payments."
+    },
+    {
+      "name": "Maintenance",
+      "description": "Maintenance operations."
+    },
+    {
+      "name": "Operations",
+      "description": "Vendors and property manager assignments."
+    },
+    {
+      "name": "Marketplace",
+      "description": "Marketplace listings, inquiries, and verification."
+    },
+    {
+      "name": "CRM",
+      "description": "Leads, deals, activity, documents, automation, and trust."
+    },
+    {
+      "name": "Company",
+      "description": "Company and subscription context."
+    },
+    {
+      "name": "Webhooks",
+      "description": "Signed outbound company event notifications."
+    }
+  ],
+  "paths": {
+    "/v1/properties": {
+      "get": {
+        "operationId": "getProperties",
+        "tags": [
+          "Properties"
+        ],
+        "summary": "List properties",
+        "description": "Requires Limited tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of properties.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "name": "Harbour View Apartments",
+                      "address": "12 Independence Avenue",
+                      "city": "Accra",
+                      "country": "Ghana"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/properties\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/properties`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postProperty",
+        "tags": [
+          "Properties"
+        ],
+        "summary": "Create property",
+        "description": "Requires Full tier and `pm:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "name": "Example"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The persisted property.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "name": "Harbour View Apartments",
+                    "address": "12 Independence Avenue",
+                    "city": "Accra",
+                    "country": "Ghana"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X POST \"$BASE_URL/v1/properties\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/properties`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/properties/{id}": {
+      "get": {
+        "operationId": "getProperty",
+        "tags": [
+          "Properties"
+        ],
+        "summary": "Get property",
+        "description": "Requires Limited tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested property.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "name": "Harbour View Apartments",
+                    "address": "12 Independence Avenue",
+                    "city": "Accra",
+                    "country": "Ghana"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/properties/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/properties/11111111-1111-4111-8111-111111111111`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchProperty",
+        "tags": [
+          "Properties"
+        ],
+        "summary": "Update property",
+        "description": "Requires Full tier and `pm:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "name": "Example"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The persisted property.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "name": "Harbour View Apartments",
+                    "address": "12 Independence Avenue",
+                    "city": "Accra",
+                    "country": "Ghana"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X PATCH \"$BASE_URL/v1/properties/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/properties/11111111-1111-4111-8111-111111111111`, { method: 'PATCH', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/units": {
+      "get": {
+        "operationId": "getUnits",
+        "tags": [
+          "Units"
+        ],
+        "summary": "List units",
+        "description": "Requires Limited tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of units.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "status": "active"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/units\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/units`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postUnit",
+        "tags": [
+          "Units"
+        ],
+        "summary": "Create unit",
+        "description": "Requires Full tier and `pm:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "name": "Example"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The persisted unit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "status": "active"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X POST \"$BASE_URL/v1/units\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/units`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/units/{id}": {
+      "get": {
+        "operationId": "getUnit",
+        "tags": [
+          "Units"
+        ],
+        "summary": "Get unit",
+        "description": "Requires Limited tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested unit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "status": "active"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/units/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/units/11111111-1111-4111-8111-111111111111`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchUnit",
+        "tags": [
+          "Units"
+        ],
+        "summary": "Update unit",
+        "description": "Requires Full tier and `pm:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "name": "Example"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The persisted unit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "status": "active"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X PATCH \"$BASE_URL/v1/units/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/units/11111111-1111-4111-8111-111111111111`, { method: 'PATCH', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/leases": {
+      "get": {
+        "operationId": "getLeases",
+        "tags": [
+          "Leases"
+        ],
+        "summary": "List leases",
+        "description": "Requires Limited tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of leases.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "status": "active"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/leases\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/leases`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postLease",
+        "tags": [
+          "Leases"
+        ],
+        "summary": "Create lease",
+        "description": "Requires Full tier and `pm:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "name": "Example"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The persisted lease.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "status": "active"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X POST \"$BASE_URL/v1/leases\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/leases`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/leases/{id}": {
+      "get": {
+        "operationId": "getLease",
+        "tags": [
+          "Leases"
+        ],
+        "summary": "Get lease",
+        "description": "Requires Limited tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested lease.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "status": "active"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/leases/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/leases/11111111-1111-4111-8111-111111111111`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchLease",
+        "tags": [
+          "Leases"
+        ],
+        "summary": "Update lease",
+        "description": "Requires Full tier and `pm:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "name": "Example"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The persisted lease.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "status": "active"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X PATCH \"$BASE_URL/v1/leases/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/leases/11111111-1111-4111-8111-111111111111`, { method: 'PATCH', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/tenants": {
+      "get": {
+        "operationId": "getTenants",
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "List tenants",
+        "description": "Requires Limited tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of tenants.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "status": "active"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/tenants\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/tenants`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postTenant",
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Create tenant",
+        "description": "Requires Full tier and `pm:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "name": "Example"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The persisted tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "status": "active"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X POST \"$BASE_URL/v1/tenants\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/tenants`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/tenants/{id}": {
+      "get": {
+        "operationId": "getTenant",
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Get tenant",
+        "description": "Requires Limited tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "status": "active"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/tenants/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/tenants/11111111-1111-4111-8111-111111111111`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchTenant",
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Update tenant",
+        "description": "Requires Full tier and `pm:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "name": "Example"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The persisted tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "status": "active"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X PATCH \"$BASE_URL/v1/tenants/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/tenants/11111111-1111-4111-8111-111111111111`, { method: 'PATCH', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/payments": {
+      "get": {
+        "operationId": "getPayments",
+        "tags": [
+          "Financials"
+        ],
+        "summary": "List payments",
+        "description": "Requires Limited tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of payments.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "status": "active"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/payments\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/payments`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/invoices": {
+      "get": {
+        "operationId": "getInvoices",
+        "tags": [
+          "Financials"
+        ],
+        "summary": "List invoices",
+        "description": "Requires Limited tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of invoices.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "status": "active"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/invoices\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/invoices`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/maintenance-requests": {
+      "get": {
+        "operationId": "getMaintenanceRequests",
+        "tags": [
+          "Maintenance"
+        ],
+        "summary": "List maintenance requests",
+        "description": "Requires Limited tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of maintenance requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "status": "active"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/maintenance-requests\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/maintenance-requests`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postMaintenanceRequest",
+        "tags": [
+          "Maintenance"
+        ],
+        "summary": "Create maintenance request",
+        "description": "Requires Full tier and `pm:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "name": "Example"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The persisted maintenance request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "status": "active"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X POST \"$BASE_URL/v1/maintenance-requests\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/maintenance-requests`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/vendors": {
+      "get": {
+        "operationId": "getVendors",
+        "tags": [
+          "Operations"
+        ],
+        "summary": "List vendors",
+        "description": "Requires Full tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of vendors.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "status": "active"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/vendors\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/vendors`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/property-manager-assignments": {
+      "get": {
+        "operationId": "getPropertyManagerAssignments",
+        "tags": [
+          "Operations"
+        ],
+        "summary": "List property manager assignments",
+        "description": "Requires Full tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of property manager assignments.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "status": "active"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/property-manager-assignments\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/property-manager-assignments`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/marketplace/listings": {
+      "get": {
+        "operationId": "getMarketplaceListings",
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "List marketplace listings",
+        "description": "Requires Limited tier and `marketplace:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of marketplace listings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "title": "Two-bedroom apartment in Osu",
+                      "city": "Accra",
+                      "rent_amount": 4500,
+                      "currency": "GHS",
+                      "status": "draft"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/marketplace/listings\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/marketplace/listings`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postMarketplaceListing",
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Create marketplace listing",
+        "description": "Requires Full tier and `marketplace:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "title": "Two-bedroom apartment in Osu",
+                "city": "Accra",
+                "rent_amount": 4500,
+                "currency": "GHS"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The persisted marketplace listing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "title": "Two-bedroom apartment in Osu",
+                    "city": "Accra",
+                    "rent_amount": 4500,
+                    "currency": "GHS",
+                    "status": "draft"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X POST \"$BASE_URL/v1/marketplace/listings\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/marketplace/listings`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/marketplace/listings/{id}": {
+      "get": {
+        "operationId": "getMarketplaceListing",
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Get marketplace listing",
+        "description": "Requires Limited tier and `marketplace:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested marketplace listing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "title": "Two-bedroom apartment in Osu",
+                    "city": "Accra",
+                    "rent_amount": 4500,
+                    "currency": "GHS",
+                    "status": "draft"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/marketplace/listings/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/marketplace/listings/11111111-1111-4111-8111-111111111111`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchMarketplaceListing",
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Update marketplace listing",
+        "description": "Requires Full tier and `marketplace:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "title": "Two-bedroom apartment in Osu",
+                "city": "Accra",
+                "rent_amount": 4500,
+                "currency": "GHS"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The persisted marketplace listing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "title": "Two-bedroom apartment in Osu",
+                    "city": "Accra",
+                    "rent_amount": 4500,
+                    "currency": "GHS",
+                    "status": "draft"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X PATCH \"$BASE_URL/v1/marketplace/listings/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/marketplace/listings/11111111-1111-4111-8111-111111111111`, { method: 'PATCH', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/marketplace/inquiries": {
+      "get": {
+        "operationId": "getMarketplaceInquiries",
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "List marketplace inquiries",
+        "description": "Requires Full tier and `marketplace:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of marketplace inquiries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "title": "Two-bedroom apartment in Osu",
+                      "city": "Accra",
+                      "rent_amount": 4500,
+                      "currency": "GHS",
+                      "status": "draft"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/marketplace/inquiries\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/marketplace/inquiries`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postMarketplaceInquiry",
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Create marketplace inquiry",
+        "description": "Requires Full tier and `marketplace:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "title": "Two-bedroom apartment in Osu",
+                "city": "Accra",
+                "rent_amount": 4500,
+                "currency": "GHS"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The persisted marketplace inquiry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "title": "Two-bedroom apartment in Osu",
+                    "city": "Accra",
+                    "rent_amount": 4500,
+                    "currency": "GHS",
+                    "status": "draft"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X POST \"$BASE_URL/v1/marketplace/inquiries\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/marketplace/inquiries`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/crm/leads": {
+      "get": {
+        "operationId": "getCRMLeads",
+        "tags": [
+          "CRM"
+        ],
+        "summary": "List CRM leads",
+        "description": "Requires Limited tier and `crm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of CRM leads.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "deal_name": "Harbour View lease",
+                      "stage": "qualified",
+                      "status": "open"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/crm/leads\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/crm/leads`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postCRMLead",
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Create CRM lead",
+        "description": "Requires Full tier and `crm:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "deal_name": "Harbour View lease",
+                "lead_id": "11111111-1111-4111-8111-111111111111",
+                "stage": "qualified"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The persisted CRM lead.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "deal_name": "Harbour View lease",
+                    "stage": "qualified",
+                    "status": "open"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X POST \"$BASE_URL/v1/crm/leads\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/crm/leads`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/crm/leads/{id}": {
+      "get": {
+        "operationId": "getCRMLead",
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Get CRM lead",
+        "description": "Requires Limited tier and `crm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested CRM lead.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "deal_name": "Harbour View lease",
+                    "stage": "qualified",
+                    "status": "open"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/crm/leads/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/crm/leads/11111111-1111-4111-8111-111111111111`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchCRMLead",
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Update CRM lead",
+        "description": "Requires Full tier and `crm:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "deal_name": "Harbour View lease",
+                "lead_id": "11111111-1111-4111-8111-111111111111",
+                "stage": "qualified"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The persisted CRM lead.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "deal_name": "Harbour View lease",
+                    "stage": "qualified",
+                    "status": "open"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X PATCH \"$BASE_URL/v1/crm/leads/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/crm/leads/11111111-1111-4111-8111-111111111111`, { method: 'PATCH', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/crm/deals": {
+      "get": {
+        "operationId": "getCRMDeals",
+        "tags": [
+          "CRM"
+        ],
+        "summary": "List CRM deals",
+        "description": "Requires Full tier and `crm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of CRM deals.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "deal_name": "Harbour View lease",
+                      "stage": "qualified",
+                      "status": "open"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/crm/deals\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/crm/deals`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postCRMDeal",
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Create CRM deal",
+        "description": "Requires Full tier and `crm:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "deal_name": "Harbour View lease",
+                "lead_id": "11111111-1111-4111-8111-111111111111",
+                "stage": "qualified"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The persisted CRM deal.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "deal_name": "Harbour View lease",
+                    "stage": "qualified",
+                    "status": "open"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X POST \"$BASE_URL/v1/crm/deals\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/crm/deals`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/crm/deals/{id}": {
+      "get": {
+        "operationId": "getCRMDeal",
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Get CRM deal",
+        "description": "Requires Limited tier and `crm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested CRM deal.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "deal_name": "Harbour View lease",
+                    "stage": "qualified",
+                    "status": "open"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/crm/deals/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/crm/deals/11111111-1111-4111-8111-111111111111`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchCRMDeal",
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Update CRM deal",
+        "description": "Requires Full tier and `crm:write` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteInput"
+              },
+              "example": {
+                "deal_name": "Harbour View lease",
+                "lead_id": "11111111-1111-4111-8111-111111111111",
+                "stage": "qualified"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The persisted CRM deal.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "deal_name": "Harbour View lease",
+                    "stage": "qualified",
+                    "status": "open"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X PATCH \"$BASE_URL/v1/crm/deals/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\" -H \"Idempotency-Key: docs-11111111-1111-4111-8111-111111111111\" -H \"Content-Type: application/json\" -d '{\"name\":\"Example\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/crm/deals/11111111-1111-4111-8111-111111111111`, { method: 'PATCH', headers: { Authorization: `Bearer ${apiKey}`, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Example' }) });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/crm/accounts": {
+      "get": {
+        "operationId": "getCRMAccounts",
+        "tags": [
+          "CRM"
+        ],
+        "summary": "List CRM accounts",
+        "description": "Requires Limited tier and `crm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of CRM accounts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "deal_name": "Harbour View lease",
+                      "stage": "qualified",
+                      "status": "open"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/crm/accounts\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/crm/accounts`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/crm/activity": {
+      "get": {
+        "operationId": "getCRMActivity",
+        "tags": [
+          "CRM"
+        ],
+        "summary": "List CRM activity",
+        "description": "Requires Limited tier and `crm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of CRM activity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "deal_name": "Harbour View lease",
+                      "stage": "qualified",
+                      "status": "open"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/crm/activity\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/crm/activity`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/crm/documents": {
+      "get": {
+        "operationId": "getCRMDocuments",
+        "tags": [
+          "CRM"
+        ],
+        "summary": "List CRM documents",
+        "description": "Requires Limited tier and `crm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of CRM documents.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "deal_name": "Harbour View lease",
+                      "stage": "qualified",
+                      "status": "open"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/crm/documents\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/crm/documents`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/crm/automation-log": {
+      "get": {
+        "operationId": "getCRMAutomationLog",
+        "tags": [
+          "CRM"
+        ],
+        "summary": "List CRM automation log",
+        "description": "Requires Limited tier and `crm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of CRM automation log.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "deal_name": "Harbour View lease",
+                      "stage": "qualified",
+                      "status": "open"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/crm/automation-log\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/crm/automation-log`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/crm/trust-flags": {
+      "get": {
+        "operationId": "getCRMTrustFlags",
+        "tags": [
+          "CRM"
+        ],
+        "summary": "List CRM trust flags",
+        "description": "Requires Limited tier and `crm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of CRM trust flags.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvelope"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "11111111-1111-4111-8111-111111111111",
+                      "created_at": "2026-08-12T09:30:00Z",
+                      "deal_name": "Harbour View lease",
+                      "stage": "qualified",
+                      "status": "open"
+                    }
+                  ],
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "page": 1,
+                    "per_page": 20,
+                    "total": 1,
+                    "has_more": false
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/crm/trust-flags\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/crm/trust-flags`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/leases/{id}/inventory": {
+      "get": {
+        "operationId": "getLeaseInventory",
+        "tags": [
+          "Leases"
+        ],
+        "summary": "Get lease inventory",
+        "description": "Requires Limited tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested lease inventory.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "status": "active"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/leases/11111111-1111-4111-8111-111111111111/inventory\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/leases/11111111-1111-4111-8111-111111111111/inventory`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/marketplace/verification-status/{listing_id}": {
+      "get": {
+        "operationId": "getMarketplaceVerificationStatus",
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Get marketplace verification status",
+        "description": "Requires Limited tier and `marketplace:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ListingId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested marketplace verification status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "title": "Two-bedroom apartment in Osu",
+                    "city": "Accra",
+                    "rent_amount": 4500,
+                    "currency": "GHS",
+                    "status": "draft"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/marketplace/verification-status/11111111-1111-4111-8111-111111111111\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/marketplace/verification-status/11111111-1111-4111-8111-111111111111`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/company": {
+      "get": {
+        "operationId": "getCompany",
+        "tags": [
+          "Company"
+        ],
+        "summary": "Get company",
+        "description": "Requires Full tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The requested company.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "status": "active"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/company\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/company`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      }
+    },
+    "/v1/subscription": {
+      "get": {
+        "operationId": "getSubscription",
+        "tags": [
+          "Company"
+        ],
+        "summary": "Get subscription",
+        "description": "Requires Full tier and `pm:read` scope. Rate limits are enforced per API key per minute.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The requested subscription.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "created_at": "2026-08-12T09:30:00Z",
+                    "status": "active"
+                  },
+                  "meta": {
+                    "request_id": "11111111-1111-4111-8111-111111111111"
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl -X GET \"$BASE_URL/v1/subscription\" -H \"Authorization: Bearer $FISHGATE_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "source": "const response = await fetch(`${baseUrl}/v1/subscription`, { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } });\nconst result = await response.json();"
+          }
+        ]
+      }
+    }
+  },
+  "webhooks": {
+    "lease.signed": {
+      "post": {
+        "operationId": "receiveLeaseSigned",
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Receive lease.signed",
+        "description": "FishGate signs the raw request body with HMAC-SHA256. Return any 2xx response within the configured timeout; 408, 429, 5xx, and network failures are retried with exponential backoff.",
+        "parameters": [
+          {
+            "name": "x-webhook-signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "lease.signed"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The receiver accepted the event."
+          }
+        }
+      }
+    },
+    "payment.received": {
+      "post": {
+        "operationId": "receivePaymentReceived",
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Receive payment.received",
+        "description": "FishGate signs the raw request body with HMAC-SHA256. Return any 2xx response within the configured timeout; 408, 429, 5xx, and network failures are retried with exponential backoff.",
+        "parameters": [
+          {
+            "name": "x-webhook-signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "payment.received"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The receiver accepted the event."
+          }
+        }
+      }
+    },
+    "lead.converted": {
+      "post": {
+        "operationId": "receiveLeadConverted",
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Receive lead.converted",
+        "description": "FishGate signs the raw request body with HMAC-SHA256. Return any 2xx response within the configured timeout; 408, 429, 5xx, and network failures are retried with exponential backoff.",
+        "parameters": [
+          {
+            "name": "x-webhook-signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "lead.converted"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The receiver accepted the event."
+          }
+        }
+      }
+    },
+    "listing.published": {
+      "post": {
+        "operationId": "receiveListingPublished",
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Receive listing.published",
+        "description": "FishGate signs the raw request body with HMAC-SHA256. Return any 2xx response within the configured timeout; 408, 429, 5xx, and network failures are retried with exponential backoff.",
+        "parameters": [
+          {
+            "name": "x-webhook-signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "listing.published"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The receiver accepted the event."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "FishGate API key",
+        "description": "A key beginning with fg_live_ or fg_test_."
+      }
+    },
+    "parameters": {
+      "Id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "example": "11111111-1111-4111-8111-111111111111"
+      },
+      "ListingId": {
+        "name": "listing_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "example": "11111111-1111-4111-8111-111111111111"
+      },
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "PerPage": {
+        "name": "per_page",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
+      },
+      "Status": {
+        "name": "filter[status]",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Sort": {
+        "name": "sort",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "default": "-created_at"
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 255
+        },
+        "example": "request-11111111-1111-4111-8111-111111111111"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "The request contains invalid values.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            },
+            "example": {
+              "data": null,
+              "meta": {
+                "request_id": "11111111-1111-4111-8111-111111111111"
+              },
+              "error": {
+                "code": "validation_failed",
+                "message": "The request contains invalid values."
+              }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "The bearer API key is missing, invalid, or revoked.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            },
+            "example": {
+              "data": null,
+              "meta": {
+                "request_id": "11111111-1111-4111-8111-111111111111"
+              },
+              "error": {
+                "code": "invalid_api_key",
+                "message": "The bearer API key is missing, invalid, or revoked."
+              }
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "The API key lacks the required scope or tier.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            },
+            "example": {
+              "data": null,
+              "meta": {
+                "request_id": "11111111-1111-4111-8111-111111111111"
+              },
+              "error": {
+                "code": "scope_denied",
+                "message": "The API key lacks the required scope or tier."
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The resource was not found in the authenticated company.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            },
+            "example": {
+              "data": null,
+              "meta": {
+                "request_id": "11111111-1111-4111-8111-111111111111"
+              },
+              "error": {
+                "code": "not_found",
+                "message": "The resource was not found in the authenticated company."
+              }
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "The request conflicts with resource state, uniqueness, idempotency, or plan quota.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            },
+            "example": {
+              "data": null,
+              "meta": {
+                "request_id": "11111111-1111-4111-8111-111111111111"
+              },
+              "error": {
+                "code": "conflict",
+                "message": "The request conflicts with resource state, uniqueness, idempotency, or plan quota."
+              }
+            }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "The per-key minute limit was exceeded.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            },
+            "example": {
+              "data": null,
+              "meta": {
+                "request_id": "11111111-1111-4111-8111-111111111111"
+              },
+              "error": {
+                "code": "rate_limit_exceeded",
+                "message": "The per-key minute limit was exceeded."
+              }
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "schema": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "The request could not be completed. Provide meta.request_id to support.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            },
+            "example": {
+              "data": null,
+              "meta": {
+                "request_id": "11111111-1111-4111-8111-111111111111"
+              },
+              "error": {
+                "code": "internal_error",
+                "message": "The request could not be completed. Provide meta.request_id to support."
+              }
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Meta": {
+        "type": "object",
+        "required": [
+          "request_id"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "per_page": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Resource": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": true
+      },
+      "WriteInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": true
+      },
+      "WebhookEvent": {
+        "type": "object",
+        "required": [
+          "version",
+          "event_id",
+          "event_type",
+          "emitted_at",
+          "company_id",
+          "payload"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "const": "v1.0"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "lease.signed",
+              "payment.received",
+              "lead.converted",
+              "listing.published"
+            ]
+          },
+          "emitted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": "string"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta",
+          "error"
+        ],
+        "properties": {
+          "data": {
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "field": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ListEnvelope": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta",
+          "error"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Resource"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "error": {
+            "type": "null"
+          }
+        }
+      },
+      "ItemEnvelope": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta",
+          "error"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Resource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "error": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  }
+}
