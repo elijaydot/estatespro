@@ -41,3 +41,54 @@
 | D4 | AI provider | A Gemini direct · B OpenAI · C Azure OpenAI · D Anthropic | **A Gemini direct** (least regression) |
 | D5 | Forced password reset acceptable? | Yes / No | **No** — preserves UX |
 | D6 | Keep old project alive for 30 days? | Yes / No | **Yes** — rollback safety |
+
+---
+
+## Q1 resolution path (practical, executable)
+
+**Precondition: the hosted backend must be RUNNING.** It is currently **paused**, and a paused
+project serves no database, auth, storage, or function traffic — no export of any kind is
+possible until it is resumed from Cloud settings (usually by topping up credits).
+
+### Lane A — self-serve, no credentials released (covers ~95% of the data)
+
+The blocker was framed as "we cannot get the service-role key". The key does not need to leave
+the platform: it is already available *inside* edge functions as `SUPABASE_SERVICE_ROLE_KEY`.
+
+1. Add a backend secret `EXIT_EXPORT_SECRET` (long random string, customer-held).
+2. Deploy `supabase/functions/exit-export` (already in the repo, `verify_jwt = false`,
+   rejects every request unless `x-export-secret` matches).
+3. Run `docs/exit/scripts/export-via-function.sh` with `FUNCTIONS_URL` + `EXIT_EXPORT_SECRET`.
+
+Yields: every Data-API-exposed table as JSONL with exact row counts, the full `auth.users`
+list, all storage buckets with an object manifest, and every object downloaded via signed URL,
+plus a `SHA256SUMS` file. Delete the secret and the function immediately after cutover.
+
+### Lane B — product export path (schema + data, first-party)
+
+Cloud → Advanced settings → **Export data**. Run this in the same window as Lane A and diff
+the two: matching row counts across both lanes is the strongest available integrity proof.
+
+### Lane C — the only true residual gap: password hashes
+
+Neither lane returns `auth.users.encrypted_password`; only a DB-level `pg_dump` does. Options:
+
+- Request a one-time `pg_dump` / DB password release from Lovable support (still worth asking,
+  now scoped to *hashes only* rather than "the whole export"), **or**
+- Accept decision D5 = Yes and run a forced password-reset campaign at cutover, seeding target
+  users from `auth/users.jsonl` with `email_confirm: true` and no password
+  (`docs/exit/create-auth-users-script.js`). MFA re-enrolment is required regardless.
+
+### Ordered actions
+
+| # | Action | Blocks | Verify |
+|---|---|---|---|
+| 1 | Resume the hosted backend (top up credits) | everything | `mode=tables` returns 200 |
+| 2 | Set `EXIT_EXPORT_SECRET`; deploy `exit-export` | Lane A | 401 without the header, 200 with it |
+| 3 | Run `export-via-function.sh` into customer-owned storage | Q3 too | `SHA256SUMS` written; `failures.jsonl` empty |
+| 4 | Run Cloud → Export data; diff row counts vs Lane A | integrity | counts match |
+| 5 | Run `scripts/live-introspection.sql` via the DB tooling | Q2, Q9 | cron/extension/grant inventory captured |
+| 6 | Escalate the hash-only request; if declined, adopt D5 = Yes | Lane C | decision recorded |
+| 7 | Delete `EXIT_EXPORT_SECRET` and the `exit-export` function | security | function returns 404 |
+
+Steps 3–4 also close **Q3** (row/object counts and byte size) and step 5 closes **Q2** and **Q9**.
