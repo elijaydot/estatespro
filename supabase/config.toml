@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.dispatch-webhooks]
 verify_jwt = false
+
+[functions.exit-export]
+verify_jwt = false
