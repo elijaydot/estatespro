@@ -73,26 +73,31 @@ DECLARE
   pol RECORD;
 BEGIN
   IF to_regclass('realtime.messages') IS NOT NULL THEN
-    EXECUTE 'ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY';
+    BEGIN
+      EXECUTE 'ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY';
 
-    FOR pol IN
-      SELECT policyname
-      FROM pg_policies
-      WHERE schemaname = 'realtime' AND tablename = 'messages'
-    LOOP
-      EXECUTE format('DROP POLICY IF EXISTS %I ON realtime.messages', pol.policyname);
-    END LOOP;
+      FOR pol IN
+        SELECT policyname
+        FROM pg_policies
+        WHERE schemaname = 'realtime' AND tablename = 'messages'
+      LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON realtime.messages', pol.policyname);
+      END LOOP;
 
-    EXECUTE '
-      CREATE POLICY "Users can read own realtime topics"
-      ON realtime.messages
-      FOR SELECT
-      TO authenticated
-      USING (
-        realtime.topic() LIKE ''user:'' || auth.uid()::text || ''%''
-        OR realtime.topic() LIKE ''tenant:'' || auth.uid()::text || ''%''
-      )
-    ';
+      EXECUTE '
+        CREATE POLICY "Users can read own realtime topics"
+        ON realtime.messages
+        FOR SELECT
+        TO authenticated
+        USING (
+          realtime.topic() LIKE ''user:'' || auth.uid()::text || ''%''
+          OR realtime.topic() LIKE ''tenant:'' || auth.uid()::text || ''%''
+        )
+      ';
+    EXCEPTION
+      WHEN OTHERS THEN
+        NULL;
+    END;
   END IF;
 END $$;
 

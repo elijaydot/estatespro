@@ -19,7 +19,7 @@ describe('AI edge-function contracts', () => {
     const source = readFileSync(resolve(`supabase/functions/${route}/index.ts`), 'utf8');
     const limiterAt = source.indexOf('checkRateLimit(req');
     const authAt = Math.max(source.indexOf('getClaims('), source.indexOf('auth.getUser('));
-    const providerAt = source.indexOf('ai.gateway.lovable.dev');
+    const providerAt = Math.max(source.indexOf('executeAiChat('), source.indexOf('ai.gateway.lovable.dev'));
 
     expect(source).toContain('await req.json');
     expect(source).toContain('Unauthorized');

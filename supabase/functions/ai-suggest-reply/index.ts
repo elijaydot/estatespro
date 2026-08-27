@@ -6,6 +6,7 @@ import {
   handleCorsPreflight,
 } from "../_shared/security.ts";
 import { enforceAiCreditQuota } from "../_shared/saas-quota.ts";
+import { executeAiChat } from "../_shared/ai-provider.ts";
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -55,49 +56,38 @@ serve(async (req) => {
       return jsonResponse(req, { error: quotaResult.message }, quotaResult.status);
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const conversationContext = messages.map((m) => 
       `${m.isFromMe ? "Property Manager" : tenantName}: ${m.content}`
     ).join("\n");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { 
-            role: "system", 
-            content: "You are a professional property management assistant. Generate 3 short suggested replies for the property manager to respond to tenant messages. Be professional, helpful, and concise. Return a JSON array of 3 strings." 
-          },
-          { role: "user", content: `Conversation with tenant "${tenantName}":\n${conversationContext}\n\nGenerate 3 suggested replies.` },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "suggest_replies",
-            description: "Return 3 suggested reply options",
-            parameters: {
-              type: "object",
-              properties: {
-                suggestions: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "3 suggested reply texts"
-                }
-              },
-              required: ["suggestions"],
-              additionalProperties: false
-            }
+    const response = await executeAiChat({
+      messages: [
+        { 
+          role: "system", 
+          content: "You are a professional property management assistant. Generate 3 short suggested replies for the property manager to respond to tenant messages. Be professional, helpful, and concise. Return a JSON array of 3 strings." 
+        },
+        { role: "user", content: `Conversation with tenant "${tenantName}":\n${conversationContext}\n\nGenerate 3 suggested replies.` },
+      ],
+      tools: [{
+        type: "function",
+        function: {
+          name: "suggest_replies",
+          description: "Return 3 suggested reply options",
+          parameters: {
+            type: "object",
+            properties: {
+              suggestions: {
+                type: "array",
+                items: { type: "string" },
+                description: "3 suggested reply texts"
+              }
+            },
+            required: ["suggestions"],
+            additionalProperties: false
           }
-        }],
-        tool_choice: { type: "function", function: { name: "suggest_replies" } },
-      }),
+        }
+      }],
+      tool_choice: { type: "function", function: { name: "suggest_replies" } },
     });
 
     if (!response.ok) {

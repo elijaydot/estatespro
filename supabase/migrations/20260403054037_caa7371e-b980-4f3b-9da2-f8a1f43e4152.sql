@@ -1,3 +1,30 @@
+CREATE TABLE IF NOT EXISTS public.landlord_payment_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+  property_id UUID REFERENCES public.properties(id) ON DELETE CASCADE,
+  preferred_method TEXT DEFAULT 'bank',
+  bank_name TEXT,
+  bank_account_name TEXT,
+  bank_account_number TEXT,
+  bank_branch TEXT,
+  momo_provider TEXT,
+  momo_number TEXT,
+  momo_name TEXT,
+  flutterwave_enabled BOOLEAN DEFAULT false,
+  flutterwave_public_key TEXT,
+  flutterwave_secret_key TEXT,
+  flutterwave_merchant_id TEXT,
+  paystack_enabled BOOLEAN DEFAULT false,
+  paystack_public_key TEXT,
+  paystack_secret_key TEXT,
+  payment_instructions TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.landlord_payment_settings ENABLE ROW LEVEL SECURITY;
+
 DROP POLICY IF EXISTS "Landlords manage company payment settings" ON public.landlord_payment_settings;
 CREATE POLICY "Landlords manage company payment settings"
 ON public.landlord_payment_settings

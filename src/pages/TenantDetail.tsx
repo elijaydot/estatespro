@@ -334,7 +334,7 @@ export default function TenantDetail() {
 
       if (error) throw error;
 
-      const appUrl = 'https://fishgate.lovable.app';
+      const appUrl = window.location.origin;
       const inviteLink = `${appUrl}/tenant/signup?invite=${token}`;
       await navigator.clipboard.writeText(inviteLink);
       

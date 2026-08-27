@@ -6,6 +6,7 @@ import {
   handleCorsPreflight,
 } from "../_shared/security.ts";
 import { enforceAiCreditQuota } from "../_shared/saas-quota.ts";
+import { executeAiChat } from "../_shared/ai-provider.ts";
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -57,9 +58,6 @@ serve(async (req) => {
     if (!quotaResult.allowed) {
       return jsonResponse(req, { error: quotaResult.message }, quotaResult.status);
     }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     // Fetch lease data based on action
     let leaseContext = "";
@@ -229,29 +227,14 @@ ${leaseContext}`;
         throw new Error("Invalid action. Use: qa, extract, summary, compare");
     }
 
-    const body: Record<string, unknown> = {
-      model: "google/gemini-3-flash-preview",
+    const response = await executeAiChat({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-    };
-
-    if (tools.length > 0) {
-      body.tools = tools;
-      body.tool_choice = toolChoice;
-    } else {
-      // For Q&A, use streaming
-      body.stream = true;
-    }
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
+      tools: tools.length > 0 ? tools : undefined,
+      tool_choice: tools.length > 0 ? toolChoice : undefined,
+      stream: tools.length === 0,
     });
 
     if (!response.ok) {

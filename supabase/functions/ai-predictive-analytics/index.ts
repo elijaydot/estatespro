@@ -6,6 +6,7 @@ import {
   handleCorsPreflight,
 } from "../_shared/security.ts";
 import { enforceAiCreditQuota } from "../_shared/saas-quota.ts";
+import { executeAiChat } from "../_shared/ai-provider.ts";
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -56,9 +57,6 @@ serve(async (req) => {
     if (!quotaResult.allowed) {
       return jsonResponse(req, { error: quotaResult.message }, quotaResult.status);
     }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const propertiesRes = await supabaseClient
       .from("properties")
@@ -161,88 +159,83 @@ ${(() => {
 Today: ${new Date().toISOString().split("T")[0]}
 `;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: `You are a predictive analytics expert for property management. Analyze the portfolio data and provide forecasts and predictions. Use heuristic analysis since historical data may be limited.
+    const response = await executeAiChat({
+      messages: [
+        {
+          role: "system",
+          content: `You are a predictive analytics expert for property management. Analyze the portfolio data and provide forecasts and predictions. Use heuristic analysis since historical data may be limited.
 
 ${dataContext}`
-          },
-          {
-            role: "user",
-            content: "Generate comprehensive predictive analytics for this property portfolio."
-          },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "generate_predictions",
-            description: "Generate predictive analytics for a property portfolio",
-            parameters: {
-              type: "object",
-              properties: {
-                occupancy_forecast: {
+        },
+        {
+          role: "user",
+          content: "Generate comprehensive predictive analytics for this property portfolio."
+        },
+      ],
+      tools: [{
+        type: "function",
+        function: {
+          name: "generate_predictions",
+          description: "Generate structured predictions and forecasts for the property portfolio",
+          parameters: {
+            type: "object",
+            properties: {
+              occupancy_forecast: {
+                type: "object",
+                properties: {
+                  current_rate: { type: "string" },
+                  forecast_30d: { type: "string" },
+                  forecast_60d: { type: "string" },
+                  forecast_90d: { type: "string" },
+                  trend: { type: "string", enum: ["increasing", "stable", "decreasing"] },
+                  confidence: { type: "string", enum: ["high", "medium", "low"] },
+                  factors: { type: "array", items: { type: "string" } }
+                },
+                required: ["current_rate", "forecast_30d", "forecast_60d", "forecast_90d", "trend", "confidence", "factors"]
+              },
+              maintenance_predictions: {
+                type: "object",
+                properties: {
+                  predicted_monthly_cost: { type: "string" },
+                  high_risk_categories: { type: "array", items: { type: "string" } },
+                  seasonal_risks: { type: "array", items: { type: "string" } },
+                  preventative_actions: { type: "array", items: { type: "string" } },
+                  risk_level: { type: "string", enum: ["high", "medium", "low"] }
+                },
+                required: ["predicted_monthly_cost", "high_risk_categories", "seasonal_risks", "preventative_actions", "risk_level"]
+              },
+              lease_renewal_scoring: {
+                type: "array",
+                items: {
                   type: "object",
                   properties: {
-                    current_rate: { type: "string" },
-                    predicted_30_days: { type: "string" },
-                    predicted_90_days: { type: "string" },
-                    trend: { type: "string", enum: ["improving", "stable", "declining"] },
-                    factors: { type: "array", items: { type: "string" } }
+                    tenant_name: { type: "string" },
+                    lease_end: { type: "string" },
+                    renewal_likelihood: { type: "string", enum: ["high", "medium", "low"] },
+                    reasoning: { type: "string" }
                   },
-                  required: ["current_rate", "predicted_30_days", "predicted_90_days", "trend", "factors"]
-                },
-                maintenance_predictions: {
-                  type: "object",
-                  properties: {
-                    predicted_monthly_cost: { type: "string" },
-                    high_risk_areas: { type: "array", items: { type: "string" } },
-                    cost_trend: { type: "string", enum: ["increasing", "stable", "decreasing"] },
-                    recommendations: { type: "array", items: { type: "string" } }
-                  },
-                  required: ["predicted_monthly_cost", "high_risk_areas", "cost_trend", "recommendations"]
-                },
-                lease_renewal_scoring: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      tenant_name: { type: "string" },
-                      lease_end: { type: "string" },
-                      renewal_likelihood: { type: "string", enum: ["high", "medium", "low"] },
-                      reasoning: { type: "string" }
-                    },
-                    required: ["tenant_name", "lease_end", "renewal_likelihood", "reasoning"]
-                  }
-                },
-                revenue_projections: {
-                  type: "object",
-                  properties: {
-                    projected_monthly: { type: "string" },
-                    projected_quarterly: { type: "string" },
-                    projected_annual: { type: "string" },
-                    growth_rate: { type: "string" },
-                    risks: { type: "array", items: { type: "string" } },
-                    opportunities: { type: "array", items: { type: "string" } }
-                  },
-                  required: ["projected_monthly", "projected_quarterly", "projected_annual", "growth_rate", "risks", "opportunities"]
+                  required: ["tenant_name", "lease_end", "renewal_likelihood", "reasoning"]
                 }
               },
-              required: ["occupancy_forecast", "maintenance_predictions", "lease_renewal_scoring", "revenue_projections"],
-              additionalProperties: false
-            }
+              revenue_projections: {
+                type: "object",
+                properties: {
+                  projected_monthly: { type: "string" },
+                  projected_quarterly: { type: "string" },
+                  projected_annual: { type: "string" },
+                  growth_rate: { type: "string" },
+                  risks: { type: "array", items: { type: "string" } },
+                  opportunities: { type: "array", items: { type: "string" } }
+                },
+                required: ["projected_monthly", "projected_quarterly", "projected_annual", "growth_rate", "risks", "opportunities"]
+              }
+            },
+            required: ["occupancy_forecast", "maintenance_predictions", "lease_renewal_scoring", "revenue_projections"],
+            additionalProperties: false
           }
-        }],
-        tool_choice: { type: "function", function: { name: "generate_predictions" } },
-      }),
+        }
+      }],
+      tool_choice: { type: "function", function: { name: "generate_predictions" } },
     });
 
     if (!response.ok) {

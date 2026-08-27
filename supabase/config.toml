@@ -1,4 +1,4 @@
-project_id = "zuwpvevqijwkkucmpkkr"
+project_id = "knmajxainhaeyhmwqjlt"
 
 [functions.send-lease-email]
 verify_jwt = false

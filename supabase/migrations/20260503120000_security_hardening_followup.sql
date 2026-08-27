@@ -86,18 +86,23 @@ END $$;
 DO $$
 BEGIN
   IF to_regclass('realtime.messages') IS NOT NULL THEN
-    EXECUTE 'ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY';
-    EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can receive broadcasts" ON realtime.messages';
-    EXECUTE 'DROP POLICY IF EXISTS "Users can read own realtime topics" ON realtime.messages';
-    EXECUTE '
-      CREATE POLICY "Users can read own realtime topics"
-      ON realtime.messages
-      FOR SELECT
-      TO authenticated
-      USING (
-        realtime.topic() LIKE ''user:'' || auth.uid()::text || ''%''
-        OR realtime.topic() LIKE ''tenant:'' || auth.uid()::text || ''%''
-      )
-    ';
+    BEGIN
+      EXECUTE 'ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY';
+      EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can receive broadcasts" ON realtime.messages';
+      EXECUTE 'DROP POLICY IF EXISTS "Users can read own realtime topics" ON realtime.messages';
+      EXECUTE '
+        CREATE POLICY "Users can read own realtime topics"
+        ON realtime.messages
+        FOR SELECT
+        TO authenticated
+        USING (
+          realtime.topic() LIKE ''user:'' || auth.uid()::text || ''%''
+          OR realtime.topic() LIKE ''tenant:'' || auth.uid()::text || ''%''
+        )
+      ';
+    EXCEPTION
+      WHEN OTHERS THEN
+        NULL;
+    END;
   END IF;
 END $$;

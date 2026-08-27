@@ -92,7 +92,7 @@ export default function TeamManagement() {
 
     if (!inviteEmail || !resolvedCompanyId) return;
     const result = await createInvite.mutateAsync({ companyId: resolvedCompanyId, email: inviteEmail });
-    const appUrl = import.meta.env.VITE_SUPABASE_URL ? 'https://fishgate.lovable.app' : window.location.origin;
+    const appUrl = window.location.origin;
     const inviteUrl = `${appUrl}/signup?pm_invite=${result.token}`;
     await navigator.clipboard.writeText(inviteUrl);
     await logSecurityEvent('team_invite_created', { companyId: resolvedCompanyId, email: inviteEmail });

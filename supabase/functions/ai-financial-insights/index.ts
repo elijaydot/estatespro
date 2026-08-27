@@ -6,6 +6,7 @@ import {
   handleCorsPreflight,
 } from "../_shared/security.ts";
 import { enforceAiCreditQuota } from "../_shared/saas-quota.ts";
+import { executeAiChat } from "../_shared/ai-provider.ts";
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -55,9 +56,6 @@ serve(async (req) => {
     if (!quotaResult.allowed) {
       return jsonResponse(req, { error: quotaResult.message }, quotaResult.status);
     }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const { data: companyProperties, error: propertiesError } = await supabaseClient
       .from("properties")
@@ -191,81 +189,73 @@ Provide a JSON response with this exact structure:
 
 If data is limited, still provide insights based on what's available. Focus on practical, actionable advice. Keep descriptions concise.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: "You are a property management financial analyst. Always respond with valid JSON only, no markdown or code blocks." },
-          { role: "user", content: prompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "financial_insights",
-              description: "Return structured financial insights",
-              parameters: {
-                type: "object",
-                properties: {
-                  payment_behavior: {
+    const response = await executeAiChat({
+      messages: [
+        { role: "system", content: "You are a property management financial analyst. Always respond with valid JSON only, no markdown or code blocks." },
+        { role: "user", content: prompt },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "financial_insights",
+            description: "Return structured financial insights",
+            parameters: {
+              type: "object",
+              properties: {
+                payment_behavior: {
+                  type: "object",
+                  properties: {
+                    summary: { type: "string" },
+                    at_risk_tenants: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          name: { type: "string" },
+                          reason: { type: "string" },
+                          risk_level: { type: "string", enum: ["high", "medium", "low"] }
+                        },
+                        required: ["name", "reason", "risk_level"]
+                      }
+                    },
+                    collection_rate: { type: "string" }
+                  },
+                  required: ["summary", "at_risk_tenants", "collection_rate"]
+                },
+                cash_flow: {
+                  type: "object",
+                  properties: {
+                    projected_monthly_income: { type: "number" },
+                    current_collection_rate: { type: "number" },
+                    trend: { type: "string", enum: ["improving", "stable", "declining"] },
+                    forecast_summary: { type: "string" }
+                  },
+                  required: ["projected_monthly_income", "current_collection_rate", "trend", "forecast_summary"]
+                },
+                anomalies: {
+                  type: "array",
+                  items: {
                     type: "object",
                     properties: {
-                      summary: { type: "string" },
-                      at_risk_tenants: {
-                        type: "array",
-                        items: {
-                          type: "object",
-                          properties: {
-                            name: { type: "string" },
-                            reason: { type: "string" },
-                            risk_level: { type: "string", enum: ["high", "medium", "low"] }
-                          },
-                          required: ["name", "reason", "risk_level"]
-                        }
-                      },
-                      collection_rate: { type: "string" }
+                      type: { type: "string" },
+                      description: { type: "string" },
+                      severity: { type: "string", enum: ["high", "medium", "low"] }
                     },
-                    required: ["summary", "at_risk_tenants", "collection_rate"]
-                  },
-                  cash_flow: {
-                    type: "object",
-                    properties: {
-                      projected_monthly_income: { type: "number" },
-                      current_collection_rate: { type: "number" },
-                      trend: { type: "string", enum: ["improving", "stable", "declining"] },
-                      forecast_summary: { type: "string" }
-                    },
-                    required: ["projected_monthly_income", "current_collection_rate", "trend", "forecast_summary"]
-                  },
-                  anomalies: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        type: { type: "string" },
-                        description: { type: "string" },
-                        severity: { type: "string", enum: ["high", "medium", "low"] }
-                      },
-                      required: ["type", "description", "severity"]
-                    }
-                  },
-                  recommendations: {
-                    type: "array",
-                    items: { type: "string" }
+                    required: ["type", "description", "severity"]
                   }
                 },
-                required: ["payment_behavior", "cash_flow", "anomalies", "recommendations"]
-              }
+                recommendations: {
+                  type: "array",
+                  items: { type: "string" }
+                }
+              },
+              required: ["payment_behavior", "cash_flow", "anomalies", "recommendations"]
             }
           }
-        ],
-        tool_choice: { type: "function", function: { name: "financial_insights" } },
-      }),
+        }
+      ],
+      tool_choice: { type: "function", function: { name: "financial_insights" } },
     });
 
     if (!response.ok) {

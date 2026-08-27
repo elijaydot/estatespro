@@ -6,6 +6,7 @@ import {
   handleCorsPreflight,
 } from "../_shared/security.ts";
 import { enforceAiCreditQuota } from "../_shared/saas-quota.ts";
+import { executeAiChat } from "../_shared/ai-provider.ts";
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -117,29 +118,18 @@ serve(async (req) => {
 
     const context = await getPortfolioContext(supabaseClient, quotaResult.companyId);
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const systemPrompt = `You are a helpful AI assistant for a property management platform. You help landlords and property managers understand their portfolio data, answer questions about properties, tenants, and operations.
 
 ${context}
 
 Provide clear, concise answers based on the user's portfolio data. If you don't have specific information, let them know what data is available.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-        stream: true,
-      }),
+    const response = await executeAiChat({
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages,
+      ],
+      stream: true,
     });
 
     if (!response.ok) {

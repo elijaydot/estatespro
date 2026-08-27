@@ -18,7 +18,7 @@ BEGIN
      OR to_regclass('public.saas_company_addon_subscriptions') IS NULL
      OR to_regprocedure('public.is_platform_super_admin(uuid)') IS NULL
      OR to_regprocedure('public.has_platform_operator_role(uuid,text)') IS NULL
-     OR to_regprocedure('public.platform_ingest_audit_event(text,text,text,text,text,uuid,uuid,text,text,text,integer,text,text,jsonb,jsonb)') IS NULL
+     OR to_regprocedure('public.platform_ingest_audit_event(text,text,text,text,text,text,uuid,uuid,text,text,text,integer,text,text,jsonb,jsonb)') IS NULL
      OR to_regprocedure('public.platform_admin_change_company_plan(uuid,text,text,text,text,text,jsonb)') IS NULL THEN
     RAISE EXCEPTION 'CONTROL_PLANE_BILLING_PHASE11_PREREQUISITES_MISSING';
   END IF;

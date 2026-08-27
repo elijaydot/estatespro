@@ -6,6 +6,7 @@ import {
   handleCorsPreflight,
 } from "../_shared/security.ts";
 import { enforceAiCreditQuota } from "../_shared/saas-quota.ts";
+import { executeAiChat } from "../_shared/ai-provider.ts";
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -55,9 +56,6 @@ serve(async (req) => {
       return jsonResponse(req, { error: quotaResult.message }, quotaResult.status);
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     let prompt = "";
     if (type === "property") {
       prompt = `Generate a compelling, professional property listing description for a ${data.type || "residential"} property named "${data.name}" located at ${data.address}, ${data.city}, ${data.state}, ${data.country}. It has ${data.total_units || 0} units. Keep it concise (2-3 paragraphs), highlight location benefits, and make it appealing to potential tenants. Only return the description text, no headings or labels.`;
@@ -67,19 +65,11 @@ serve(async (req) => {
       throw new Error("Invalid type. Must be 'property' or 'unit'.");
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: "You are a professional real estate copywriter. Write engaging, accurate property descriptions." },
-          { role: "user", content: prompt },
-        ],
-      }),
+    const response = await executeAiChat({
+      messages: [
+        { role: "system", content: "You are a professional real estate copywriter. Write engaging, accurate property descriptions." },
+        { role: "user", content: prompt },
+      ],
     });
 
     if (!response.ok) {
