@@ -21,6 +21,10 @@ dist-ssr
 supabase/.temp/
 .temp/
 
+# Tooling and external agents
+.kilo/
+.lovable/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
