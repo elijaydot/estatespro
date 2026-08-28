@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   Search,
@@ -34,6 +34,8 @@ export function ReportsSidebarNav({
   collapsed = false,
 }: ReportsSidebarNavProps) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const currentReportId = searchParams.get('report') || '';
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -55,16 +57,24 @@ export function ReportsSidebarNav({
   };
 
   const handleSelectReport = (reportId: string) => {
-    const next = new URLSearchParams(searchParams);
-    next.set('report', reportId);
-    setSearchParams(next);
+    if (!location.pathname.startsWith('/marketplace/crm/reports')) {
+      navigate(`/marketplace/crm/reports?report=${encodeURIComponent(reportId)}`);
+    } else {
+      const next = new URLSearchParams(searchParams);
+      next.set('report', reportId);
+      setSearchParams(next);
+    }
     onNavigateReport?.(reportId);
   };
 
   const handleClearReport = () => {
-    const next = new URLSearchParams(searchParams);
-    next.delete('report');
-    setSearchParams(next);
+    if (!location.pathname.startsWith('/marketplace/crm/reports')) {
+      navigate('/marketplace/crm/reports');
+    } else {
+      const next = new URLSearchParams(searchParams);
+      next.delete('report');
+      setSearchParams(next);
+    }
   };
 
   // Filter groups based on search query
