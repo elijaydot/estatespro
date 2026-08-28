@@ -49,6 +49,7 @@ import { useIsInternalMarketplaceReviewer } from '@/hooks/useMarketplace';
 import { useOpenOperationalAlertCount } from '@/hooks/useOperationalAlerts';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { CRM_NAV_GROUPS } from '@/components/marketplace-crm/crmNavigation';
+import { ReportsSidebarNav } from '@/components/marketplace-crm/ReportsSidebarNav';
 import { useWorkspaceNavigation } from '@/hooks/useWorkspaceNavigation';
 import { getMostSpecificMatchingRoute, STAFF_WORKSPACES, type StaffWorkspaceId } from '@/lib/workspaceNavigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -283,7 +284,34 @@ export function AppSidebar({ mobile = false, onNavigate, collapsed = false, onCo
     }
   };
 
+  const isReportsRoute = location.pathname.startsWith('/marketplace/crm/reports') || location.pathname === '/reports';
+  const [showFullMenuInReports, setShowFullMenuInReports] = useState(false);
+
+  useEffect(() => {
+    if (!isReportsRoute) {
+      setShowFullMenuInReports(false);
+    }
+  }, [isReportsRoute]);
+
   const visibleCompanies = companies;
+
+  if (isReportsRoute && !showFullMenuInReports && !collapsedView) {
+    return (
+      <aside
+        className={cn(
+          mobile
+            ? 'h-full w-full bg-sidebar text-sidebar-foreground'
+            : 'hidden lg:block fixed left-0 top-0 z-40 h-screen bg-sidebar text-sidebar-foreground transition-all duration-300 w-64'
+        )}
+      >
+        <ReportsSidebarNav
+          onBackToMainMenu={() => setShowFullMenuInReports(true)}
+          onNavigateReport={() => onNavigate?.()}
+          collapsed={collapsed}
+        />
+      </aside>
+    );
+  }
 
   return (
     <aside
