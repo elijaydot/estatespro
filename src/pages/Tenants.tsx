@@ -24,7 +24,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Table,
   TableBody,
@@ -409,6 +409,9 @@ export default function Tenants() {
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-9 w-9">
+                        {tenant.avatar_url && (
+                          <AvatarImage src={tenant.avatar_url} alt={tenant.name || 'Tenant'} />
+                        )}
                         <AvatarFallback className="bg-primary/10 text-primary text-sm">
                           {getInitials(tenant.name)}
                         </AvatarFallback>

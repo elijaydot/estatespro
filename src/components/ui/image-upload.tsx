@@ -3,6 +3,7 @@ import { Upload, X, Loader2, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { toast } from '@/components/ui/use-toast';
 
 interface ImageUploadProps {
   value?: string | null;
@@ -20,8 +21,8 @@ export function ImageUpload({
   value,
   onChange,
   onUpload,
-  bucket = 'property-images',
-  folder = 'uploads',
+  bucket = 'avatars',
+  folder = 'tenants',
   className,
   placeholder = 'Upload Image',
   aspectRatio = 'video',
@@ -42,25 +43,43 @@ export function ImageUpload({
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please select an image file (JPG, PNG, WebP).',
+        variant: 'destructive',
+      });
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'Image size should be less than 5MB.',
+        variant: 'destructive',
+      });
       return;
     }
 
     setIsUploading(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error('You must be signed in to upload photos.');
+      }
+
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const fileName = `${user.id}/${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
         .upload(fileName, file, {
           cacheControl: '3600',
-          upsert: false,
+          upsert: true,
         });
 
       if (uploadError) throw uploadError;
@@ -73,6 +92,11 @@ export function ImageUpload({
       onUpload?.(publicUrl);
     } catch (error) {
       console.error('Upload error:', error);
+      toast({
+        title: 'Upload failed',
+        description: error instanceof Error ? error.message : 'Unable to upload image. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -133,20 +157,20 @@ export function ImageUpload({
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled || isUploading}
           className={cn(
-            'w-full rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground',
+            'w-full rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground p-4',
             aspectRatioClass,
             disabled && 'opacity-50 cursor-not-allowed'
           )}
         >
           {isUploading ? (
             <>
-              <Loader2 className="h-8 w-8 animate-spin" />
-              <span className="text-sm">Uploading...</span>
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="text-xs font-medium">Uploading...</span>
             </>
           ) : (
             <>
-              <Upload className="h-8 w-8" />
-              <span className="text-sm">{placeholder}</span>
+              <Upload className="h-8 w-8 text-muted-foreground" />
+              <span className="text-xs text-center font-medium">{placeholder}</span>
             </>
           )}
         </button>
