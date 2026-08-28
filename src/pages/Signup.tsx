@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Eye, EyeOff, Check, Building2, UserCog } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { EmailConfirmationPending } from '@/components/auth/EmailConfirmationPending';
 const db = supabase;
 
 type SignupRole = 'landlord' | 'property_manager';
@@ -41,6 +42,8 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loadingCompanies, setLoadingCompanies] = useState(false);
+  const [confirmationPending, setConfirmationPending] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
   const { isLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -92,11 +95,13 @@ export default function Signup() {
         metadata.company_id = selectedCompanyId;
       }
 
-      const { error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
+      const normalizedEmail = email.trim().toLowerCase();
+
+      const { data, error } = await supabase.auth.signUp({
+        email: normalizedEmail,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: `${window.location.origin}/dashboard`,
           data: metadata,
         },
       });
@@ -109,9 +114,16 @@ export default function Signup() {
           body: {
             operation: 'consume_pm',
             token: pmInviteToken,
-            email: email.trim().toLowerCase(),
+            email: normalizedEmail,
           },
         });
+      }
+
+      // If email confirmation is required, Supabase returns user without active session
+      if (!data.session) {
+        setPendingEmail(normalizedEmail);
+        setConfirmationPending(true);
+        return;
       }
 
       navigate('/dashboard');
@@ -142,7 +154,15 @@ export default function Signup() {
           </div>
         </div>
 
-        <Card className="card-shadow-lg border-0">
+        {confirmationPending ? (
+          <EmailConfirmationPending
+            email={pendingEmail}
+            role={role}
+            onBackToSignup={() => setConfirmationPending(false)}
+            loginPath="/login"
+          />
+        ) : (
+          <Card className="card-shadow-lg border-0">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
             <CardDescription>
@@ -339,6 +359,7 @@ export default function Signup() {
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
   );

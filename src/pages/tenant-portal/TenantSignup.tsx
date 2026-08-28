@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useValidateInviteToken, useMarkInviteUsed } from '@/hooks/useTenantInvites';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { EmailConfirmationPending } from '@/components/auth/EmailConfirmationPending';
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) return error.message;
@@ -30,6 +31,7 @@ export default function TenantSignup() {
     name: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmationPending, setConfirmationPending] = useState(false);
 
   // Pre-fill email from invite
   useEffect(() => {
@@ -58,10 +60,11 @@ export default function TenantSignup() {
 
     try {
       const redirectUrl = `${window.location.origin}/tenant`;
+      const normalizedEmail = formData.email.trim().toLowerCase();
 
       // Create the user account
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: formData.email.trim().toLowerCase(),
+        email: normalizedEmail,
         password: formData.password,
         options: {
           emailRedirectTo: redirectUrl,
@@ -74,27 +77,19 @@ export default function TenantSignup() {
 
       if (signUpError) throw signUpError;
 
-      // In some cases (e.g., email already registered / email confirmation required), signUp may
-      // not return a session. We attempt an immediate sign-in to confirm the password is valid.
-      let tenantUserId = authData.user?.id;
-      if (!authData.session) {
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: formData.email.trim().toLowerCase(),
-          password: formData.password,
-        });
+      const tenantUserId = authData.user?.id;
 
-        if (signInError) {
-          toast({
-            title: 'Unable to log you in',
-            description:
-              'This email may already have an account (your password was not changed). Please log in with your existing password.',
-            variant: 'destructive',
-          });
-          navigate('/tenant/login');
-          return;
+      // If email confirmation is required, show verification screen
+      if (!authData.session) {
+        if (inviteToken && tenantUserId) {
+          await markInviteUsed.mutateAsync({
+            token: inviteToken,
+            tenantUserId,
+          }).catch((err) => console.warn('Non-blocking invite mark failed:', err));
         }
 
-        tenantUserId = signInData.user?.id;
+        setConfirmationPending(true);
+        return;
       }
 
       if (!tenantUserId) {
@@ -104,7 +99,7 @@ export default function TenantSignup() {
       // Create profile for the user (best-effort; auth works even if this fails)
       const { error: profileError } = await supabase.from('profiles').insert({
         user_id: tenantUserId,
-        email: formData.email.trim().toLowerCase(),
+        email: normalizedEmail,
         name: formData.name,
         role: 'tenant',
       });
@@ -181,16 +176,26 @@ export default function TenantSignup() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-success/10 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 p-3 rounded-xl bg-primary/10 w-fit">
-            <Building2 className="h-8 w-8 text-primary" />
-          </div>
-          <CardTitle className="text-2xl font-display">Create Your Account</CardTitle>
-          <CardDescription>
-            Set up your tenant portal account to access your lease, payments, and maintenance requests.
-          </CardDescription>
-        </CardHeader>
+      {confirmationPending ? (
+        <div className="w-full max-w-md">
+          <EmailConfirmationPending
+            email={formData.email}
+            role="tenant"
+            onBackToSignup={() => setConfirmationPending(false)}
+            loginPath="/tenant/login"
+          />
+        </div>
+      ) : (
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 p-3 rounded-xl bg-primary/10 w-fit">
+              <Building2 className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-display">Create Your Account</CardTitle>
+            <CardDescription>
+              Set up your tenant portal account to access your lease, payments, and maintenance requests.
+            </CardDescription>
+          </CardHeader>
         <CardContent>
           <div className="mb-6 p-3 bg-success/10 rounded-lg flex items-center gap-3">
             <CheckCircle className="h-5 w-5 text-success flex-shrink-0" />
@@ -267,8 +272,9 @@ export default function TenantSignup() {
               Log in
             </Button>
           </p>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
