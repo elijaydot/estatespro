@@ -56,6 +56,7 @@ import {
   type CrmReportItem,
   addRecentlyViewedReportId,
 } from '@/lib/crmReportsConfig';
+import { computeLeadStageRows, computeDealAgingRows } from '@/lib/marketplaceCrmReports';
 import { useSettings } from '@/contexts/useSettings';
 import { downloadCsv } from '@/lib/download';
 import { supabase } from '@/integrations/supabase/client';
@@ -122,8 +123,7 @@ export function ReportDetailCanvas({
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
 
-  // Table pagination & search
-  const [tableSearch, setTableSearch] = useState('');
+  // Table pagination
   const [page, setPage] = useState(1);
   const pageSize = 8;
 
@@ -180,7 +180,7 @@ export function ReportDetailCanvas({
     return 0; // all
   }, [period]);
 
-  // Filtered datasets
+  // Filtered live datasets from real database
   const filteredLeads = useMemo(() => {
     return leads.filter((l) => {
       if (dateRangeLimitMs > 0 && new Date(l.created_at).getTime() < dateRangeLimitMs) return false;
@@ -221,7 +221,14 @@ export function ReportDetailCanvas({
     });
   }, [trustFlags, dateRangeLimitMs]);
 
-  // KPI Calculations tailored per report type
+  const filteredHandoffs = useMemo(() => {
+    return handoffs.filter((h) => {
+      if (dateRangeLimitMs > 0 && new Date(h.created_at).getTime() < dateRangeLimitMs) return false;
+      return true;
+    });
+  }, [handoffs, dateRangeLimitMs]);
+
+  // Real-time KPI Calculations strictly from database
   const stats = useMemo(() => {
     const totalLeads = filteredLeads.length;
     const opened = filteredLeads.filter((l) => ['new', 'contacted', 'qualified'].includes(l.stage)).length;
@@ -234,167 +241,244 @@ export function ReportDetailCanvas({
     const winRate = totalLeads > 0 ? Math.round((won / totalLeads) * 100) : 0;
 
     return {
-      total: totalLeads || 24,
-      opened: opened || 12,
-      backlog: backlog || 6,
-      pending: pending || 4,
-      won: won || 5,
-      closed: closed || 3,
-      totalValue: totalPipelineValue || 45000000,
-      wonValue: wonValue || 18500000,
-      winRate: winRate || 38,
-      slaCompliance: 94,
-      avgResponseMinutes: 28,
+      total: totalLeads,
+      opened,
+      backlog,
+      pending,
+      won,
+      closed,
+      totalValue: totalPipelineValue,
+      wonValue,
+      winRate,
     };
   }, [filteredLeads, filteredDeals]);
 
-  // Domain-specific Visual Charts Generator
+  // Lookup Maps
+  const userMap = useMemo(() => {
+    const map = new Map<string, string>();
+    assignableUsers.forEach((u) => map.set(u.user_id, u.name || u.email || 'Agent'));
+    return map;
+  }, [assignableUsers]);
+
+  // Domain-specific Visual Charts Generator computed 100% from live DB
   const reportVisuals = useMemo(() => {
     const reportId = report.id;
 
-    // 1. Stage Aging & Velocity
+    // 1. Velocity & Aging Reports
     if (reportId === 'deal-velocity' || reportId === 'deal-profitability') {
-      const agingData = [
-        { name: 'Inquiry', days: 2, count: 18 },
-        { name: 'Qualification', days: 5, count: 12 },
-        { name: 'Property Viewing', days: 8, count: 9 },
-        { name: 'Lease Proposal', days: 11, count: 6 },
-        { name: 'Closed Won', days: 14, count: 5 },
+      const stageRows = computeLeadStageRows(filteredLeads);
+      const agingData = stageRows.map((r) => ({
+        name: r.stage.toUpperCase(),
+        days: r.avgAgeDays,
+        count: r.count,
+        stale: r.staleCount,
+      }));
+
+      const progressionData = [
+        { stage: 'Inquiries', count: filteredLeads.length },
+        { stage: 'Qualified', count: filteredLeads.filter((l) => ['qualified', 'showing', 'proposal', 'converted'].includes(l.stage)).length },
+        { stage: 'Viewings', count: filteredLeads.filter((l) => ['showing', 'proposal', 'converted'].includes(l.stage)).length },
+        { stage: 'Proposals', count: filteredLeads.filter((l) => ['proposal', 'converted'].includes(l.stage)).length },
+        { stage: 'Won Leases', count: filteredLeads.filter((l) => l.stage === 'converted').length },
       ];
-      const dropOffData = [
-        { stage: 'Inquiry', rate: 100 },
-        { stage: 'Viewing', rate: 68 },
-        { stage: 'Proposal', rate: 42 },
-        { stage: 'Lease Signed', rate: 38 },
-      ];
+
       return {
-        chart1Title: 'Average Stage Duration (Days)',
-        chart1: (
+        chart1Title: 'Live Average Stage Duration (Days)',
+        chart1: agingData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={agingData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border)/0.5)" />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
               <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
               <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', border: '1px solid hsl(var(--border))', fontSize: '12px' }} />
               <Bar dataKey="days" name="Avg Days in Stage" fill="#0284c7" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="stale" name="Stalled (>14d)" fill="#ef4444" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        ) : (
+          <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+            No stage activity recorded for this period.
+          </div>
         ),
-        chart2Title: 'Pipeline Conversion Velocity (%)',
-        chart2: (
+        chart2Title: 'Pipeline Conversion Progression',
+        chart2: progressionData.some((p) => p.count > 0) ? (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={dropOffData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+            <AreaChart data={progressionData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border)/0.5)" />
               <XAxis dataKey="stage" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
               <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
               <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', border: '1px solid hsl(var(--border))', fontSize: '12px' }} />
-              <Area type="monotone" dataKey="rate" name="Progression Rate %" stroke="#10b981" fill="#10b981" fillOpacity={0.2} />
+              <Area type="monotone" dataKey="count" name="Active Deals" stroke="#10b981" fill="#10b981" fillOpacity={0.2} />
             </AreaChart>
           </ResponsiveContainer>
+        ) : (
+          <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+            No pipeline progression data available.
+          </div>
         ),
       };
     }
 
     // 2. SLA & Response Time
-    if (reportId === 'lead-sla') {
-      const slaTiers = [
-        { name: '< 15 Mins (Fast)', value: 45 },
-        { name: '15-60 Mins', value: 30 },
-        { name: '1-4 Hours', value: 18 },
-        { name: '> 4 Hours (Overdue)', value: 7 },
-      ];
+    if (reportId === 'lead-sla' || reportId === 'agent-performance') {
+      const taskStatusCounts = [
+        { name: 'Completed on Time', value: filteredTasks.filter((t) => t.status === 'done').length },
+        { name: 'Pending / Open', value: filteredTasks.filter((t) => t.status === 'open').length },
+        { name: 'Canceled', value: filteredTasks.filter((t) => t.status === 'canceled').length },
+      ].filter((t) => t.value > 0);
+
+      const agentActivity = assignableUsers.map((u) => {
+        const userTasks = filteredTasks.filter((t) => t.owner_user_id === u.user_id);
+        const userCalls = calls.filter((c) => c.owner_user_id === u.user_id);
+        const userMeetings = filteredMeetings.filter((m) => m.host_user_id === u.user_id);
+        return {
+          name: u.name?.split(' ')[0] || u.email?.split('@')[0] || 'Agent',
+          tasks: userTasks.length,
+          calls: userCalls.length,
+          meetings: userMeetings.length,
+        };
+      }).filter((a) => a.tasks > 0 || a.calls > 0 || a.meetings > 0);
+
       return {
-        chart1Title: 'First Response Time Distribution',
-        chart1: (
+        chart1Title: 'Task & SLA Status Distribution',
+        chart1: taskStatusCounts.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={slaTiers} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value">
-                {slaTiers.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+              <Pie data={taskStatusCounts} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value">
+                {taskStatusCounts.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
               </Pie>
-              <Tooltip formatter={(val: any) => [`${val}% of inquiries`, 'Response SLA']} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', fontSize: '12px' }} />
+              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', fontSize: '12px' }} />
               <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
             </PieChart>
           </ResponsiveContainer>
+        ) : (
+          <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+            No task records logged in this timeframe.
+          </div>
         ),
-        chart2Title: 'Team Response SLA Compliance (%)',
-        chart2: (
+        chart2Title: 'Team Activity Breakdown (Tasks, Calls, Meetings)',
+        chart2: agentActivity.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={[
-              { name: 'David M.', sla: 98 },
-              { name: 'Sarah K.', sla: 95 },
-              { name: 'Eric T.', sla: 92 },
-              { name: 'Clarisse U.', sla: 90 },
-            ]} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+            <BarChart data={agentActivity} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border)/0.5)" />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-              <YAxis domain={[80, 100]} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
               <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', fontSize: '12px' }} />
-              <Bar dataKey="sla" name="SLA Compliance %" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Legend wrapperStyle={{ fontSize: '11px' }} />
+              <Bar dataKey="tasks" name="Tasks" fill="#0284c7" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="calls" name="Calls" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="meetings" name="Meetings" fill="#f59e0b" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        ) : (
+          <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+            No agent activities recorded for this period.
+          </div>
         ),
       };
     }
 
     // 3. Verification & Trust Flags
     if (reportId === 'verification-aging' || reportId === 'trust-flag-load') {
-      const riskTiers = [
-        { name: 'Identity & Land Registry', value: 14 },
-        { name: 'Price Discrepancy', value: 8 },
-        { name: 'Duplicate Listing', value: 5 },
-        { name: 'Suspicious Contact', value: 3 },
+      const categoryCounts = new Map<string, number>();
+      filteredTrustFlags.forEach((f) => {
+        const cat = f.category || 'General Trust';
+        categoryCounts.set(cat, (categoryCounts.get(cat) || 0) + 1);
+      });
+      const categoryData = Array.from(categoryCounts.entries()).map(([name, value]) => ({ name, value }));
+
+      const severityCounts = [
+        { name: 'High Severity', count: filteredTrustFlags.filter((f) => f.severity === 'high').length },
+        { name: 'Medium Severity', count: filteredTrustFlags.filter((f) => f.severity === 'medium').length },
+        { name: 'Low / Info', count: filteredTrustFlags.filter((f) => f.severity === 'low').length },
       ];
+
       return {
-        chart1Title: 'Active Moderation & Verification Load',
-        chart1: (
+        chart1Title: 'Live Trust Flags by Category',
+        chart1: categoryData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={riskTiers} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value">
-                {riskTiers.map((_, i) => <Cell key={i} fill={CHART_COLORS[(i + 3) % CHART_COLORS.length]} />)}
+              <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value">
+                {categoryData.map((_, i) => <Cell key={i} fill={CHART_COLORS[(i + 2) % CHART_COLORS.length]} />)}
               </Pie>
               <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', fontSize: '12px' }} />
               <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
             </PieChart>
           </ResponsiveContainer>
+        ) : (
+          <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+            No active trust flags or verification items found.
+          </div>
         ),
-        chart2Title: 'Queue Aging Distribution (Days)',
+        chart2Title: 'Risk Severity Distribution',
         chart2: (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={[
-              { name: '0-2 Days', count: 18 },
-              { name: '3-5 Days', count: 7 },
-              { name: '6-10 Days', count: 3 },
-              { name: '>10 Days', count: 1 },
-            ]} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+            <BarChart data={severityCounts} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border)/0.5)" />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
               <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
               <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', fontSize: '12px' }} />
-              <Bar dataKey="count" name="Pending Items" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="count" name="Flags" fill="#ef4444" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ),
       };
     }
 
-    // 4. Default / General Pipeline View
-    const sources = [
-      { name: 'Marketplace', value: filteredLeads.filter(l => l.source === 'Marketplace').length || 14 },
-      { name: 'Direct Inquiries', value: filteredLeads.filter(l => l.source === 'direct').length || 8 },
-      { name: 'Referral', value: filteredLeads.filter(l => l.source === 'referral').length || 5 },
-      { name: 'Website Portal', value: filteredLeads.filter(l => l.source === 'web').length || 3 },
-    ];
+    // 4. Contact & Account Roster
+    if (reportId === 'contact-mailing-list') {
+      const channelCounts = new Map<string, number>();
+      contacts.forEach((c) => {
+        const ch = c.preferred_channel || 'email';
+        channelCounts.set(ch, (channelCounts.get(ch) || 0) + 1);
+      });
+      const channelData = Array.from(channelCounts.entries()).map(([name, value]) => ({ name: name.toUpperCase(), value }));
 
-    const stages = [
+      return {
+        chart1Title: 'Preferred Contact Channels',
+        chart1: channelData.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={channelData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value">
+                {channelData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Pie>
+              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', fontSize: '12px' }} />
+              <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+            No contacts found.
+          </div>
+        ),
+        chart2Title: 'Total Active Client Directory',
+        chart2: (
+          <div className="h-full flex flex-col items-center justify-center space-y-2 text-center">
+            <span className="text-4xl font-bold text-primary">{contacts.length}</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Registered Leads & Contacts</span>
+          </div>
+        ),
+      };
+    }
+
+    // 5. Default / General Pipeline View
+    const sourceCounts = new Map<string, number>();
+    filteredLeads.forEach((l) => {
+      const src = l.source || 'Marketplace';
+      sourceCounts.set(src, (sourceCounts.get(src) || 0) + 1);
+    });
+    const sources = Array.from(sourceCounts.entries()).map(([name, value]) => ({ name, value }));
+
+    const stageData = [
       { name: 'New', count: stats.opened },
-      { name: 'Showing', count: stats.backlog },
-      { name: 'Proposal', count: stats.pending },
+      { name: 'In Review', count: stats.backlog },
+      { name: 'Viewing / Proposal', count: stats.pending },
       { name: 'Closed Won', count: stats.won },
     ];
 
     return {
       chart1Title: 'Leads & Inquiries by Source',
-      chart1: (
+      chart1: sources.length > 0 ? (
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie data={sources} cx="50%" cy="50%" innerRadius={65} outerRadius={90} paddingAngle={3} dataKey="value">
@@ -404,21 +488,25 @@ export function ReportDetailCanvas({
             <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
           </PieChart>
         </ResponsiveContainer>
+      ) : (
+        <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+          No inquiries found for the selected filter.
+        </div>
       ),
       chart2Title: 'Pipeline Stage Progression',
       chart2: (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={stages} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+          <BarChart data={stageData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border)/0.5)" />
             <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
             <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
             <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', fontSize: '12px' }} />
-            <Bar dataKey="count" name="Active Deals" fill="#0284c7" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="count" name="Active Leads" fill="#0284c7" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       ),
     };
-  }, [report.id, filteredLeads, stats]);
+  }, [report.id, filteredLeads, filteredDeals, filteredTasks, filteredMeetings, filteredTrustFlags, contacts, calls, assignableUsers, stats]);
 
   // Handle Refresh
   const handleGenerate = () => {
@@ -427,10 +515,10 @@ export function ReportDetailCanvas({
       setGeneratedAt(new Date());
       setIsGenerating(false);
       toast({ title: 'Report recalculated', description: `Metrics updated for ${report.name}.` });
-    }, 350);
+    }, 300);
   };
 
-  // Handle AI Summarize
+  // Handle AI Summarize with live metrics
   const handleAiSummarize = async () => {
     setIsAiLoading(true);
     setAiModalOpen(true);
@@ -440,7 +528,7 @@ export function ReportDetailCanvas({
           messages: [
             {
               role: 'user',
-              content: `Please generate a concise 3-bullet executive summary for the "${report.name}" report in FishGate Property CRM. Here are the active stats: Time Period: ${period}, Active Volume: ${filteredLeads.length || 24}, Won: ${stats.won}, Total Value: ${formatCurrency(stats.totalValue)}, Win Rate: ${stats.winRate}%, SLA Compliance: ${stats.slaCompliance}%. Include key conversion trends, top bottlenecks, and 2 actionable recommendations for property managers.`,
+              content: `Please generate a concise 3-bullet executive summary for the "${report.name}" report in FishGate Property CRM. Here are the live metrics from database: Time Period: ${period}, Active Lead Count: ${filteredLeads.length}, Won Deals: ${stats.won}, Pipeline Value: ${formatCurrency(stats.totalValue)}, Realized Value: ${formatCurrency(stats.wonValue)}, Win Rate: ${stats.winRate}%. Highlight conversion momentum, bottlenecks, and 2 actionable recommendations.`,
             },
           ],
         },
@@ -451,11 +539,11 @@ export function ReportDetailCanvas({
     } catch (err) {
       setAiSummary(
         `### Executive Overview: ${report.name}\n\n` +
-        `• **Pipeline Velocity**: Active conversion rate stands at **${stats.winRate}%** with **${formatCurrency(stats.wonValue || stats.totalValue)}** in closed lease value across the selected **${period}** timeframe.\n\n` +
-        `• **Operational Health**: First response time averages **${stats.avgResponseMinutes} minutes** with **${stats.slaCompliance}% SLA adherence**.\n\n` +
+        `• **Pipeline Health**: Total volume is **${filteredLeads.length} active leads** with **${stats.won} converted leases** (${stats.winRate}% win rate) representing **${formatCurrency(stats.wonValue || stats.totalValue)}** in pipeline value.\n\n` +
+        `• **Key Observations**: Current pipeline shows ${stats.backlog} leads in active qualification and ${stats.pending} in final proposal review.\n\n` +
         `• **Action Items**:\n` +
-        `  1. Review the ${stats.pending} deals currently in proposal review to expedite tenant lease signings.\n` +
-        `  2. Re-distribute inquiries to available agents to keep first-contact response under 15 minutes.`
+        `  1. Accelerate follow-ups on the ${stats.pending} proposals to finalize tenant onboarding.\n` +
+        `  2. Follow up on stalled leads older than 14 days to recover potential drop-offs.`
       );
     } finally {
       setIsAiLoading(false);
@@ -510,6 +598,84 @@ export function ReportDetailCanvas({
     downloadCsv(rows, `${report.id}_${format(new Date(), 'yyyyMMdd')}.csv`);
     toast({ title: 'Export complete', description: 'CSV file downloaded successfully.' });
   };
+
+  // Table Data Dispatcher matching report type
+  const tableData = useMemo(() => {
+    if (report.id === 'deal-profitability' || report.id === 'deals-closing-month') {
+      return {
+        title: `Deals Records (${filteredDeals.length})`,
+        headers: ['Deal Name', 'Stage', 'Amount', 'Probability', 'Owner', 'Date'],
+        rows: filteredDeals.map((d) => ({
+          id: d.id,
+          col1: d.title || 'Deal',
+          col2: d.stage,
+          col3: formatCurrency(d.amount || 0),
+          col4: `${d.probability || 0}%`,
+          col5: userMap.get(d.owner_user_id) || 'Unassigned',
+          col6: d.created_at ? format(new Date(d.created_at), 'MMM d, yyyy') : '-',
+        })),
+      };
+    }
+
+    if (report.id === 'lead-sla' || report.id === 'agent-performance') {
+      return {
+        title: `Task & Activity Records (${filteredTasks.length})`,
+        headers: ['Task Title', 'Type', 'Status', 'Assignee', 'Due Date'],
+        rows: filteredTasks.map((t) => ({
+          id: t.id,
+          col1: t.title || 'Task',
+          col2: t.task_type || 'Follow-up',
+          col3: t.status,
+          col4: userMap.get(t.owner_user_id) || 'Unassigned',
+          col5: t.due_at ? format(new Date(t.due_at), 'MMM d, yyyy') : '-',
+        })),
+      };
+    }
+
+    if (report.id === 'contact-mailing-list') {
+      return {
+        title: `Registered Contacts (${contacts.length})`,
+        headers: ['Full Name', 'Email', 'Phone', 'Preferred Channel', 'Created'],
+        rows: contacts.map((c) => ({
+          id: c.id,
+          col1: c.full_name || 'Contact',
+          col2: c.email || '-',
+          col3: c.phone_e164 || '-',
+          col4: c.preferred_channel || 'email',
+          col5: c.created_at ? format(new Date(c.created_at), 'MMM d, yyyy') : '-',
+        })),
+      };
+    }
+
+    if (report.id === 'verification-aging' || report.id === 'trust-flag-load') {
+      return {
+        title: `Trust Flags & Verification Queue (${filteredTrustFlags.length})`,
+        headers: ['Category', 'Severity', 'State', 'Description', 'Date'],
+        rows: filteredTrustFlags.map((f) => ({
+          id: f.id,
+          col1: f.category || 'Verification',
+          col2: f.severity || 'normal',
+          col3: f.state || 'active',
+          col4: f.description || '-',
+          col5: f.created_at ? format(new Date(f.created_at), 'MMM d, yyyy') : '-',
+        })),
+      };
+    }
+
+    // Default Leads Table
+    return {
+      title: `Pipeline Leads (${filteredLeads.length})`,
+      headers: ['Title / Lead', 'Pipeline', 'Stage / Status', 'Source', 'Created Date'],
+      rows: filteredLeads.map((l) => ({
+        id: l.id,
+        col1: l.title || 'Inquiry',
+        col2: l.pipeline_kind || 'leasing',
+        col3: l.stage,
+        col4: l.source || 'Marketplace',
+        col5: l.created_at ? format(new Date(l.created_at), 'MMM d, yyyy') : '-',
+      })),
+    };
+  }, [report.id, filteredLeads, filteredDeals, filteredTasks, contacts, filteredTrustFlags, userMap, formatCurrency]);
 
   return (
     <div className="space-y-6 animate-fade-in max-w-7xl mx-auto pb-16">
@@ -644,9 +810,6 @@ export function ReportDetailCanvas({
                       <SelectItem value="all">All Time</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-[10px] text-muted-foreground">
-                    Range: {period === '7d' ? 'Past 7 days' : period === '30d' ? 'Past 30 days' : 'Custom window'}
-                  </p>
                 </div>
 
                 {/* Pipeline Kind Filter */}
@@ -720,7 +883,7 @@ export function ReportDetailCanvas({
                   Key Metrics & Performance Indicators
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  Active Volume: <strong>{filteredLeads.length || stats.total}</strong>
+                  Active Volume: <strong>{stats.total}</strong>
                 </span>
               </div>
 
@@ -785,63 +948,54 @@ export function ReportDetailCanvas({
               <CardHeader className="pb-3 pt-4 px-5 border-b border-border/40">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-xs font-semibold text-foreground uppercase tracking-wide">
-                    Detailed Records ({filteredLeads.length} Items)
+                    {tableData.title}
                   </CardTitle>
                   <Badge variant="outline" className="text-xs">
-                    Page {page} of {Math.max(1, Math.ceil(filteredLeads.length / pageSize))}
+                    Page {page} of {Math.max(1, Math.ceil(tableData.rows.length / pageSize))}
                   </Badge>
                 </div>
               </CardHeader>
 
               <CardContent className="p-0">
-                {filteredLeads.length === 0 ? (
+                {tableData.rows.length === 0 ? (
                   <div className="p-8 text-center text-xs text-muted-foreground">
-                    No records match the current filter criteria.
+                    No records found for the selected filter.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
                       <thead className="bg-muted/40 text-muted-foreground border-b border-border/60 font-semibold">
                         <tr>
-                          <th className="py-2.5 px-4">Title / Record</th>
-                          <th className="py-2.5 px-4">Pipeline</th>
-                          <th className="py-2.5 px-4">Stage / Status</th>
-                          <th className="py-2.5 px-4">Source</th>
-                          <th className="py-2.5 px-4">Created Date</th>
+                          {tableData.headers.map((h, i) => (
+                            <th key={i} className="py-2.5 px-4">{h}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/40">
-                        {filteredLeads
+                        {tableData.rows
                           .slice((page - 1) * pageSize, page * pageSize)
-                          .map((lead) => (
-                            <tr key={lead.id} className="hover:bg-accent/40 transition-colors">
-                              <td className="py-2.5 px-4 font-medium text-foreground">
-                                {lead.title || 'Inquiry'}
-                              </td>
-                              <td className="py-2.5 px-4 capitalize text-muted-foreground">
-                                {lead.pipeline_kind || 'leasing'}
-                              </td>
+                          .map((row: any) => (
+                            <tr key={row.id} className="hover:bg-accent/40 transition-colors">
+                              <td className="py-2.5 px-4 font-medium text-foreground">{row.col1}</td>
+                              <td className="py-2.5 px-4 capitalize text-muted-foreground">{row.col2}</td>
                               <td className="py-2.5 px-4">
                                 <Badge
                                   variant="secondary"
                                   className={cn(
                                     'text-[10px] font-medium uppercase',
-                                    lead.stage === 'converted'
+                                    row.col3 === 'converted' || row.col3 === 'closed_won' || row.col3 === 'done'
                                       ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                                      : lead.stage === 'lost'
+                                      : row.col3 === 'lost' || row.col3 === 'high' || row.col3 === 'canceled'
                                       ? 'bg-destructive/15 text-destructive'
                                       : 'bg-primary/10 text-primary'
                                   )}
                                 >
-                                  {lead.stage}
+                                  {row.col3}
                                 </Badge>
                               </td>
-                              <td className="py-2.5 px-4 text-muted-foreground">
-                                {lead.source || 'Marketplace'}
-                              </td>
-                              <td className="py-2.5 px-4 text-muted-foreground">
-                                {lead.created_at ? format(new Date(lead.created_at), 'MMM d, yyyy') : '-'}
-                              </td>
+                              <td className="py-2.5 px-4 text-muted-foreground">{row.col4}</td>
+                              <td className="py-2.5 px-4 text-muted-foreground">{row.col5}</td>
+                              {row.col6 && <td className="py-2.5 px-4 text-muted-foreground">{row.col6}</td>}
                             </tr>
                           ))}
                       </tbody>
@@ -850,10 +1004,10 @@ export function ReportDetailCanvas({
                 )}
 
                 {/* Pagination */}
-                {filteredLeads.length > pageSize && (
+                {tableData.rows.length > pageSize && (
                   <div className="flex items-center justify-between p-3 border-t border-border/40 text-xs text-muted-foreground">
                     <span>
-                      Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filteredLeads.length)} of {filteredLeads.length}
+                      Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, tableData.rows.length)} of {tableData.rows.length}
                     </span>
                     <div className="flex gap-1.5">
                       <Button
@@ -868,7 +1022,7 @@ export function ReportDetailCanvas({
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={page * pageSize >= filteredLeads.length}
+                        disabled={page * pageSize >= tableData.rows.length}
                         onClick={() => setPage((p) => p + 1)}
                         className="h-7 px-2.5 text-xs"
                       >
@@ -1094,7 +1248,7 @@ export function ReportDetailCanvas({
             {isAiLoading ? (
               <div className="py-12 flex flex-col items-center justify-center space-y-3">
                 <RefreshCw className="h-6 w-6 animate-spin text-primary" />
-                <p className="text-xs text-muted-foreground">Synthesizing CRM data points & trends...</p>
+                <p className="text-xs text-muted-foreground">Synthesizing live CRM records & metrics...</p>
               </div>
             ) : (
               <div className="p-4 rounded-xl bg-muted/40 border border-border/60 text-xs text-foreground/90 space-y-3 leading-relaxed whitespace-pre-line max-h-96 overflow-y-auto">
