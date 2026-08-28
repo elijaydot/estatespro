@@ -316,6 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ({ data, error } = await mfaApi.enroll({
           factorType: 'totp',
           friendlyName,
+          issuer: 'FishGate',
         }));
 
         if (!error) break;
@@ -335,6 +336,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ({ data, error } = await mfaApi.enroll({
           factorType: 'totp',
           friendlyName: uniqueName,
+          issuer: 'FishGate',
         }));
       }
 
