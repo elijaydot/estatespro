@@ -132,12 +132,6 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
   };
 
   useEffect(() => {
-    if (session) {
-      refreshSession();
-    }
-  }, [session, refreshSession]);
-
-  useEffect(() => {
     if (!authLoading && !session) {
       navigate('/tenant/login', { replace: true });
     }

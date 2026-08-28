@@ -247,10 +247,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data: { session: newSession }, error } = await supabase.auth.refreshSession();
       if (error) {
-        console.error('Error refreshing session:', error);
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (!currentSession) {
-          await logout();
+        if (!isAbortLikeError(error)) {
+          console.warn('Session refresh notice:', error.message);
         }
       } else if (newSession) {
         setSession(newSession);
@@ -258,10 +256,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       if (!isAbortLikeError(error)) {
-        console.error('Error in refreshSession:', error);
+        console.warn('Error in refreshSession:', error);
       }
     }
-  }, [logout]);
+  }, []);
 
   const enrollMfaTotp = useCallback(async (friendlyName: string = 'FishGate Authenticator') => {
     try {
