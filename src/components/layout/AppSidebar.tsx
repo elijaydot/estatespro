@@ -197,6 +197,8 @@ export function AppSidebar({
     );
   }
 
+  const handleToggleCollapse = () => onCollapsedChange?.(!collapsed);
+
   return (
     <aside
       className={cn(
@@ -211,7 +213,7 @@ export function AppSidebar({
         availableWorkspaces={availableWorkspaceIds}
         onNavigate={() => onNavigate?.()}
         collapsed={collapsedView}
-        onCollapsedChange={() => onCollapsedChange?.(!collapsed)}
+        onCollapsedChange={onCollapsedChange ? (val) => onCollapsedChange(val) : handleToggleCollapse}
         mobile={mobile}
       />
     </aside>
