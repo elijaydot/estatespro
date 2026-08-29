@@ -30,17 +30,19 @@ export function usePayments() {
     queryKey: ['payments', activeCompanyId],
     queryFn: async () => {
       if (!activeCompanyId) return [];
-      const query = supabase
+      let query = supabase
         .from('payments')
         .select(`
           *,
           tenants:tenant_id(id, name, email, property_id, unit_id),
-          invoices:invoice_id!inner(id, invoice_number, amount, property_id, properties:property_id!inner(company_id))
-        `)
-        .eq('invoices.properties.company_id', activeCompanyId)
-        .order('created_at', { ascending: false });
+          invoices:invoice_id!inner(id, invoice_number, amount, property_id, properties:property_id!inner(id, name, company_id, companies:company_id(id, name)))
+        `);
 
-      const { data, error } = await query;
+      if (activeCompanyId !== 'all') {
+        query = query.eq('invoices.properties.company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       return data;
@@ -56,15 +58,18 @@ export function usePayment(id: string) {
     queryKey: ['payments', id, activeCompanyId],
     queryFn: async () => {
       if (!activeCompanyId) throw new Error('Select a company first');
-      const query = supabase
+      let query = supabase
         .from('payments')
         .select(`
           *,
           tenants:tenant_id(id, name, email),
-          invoices:invoice_id!inner(id, invoice_number, amount, property_id, properties:property_id!inner(company_id))
+          invoices:invoice_id!inner(id, invoice_number, amount, property_id, properties:property_id!inner(id, name, company_id, companies:company_id(id, name)))
         `)
-        .eq('id', id)
-        .eq('invoices.properties.company_id', activeCompanyId);
+        .eq('id', id);
+
+      if (activeCompanyId !== 'all') {
+        query = query.eq('invoices.properties.company_id', activeCompanyId);
+      }
 
       const { data, error } = await query.single();
 

@@ -542,6 +542,11 @@ export default function Invoices() {
                           <p className="text-muted-foreground">
                             {invoice.units ? `Unit ${invoice.units.unit_number}` : '-'}
                           </p>
+                          {(invoice.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
+                              🏢 {(invoice.properties as { companies?: { name?: string } | null }).companies?.name}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">{invoice.description}</TableCell>

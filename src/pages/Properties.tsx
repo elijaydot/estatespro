@@ -229,6 +229,11 @@ export default function Properties() {
                       <MapPin className="h-3.5 w-3.5" />
                       <span>{property.city}, {property.state}</span>
                     </div>
+                    {property.companies?.name && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-primary/10 text-primary border border-primary/20 mt-2 font-medium">
+                        🏢 {property.companies.name}
+                      </span>
+                    )}
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

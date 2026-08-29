@@ -354,20 +354,29 @@ export function useCrmLeads(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as CrmLead[];
 
-      const currentSchemaResult = await supabase
+      let currentQuery = supabase
         .from('leads')
-        .select('id, company_id, listing_id, pipeline_kind, stage, status, priority, score, assigned_to, created_at, last_activity_at, converted_at, lost_reason, marketplace_listings(title, slug), lead_contacts(full_name, email, phone_e164)')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
+        .select('id, company_id, listing_id, pipeline_kind, stage, status, priority, score, assigned_to, created_at, last_activity_at, converted_at, lost_reason, marketplace_listings(title, slug), lead_contacts(full_name, email, phone_e164)');
+
+      if (companyId !== 'all') {
+        currentQuery = currentQuery.eq('company_id', companyId);
+      }
+
+      const currentSchemaResult = await currentQuery.order('created_at', { ascending: false });
 
       const usesLegacySchema = currentSchemaResult.error?.code === '42703'
         && currentSchemaResult.error.message.includes('pipeline_kind');
+
+      let legacyQuery = supabase
+        .from('leads')
+        .select('id, company_id, listing_id, stage, status, priority, score, assigned_to, created_at, last_activity_at, converted_at, lost_reason, marketplace_listings(title, slug), lead_contacts(full_name, email, phone_e164)');
+
+      if (companyId !== 'all') {
+        legacyQuery = legacyQuery.eq('company_id', companyId);
+      }
+
       const legacySchemaResult = usesLegacySchema
-        ? await supabase
-            .from('leads')
-            .select('id, company_id, listing_id, stage, status, priority, score, assigned_to, created_at, last_activity_at, converted_at, lost_reason, marketplace_listings(title, slug), lead_contacts(full_name, email, phone_e164)')
-            .eq('company_id', companyId)
-            .order('created_at', { ascending: false })
+        ? await legacyQuery.order('created_at', { ascending: false })
         : null;
       const data = legacySchemaResult?.data ?? currentSchemaResult.data;
       const error = legacySchemaResult?.error ?? (usesLegacySchema ? null : currentSchemaResult.error);
@@ -397,22 +406,31 @@ export function useCrmLeadRecord(companyId?: string | null, leadId?: string | nu
     queryFn: async () => {
       if (!companyId || !leadId) return null;
 
-      const currentSchemaResult = await supabase
+      let currentQuery = supabase
         .from('leads')
         .select('id, company_id, listing_id, pipeline_kind, stage, status, priority, score, assigned_to, created_at, last_activity_at, converted_at, lost_reason, marketplace_listings(title, slug), lead_contacts(full_name, email, phone_e164)')
-        .eq('company_id', companyId)
-        .eq('id', leadId)
-        .maybeSingle();
+        .eq('id', leadId);
+
+      if (companyId !== 'all') {
+        currentQuery = currentQuery.eq('company_id', companyId);
+      }
+
+      const currentSchemaResult = await currentQuery.maybeSingle();
 
       const usesLegacySchema = currentSchemaResult.error?.code === '42703'
         && currentSchemaResult.error.message.includes('pipeline_kind');
+
+      let legacyQuery = supabase
+        .from('leads')
+        .select('id, company_id, listing_id, stage, status, priority, score, assigned_to, created_at, last_activity_at, converted_at, lost_reason, marketplace_listings(title, slug), lead_contacts(full_name, email, phone_e164)')
+        .eq('id', leadId);
+
+      if (companyId !== 'all') {
+        legacyQuery = legacyQuery.eq('company_id', companyId);
+      }
+
       const legacySchemaResult = usesLegacySchema
-        ? await supabase
-            .from('leads')
-            .select('id, company_id, listing_id, stage, status, priority, score, assigned_to, created_at, last_activity_at, converted_at, lost_reason, marketplace_listings(title, slug), lead_contacts(full_name, email, phone_e164)')
-            .eq('company_id', companyId)
-            .eq('id', leadId)
-            .maybeSingle()
+        ? await legacyQuery.maybeSingle()
         : null;
       const data = legacySchemaResult?.data ?? currentSchemaResult.data;
       const error = legacySchemaResult?.error ?? (usesLegacySchema ? null : currentSchemaResult.error);

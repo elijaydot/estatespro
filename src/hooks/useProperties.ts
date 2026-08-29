@@ -21,6 +21,8 @@ export interface Property {
   created_at: string;
   updated_at: string;
   user_id: string;
+  company_id?: string;
+  companies?: { id: string; name: string } | null;
 }
 
 export function useProperties() {
@@ -31,13 +33,15 @@ export function useProperties() {
     queryFn: async () => {
       if (!activeCompanyId) return [];
 
-      const query = supabase
+      let query = supabase
         .from('properties')
-        .select('*')
-        .eq('company_id', activeCompanyId)
-        .order('created_at', { ascending: false });
+        .select('*, companies:company_id(id, name)');
 
-      const { data, error } = await query;
+      if (activeCompanyId !== 'all') {
+        query = query.eq('company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       return data as Property[];
@@ -54,11 +58,14 @@ export function useProperty(id: string) {
     queryFn: async () => {
       if (!activeCompanyId) throw new Error('Select a company first');
 
-      const query = supabase
+      let query = supabase
         .from('properties')
-        .select('*')
-        .eq('id', id)
-        .eq('company_id', activeCompanyId);
+        .select('*, companies:company_id(id, name)')
+        .eq('id', id);
+
+      if (activeCompanyId !== 'all') {
+        query = query.eq('company_id', activeCompanyId);
+      }
 
       const { data, error } = await query.single();
 

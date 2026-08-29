@@ -307,7 +307,11 @@ function useCompanyTableQuery<T>(key: string, table: string, companyId?: string 
     queryKey: ['marketplace-crm', key, companyId],
     queryFn: async () => {
       if (!companyId) return [] as T[];
-      const { data, error } = await supabase.from(table as never).select(select as never).eq('company_id', companyId).order('created_at', { ascending: false });
+      let query = supabase.from(table as never).select(select as never);
+      if (companyId !== 'all') {
+        query = query.eq('company_id', companyId);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
       return (data || []) as T[];
     },
@@ -320,19 +324,24 @@ export function useCrmContacts(companyId?: string | null) {
     queryKey: ['marketplace-crm', 'contacts', companyId],
     queryFn: async () => {
       if (!companyId) return [] as CrmContact[];
-      const currentSchemaResult = await supabase
+      let currentQuery = supabase
         .from('lead_contacts')
-        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, tenant_id, tenants(created_at), leads!inner(company_id)')
-        .eq('leads.company_id', companyId)
-        .order('created_at', { ascending: false });
+        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, tenant_id, tenants(created_at), leads!inner(company_id)');
+      if (companyId !== 'all') {
+        currentQuery = currentQuery.eq('leads.company_id', companyId);
+      }
+      const currentSchemaResult = await currentQuery.order('created_at', { ascending: false });
       const usesLegacySchema = currentSchemaResult.error?.code === 'PGRST200'
         || (currentSchemaResult.error?.code === '42703' && currentSchemaResult.error.message.includes('tenant_id'));
+
+      let legacyQuery = supabase
+        .from('lead_contacts')
+        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, leads!inner(company_id)');
+      if (companyId !== 'all') {
+        legacyQuery = legacyQuery.eq('leads.company_id', companyId);
+      }
       const legacySchemaResult = usesLegacySchema
-        ? await supabase
-            .from('lead_contacts')
-            .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, leads!inner(company_id)')
-            .eq('leads.company_id', companyId)
-            .order('created_at', { ascending: false })
+        ? await legacyQuery.order('created_at', { ascending: false })
         : null;
       const data = legacySchemaResult?.data ?? currentSchemaResult.data;
       const error = legacySchemaResult?.error ?? (usesLegacySchema ? null : currentSchemaResult.error);
@@ -361,19 +370,24 @@ export function useCrmAccounts(companyId?: string | null) {
     queryKey: ['marketplace-crm', 'accounts', companyId],
     queryFn: async () => {
       if (!companyId) return [] as CrmAccount[];
-      const currentSchemaResult = await supabase
+      let currentQuery = supabase
         .from('crm_accounts' as never)
-        .select('id, company_id, name, phone, website, owner_user_id, account_kind, metadata, created_at' as never)
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
+        .select('id, company_id, name, phone, website, owner_user_id, account_kind, metadata, created_at' as never);
+      if (companyId !== 'all') {
+        currentQuery = currentQuery.eq('company_id', companyId);
+      }
+      const currentSchemaResult = await currentQuery.order('created_at', { ascending: false });
       const usesLegacySchema = currentSchemaResult.error?.code === '42703'
         && (currentSchemaResult.error.message.includes('account_kind') || currentSchemaResult.error.message.includes('metadata'));
+
+      let legacyQuery = supabase
+        .from('crm_accounts')
+        .select('id, company_id, name, phone, website, owner_user_id, account_type, created_at');
+      if (companyId !== 'all') {
+        legacyQuery = legacyQuery.eq('company_id', companyId);
+      }
       const legacySchemaResult = usesLegacySchema
-        ? await supabase
-            .from('crm_accounts')
-            .select('id, company_id, name, phone, website, owner_user_id, account_type, created_at')
-            .eq('company_id', companyId)
-            .order('created_at', { ascending: false })
+        ? await legacyQuery.order('created_at', { ascending: false })
         : null;
       const data = legacySchemaResult?.data ?? currentSchemaResult.data;
       const error = legacySchemaResult?.error ?? (usesLegacySchema ? null : currentSchemaResult.error);
@@ -399,20 +413,25 @@ export function useCrmDeals(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as CrmDeal[];
 
-      const currentSchemaResult = await supabase
+      let currentQuery = supabase
         .from('crm_deals')
-        .select('id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, probability, expected_close_date, owner_user_id, created_at, leads!inner(stage, pipeline_kind)')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
+        .select('id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, probability, expected_close_date, owner_user_id, created_at, leads!inner(stage, pipeline_kind)');
+      if (companyId !== 'all') {
+        currentQuery = currentQuery.eq('company_id', companyId);
+      }
+      const currentSchemaResult = await currentQuery.order('created_at', { ascending: false });
 
       const usesLegacySchema = currentSchemaResult.error?.code === '42703'
         && currentSchemaResult.error.message.includes('pipeline_kind');
+
+      let legacyQuery = supabase
+        .from('crm_deals')
+        .select('id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, probability, expected_close_date, owner_user_id, created_at, leads!inner(stage)');
+      if (companyId !== 'all') {
+        legacyQuery = legacyQuery.eq('company_id', companyId);
+      }
       const legacySchemaResult = usesLegacySchema
-        ? await supabase
-            .from('crm_deals')
-            .select('id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, probability, expected_close_date, owner_user_id, created_at, leads!inner(stage)')
-            .eq('company_id', companyId)
-            .order('created_at', { ascending: false })
+        ? await legacyQuery.order('created_at', { ascending: false })
         : null;
       const data = legacySchemaResult?.data ?? currentSchemaResult.data;
       const error = legacySchemaResult?.error ?? (usesLegacySchema ? null : currentSchemaResult.error);
@@ -511,10 +530,15 @@ export function useCrmDealStageHistory(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as CrmDealStageHistory[];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('crm_deal_stage_history')
-        .select('id, deal_id, company_id, from_stage, to_stage, changed_by, reason, metadata, changed_at')
-        .eq('company_id', companyId)
+        .select('id, deal_id, company_id, from_stage, to_stage, changed_by, reason, metadata, changed_at');
+
+      if (companyId !== 'all') {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query
         .order('changed_at', { ascending: false })
         .limit(150);
 
@@ -537,10 +561,15 @@ export function useCrmTrustFlags(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as CrmTrustFlag[];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('crm_trust_flags')
-        .select('id, company_id, entity_type, entity_id, severity, state, source, source_id, reason, metadata, created_at, updated_at')
-        .eq('company_id', companyId)
+        .select('id, company_id, entity_type, entity_id, severity, state, source, source_id, reason, metadata, created_at, updated_at');
+
+      if (companyId !== 'all') {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query
         .order('updated_at', { ascending: false })
         .limit(200);
 
@@ -563,10 +592,15 @@ export function useCrmDealHandoffs(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as CrmDealHandoff[];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('crm_deal_handoffs')
-        .select('id, deal_id, company_id, status, checklist_json, readiness_notes, tenant_id, lease_id, started_at, completed_at, created_at, updated_at')
-        .eq('company_id', companyId)
+        .select('id, deal_id, company_id, status, checklist_json, readiness_notes, tenant_id, lease_id, started_at, completed_at, created_at, updated_at');
+
+      if (companyId !== 'all') {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query
         .order('updated_at', { ascending: false })
         .limit(150);
 
@@ -589,11 +623,15 @@ export function useCrmMarketplaceFunnelMetrics(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return null as CrmMarketplaceFunnelMetric | null;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('crm_marketplace_funnel_metrics')
-        .select('company_id, company_name, inquiries_30d, leads_open, deals_open, deals_won_30d, inquiry_to_won_rate_pct')
-        .eq('company_id', companyId)
-        .maybeSingle();
+        .select('company_id, company_name, inquiries_30d, leads_open, deals_open, deals_won_30d, inquiry_to_won_rate_pct');
+
+      if (companyId !== 'all') {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
       return (data as CrmMarketplaceFunnelMetric | null) || null;
@@ -607,11 +645,15 @@ export function useCrmTasks(companyId?: string | null) {
     queryKey: ['marketplace-crm', 'tasks', companyId],
     queryFn: async () => {
       if (!companyId) return [] as CrmTask[];
-      const { data, error } = await supabase
+      let query = supabase
         .from('lead_tasks')
-        .select('id, lead_id, task_type, owner_user_id, due_at, status, notes, created_at, leads!inner(company_id)')
-        .eq('leads.company_id', companyId)
-        .order('due_at', { ascending: true });
+        .select('id, lead_id, task_type, owner_user_id, due_at, status, notes, created_at, leads!inner(company_id)');
+
+      if (companyId !== 'all') {
+        query = query.eq('leads.company_id', companyId);
+      }
+
+      const { data, error } = await query.order('due_at', { ascending: true });
       if (error) throw error;
       return (data || []).map((row) => {
         const typedRow = row as LeadTaskRow;
@@ -637,11 +679,15 @@ export function useCrmAutomationRules(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as CrmAutomationRule[];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('crm_automation_rules' as never)
-        .select('id, company_id, name, event_type, conditions_json, actions_json, retry_limit, is_active, created_by, created_at, updated_at' as never)
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
+        .select('id, company_id, name, event_type, conditions_json, actions_json, retry_limit, is_active, created_by, created_at, updated_at' as never);
+
+      if (companyId !== 'all') {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -672,10 +718,15 @@ export function useCrmAutomationRuns(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as CrmAutomationRun[];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('crm_automation_runs' as never)
-        .select('id, rule_id, company_id, event_type, event_source_type, event_source_id, correlation_id, status, attempts, max_attempts, payload_json, result_json, last_error, next_retry_at, created_at, updated_at' as never)
-        .eq('company_id', companyId)
+        .select('id, rule_id, company_id, event_type, event_source_type, event_source_id, correlation_id, status, attempts, max_attempts, payload_json, result_json, last_error, next_retry_at, created_at, updated_at' as never);
+
+      if (companyId !== 'all') {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query
         .order('created_at', { ascending: false })
         .limit(200);
 

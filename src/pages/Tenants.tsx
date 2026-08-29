@@ -441,6 +441,11 @@ export default function Tenants() {
                         <p className="text-xs text-muted-foreground">
                           {tenant.properties?.name || 'No property'}
                         </p>
+                        {(tenant.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
+                            🏢 {(tenant.properties as { companies?: { name?: string } | null }).companies?.name}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </TableCell>

@@ -76,7 +76,10 @@ export function useDashboardStats() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const propertiesQuery = supabase.from('properties').select('id, total_units, occupied_units, company_id').eq('company_id', activeCompanyId);
+      let propertiesQuery = supabase.from('properties').select('id, total_units, occupied_units, company_id');
+      if (activeCompanyId !== 'all') {
+        propertiesQuery = propertiesQuery.eq('company_id', activeCompanyId);
+      }
 
       const { data: propertiesData, error: propertiesError } = await propertiesQuery;
       if (propertiesError) throw propertiesError;
@@ -259,7 +262,10 @@ export function useRecentActivity() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const propertiesQuery = supabase.from('properties').select('id, company_id').eq('company_id', activeCompanyId);
+      let propertiesQuery = supabase.from('properties').select('id, company_id');
+      if (activeCompanyId !== 'all') {
+        propertiesQuery = propertiesQuery.eq('company_id', activeCompanyId);
+      }
 
       const { data: scopedProperties, error: scopedPropertiesError } = await propertiesQuery;
       if (scopedPropertiesError) throw scopedPropertiesError;
@@ -330,13 +336,13 @@ export function useRecentActivity() {
         });
       });
 
-      // Add maintenance updates
-      ((maintenanceData || []) as RecentMaintenanceRow[]).forEach((maintenanceItem) => {
+      // Add maintenance
+      maintenanceData.forEach((maintenanceItem) => {
         activities.push({
           id: `maintenance-${maintenanceItem.id}`,
           type: 'maintenance',
-          title: maintenanceItem.status === 'completed' ? 'Maintenance Completed' : 'Maintenance Update',
-          description: maintenanceItem.title,
+          title: 'Maintenance Request',
+          description: `${maintenanceItem.title} - ${maintenanceItem.status}`,
           timestamp: maintenanceItem.updated_at || maintenanceItem.created_at,
         });
       });
@@ -375,11 +381,16 @@ export function useUpcomingRenewals() {
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-      const query = supabase
+      let query = supabase
         .from('tenants')
         .select('id, name, lease_end_date, units:unit_id(unit_number), properties:property_id!inner(name, company_id)')
-        .eq('status', 'active')
-        .eq('properties.company_id', activeCompanyId)
+        .eq('status', 'active');
+
+      if (activeCompanyId !== 'all') {
+        query = query.eq('properties.company_id', activeCompanyId);
+      }
+
+      query = query
         .gte('lease_end_date', now.toISOString().split('T')[0])
         .lte('lease_end_date', thirtyDaysFromNow.toISOString().split('T')[0])
         .order('lease_end_date', { ascending: true })
@@ -420,7 +431,10 @@ export function useRevenueData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const propertiesQuery = supabase.from('properties').select('id, company_id').eq('company_id', activeCompanyId);
+      let propertiesQuery = supabase.from('properties').select('id, company_id');
+      if (activeCompanyId !== 'all') {
+        propertiesQuery = propertiesQuery.eq('company_id', activeCompanyId);
+      }
 
       const { data: scopedProperties, error: scopedPropertiesError } = await propertiesQuery;
       if (scopedPropertiesError) throw scopedPropertiesError;
@@ -468,7 +482,7 @@ export function useRevenueData() {
       // Aggregate payments
       data?.forEach(p => {
         const date = new Date(p.created_at);
-        const key = `${months[date.getMonth()]} ${date.getFullYear()}`;
+        const key = `${months[date.getMonth()]} ${d.getFullYear()}`;
         if (monthlyData[key] !== undefined) {
           monthlyData[key] += Number(p.amount);
         }
@@ -493,10 +507,12 @@ export function useOccupancyData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data: properties, error: propertiesError } = await supabase
-        .from('properties')
-        .select('id')
-        .eq('company_id', activeCompanyId);
+      let propertiesQuery = supabase.from('properties').select('id');
+      if (activeCompanyId !== 'all') {
+        propertiesQuery = propertiesQuery.eq('company_id', activeCompanyId);
+      }
+
+      const { data: properties, error: propertiesError } = await propertiesQuery;
 
       if (propertiesError) throw propertiesError;
       const propertyIds = (properties || []).map((property) => property.id);

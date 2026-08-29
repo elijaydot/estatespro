@@ -63,11 +63,14 @@ export function useVendors(status?: Vendor['status']) {
     queryFn: async () => {
       let query = supabase
         .from('vendors' as never)
-        .select('*' as never)
-        .eq('company_id', activeCompanyId as string)
-        .order('name');
+        .select('*, companies:company_id(id, name)' as never);
+
+      if (activeCompanyId !== 'all') {
+        query = query.eq('company_id', activeCompanyId as string);
+      }
+
       if (status) query = query.eq('status', status);
-      const { data, error } = await query;
+      const { data, error } = await query.order('name');
       if (error) throw error;
       return data as unknown as Vendor[];
     },
@@ -81,12 +84,16 @@ export function useVendor(vendorId: string) {
     queryKey: vendorKey(activeCompanyId, vendorId),
     enabled: Boolean(activeCompanyId && vendorId),
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('vendors' as never)
-        .select('*' as never)
-        .eq('company_id', activeCompanyId as string)
-        .eq('id', vendorId)
-        .single();
+        .select('*, companies:company_id(id, name)' as never)
+        .eq('id', vendorId);
+
+      if (activeCompanyId !== 'all') {
+        query = query.eq('company_id', activeCompanyId as string);
+      }
+
+      const { data, error } = await query.single();
       if (error) throw error;
       return data as unknown as Vendor;
     },

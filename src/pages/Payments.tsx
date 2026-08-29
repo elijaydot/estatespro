@@ -699,7 +699,14 @@ export default function Payments() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{payment.invoices?.invoice_number || '-'}</TableCell>
+                      <TableCell>
+                        <p className="font-medium">{payment.invoices?.invoice_number || '-'}</p>
+                        {(payment.invoices?.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
+                            🏢 {(payment.invoices?.properties as { companies?: { name?: string } | null }).companies?.name}
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getMethodIcon(payment.method)}

@@ -91,7 +91,11 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
           .limit(200);
 
         if (error) throw error;
-        return (data || []) as CompanyOption[];
+        const allCompanies = (data || []) as CompanyOption[];
+        return [
+          { id: 'all', name: '🌐 All Companies (Global View)' },
+          ...allCompanies,
+        ];
       }
 
       return [];
@@ -144,8 +148,13 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (role === 'super_admin') {
+      setActiveCompanyIdState('all');
+      return;
+    }
+
     setActiveCompanyIdState(companies[0].id);
-  }, [companies, isDefaultLoading, storedDefaultCompanyId, user?.id]);
+  }, [companies, isDefaultLoading, role, storedDefaultCompanyId, user?.id]);
 
   const activeCompany = useMemo(
     () => companies.find((company) => company.id === activeCompanyId) ?? null,

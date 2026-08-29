@@ -559,6 +559,11 @@ export default function Leases() {
                         <div>
                           <p className="font-medium">{property?.name || 'N/A'}</p>
                           <p className="text-xs text-muted-foreground">{unit?.unit_number || 'N/A'}</p>
+                          {(property as { companies?: { name?: string } | null } | null)?.companies?.name && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
+                              🏢 {(property as { companies?: { name?: string } | null }).companies?.name}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
