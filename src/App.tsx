@@ -514,6 +514,10 @@ function AppRoutes() {
         element={<PrivateRoute><FeatureRoute entitlementKey="crm.leads.manage" featureName="Marketplace CRM">{withSuspense(<MarketplaceCrmOverview />)}</FeatureRoute></PrivateRoute>}
       />
       <Route
+        path="/marketplace/crm/overview"
+        element={<Navigate to="/marketplace/crm" replace />}
+      />
+      <Route
         path="/marketplace/crm/reports"
         element={<PrivateRoute><FeatureRoute entitlementKey="crm.leads.manage" featureName="Marketplace CRM Reports">{withSuspense(<MarketplaceCrmReports />)}</FeatureRoute></PrivateRoute>}
       />

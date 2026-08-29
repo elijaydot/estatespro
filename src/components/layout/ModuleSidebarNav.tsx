@@ -211,7 +211,7 @@ export function ModuleSidebarNav({
       case 'marketplace':
         return { label: 'Marketplace', icon: Store, href: '/marketplace/manage', title: 'Marketplace' };
       case 'crm':
-        return { label: 'CRM', icon: Flame, href: '/marketplace/crm/overview', title: 'Marketplace CRM' };
+        return { label: 'CRM', icon: Flame, href: '/marketplace/crm', title: 'Marketplace CRM' };
       case 'control-plane':
         return { label: 'Control Plane', icon: Radar, href: '/super-admin/control-plane', title: 'Super Admin Control Plane' };
     }

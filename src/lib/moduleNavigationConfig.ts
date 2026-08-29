@@ -387,7 +387,7 @@ export const WORKSPACE_MODULE_CONFIGS: Record<StaffWorkspaceId, WorkspaceModuleC
             id: 'crm-overview',
             label: 'CRM Overview',
             shortLabel: 'Overview',
-            href: '/marketplace/crm/overview',
+            href: '/marketplace/crm',
             icon: Activity,
             description: 'High-level CRM pipeline velocity, conversion rates, and sales leaderboard.',
             tags: ['crm', 'overview', 'pipeline', 'funnel'],
