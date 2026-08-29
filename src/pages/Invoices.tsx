@@ -49,6 +49,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
 import { useSettings } from '@/contexts/useSettings';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useMyCompanies } from '@/hooks/useCompanies';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useInvoices, useCreateInvoice, useUpdateInvoice, type Invoice } from '@/hooks/useInvoices';
 import { useTenants, type Tenant } from '@/hooks/useTenants';
@@ -65,8 +68,16 @@ type TenantWithRelations = Tenant & {
 };
 
 type InvoiceWithRelations = Invoice & {
+  company_id?: string;
   tenants?: { name: string | null } | null;
-  properties?: { name: string | null } | null;
+  properties?: {
+    name: string | null;
+    company_id?: string;
+    companies?: {
+      id?: string;
+      name?: string;
+    } | null;
+  } | null;
   units?: { unit_number: string | null } | null;
 };
 
@@ -115,7 +126,10 @@ export default function Invoices() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
+  const { isSuperAdmin } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
+  const { data: companiesList = [] } = useMyCompanies();
+  const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -163,6 +177,10 @@ export default function Invoices() {
   };
 
   const filteredInvoices = invoiceRows.filter((invoice) => {
+    const invCompanyId = invoice.company_id || invoice.properties?.company_id || invoice.properties?.companies?.id;
+    if (selectedOrgFilter !== 'all' && invCompanyId && invCompanyId !== selectedOrgFilter) {
+      return false;
+    }
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (
@@ -170,7 +188,8 @@ export default function Invoices() {
       (invoice.guest_name || '').toLowerCase().includes(q) ||
       (invoice.guest_email || '').toLowerCase().includes(q) ||
       (invoice.invoice_number || '').toLowerCase().includes(q) ||
-      (invoice.properties?.name || '').toLowerCase().includes(q)
+      (invoice.properties?.name || '').toLowerCase().includes(q) ||
+      (invoice.properties?.companies?.name || '').toLowerCase().includes(q)
     );
   });
 
@@ -386,7 +405,7 @@ export default function Invoices() {
       </div>
 
       {/* Filters & Search */}
-      <FilterBar>
+      <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -396,8 +415,27 @@ export default function Invoices() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+
+        {isSuperAdmin && companiesList.length > 0 && (
+          <div className="w-full sm:w-auto min-w-[200px]">
+            <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
+              <SelectTrigger className="h-11">
+                <SelectValue placeholder="All Organizations (Global)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
+                {companiesList.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="sm:flex">
-          <Button variant="outline" className="w-full gap-2 sm:w-auto" onClick={handleExport}>
+          <Button variant="outline" className="w-full gap-2 sm:w-auto h-11" onClick={handleExport}>
             <Download className="h-4 w-4" />
             Export
           </Button>

@@ -131,6 +131,11 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
 
     if (isDefaultLoading) return;
 
+    if (role === 'super_admin') {
+      setActiveCompanyIdState('all');
+      return;
+    }
+
     const hasAccessibleDefault = storedDefaultCompanyId
       && companies.some((company) => company.id === storedDefaultCompanyId);
 
@@ -145,11 +150,6 @@ export function ActiveCompanyProvider({ children }: { children: ReactNode }) {
 
     if (hasSaved) {
       setActiveCompanyIdState(savedCompany);
-      return;
-    }
-
-    if (role === 'super_admin') {
-      setActiveCompanyIdState('all');
       return;
     }
 

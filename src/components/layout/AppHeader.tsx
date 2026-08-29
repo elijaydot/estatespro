@@ -259,9 +259,16 @@ export function AppHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Badge variant="outline" className="hidden xl:flex h-8 rounded-full border-border bg-muted/60 px-3 text-foreground">
-          {roleLabel}
-        </Badge>
+        {role === 'super_admin' ? (
+          <Badge className="hidden xl:flex h-8 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-3 font-semibold items-center gap-1.5 shadow-sm">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            Super Admin (Global Seer)
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="hidden xl:flex h-8 rounded-full border-border bg-muted/60 px-3 text-foreground">
+            {roleLabel}
+          </Badge>
+        )}
 
         {/* Notifications */}
         <Button 

@@ -196,7 +196,7 @@ export function ModuleSidebarNav({
 
   const getRoleLabel = (r?: string) => {
     switch (r) {
-      case 'super_admin': return 'Super Admin';
+      case 'super_admin': return 'Super Admin • Global Seer';
       case 'landlord': return 'Landlord';
       case 'property_manager': return 'Property Manager';
       default: return r || 'User';
@@ -232,24 +232,41 @@ export function ModuleSidebarNav({
 
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <button
-                type="button"
-                onClick={() => setShowCompanies((prev) => !prev)}
-                className="flex items-center gap-1 text-left w-full group py-0.5"
-                title="Switch company workspace"
-              >
-                <div className="truncate min-w-0">
-                  <p className="font-semibold text-xs leading-tight text-sidebar-foreground truncate group-hover:text-primary transition-colors">
-                    {companies.find((c) => c.id === activeCompanyId)?.name || 'FishGate OS'}
-                  </p>
-                  <p className="text-[10px] text-sidebar-foreground/60 leading-none truncate">
-                    {config.shortName}
+              {role === 'super_admin' ? (
+                <div className="py-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-bold text-xs leading-tight text-sidebar-foreground truncate">
+                      FishGate SaaS
+                    </p>
+                    <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                      Global Seer
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-sidebar-foreground/60 leading-none truncate mt-0.5 flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                    Live Platform Monitor • {config.shortName}
                   </p>
                 </div>
-                {companies.length > 1 && (
-                  <ChevronDown className="h-3 w-3 shrink-0 text-sidebar-foreground/40 group-hover:text-sidebar-foreground transition-colors ml-0.5" />
-                )}
-              </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowCompanies((prev) => !prev)}
+                  className="flex items-center gap-1 text-left w-full group py-0.5"
+                  title="Switch company workspace"
+                >
+                  <div className="truncate min-w-0">
+                    <p className="font-semibold text-xs leading-tight text-sidebar-foreground truncate group-hover:text-primary transition-colors">
+                      {companies.find((c) => c.id === activeCompanyId)?.name || 'FishGate OS'}
+                    </p>
+                    <p className="text-[10px] text-sidebar-foreground/60 leading-none truncate">
+                      {config.shortName}
+                    </p>
+                  </div>
+                  {companies.length > 1 && (
+                    <ChevronDown className="h-3 w-3 shrink-0 text-sidebar-foreground/40 group-hover:text-sidebar-foreground transition-colors ml-0.5" />
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -283,8 +300,8 @@ export function ModuleSidebarNav({
         </div>
       )}
 
-      {/* Company Selector Dropdown (Collapsible) */}
-      {showCompanies && companies.length > 1 && !collapsed && (
+      {/* Company Selector Dropdown (Collapsible - Tenant organizations only) */}
+      {role !== 'super_admin' && showCompanies && companies.length > 1 && !collapsed && (
         <div className="p-2 border-b border-sidebar-border/60 bg-sidebar-accent/30 space-y-1">
           <p className="px-2 text-[10px] font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
             Switch Company

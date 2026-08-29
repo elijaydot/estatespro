@@ -53,6 +53,9 @@ import { useTenants } from '@/hooks/useTenants';
 import { useCreateNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { DocumentIntelligence } from '@/components/ai/DocumentIntelligence';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useMyCompanies } from '@/hooks/useCompanies';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { FilterBar } from '@/components/shared/FilterBar';
@@ -94,40 +97,23 @@ interface LeaseFormData {
   special_conditions: string;
 }
 
-type LeaseTenant = {
-  name: string | null;
-  email: string | null;
-};
-
-type LeaseProperty = {
-  name: string | null;
-};
-
-type LeaseUnit = {
-  unit_number: string | null;
-};
-
-type LeaseRow = {
-  id: string;
-  tenant_id: string;
-  property_id: string;
-  unit_id: string;
-  lease_number: string;
-  start_date: string;
-  end_date: string;
-  monthly_rent: number;
-  security_deposit: number;
-  terms: string | null;
-  special_conditions: string | null;
-  status: string;
-  renewal_status?: string | null;
-  landlord_signature_url: string | null;
-  landlord_signed_at: string | null;
-  tenant_signature_url: string | null;
-  tenant_signed_at: string | null;
-  tenants?: LeaseTenant | null;
-  properties?: LeaseProperty | null;
-  units?: LeaseUnit | null;
+type LeaseRow = any & {
+  company_id?: string;
+  tenants?: {
+    name: string;
+    email: string;
+  } | null;
+  properties?: {
+    name: string;
+    company_id?: string;
+    companies?: {
+      id?: string;
+      name?: string;
+    } | null;
+  } | null;
+  units?: {
+    unit_number: string;
+  } | null;
 };
 
 const defaultFormData: LeaseFormData = {
@@ -143,9 +129,14 @@ const defaultFormData: LeaseFormData = {
   special_conditions: '',
 };
 
-const defaultLeaseTerms = `RESIDENTIAL LEASE AGREEMENT
+const generateLeaseNumber = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `LS-${year}-${random}`;
+};
 
-This Lease Agreement is entered into between the Landlord and Tenant identified below.
+const defaultLeaseTerms = `STANDARD RESIDENTIAL LEASE AGREEMENT
 
 1. PROPERTY: The Landlord agrees to rent to the Tenant, and the Tenant agrees to rent from the Landlord, the residential property described herein.
 
@@ -164,7 +155,10 @@ This Lease Agreement is entered into between the Landlord and Tenant identified 
 export default function Leases() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
+  const { isSuperAdmin } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
+  const { data: companiesList = [] } = useMyCompanies();
+  const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -189,10 +183,11 @@ export default function Leases() {
   }, [searchParams, setSearchParams]);
 
   const { data: leases = [], isLoading } = useLeases();
-  const typedLeases = leases as LeaseRow[];
   const { data: properties = [] } = useProperties();
   const { data: units = [] } = useUnits();
   const { data: tenants = [] } = useTenants();
+  const typedLeases = leases as LeaseRow[];
+
   const createLease = useCreateLease();
   const updateLease = useUpdateLease();
   const deleteLease = useDeleteLease();
@@ -223,10 +218,16 @@ export default function Leases() {
   }));
 
   const filteredLeases = typedLeases.filter(lease => {
+    const leaseCompanyId = lease.company_id || lease.properties?.company_id || lease.properties?.companies?.id;
+    if (selectedOrgFilter !== 'all' && leaseCompanyId && leaseCompanyId !== selectedOrgFilter) {
+      return false;
+    }
     const q = searchQuery.toLowerCase();
     const matchesSearch = !q ||
       (lease.lease_number || '').toLowerCase().includes(q) ||
-      (lease.tenants?.name || '').toLowerCase().includes(q);
+      (lease.tenants?.name || '').toLowerCase().includes(q) ||
+      (lease.properties?.name || '').toLowerCase().includes(q) ||
+      (lease.properties?.companies?.name || '').toLowerCase().includes(q);
     
     if (activeTab === 'all') return matchesSearch;
     return matchesSearch && lease.status === activeTab;
@@ -493,7 +494,7 @@ export default function Leases() {
       </div>
 
       {/* Tabs and Search */}
-      <FilterBar className="items-start sm:items-center sm:justify-between">
+      <FilterBar className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
@@ -503,9 +504,29 @@ export default function Leases() {
             <TabsTrigger value="expired">Expired</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search leases..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search leases by number, tenant, property..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+          </div>
+
+          {isSuperAdmin && companiesList.length > 0 && (
+            <div className="w-full sm:w-auto min-w-[200px]">
+              <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="All Organizations (Global)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
+                  {companiesList.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </FilterBar>
 

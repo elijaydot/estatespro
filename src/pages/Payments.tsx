@@ -49,6 +49,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
 import { useSettings } from '@/contexts/useSettings';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useMyCompanies } from '@/hooks/useCompanies';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { usePayments, useCreatePayment } from '@/hooks/usePayments';
 import { useInvoices } from '@/hooks/useInvoices';
@@ -80,6 +83,7 @@ type InvoiceRow = {
 
 type PaymentRow = {
   id: string;
+  company_id?: string;
   created_at: string;
   tenant_id: string | null;
   receipt_number: string | null;
@@ -93,7 +97,17 @@ type PaymentRow = {
   reference: string | null;
   notes: string | null;
   tenants?: { name: string | null } | null;
-  invoices?: { invoice_number: string | null } | null;
+  invoices?: {
+    invoice_number: string | null;
+    properties?: {
+      name: string | null;
+      company_id?: string;
+      companies?: {
+        id?: string;
+        name?: string;
+      } | null;
+    } | null;
+  } | null;
 };
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -182,7 +196,10 @@ const paymentMethodOptions = [
 export default function Payments() {
   const navigate = useNavigate();
   const { formatCurrency } = useSettings();
+  const { isSuperAdmin } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
+  const { data: companiesList = [] } = useMyCompanies();
+  const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'failed' | 'completed' | 'mtn_momo'>('all');
   const [isRecordOpen, setIsRecordOpen] = useState(false);
@@ -234,13 +251,19 @@ export default function Payments() {
   const completedCount = typedPayments.filter((p) => p.status === 'completed').length;
 
   const filteredPayments = typedPayments.filter((payment) => {
+    const payCompanyId = payment.company_id || payment.invoices?.properties?.company_id || payment.invoices?.properties?.companies?.id;
+    if (selectedOrgFilter !== 'all' && payCompanyId && payCompanyId !== selectedOrgFilter) {
+      return false;
+    }
     const q = searchQuery.toLowerCase();
     const matchesSearch = !q || (
       (payment.tenants?.name || '').toLowerCase().includes(q) ||
       (payment.payer_name || '').toLowerCase().includes(q) ||
       (payment.payer_email || '').toLowerCase().includes(q) ||
       (payment.receipt_number || '').toLowerCase().includes(q) ||
-      (payment.invoices?.invoice_number || '').toLowerCase().includes(q)
+      (payment.invoices?.invoice_number || '').toLowerCase().includes(q) ||
+      (payment.invoices?.properties?.name || '').toLowerCase().includes(q) ||
+      (payment.invoices?.properties?.companies?.name || '').toLowerCase().includes(q)
     );
 
     const matchesFilter = activeFilter === 'all'
@@ -528,7 +551,7 @@ export default function Payments() {
       </div>
 
       {/* Filters & Search */}
-      <FilterBar>
+      <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -538,11 +561,30 @@ export default function Payments() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+
+        {isSuperAdmin && companiesList.length > 0 && (
+          <div className="w-full sm:w-auto min-w-[200px]">
+            <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
+              <SelectTrigger className="h-11">
+                <SelectValue placeholder="All Organizations (Global)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
+                {companiesList.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-2 sm:flex">
-          <Button variant="outline" className="w-full sm:w-auto" onClick={() => setSearchQuery('')}>
+          <Button variant="outline" className="w-full sm:w-auto h-11" onClick={() => setSearchQuery('')}>
             Reset
           </Button>
-          <Button variant="outline" className="w-full gap-2 sm:w-auto" onClick={handleExport}>
+          <Button variant="outline" className="w-full gap-2 sm:w-auto h-11" onClick={handleExport}>
             <Download className="h-4 w-4" />
             Export
           </Button>

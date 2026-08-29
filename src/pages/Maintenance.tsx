@@ -45,6 +45,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { useSettings } from '@/contexts/useSettings';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useMyCompanies } from '@/hooks/useCompanies';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useMaintenanceRequests, useCreateMaintenanceRequest, useUpdateMaintenanceRequest } from '@/hooks/useMaintenanceRequests';
 import { useUnits } from '@/hooks/useUnits';
@@ -59,6 +62,7 @@ import { EmptyState } from '@/components/shared/EmptyState';
 
 type MaintenanceRequestRow = {
   id: string;
+  company_id?: string;
   title: string;
   description: string | null;
   unit_id: string;
@@ -72,7 +76,14 @@ type MaintenanceRequestRow = {
   actual_cost: number | null;
   created_at: string;
   units?: { unit_number: string | null } | null;
-  properties?: { name: string | null } | null;
+  properties?: {
+    name: string | null;
+    company_id?: string;
+    companies?: {
+      id?: string;
+      name?: string;
+    } | null;
+  } | null;
   tenants?: { name: string | null } | null;
   vendors?: { name: string | null } | null;
 };
@@ -161,6 +172,9 @@ const getPriorityBadge = (priority: string) => {
 export default function Maintenance() {
   const navigate = useNavigate();
   const { formatCurrency } = useSettings();
+  const { isSuperAdmin } = useUserRole();
+  const { data: companiesList = [] } = useMyCompanies();
+  const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -209,11 +223,19 @@ export default function Maintenance() {
   };
 
   const filteredRequests = typedRequests.filter((request) => {
+    const reqCompanyId = request.company_id || request.properties?.company_id || request.properties?.companies?.id;
+    if (selectedOrgFilter !== 'all' && reqCompanyId && reqCompanyId !== selectedOrgFilter) {
+      return false;
+    }
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (
       (request.title || '').toLowerCase().includes(q) ||
-      (request.description || '').toLowerCase().includes(q)
+      (request.description || '').toLowerCase().includes(q) ||
+      (request.properties?.name || '').toLowerCase().includes(q) ||
+      (request.properties?.companies?.name || '').toLowerCase().includes(q) ||
+      (request.tenants?.name || '').toLowerCase().includes(q) ||
+      (request.vendors?.name || '').toLowerCase().includes(q)
     );
   });
 
@@ -402,16 +424,34 @@ export default function Maintenance() {
       </div>
 
       {/* Filters & Search */}
-      <FilterBar>
+      <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by title or description..."
+            placeholder="Search by title, description, property, or vendor..."
             className="pl-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+
+        {isSuperAdmin && companiesList.length > 0 && (
+          <div className="w-full sm:w-auto min-w-[200px]">
+            <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="All Organizations (Global)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
+                {companiesList.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </FilterBar>
 
       {/* Requests Table */}

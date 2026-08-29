@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from 
 import { useAuth } from '@/contexts/useAuth';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useUserRole } from '@/hooks/useUserRole';
 import { MfaReminderBanner } from '@/components/security/MfaReminderBanner';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
@@ -20,10 +21,14 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { role } = useUserRole();
   const { companies, activeCompanyId } = useActiveCompany();
   const { data: unreadCount = 0 } = useUnreadNotificationsCount();
 
-  const activeCompanyName = companies.find((company) => company.id === activeCompanyId)?.name || profile?.name || 'FishGate';
+  const isSuperAdmin = role === 'super_admin';
+  const activeCompanyName = isSuperAdmin 
+    ? 'FishGate SaaS • Global Monitor' 
+    : (companies.find((company) => company.id === activeCompanyId)?.name || profile?.name || 'FishGate');
 
   useEffect(() => {
     const prefetchRoutes = () => {
@@ -68,7 +73,9 @@ export function AppLayout({ children }: AppLayoutProps) {
 
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground truncate">{activeCompanyName}</p>
-              <p className="text-[11px] text-muted-foreground truncate">Your organization overview</p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {isSuperAdmin ? '● Monitoring All Tenants & Operations' : 'Your organization overview'}
+              </p>
             </div>
 
             <div className="flex items-center gap-1">

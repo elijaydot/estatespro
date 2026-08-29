@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarDays, Store } from 'lucide-react';
+import { ArrowRight, CalendarDays, Store, Building2, Users, ShieldCheck, Activity, Layers, ExternalLink, Sparkles, AlertTriangle, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SmartSearchInsights } from '@/components/ai/SmartSearchInsights';
 import { PredictiveAnalytics } from '@/components/ai/PredictiveAnalytics';
@@ -11,29 +11,40 @@ import { RentExpiryWidget } from '@/components/dashboard/RentExpiryWidget';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { UpcomingRenewals } from '@/components/dashboard/UpcomingRenewals';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useAuth } from '@/contexts/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { useSettings } from '@/contexts/useSettings';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useOpenOperationalAlertCount } from '@/hooks/useOperationalAlerts';
 import { useSaasAccess } from '@/hooks/useSaasAccess';
 import { summarizeVendorPayments, useVendorPayments } from '@/hooks/useVendorPayments';
 import { useVendors } from '@/hooks/useVendors';
+import { useAdministrationSnapshot, useCompanyDirectory } from '@/hooks/useControlPlane';
+import { useMyCompanies } from '@/hooks/useCompanies';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { role, isSuperAdmin } = useUserRole();
   const { data: stats, isLoading } = useDashboardStats();
   const { entitlements, isLoading: saasLoading } = useSaasAccess();
   const { data: openAlertCount = 0 } = useOpenOperationalAlertCount();
   const { data: vendors = [] } = useVendors();
   const { data: vendorPayments = [] } = useVendorPayments();
+  const { data: adminSnapshot } = useAdministrationSnapshot();
+  const { data: companiesList = [] } = useMyCompanies();
+  const { data: companyDirectory } = useCompanyDirectory(1, 10);
   const { formatCurrency } = useSettings();
   const { profile, user } = useAuth();
   const { companies, activeCompanyId } = useActiveCompany();
 
-  const activeCompanyName = companies.find((company) => company.id === activeCompanyId)?.name || 'Your portfolio';
+  const activeCompanyName = isSuperAdmin
+    ? 'FishGate SaaS • Global Monitor'
+    : (companies.find((company) => company.id === activeCompanyId)?.name || 'Your portfolio');
   const displayName = profile?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
   const activeVendors = vendors.filter((vendor) => vendor.status === 'active').length;
   const vendorPaymentTotals = summarizeVendorPayments(vendorPayments);
@@ -42,20 +53,143 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 pb-6">
-      <section className="relative overflow-hidden rounded-2xl bg-[#111827] px-5 py-6 text-white sm:px-7 sm:py-7">
-        <div className="absolute inset-y-0 right-0 w-2/5 bg-[radial-gradient(circle_at_center,hsl(var(--primary)/0.28),transparent_68%)]" aria-hidden="true" />
+      {/* Hero Banner: Global Command Center for Super Admin vs Standard Portfolio for Landlords */}
+      <section className="relative overflow-hidden rounded-2xl bg-[#0f172a] px-5 py-6 text-white sm:px-7 sm:py-7 border border-slate-800 shadow-xl">
+        <div className="absolute inset-y-0 right-0 w-2/5 bg-[radial-gradient(circle_at_center,hsl(var(--primary)/0.32),transparent_68%)]" aria-hidden="true" />
         <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/65">{activeCompanyName}</p>
-            <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">Good to see you, {displayName}</h1>
-            <p className="mt-2 max-w-xl text-sm text-white/70">{dateLabel}. Here is the operational picture across your properties, tenants, collections, and upcoming work.</p>
+            {isSuperAdmin ? (
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Global Platform Monitor • All Tenants Active
+                </span>
+              </div>
+            ) : (
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/65">{activeCompanyName}</p>
+            )}
+            <h1 className="mt-1 text-2xl font-bold sm:text-3xl text-white">
+              {isSuperAdmin ? 'FishGate Global SaaS Command Center' : `Good to see you, ${displayName}`}
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-slate-300 leading-relaxed">
+              {isSuperAdmin
+                ? `${dateLabel}. Real-time monitoring across all customer organizations, properties, tenants, invoices, leases, and system operations.`
+                : `${dateLabel}. Here is the operational picture across your properties, tenants, collections, and upcoming work.`}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" onClick={() => navigate('/reports')}>View reports</Button>
-            <Button size="sm" onClick={() => navigate('/invoices?add=true')}>Create invoice</Button>
+            {isSuperAdmin ? (
+              <>
+                <Button variant="secondary" size="sm" onClick={() => navigate('/super-admin/control-plane')} className="gap-1.5 shadow-sm font-medium">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  Control Plane
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => navigate('/reports')} className="gap-1.5 bg-white/10 hover:bg-white/20 border-white/20 text-white">
+                  Platform Reports
+                </Button>
+                <Button size="sm" onClick={() => navigate('/marketplace/crm')} className="gap-1.5 shadow-sm">
+                  CRM Pipeline
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="secondary" size="sm" onClick={() => navigate('/reports')}>View reports</Button>
+                <Button size="sm" onClick={() => navigate('/invoices?add=true')}>Create invoice</Button>
+              </>
+            )}
           </div>
         </div>
       </section>
+
+      {/* Super Admin Global Fleet Metrics Strip */}
+      {isSuperAdmin && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 animate-fade-in">
+          <Card className="card-shadow-sm border-border/70 hover:border-primary/40 transition-colors">
+            <CardContent className="p-4 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5 text-primary" />
+                Customer Companies
+              </p>
+              <p className="text-2xl font-bold text-foreground">
+                {adminSnapshot?.total_companies || companiesList.length || 0}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {adminSnapshot?.verified_companies || 0} verified orgs
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="card-shadow-sm border-border/70 hover:border-primary/40 transition-colors">
+            <CardContent className="p-4 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-blue-500" />
+                Total Platform Users
+              </p>
+              <p className="text-2xl font-bold text-foreground">
+                {adminSnapshot?.total_users || 0}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {adminSnapshot?.total_landlords || 0} landlords · {adminSnapshot?.total_property_managers || 0} PMs
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="card-shadow-sm border-border/70 hover:border-primary/40 transition-colors">
+            <CardContent className="p-4 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <Layers className="h-3.5 w-3.5 text-indigo-500" />
+                Managed Units
+              </p>
+              <p className="text-2xl font-bold text-foreground">
+                {stats?.totalUnits || 0}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {stats?.occupiedUnits || 0} occupied ({stats?.totalUnits ? Math.round((stats.occupiedUnits / stats.totalUnits) * 100) : 0}%)
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="card-shadow-sm border-border/70 hover:border-primary/40 transition-colors">
+            <CardContent className="p-4 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                Platform Collections
+              </p>
+              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                {formatCurrency(stats?.totalRevenue || 0)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                Total settled across all orgs
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="card-shadow-sm border-border/70 hover:border-primary/40 transition-colors">
+            <CardContent className="p-4 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
+                Platform Arrears
+              </p>
+              <p className="text-2xl font-bold text-rose-600 dark:text-rose-400">
+                {formatCurrency(stats?.overduePayments || 0)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {stats?.overduePaymentsCount || 0} overdue invoices
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="card-shadow-sm border-border/70 hover:border-primary/40 transition-colors">
+            <CardContent className="p-4 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <Activity className="h-3.5 w-3.5 text-amber-500" />
+                Active Work Orders
+              </p>
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                {(stats?.maintenanceRequests || 0) + (stats?.maintenanceInProgress || 0)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {stats?.maintenanceInProgress || 0} currently in progress
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {!isLoading && !stats ? (
         <Card className="border-dashed">
@@ -127,6 +261,89 @@ export default function Dashboard() {
           </Card>
         </div>
       </section>
+
+      {/* Super Admin: Subscribed Customer Organizations & Fleets */}
+      {isSuperAdmin && (
+        <section aria-labelledby="customer-orgs-title" className="space-y-3 animate-fade-in">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Tenant Directory</p>
+              <h2 id="customer-orgs-title" className="mt-1 text-lg font-semibold flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                Customer Organizations & Fleets
+              </h2>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate('/super-admin/control-plane')} className="gap-1.5">
+              Open Control Plane Directory
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <Card className="card-shadow-sm border-border/70 overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Organization</TableHead>
+                    <TableHead>Owner</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Plan / Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(companyDirectory?.items || companiesList.slice(0, 8)).length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                        No customer organizations registered yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    (companyDirectory?.items || companiesList.slice(0, 8)).map((org) => (
+                      <TableRow key={org.id} className="hover:bg-muted/40 transition-colors">
+                        <TableCell>
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                              {org.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-sm text-foreground">{org.name}</p>
+                              <p className="text-xs text-muted-foreground font-mono">{org.id.slice(0, 8)}...</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-sm">{(org as { owner_email?: string; email?: string }).owner_email || (org as { email?: string }).email || 'Platform Owner'}</p>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-xs text-muted-foreground">
+                            {org.created_at ? new Date(org.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[11px] font-medium">
+                            {(org as { subscription_status?: string }).subscription_status || 'Active Tenant'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate(`/super-admin/control-plane?companyId=${org.id}`)}
+                            className="h-8 gap-1 text-xs"
+                          >
+                            Inspect Fleet
+                            <ArrowRight className="h-3 w-3" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </section>
+      )}
 
       <RecentActivity />
     </div>

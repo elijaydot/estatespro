@@ -67,6 +67,9 @@ import { ImageUpload } from '@/components/ui/image-upload';
 import { useTenantExits, type TenantExit } from '@/hooks/useTenantExits';
 import { Card, CardContent } from '@/components/ui/card';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useMyCompanies } from '@/hooks/useCompanies';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useConfirmAction } from '@/components/ui/use-confirm-action';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { StatusPill } from '@/components/shared/StatusPill';
@@ -74,11 +77,17 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { DataTable } from '@/components/shared/DataTable';
 
 type TenantRow = Tenant & {
+  company_id?: string;
   units?: {
     unit_number: string;
   } | null;
   properties?: {
     name: string;
+    company_id?: string;
+    companies?: {
+      id?: string;
+      name?: string;
+    } | null;
   } | null;
 };
 
@@ -120,7 +129,10 @@ export default function Tenants() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
   const { user } = useAuth();
+  const { role, isSuperAdmin } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
+  const { data: companiesList = [] } = useMyCompanies();
+  const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
@@ -157,10 +169,10 @@ export default function Tenants() {
   const { data: properties = [] } = useProperties();
   const { data: units = [] } = useUnits();
   const { data: invites = [] } = useTenantInvites();
+  const { data: tenantExits = [] } = useTenantExits();
   const createTenant = useCreateTenant();
   const deleteTenant = useDeleteTenant();
   const confirmAction = useConfirmAction();
-  const { data: tenantExits = [], isLoading: loadingExits } = useTenantExits();
   const [activeTab, setActiveTab] = useState('tenants');
   const tenantRows = tenants as TenantRow[];
   const inviteRows = invites as TenantInvite[];
@@ -192,11 +204,17 @@ export default function Tenants() {
     }));
 
   const filteredTenants = tenantRows.filter((tenant) => {
+    const tenantCompanyId = tenant.company_id || tenant.properties?.company_id || tenant.properties?.companies?.id;
+    if (selectedOrgFilter !== 'all' && tenantCompanyId && tenantCompanyId !== selectedOrgFilter) {
+      return false;
+    }
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (
       (tenant.name || '').toLowerCase().includes(q) ||
-      (tenant.email || '').toLowerCase().includes(q)
+      (tenant.email || '').toLowerCase().includes(q) ||
+      (tenant.properties?.name || '').toLowerCase().includes(q) ||
+      (tenant.properties?.companies?.name || '').toLowerCase().includes(q)
     );
   });
 
@@ -369,16 +387,34 @@ export default function Tenants() {
 
         <TabsContent value="tenants" className="space-y-4 mt-4">
           {/* Filters */}
-          <FilterBar>
+          <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search tenants..."
+                placeholder="Search tenants by name, email, or property..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
+
+            {isSuperAdmin && companiesList.length > 0 && (
+              <div className="w-full sm:w-auto min-w-[220px]">
+                <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="All Organizations (Global)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
+                    {companiesList.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </FilterBar>
 
           {/* Loading State */}

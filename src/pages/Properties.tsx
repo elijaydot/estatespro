@@ -38,6 +38,9 @@ import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { toast } from '@/components/ui/use-toast';
 import { useProperties, useCreateProperty, useDeleteProperty, type Property } from '@/hooks/useProperties';
 import { useSettings } from '@/contexts/useSettings';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useMyCompanies } from '@/hooks/useCompanies';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PropertyPreviewCard } from '@/components/forms/PropertyPreviewCard';
 import { useConfirmAction } from '@/components/ui/use-confirm-action';
 import { FilterBar } from '@/components/shared/FilterBar';
@@ -76,6 +79,9 @@ export default function Properties() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { settings } = useSettings();
+  const { isSuperAdmin } = useUserRole();
+  const { data: companiesList = [] } = useMyCompanies();
+  const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
@@ -107,12 +113,16 @@ export default function Properties() {
   const confirmAction = useConfirmAction();
 
   const filteredProperties = properties.filter((property) => {
+    if (selectedOrgFilter !== 'all' && property.company_id !== selectedOrgFilter) {
+      return false;
+    }
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (
       (property.name || '').toLowerCase().includes(q) ||
       (property.address || '').toLowerCase().includes(q) ||
-      (property.city || '').toLowerCase().includes(q)
+      (property.city || '').toLowerCase().includes(q) ||
+      (property.companies?.name || '').toLowerCase().includes(q)
     );
   });
 
@@ -175,16 +185,34 @@ export default function Properties() {
       </div>
 
       {/* Filters */}
-      <FilterBar className="animate-fade-in">
+      <FilterBar className="animate-fade-in flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search properties..."
+            placeholder="Search properties by name, city, or company..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
         </div>
+
+        {isSuperAdmin && companiesList.length > 0 && (
+          <div className="w-full sm:w-auto min-w-[220px]">
+            <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="All Organizations (Global)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
+                {companiesList.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </FilterBar>
 
       {/* Loading State */}
