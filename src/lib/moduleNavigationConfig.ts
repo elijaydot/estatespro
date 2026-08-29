@@ -372,8 +372,8 @@ export const WORKSPACE_MODULE_CONFIGS: Record<StaffWorkspaceId, WorkspaceModuleC
 
   'crm': {
     id: 'crm',
-    name: 'Marketplace CRM',
-    shortName: 'Sales CRM',
+    name: 'CRM',
+    shortName: 'CRM',
     icon: Flame,
     description: 'Inquiry conversion, deal velocity, communication logs, and sales intelligence.',
     groups: [

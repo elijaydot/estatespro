@@ -120,9 +120,15 @@ export function ReportsSidebarNav({
       <div className="flex h-16 items-center gap-3 px-4 border-b border-sidebar-border/70">
         <button
           type="button"
-          onClick={onBackToMainMenu}
+          onClick={() => {
+            if (currentReportId) {
+              handleClearReport();
+            } else {
+              navigate('/marketplace/crm/overview');
+            }
+          }}
           className="flex items-center gap-2 text-sidebar-foreground/90 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 px-2 py-1.5 rounded-lg transition-colors group"
-          title="Back to full menu"
+          title={currentReportId ? 'Back to Reports Hub' : 'Back to CRM Overview'}
         >
           <ArrowLeft className="h-4 w-4 text-sidebar-foreground/70 group-hover:-translate-x-0.5 transition-transform" />
           <span className="font-semibold text-base">Reports</span>
