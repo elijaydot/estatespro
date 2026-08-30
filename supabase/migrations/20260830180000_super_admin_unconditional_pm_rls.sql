@@ -2,120 +2,37 @@
 -- Guarantees that the Super Admin has full, unhindered "Bird's Eye View" visibility
 -- across all properties, units, tenants, leases, invoices, payments, maintenance, bills, bookings, and alerts.
 
--- 1. PROPERTIES
-DROP POLICY IF EXISTS "Super admins manage all properties" ON public.properties;
-CREATE POLICY "Super admins manage all properties"
-ON public.properties FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
--- 2. UNITS
-DROP POLICY IF EXISTS "Super admins manage all units" ON public.units;
-CREATE POLICY "Super admins manage all units"
-ON public.units FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
--- 3. TENANTS
-DROP POLICY IF EXISTS "Super admins manage all tenants" ON public.tenants;
-CREATE POLICY "Super admins manage all tenants"
-ON public.tenants FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
--- 4. LEASES
-DROP POLICY IF EXISTS "Super admins manage all leases" ON public.leases;
-CREATE POLICY "Super admins manage all leases"
-ON public.leases FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
--- 5. INVOICES
-DROP POLICY IF EXISTS "Super admins manage all invoices" ON public.invoices;
-CREATE POLICY "Super admins manage all invoices"
-ON public.invoices FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
--- 6. PAYMENTS
-DROP POLICY IF EXISTS "Super admins manage all payments" ON public.payments;
-CREATE POLICY "Super admins manage all payments"
-ON public.payments FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
--- 7. MAINTENANCE REQUESTS
-DROP POLICY IF EXISTS "Super admins manage all maintenance requests" ON public.maintenance_requests;
-CREATE POLICY "Super admins manage all maintenance requests"
-ON public.maintenance_requests FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
--- 8. RECURRING BILLS
-DROP POLICY IF EXISTS "Super admins manage all recurring bills" ON public.recurring_bills;
-CREATE POLICY "Super admins manage all recurring bills"
-ON public.recurring_bills FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
--- 9. BOOKINGS
-DROP POLICY IF EXISTS "Super admins manage all bookings" ON public.bookings;
-CREATE POLICY "Super admins manage all bookings"
-ON public.bookings FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
--- 10. DOCUMENTS
-DO $$
+CREATE OR REPLACE FUNCTION public.ensure_super_admin_rls_policy(_tbl text, _pol text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'documents') THEN
-    EXECUTE 'DROP POLICY IF EXISTS "Super admins manage all documents" ON public.documents;';
-    EXECUTE 'CREATE POLICY "Super admins manage all documents" ON public.documents FOR ALL TO authenticated USING (public.is_platform_super_admin(auth.uid())) WITH CHECK (public.is_platform_super_admin(auth.uid()));';
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = _tbl) THEN
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I;', _pol, _tbl);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR ALL TO authenticated USING (public.is_platform_super_admin(auth.uid())) WITH CHECK (public.is_platform_super_admin(auth.uid()));', _pol, _tbl);
   END IF;
-END $$;
+END;
+$$;
 
--- 11. BROADCAST ANNOUNCEMENTS
-DROP POLICY IF EXISTS "Super admins manage all broadcasts" ON public.broadcast_announcements;
-CREATE POLICY "Super admins manage all broadcasts"
-ON public.broadcast_announcements FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
+-- Apply to all core PM tables
+SELECT public.ensure_super_admin_rls_policy('properties', 'Super admins manage all properties');
+SELECT public.ensure_super_admin_rls_policy('units', 'Super admins manage all units');
+SELECT public.ensure_super_admin_rls_policy('tenants', 'Super admins manage all tenants');
+SELECT public.ensure_super_admin_rls_policy('leases', 'Super admins manage all leases');
+SELECT public.ensure_super_admin_rls_policy('invoices', 'Super admins manage all invoices');
+SELECT public.ensure_super_admin_rls_policy('payments', 'Super admins manage all payments');
+SELECT public.ensure_super_admin_rls_policy('maintenance_requests', 'Super admins manage all maintenance requests');
+SELECT public.ensure_super_admin_rls_policy('recurring_bills', 'Super admins manage all recurring bills');
+SELECT public.ensure_super_admin_rls_policy('bookings', 'Super admins manage all bookings');
+SELECT public.ensure_super_admin_rls_policy('broadcasts', 'Super admins manage all broadcasts');
+SELECT public.ensure_super_admin_rls_policy('broadcast_announcements', 'Super admins manage all broadcast announcements');
+SELECT public.ensure_super_admin_rls_policy('operational_alerts', 'Super admins manage all operational alerts');
+SELECT public.ensure_super_admin_rls_policy('vendors', 'Super admins manage all vendors');
+SELECT public.ensure_super_admin_rls_policy('vendor_payments', 'Super admins manage all vendor payments');
+SELECT public.ensure_super_admin_rls_policy('vendor_documents', 'Super admins manage all vendor documents');
+SELECT public.ensure_super_admin_rls_policy('tenant_invites', 'Super admins manage all tenant invites');
+SELECT public.ensure_super_admin_rls_policy('landlord_payment_settings', 'Super admins manage all landlord payment settings');
+SELECT public.ensure_super_admin_rls_policy('documents', 'Super admins manage all documents');
 
--- 12. OPERATIONAL ALERTS
-DROP POLICY IF EXISTS "Super admins manage all operational alerts" ON public.operational_alerts;
-CREATE POLICY "Super admins manage all operational alerts"
-ON public.operational_alerts FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
--- 13. VENDORS & VENDOR PAYMENTS
-DROP POLICY IF EXISTS "Super admins manage all vendors" ON public.vendors;
-CREATE POLICY "Super admins manage all vendors"
-ON public.vendors FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
-DROP POLICY IF EXISTS "Super admins manage all vendor payments" ON public.vendor_payments;
-CREATE POLICY "Super admins manage all vendor payments"
-ON public.vendor_payments FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
-DROP POLICY IF EXISTS "Super admins manage all vendor documents" ON public.vendor_documents;
-CREATE POLICY "Super admins manage all vendor documents"
-ON public.vendor_documents FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
--- 14. TENANT INVITES & PAYMENT SETTINGS
-DROP POLICY IF EXISTS "Super admins manage all tenant invites" ON public.tenant_invites;
-CREATE POLICY "Super admins manage all tenant invites"
-ON public.tenant_invites FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
-
-DROP POLICY IF EXISTS "Super admins manage all landlord payment settings" ON public.landlord_payment_settings;
-CREATE POLICY "Super admins manage all landlord payment settings"
-ON public.landlord_payment_settings FOR ALL TO authenticated
-USING (public.is_platform_super_admin(auth.uid()))
-WITH CHECK (public.is_platform_super_admin(auth.uid()));
+DROP FUNCTION IF EXISTS public.ensure_super_admin_rls_policy(text, text);
