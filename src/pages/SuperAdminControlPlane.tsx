@@ -63,6 +63,7 @@ import {
   usePlatformOperatorRoles,
   useRevokeEntitlementOverride,
   useRevenueMetrics,
+  useRevenueMetricsAllCurrencies,
   useRefreshAdministrationSnapshot,
   useRevokeActivePlatformSessions,
   useRiskQueue,
@@ -88,6 +89,7 @@ import {
   useUsageSnapshotsPage,
   type GlobalEntityType,
 } from '@/hooks/useControlPlane';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useSuperAdminOverride } from '@/hooks/useSuperAdminOverride';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -236,6 +238,9 @@ export default function SuperAdminControlPlane() {
   const billingCatalog = useBillingCatalog();
   const entitlementCatalog = useEntitlementKeyCatalog(600);
   const revenueMetrics = useRevenueMetrics('USD');
+  const revenueMetricsAll = useRevenueMetricsAllCurrencies();
+  const [consolidatedBaseCurrency, setConsolidatedBaseCurrency] = useState('USD');
+  const { rates: fxRates, convert: convertFx, lastUpdated: fxLastUpdated, isFallback: fxIsFallback } = useExchangeRates(consolidatedBaseCurrency);
   const assignOperatorRole = useAssignPlatformOperatorRole();
   const removeOperatorRole = useRemovePlatformOperatorRole();
   const adminChangeCompanyPlan = useAdminChangeCompanyPlan();
@@ -1142,6 +1147,47 @@ export default function SuperAdminControlPlane() {
     return rows;
   }, [companyAdminSnapshot.data, companyBillingContext.data, revenueMetrics.data]);
 
+  const allRevenueMetrics = useMemo(() => {
+    return revenueMetricsAll.data || [];
+  }, [revenueMetricsAll.data]);
+
+  const consolidatedRevenue = useMemo(() => {
+    let totalMrr = 0;
+    let totalAddonMrr = 0;
+    let totalArr = 0;
+    let totalOpenInvoicesMinor = 0;
+    let totalOpenInvoiceCount = 0;
+    let totalActiveCompanies = 0;
+    let totalDunningCompanies = 0;
+    let totalQuotaPressure = 0;
+    let totalFailedAttempts = 0;
+
+    allRevenueMetrics.forEach((item) => {
+      const fromCurr = item.currency_code || 'USD';
+      totalMrr += convertFx(item.mrr_minor || 0, fromCurr, consolidatedBaseCurrency);
+      totalAddonMrr += convertFx(item.addon_mrr_minor || 0, fromCurr, consolidatedBaseCurrency);
+      totalArr += convertFx(item.arr_minor || 0, fromCurr, consolidatedBaseCurrency);
+      totalOpenInvoicesMinor += convertFx(item.open_invoices_minor || 0, fromCurr, consolidatedBaseCurrency);
+      totalOpenInvoiceCount += item.open_invoice_count || 0;
+      totalActiveCompanies = Math.max(totalActiveCompanies, item.active_companies || 0);
+      totalDunningCompanies = Math.max(totalDunningCompanies, item.dunning_companies || 0);
+      totalQuotaPressure = Math.max(totalQuotaPressure, item.quota_pressure_companies_7d || 0);
+      totalFailedAttempts = Math.max(totalFailedAttempts, item.failed_attempt_count_30d || 0);
+    });
+
+    return {
+      totalMrr,
+      totalAddonMrr,
+      totalArr,
+      totalOpenInvoicesMinor,
+      totalOpenInvoiceCount,
+      totalActiveCompanies,
+      totalDunningCompanies,
+      totalQuotaPressure,
+      totalFailedAttempts,
+    };
+  }, [allRevenueMetrics, consolidatedBaseCurrency, convertFx]);
+
   const safetyTimelineRows = useMemo(() => {
     return buildSafetyTimelineRows({
       riskQueue: filteredRiskQueue,
@@ -1955,6 +2001,9 @@ export default function SuperAdminControlPlane() {
             correlations={correlationSummary}
             formatDate={formatDate}
             renderSeverity={(severity) => <SeverityBadge severity={severity} />}
+            administrationSnapshot={administrationSnapshot.data}
+            onRefreshSnapshot={() => void refreshAdministrationSnapshot.mutateAsync()}
+            isRefreshPending={refreshAdministrationSnapshot.isPending}
           />
 
           <TabsContent value="directory">
@@ -1970,6 +2019,14 @@ export default function SuperAdminControlPlane() {
                     <SelectItem value="billing_group">Billing Groups</SelectItem>
                     <SelectItem value="company">Companies</SelectItem>
                     <SelectItem value="user">Users</SelectItem>
+                    <SelectItem value="property">Properties</SelectItem>
+                    <SelectItem value="unit">Units</SelectItem>
+                    <SelectItem value="marketplace_listing">Marketplace Listings</SelectItem>
+                    <SelectItem value="crm_lead">CRM Leads</SelectItem>
+                    <SelectItem value="crm_deal">CRM Deals</SelectItem>
+                    <SelectItem value="crm_account">CRM Accounts</SelectItem>
+                    <SelectItem value="guest_booking">Guest Bookings</SelectItem>
+                    <SelectItem value="vendor">Vendors</SelectItem>
                   </SelectContent>
                 </Select>
               </CardHeader>
@@ -2135,40 +2192,115 @@ export default function SuperAdminControlPlane() {
           </TabsContent>
 
           <TabsContent value="monetization">
-            <div className="space-y-3">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Revenue Overview</CardTitle>
+            <div className="space-y-4">
+              {/* Consolidated Portfolio Revenue Card with Live FX Conversion */}
+              <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
+                <CardHeader className="pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 space-y-0">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base">Global Consolidated Portfolio Revenue</CardTitle>
+                      <Badge variant="outline" className="text-xs border-primary/40 text-primary">
+                        Live FX Converted
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Aggregated across all global subscriptions converted to {consolidatedBaseCurrency} · Rates: {fxLastUpdated} {fxIsFallback ? '(Reference matrix)' : '(via Open Exchange Rates)'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground font-medium">Display Currency:</span>
+                    <Select value={consolidatedBaseCurrency} onValueChange={setConsolidatedBaseCurrency}>
+                      <SelectTrigger className="w-32 h-8 text-xs font-semibold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD ($)</SelectItem>
+                        <SelectItem value="NGN">NGN (₦)</SelectItem>
+                        <SelectItem value="GBP">GBP (£)</SelectItem>
+                        <SelectItem value="EUR">EUR (€)</SelectItem>
+                        <SelectItem value="KES">KES (KSh)</SelectItem>
+                        <SelectItem value="GHS">GHS (GH₵)</SelectItem>
+                        <SelectItem value="ZAR">ZAR (R)</SelectItem>
+                        <SelectItem value="CAD">CAD (CA$)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-2">
-                    <div className="rounded-md border border-border/60 p-3">
-                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">MRR</p>
-                      <p className="text-lg font-semibold mt-1">{formatMinor(revenue?.mrr_minor || 0, revenueCurrency)}</p>
+                    <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground font-semibold">Consolidated MRR</p>
+                      <p className="text-xl font-bold mt-1 text-primary">{formatMinor(consolidatedRevenue.totalMrr, consolidatedBaseCurrency)}</p>
                     </div>
-                    <div className="rounded-md border border-border/60 p-3">
-                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Addon MRR</p>
-                      <p className="text-lg font-semibold mt-1">{formatMinor(revenue?.addon_mrr_minor || 0, revenueCurrency)}</p>
+                    <div className="rounded-md border border-border/60 p-3 bg-background/50">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Add-on MRR</p>
+                      <p className="text-lg font-semibold mt-1">{formatMinor(consolidatedRevenue.totalAddonMrr, consolidatedBaseCurrency)}</p>
                     </div>
-                    <div className="rounded-md border border-border/60 p-3">
-                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">ARR</p>
-                      <p className="text-lg font-semibold mt-1">{formatMinor(revenue?.arr_minor || 0, revenueCurrency)}</p>
+                    <div className="rounded-md border border-border/60 p-3 bg-background/50">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Consolidated ARR</p>
+                      <p className="text-lg font-semibold mt-1">{formatMinor(consolidatedRevenue.totalArr, consolidatedBaseCurrency)}</p>
                     </div>
-                    <div className="rounded-md border border-border/60 p-3">
+                    <div className="rounded-md border border-border/60 p-3 bg-background/50">
                       <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Open Invoices</p>
-                      <p className="text-lg font-semibold mt-1">{revenue?.open_invoice_count || 0}</p>
+                      <p className="text-lg font-semibold mt-1">
+                        {consolidatedRevenue.totalOpenInvoiceCount}{' '}
+                        <span className="text-xs font-normal text-muted-foreground">
+                          ({formatMinor(consolidatedRevenue.totalOpenInvoicesMinor, consolidatedBaseCurrency)})
+                        </span>
+                      </p>
                     </div>
-                    <div className="rounded-md border border-border/60 p-3">
+                    <div className="rounded-md border border-border/60 p-3 bg-background/50">
                       <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Dunning Companies</p>
-                      <p className="text-lg font-semibold mt-1">{revenue?.dunning_companies || 0}</p>
+                      <p className="text-lg font-semibold mt-1">{consolidatedRevenue.totalDunningCompanies}</p>
                     </div>
-                    <div className="rounded-md border border-border/60 p-3">
+                    <div className="rounded-md border border-border/60 p-3 bg-background/50">
                       <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Quota Pressure (7d)</p>
-                      <p className="text-lg font-semibold mt-1">{revenue?.quota_pressure_companies_7d || 0}</p>
+                      <p className="text-lg font-semibold mt-1">{consolidatedRevenue.totalQuotaPressure}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Native Billing Currency Breakdown Cards (Audit Honesty) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-foreground">Native Billing Breakdown (Unconverted Source Records)</h4>
+                  <span className="text-xs text-muted-foreground">Exact sums in native billing currency</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {allRevenueMetrics.map((item) => {
+                    const curr = item.currency_code || 'USD';
+                    return (
+                      <Card key={curr} className="border-border/60">
+                        <CardHeader className="py-2.5 px-3.5 bg-muted/30 border-b border-border/40 flex flex-row items-center justify-between space-y-0">
+                          <CardTitle className="text-xs font-bold uppercase tracking-wider text-foreground">
+                            {curr} Native Portfolio
+                          </CardTitle>
+                          <Badge variant="secondary" className="text-xs font-mono">{curr}</Badge>
+                        </CardHeader>
+                        <CardContent className="p-3.5 space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">MRR:</span>
+                            <span className="font-semibold">{formatMinor(item.mrr_minor || 0, curr)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">Addon MRR:</span>
+                            <span className="font-semibold">{formatMinor(item.addon_mrr_minor || 0, curr)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">ARR:</span>
+                            <span className="font-semibold">{formatMinor(item.arr_minor || 0, curr)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs pt-1 border-t border-border/40">
+                            <span className="text-muted-foreground">Open Invoices:</span>
+                            <span className="font-medium">{item.open_invoice_count || 0} ({formatMinor(item.open_invoices_minor || 0, curr)})</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
                 <Card className="xl:col-span-2">
@@ -3343,6 +3475,72 @@ export default function SuperAdminControlPlane() {
                   <div className="border-l-2 border-border pl-3"><p className="text-xs text-muted-foreground">Portfolio</p><p className="font-semibold">{company360Snapshot.data.portfolio.property_count} properties · {company360Snapshot.data.portfolio.unit_count} units</p><p className="text-xs text-muted-foreground">{company360Snapshot.data.portfolio.tenant_count} tenants</p></div>
                   <div className="border-l-2 border-border pl-3"><p className="text-xs text-muted-foreground">Billing</p><p className="font-semibold">{company360Snapshot.data.billing.active_subscription_count} active subscriptions</p><p className="text-xs text-muted-foreground">{company360Snapshot.data.billing.active_addon_count} active add-ons</p></div>
                   <div className="border-l-2 border-border pl-3"><p className="text-xs text-muted-foreground">Status</p><Badge variant={company360Members.data.activeSuspension ? 'destructive' : 'outline'}>{company360Members.data.activeSuspension ? 'Suspended' : 'Active'}</Badge><p className="mt-1 text-xs text-muted-foreground">{company360Members.data.activeSuspension?.reason || `${company360Snapshot.data.operations.open_alert_count} open alerts`}</p></div>
+                </div>
+
+                {/* Product Activity Rollup */}
+                <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    Cross-Product Activity Rollup
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+                    <div className="rounded-md border border-border/50 bg-background/60 p-3">
+                      <p className="text-xs text-muted-foreground">Marketplace Listings</p>
+                      {company360Snapshot.data.product_activity?.marketplace_listing_count ? (
+                        <p className="text-base font-bold mt-1 text-foreground">
+                          {company360Snapshot.data.product_activity.marketplace_listing_count}{' '}
+                          <span className="text-xs font-normal text-success">
+                            ({company360Snapshot.data.product_activity.marketplace_listing_active_count || 0} active)
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1 italic">No listings created</p>
+                      )}
+                    </div>
+
+                    <div className="rounded-md border border-border/50 bg-background/60 p-3">
+                      <p className="text-xs text-muted-foreground">CRM Leads</p>
+                      {company360Snapshot.data.product_activity?.crm_lead_count ? (
+                        <p className="text-base font-bold mt-1 text-foreground">
+                          {company360Snapshot.data.product_activity.crm_lead_count}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1 italic">No leads in pipeline</p>
+                      )}
+                    </div>
+
+                    <div className="rounded-md border border-border/50 bg-background/60 p-3">
+                      <p className="text-xs text-muted-foreground">Open Deals</p>
+                      {company360Snapshot.data.product_activity?.crm_deal_open_count ? (
+                        <p className="text-base font-bold mt-1 text-foreground">
+                          {company360Snapshot.data.product_activity.crm_deal_open_count}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1 italic">No active deals</p>
+                      )}
+                    </div>
+
+                    <div className="rounded-md border border-border/50 bg-background/60 p-3">
+                      <p className="text-xs text-muted-foreground">Guest Bookings</p>
+                      {company360Snapshot.data.product_activity?.guest_booking_count ? (
+                        <p className="text-base font-bold mt-1 text-foreground">
+                          {company360Snapshot.data.product_activity.guest_booking_count}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1 italic">No bookings recorded</p>
+                      )}
+                    </div>
+
+                    <div className="rounded-md border border-border/50 bg-background/60 p-3">
+                      <p className="text-xs text-muted-foreground">Active Add-ons</p>
+                      {company360Snapshot.data.billing.active_addon_count ? (
+                        <p className="text-base font-bold mt-1 text-foreground">
+                          {company360Snapshot.data.billing.active_addon_count}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1 italic">No add-ons subscribed</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <Card>
                   <CardHeader><CardTitle className="text-base">Company memberships</CardTitle></CardHeader>

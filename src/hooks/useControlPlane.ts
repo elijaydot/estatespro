@@ -44,6 +44,13 @@ function emptyCompanyAdminSnapshot(companyId: string | null): CompanyAdminSnapsh
       active_subscription_count: 0,
       active_addon_count: 0,
     },
+    product_activity: {
+      marketplace_listing_count: 0,
+      marketplace_listing_active_count: 0,
+      crm_lead_count: 0,
+      crm_deal_open_count: 0,
+      guest_booking_count: 0,
+    },
   };
 }
 
@@ -213,7 +220,21 @@ export type PaginatedDirectoryResult<T> = {
   totalCount: number;
 };
 
-export type GlobalEntityType = 'company' | 'user' | 'landlord' | 'property_manager' | 'billing_group' | 'subscription';
+export type GlobalEntityType =
+  | 'company'
+  | 'user'
+  | 'landlord'
+  | 'property_manager'
+  | 'billing_group'
+  | 'subscription'
+  | 'property'
+  | 'unit'
+  | 'marketplace_listing'
+  | 'crm_lead'
+  | 'crm_deal'
+  | 'crm_account'
+  | 'guest_booking'
+  | 'vendor';
 
 export type GlobalEntityRecord = {
   entity_type: GlobalEntityType;
@@ -279,6 +300,13 @@ export type CompanyAdminSnapshot = {
   billing: {
     active_subscription_count: number;
     active_addon_count: number;
+  };
+  product_activity?: {
+    marketplace_listing_count: number;
+    marketplace_listing_active_count: number;
+    crm_lead_count: number;
+    crm_deal_open_count: number;
+    guest_booking_count: number;
   };
 };
 
@@ -1018,6 +1046,47 @@ export function useRevenueMetrics(currencyCode = 'USD') {
         quota_pressure_companies_7d: 0,
         plan_mix: [],
       }) as RevenueMetrics;
+    },
+  });
+}
+
+export function useRevenueMetricsAllCurrencies() {
+  return useQuery({
+    queryKey: ['control-plane-revenue-metrics-all-currencies'],
+    queryFn: async (): Promise<RevenueMetrics[]> => {
+      const { data, error } = await supabase.rpc('platform_get_revenue_metrics_all_currencies' as never);
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data as RevenueMetrics[];
+      }
+
+      // Fallback: fetch standard currencies individually
+      const standardCurrencies = ['USD', 'NGN', 'GBP'];
+      const results = await Promise.all(
+        standardCurrencies.map(async (curr) => {
+          const res = await supabase.rpc('platform_get_revenue_metrics' as never, {
+            p_currency_code: curr,
+          } as never);
+          if (res.data) {
+            return { ...(res.data as object), currency_code: curr } as RevenueMetrics;
+          }
+          return {
+            currency_code: curr,
+            mrr_minor: 0,
+            addon_mrr_minor: 0,
+            arr_minor: 0,
+            open_invoices_minor: 0,
+            open_invoice_count: 0,
+            failed_attempt_count_30d: 0,
+            active_companies: 0,
+            dunning_companies: 0,
+            quota_pressure_companies_7d: 0,
+            plan_mix: [],
+          } as RevenueMetrics;
+        })
+      );
+
+      return results;
     },
   });
 }
