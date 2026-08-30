@@ -30,15 +30,20 @@ export function usePayments() {
     queryKey: ['payments', activeCompanyId],
     queryFn: async () => {
       if (!activeCompanyId) return [];
+      const isGlobal = activeCompanyId === 'all';
+      const invoicesRelation = isGlobal
+        ? 'invoices:invoice_id(id, invoice_number, amount, property_id, properties:property_id(id, name, company_id, companies:company_id(id, name)))'
+        : 'invoices:invoice_id!inner(id, invoice_number, amount, property_id, properties:property_id!inner(id, name, company_id, companies:company_id(id, name)))';
+
       let query = supabase
         .from('payments')
         .select(`
           *,
           tenants:tenant_id(id, name, email, property_id, unit_id),
-          invoices:invoice_id!inner(id, invoice_number, amount, property_id, properties:property_id!inner(id, name, company_id, companies:company_id(id, name)))
+          ${invoicesRelation}
         `);
 
-      if (activeCompanyId !== 'all') {
+      if (!isGlobal) {
         query = query.eq('invoices.properties.company_id', activeCompanyId);
       }
 
@@ -58,16 +63,21 @@ export function usePayment(id: string) {
     queryKey: ['payments', id, activeCompanyId],
     queryFn: async () => {
       if (!activeCompanyId) throw new Error('Select a company first');
+      const isGlobal = activeCompanyId === 'all';
+      const invoicesRelation = isGlobal
+        ? 'invoices:invoice_id(id, invoice_number, amount, property_id, properties:property_id(id, name, company_id, companies:company_id(id, name)))'
+        : 'invoices:invoice_id!inner(id, invoice_number, amount, property_id, properties:property_id!inner(id, name, company_id, companies:company_id(id, name)))';
+
       let query = supabase
         .from('payments')
         .select(`
           *,
           tenants:tenant_id(id, name, email),
-          invoices:invoice_id!inner(id, invoice_number, amount, property_id, properties:property_id!inner(id, name, company_id, companies:company_id(id, name)))
+          ${invoicesRelation}
         `)
         .eq('id', id);
 
-      if (activeCompanyId !== 'all') {
+      if (!isGlobal) {
         query = query.eq('invoices.properties.company_id', activeCompanyId);
       }
 

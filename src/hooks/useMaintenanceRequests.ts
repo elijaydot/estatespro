@@ -30,17 +30,22 @@ export function useMaintenanceRequests() {
     queryKey: ['maintenance_requests', activeCompanyId],
     queryFn: async () => {
       if (!activeCompanyId) return [];
+      const isGlobal = activeCompanyId === 'all';
+      const propertiesRelation = isGlobal
+        ? 'properties:property_id(id, name, company_id, companies:company_id(id, name))'
+        : 'properties:property_id!inner(id, name, company_id, companies:company_id(id, name))';
+
       let query = supabase
         .from('maintenance_requests')
         .select(`
           *,
           units:unit_id(id, unit_number, property_id),
-          properties:property_id!inner(id, name, company_id, companies:company_id(id, name)),
+          ${propertiesRelation},
           tenants:tenant_id(id, name, email),
           vendors:vendor_id(id, name)
         `);
 
-      if (activeCompanyId !== 'all') {
+      if (!isGlobal) {
         query = query.eq('properties.company_id', activeCompanyId);
       }
 
@@ -60,18 +65,23 @@ export function useMaintenanceRequest(id: string) {
     queryKey: ['maintenance_requests', id, activeCompanyId],
     queryFn: async () => {
       if (!activeCompanyId) throw new Error('Select a company first');
+      const isGlobal = activeCompanyId === 'all';
+      const propertiesRelation = isGlobal
+        ? 'properties:property_id(id, name, company_id, companies:company_id(id, name))'
+        : 'properties:property_id!inner(id, name, company_id, companies:company_id(id, name))';
+
       let query = supabase
         .from('maintenance_requests')
         .select(`
           *,
           units:unit_id(id, unit_number),
-          properties:property_id!inner(id, name, company_id, companies:company_id(id, name)),
+          ${propertiesRelation},
           tenants:tenant_id(id, name, email),
           vendors:vendor_id(id, name)
         `)
         .eq('id', id);
 
-      if (activeCompanyId !== 'all') {
+      if (!isGlobal) {
         query = query.eq('properties.company_id', activeCompanyId);
       }
 

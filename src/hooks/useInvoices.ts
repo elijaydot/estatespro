@@ -31,16 +31,21 @@ export function useInvoices() {
     queryKey: ['invoices', activeCompanyId],
     queryFn: async () => {
       if (!activeCompanyId) return [];
+      const isGlobal = activeCompanyId === 'all';
+      const propertiesRelation = isGlobal
+        ? 'properties:property_id(id, name, company_id, companies:company_id(id, name))'
+        : 'properties:property_id!inner(id, name, company_id, companies:company_id(id, name))';
+
       let query = supabase
         .from('invoices')
         .select(`
           *,
           tenants:tenant_id(id, name, email),
-          properties:property_id!inner(id, name, company_id, companies:company_id(id, name)),
+          ${propertiesRelation},
           units:unit_id(id, unit_number)
         `);
 
-      if (activeCompanyId !== 'all') {
+      if (!isGlobal) {
         query = query.eq('properties.company_id', activeCompanyId);
       }
 
@@ -60,17 +65,22 @@ export function useInvoice(id: string) {
     queryKey: ['invoices', id, activeCompanyId],
     queryFn: async () => {
       if (!activeCompanyId) throw new Error('Select a company first');
+      const isGlobal = activeCompanyId === 'all';
+      const propertiesRelation = isGlobal
+        ? 'properties:property_id(id, name, company_id, companies:company_id(id, name))'
+        : 'properties:property_id!inner(id, name, company_id, companies:company_id(id, name))';
+
       let query = supabase
         .from('invoices')
         .select(`
           *,
           tenants:tenant_id(id, name, email),
-          properties:property_id!inner(id, name, company_id, companies:company_id(id, name)),
+          ${propertiesRelation},
           units:unit_id(id, unit_number)
         `)
         .eq('id', id);
 
-      if (activeCompanyId !== 'all') {
+      if (!isGlobal) {
         query = query.eq('properties.company_id', activeCompanyId);
       }
 

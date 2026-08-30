@@ -7,6 +7,11 @@ const seerMigration = readFileSync(
   'utf8'
 );
 
+const unconditionalPmMigration = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260830180000_super_admin_unconditional_pm_rls.sql'),
+  'utf8'
+);
+
 describe('Super Admin Global Seer Platform-Wide Visibility', () => {
   it('extends get_user_company_ids with is_platform_super_admin fallback', () => {
     expect(seerMigration).toContain('public.get_user_company_ids');
@@ -30,5 +35,20 @@ describe('Super Admin Global Seer Platform-Wide Visibility', () => {
     expect(seerMigration).toContain('Company owners can manage members');
     expect(seerMigration).toContain('Company owners can manage assignments');
     expect(seerMigration).toContain('Company owners can manage PM invites');
+  });
+
+  it('defines direct unconditional permissive RLS policies on all PM entities for super admin', () => {
+    expect(unconditionalPmMigration).toContain('Super admins manage all properties');
+    expect(unconditionalPmMigration).toContain('Super admins manage all units');
+    expect(unconditionalPmMigration).toContain('Super admins manage all tenants');
+    expect(unconditionalPmMigration).toContain('Super admins manage all leases');
+    expect(unconditionalPmMigration).toContain('Super admins manage all invoices');
+    expect(unconditionalPmMigration).toContain('Super admins manage all payments');
+    expect(unconditionalPmMigration).toContain('Super admins manage all maintenance requests');
+    expect(unconditionalPmMigration).toContain('Super admins manage all recurring bills');
+    expect(unconditionalPmMigration).toContain('Super admins manage all bookings');
+    expect(unconditionalPmMigration).toContain('Super admins manage all broadcasts');
+    expect(unconditionalPmMigration).toContain('Super admins manage all operational alerts');
+    expect(unconditionalPmMigration).toContain('Super admins manage all vendors');
   });
 });

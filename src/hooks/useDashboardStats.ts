@@ -381,12 +381,17 @@ export function useUpcomingRenewals() {
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
+      const isGlobal = activeCompanyId === 'all';
+      const propertiesRelation = isGlobal
+        ? 'properties:property_id(name, company_id)'
+        : 'properties:property_id!inner(name, company_id)';
+
       let query = supabase
         .from('tenants')
-        .select('id, name, lease_end_date, units:unit_id(unit_number), properties:property_id!inner(name, company_id)')
+        .select(`id, name, lease_end_date, units:unit_id(unit_number), ${propertiesRelation}`)
         .eq('status', 'active');
 
-      if (activeCompanyId !== 'all') {
+      if (!isGlobal) {
         query = query.eq('properties.company_id', activeCompanyId);
       }
 
