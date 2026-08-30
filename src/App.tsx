@@ -227,7 +227,7 @@ function FeatureRoute({
     return loadingTimedOut ? <AccessCheckUnavailable /> : <FullPageLoading />;
   }
 
-  if (isOverrideActive) {
+  if (isOverrideActive || activeCompanyId === 'all') {
     return <>{children}</>;
   }
 

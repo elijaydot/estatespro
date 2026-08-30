@@ -65,7 +65,7 @@ function useAlertRealtime() {
           event: '*',
           schema: 'public',
           table: 'operational_alerts',
-          filter: `company_id=eq.${activeCompanyId}`,
+          ...(activeCompanyId !== 'all' ? { filter: `company_id=eq.${activeCompanyId}` } : {}),
         },
         () => {
           queryClient.invalidateQueries({ queryKey: alertsKey(activeCompanyId) });

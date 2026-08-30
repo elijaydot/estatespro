@@ -324,10 +324,12 @@ export function useCrmContacts(companyId?: string | null) {
     queryKey: ['marketplace-crm', 'contacts', companyId],
     queryFn: async () => {
       if (!companyId) return [] as CrmContact[];
+      const isGlobal = companyId === 'all';
+      const leadsRelation = isGlobal ? 'leads(company_id)' : 'leads!inner(company_id)';
       let currentQuery = supabase
         .from('lead_contacts')
-        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, tenant_id, tenants(created_at), leads!inner(company_id)');
-      if (companyId !== 'all') {
+        .select(`id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, tenant_id, tenants(created_at), ${leadsRelation}`);
+      if (!isGlobal) {
         currentQuery = currentQuery.eq('leads.company_id', companyId);
       }
       const currentSchemaResult = await currentQuery.order('created_at', { ascending: false });
@@ -336,8 +338,8 @@ export function useCrmContacts(companyId?: string | null) {
 
       let legacyQuery = supabase
         .from('lead_contacts')
-        .select('id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, leads!inner(company_id)');
-      if (companyId !== 'all') {
+        .select(`id, lead_id, full_name, email, phone_e164, preferred_channel, created_at, ${leadsRelation}`);
+      if (!isGlobal) {
         legacyQuery = legacyQuery.eq('leads.company_id', companyId);
       }
       const legacySchemaResult = usesLegacySchema
@@ -412,11 +414,14 @@ export function useCrmDeals(companyId?: string | null) {
     queryKey: ['marketplace-crm', 'deals', companyId],
     queryFn: async () => {
       if (!companyId) return [] as CrmDeal[];
+      const isGlobal = companyId === 'all';
+      const leadsRelation = isGlobal ? 'leads(stage, pipeline_kind)' : 'leads!inner(stage, pipeline_kind)';
+      const legacyLeadsRelation = isGlobal ? 'leads(stage)' : 'leads!inner(stage)';
 
       let currentQuery = supabase
         .from('crm_deals')
-        .select('id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, probability, expected_close_date, owner_user_id, created_at, leads!inner(stage, pipeline_kind)');
-      if (companyId !== 'all') {
+        .select(`id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, probability, expected_close_date, owner_user_id, created_at, ${leadsRelation}`);
+      if (!isGlobal) {
         currentQuery = currentQuery.eq('company_id', companyId);
       }
       const currentSchemaResult = await currentQuery.order('created_at', { ascending: false });
@@ -426,8 +431,8 @@ export function useCrmDeals(companyId?: string | null) {
 
       let legacyQuery = supabase
         .from('crm_deals')
-        .select('id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, probability, expected_close_date, owner_user_id, created_at, leads!inner(stage)');
-      if (companyId !== 'all') {
+        .select(`id, company_id, lead_id, account_id, contact_id, listing_id, unit_id, deal_name, amount, currency, probability, expected_close_date, owner_user_id, created_at, ${legacyLeadsRelation}`);
+      if (!isGlobal) {
         legacyQuery = legacyQuery.eq('company_id', companyId);
       }
       const legacySchemaResult = usesLegacySchema
@@ -645,11 +650,13 @@ export function useCrmTasks(companyId?: string | null) {
     queryKey: ['marketplace-crm', 'tasks', companyId],
     queryFn: async () => {
       if (!companyId) return [] as CrmTask[];
+      const isGlobal = companyId === 'all';
+      const leadsRelation = isGlobal ? 'leads(company_id)' : 'leads!inner(company_id)';
       let query = supabase
         .from('lead_tasks')
-        .select('id, lead_id, task_type, owner_user_id, due_at, status, notes, created_at, leads!inner(company_id)');
+        .select(`id, lead_id, task_type, owner_user_id, due_at, status, notes, created_at, ${leadsRelation}`);
 
-      if (companyId !== 'all') {
+      if (!isGlobal) {
         query = query.eq('leads.company_id', companyId);
       }
 

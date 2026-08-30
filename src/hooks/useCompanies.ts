@@ -93,11 +93,11 @@ export function useCompanyMembers(companyId: string | undefined) {
     queryKey: ['company_members', companyId],
     queryFn: async () => {
       if (!companyId) return [];
-      const { data, error } = await db
-        .from('company_members')
-        .select('*')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
+      let query = db.from('company_members').select('*');
+      if (companyId !== 'all') {
+        query = query.eq('company_id', companyId);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
       
       // Fetch profile info for each member
@@ -117,12 +117,15 @@ export function useCompanyMembers(companyId: string | undefined) {
 }
 
 // Fetch PM membership status for current user
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function useMyMembership(companyId?: string | null) {
   const { user } = useAuth();
+  const isValidCompanyUuid = Boolean(companyId && companyId !== 'all' && UUID_REGEX.test(companyId));
   return useQuery({
     queryKey: ['my_membership', user?.id, companyId],
     queryFn: async () => {
-      if (!user?.id || !companyId) return null;
+      if (!user?.id || !companyId || !isValidCompanyUuid) return null;
       const { data, error } = await db
         .from('company_members')
         .select('*, companies:company_id(id, name)')
@@ -132,7 +135,7 @@ export function useMyMembership(companyId?: string | null) {
       if (error) throw error;
       return data;
     },
-    enabled: Boolean(user?.id && companyId),
+    enabled: Boolean(user?.id && isValidCompanyUuid),
   });
 }
 
@@ -238,10 +241,11 @@ export function usePMAssignments(companyId: string | undefined) {
     queryKey: ['pm_assignments', companyId],
     queryFn: async () => {
       if (!companyId) return [];
-      const { data, error } = await db
-        .from('property_manager_assignments')
-        .select('*, properties:property_id(id, name, address)')
-        .eq('company_id', companyId);
+      let query = db.from('property_manager_assignments').select('*, properties:property_id(id, name, address)');
+      if (companyId !== 'all') {
+        query = query.eq('company_id', companyId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as PropertyAssignment[];
     },
@@ -314,11 +318,11 @@ export function usePMInvites(companyId: string | undefined) {
     queryKey: ['pm_invites', companyId],
     queryFn: async () => {
       if (!companyId) return [];
-      const { data, error } = await db
-        .from('pm_invites')
-        .select('id, company_id, email, invited_by, expires_at, used_at, created_at')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
+      let query = db.from('pm_invites').select('id, company_id, email, invited_by, expires_at, used_at, created_at');
+      if (companyId !== 'all') {
+        query = query.eq('company_id', companyId);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },

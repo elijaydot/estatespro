@@ -66,16 +66,31 @@ const EMPTY_ENTITLEMENTS: Record<SaasEntitlementKey, boolean> = {
   'ai.assistant.enabled': false,
 };
 
+const ALL_TRUE_ENTITLEMENTS: Record<SaasEntitlementKey, boolean> = {
+  'marketplace.listings.manage': true,
+  'marketplace.verification.manage': true,
+  'marketplace.moderation.view': true,
+  'crm.leads.manage': true,
+  'crm.deals.manage': true,
+  'crm.calls_meetings.manage': true,
+  'crm.automation.manage': true,
+  'portal.owner.enabled': true,
+  'ai.assistant.enabled': true,
+};
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function useSaasAccess() {
   const { activeCompanyId } = useActiveCompany();
   const { isOverrideActive } = useSuperAdminOverride();
+  const isValidCompanyUuid = Boolean(activeCompanyId && activeCompanyId !== 'all' && UUID_REGEX.test(activeCompanyId));
 
   const query = useQuery({
     queryKey: ['saas-access', activeCompanyId],
-    enabled: !!activeCompanyId,
+    enabled: isValidCompanyUuid,
     queryFn: async (): Promise<SaasAccessResult> => {
-      if (!activeCompanyId) {
-        return { entitlements: EMPTY_ENTITLEMENTS, quotas: [] };
+      if (!isValidCompanyUuid || !activeCompanyId) {
+        return { entitlements: ALL_TRUE_ENTITLEMENTS, quotas: [] };
       }
 
       const entitlementResults = await Promise.all(
@@ -119,13 +134,12 @@ export function useSaasAccess() {
     return map;
   }, [query.data?.quotas]);
 
+  const hasAllAccess = isOverrideActive || activeCompanyId === 'all';
+
   return {
     ...query,
-    entitlements: isOverrideActive
-      ? ENTITLEMENT_KEYS.reduce<Record<SaasEntitlementKey, boolean>>((acc, key) => {
-          acc[key] = true;
-          return acc;
-        }, { ...EMPTY_ENTITLEMENTS })
+    entitlements: hasAllAccess
+      ? ALL_TRUE_ENTITLEMENTS
       : (query.data?.entitlements ?? EMPTY_ENTITLEMENTS),
     quotas: query.data?.quotas ?? [],
     quotaByCode,
