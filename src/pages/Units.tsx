@@ -43,6 +43,9 @@ import { toast } from '@/components/ui/use-toast';
 import { useUnits, useCreateUnit, useDeleteUnit, type Unit } from '@/hooks/useUnits';
 import { useProperties, type Property } from '@/hooks/useProperties';
 import { useSettings } from '@/contexts/useSettings';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useMyCompanies } from '@/hooks/useCompanies';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UnitPreviewCard } from '@/components/forms/UnitPreviewCard';
 import { useConfirmAction } from '@/components/ui/use-confirm-action';
 import { FilterBar } from '@/components/shared/FilterBar';
@@ -55,7 +58,15 @@ type UnitTenant = {
 };
 
 type UnitRow = Unit & {
-  properties?: Pick<Property, 'id' | 'name'> | null;
+  properties?: {
+    id: string;
+    name: string;
+    company_id?: string;
+    companies?: {
+      id?: string;
+      name?: string;
+    } | null;
+  } | null;
   tenants?: UnitTenant[] | null;
 };
 
@@ -81,6 +92,9 @@ const getStatusBadge = (status: string) => {
 export default function Units() {
   const navigate = useNavigate();
   const { activeCompanyId } = useActiveCompany();
+  const { isSuperAdmin } = useUserRole();
+  const { data: companiesList = [] } = useMyCompanies();
+  const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,11 +138,16 @@ export default function Units() {
   const unitRows = units as UnitRow[];
 
   const filteredUnits = unitRows.filter((unit) => {
+    const unitCompanyId = unit.properties?.company_id || unit.properties?.companies?.id;
+    if (selectedOrgFilter !== 'all' && unitCompanyId && unitCompanyId !== selectedOrgFilter) {
+      return false;
+    }
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (
       (unit.unit_number || '').toLowerCase().includes(q) ||
-      (unit.properties?.name || '').toLowerCase().includes(q)
+      (unit.properties?.name || '').toLowerCase().includes(q) ||
+      (unit.properties?.companies?.name || '').toLowerCase().includes(q)
     );
   });
 
@@ -191,7 +210,7 @@ export default function Units() {
       </div>
 
       {/* Filters */}
-      <FilterBar className="animate-fade-in">
+      <FilterBar className="animate-fade-in flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -201,6 +220,24 @@ export default function Units() {
             className="pl-10"
           />
         </div>
+
+        {isSuperAdmin && companiesList.length > 0 && (
+          <div className="w-full sm:w-auto min-w-[220px]">
+            <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="All Organizations (Global)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
+                {companiesList.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </FilterBar>
 
       {/* Loading State */}
@@ -227,6 +264,11 @@ export default function Units() {
                   <div>
                     <h3 className="font-semibold text-foreground">Unit {unit.unit_number}</h3>
                     <p className="text-sm text-muted-foreground">{unit.properties?.name || 'No property'}</p>
+                    {unit.properties?.companies?.name && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
+                        🏢 {unit.properties.companies.name}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <DropdownMenu>

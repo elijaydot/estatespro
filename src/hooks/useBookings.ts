@@ -48,22 +48,24 @@ export function useBookings(propertyId?: string) {
       if (!activeCompanyId) return [];
       let query = supabase
         .from('bookings')
-        .select('*, properties(name), units(unit_number)')
+        .select('*, properties(id, name, company_id, companies:company_id(id, name)), units(unit_number)')
         .order('check_in', { ascending: false });
 
-      const { data: scopedProperties, error: scopedPropertiesError } = await supabase
-        .from('properties')
-        .select('id')
-        .eq('company_id', activeCompanyId);
+      if (activeCompanyId !== 'all') {
+        const { data: scopedProperties, error: scopedPropertiesError } = await supabase
+          .from('properties')
+          .select('id')
+          .eq('company_id', activeCompanyId);
 
-      if (scopedPropertiesError) throw scopedPropertiesError;
+        if (scopedPropertiesError) throw scopedPropertiesError;
 
-      const propertyIds = (scopedProperties || []).map((property) => property.id);
-      if (propertyIds.length === 0) {
-        return [] as Booking[];
+        const propertyIds = (scopedProperties || []).map((property) => property.id);
+        if (propertyIds.length === 0) {
+          return [] as Booking[];
+        }
+
+        query = query.in('property_id', propertyIds);
       }
-
-      query = query.in('property_id', propertyIds);
 
       if (propertyId) {
         query = query.eq('property_id', propertyId);

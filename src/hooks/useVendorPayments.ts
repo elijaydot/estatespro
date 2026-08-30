@@ -33,8 +33,10 @@ export function useVendorPayments(vendorId?: string) {
       let query = supabase
         .from('vendor_payments' as never)
         .select('*' as never)
-        .eq('company_id', activeCompanyId as string)
         .order('created_at', { ascending: false });
+      if (activeCompanyId !== 'all') {
+        query = query.eq('company_id', activeCompanyId as string);
+      }
       if (vendorId) query = query.eq('vendor_id', vendorId);
       const { data, error } = await query;
       if (error) throw error;

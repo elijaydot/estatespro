@@ -158,12 +158,17 @@ export function useVendorDocuments(vendorId: string) {
     queryKey: ['vendor-documents', activeCompanyId, vendorId],
     enabled: Boolean(activeCompanyId && vendorId),
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('vendor_documents' as never)
         .select('*' as never)
-        .eq('company_id', activeCompanyId as string)
         .eq('vendor_id', vendorId)
         .order('created_at', { ascending: false });
+
+      if (activeCompanyId !== 'all') {
+        query = query.eq('company_id', activeCompanyId as string);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as unknown as VendorDocument[];
     },

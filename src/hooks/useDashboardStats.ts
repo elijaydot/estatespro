@@ -482,7 +482,7 @@ export function useRevenueData() {
       // Aggregate payments
       data?.forEach(p => {
         const date = new Date(p.created_at);
-        const key = `${months[date.getMonth()]} ${d.getFullYear()}`;
+        const key = `${months[date.getMonth()]} ${date.getFullYear()}`;
         if (monthlyData[key] !== undefined) {
           monthlyData[key] += Number(p.amount);
         }

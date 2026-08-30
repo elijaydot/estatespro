@@ -233,20 +233,26 @@ export function ModuleSidebarNav({
           {!collapsed && (
             <div className="min-w-0 flex-1">
               {role === 'super_admin' ? (
-                <div className="py-0.5">
+                <button
+                  type="button"
+                  onClick={() => setShowCompanies((prev) => !prev)}
+                  className="text-left w-full group py-0.5"
+                  title="Switch global view or target organization"
+                >
                   <div className="flex items-center gap-1.5">
-                    <p className="font-bold text-xs leading-tight text-sidebar-foreground truncate">
-                      FishGate SaaS
+                    <p className="font-bold text-xs leading-tight text-sidebar-foreground truncate group-hover:text-primary transition-colors">
+                      {activeCompanyId === 'all' ? 'FishGate SaaS' : (companies.find((c) => c.id === activeCompanyId)?.name || 'FishGate SaaS')}
                     </p>
                     <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                      Global Seer
+                      {activeCompanyId === 'all' ? 'Global Seer' : 'Tenant Scope'}
                     </span>
+                    <ChevronDown className="h-3 w-3 shrink-0 text-sidebar-foreground/40 group-hover:text-sidebar-foreground transition-colors ml-auto" />
                   </div>
                   <p className="text-[10px] text-sidebar-foreground/60 leading-none truncate mt-0.5 flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                    Live Platform Monitor • {config.shortName}
+                    {activeCompanyId === 'all' ? `Global Platform • ${config.shortName}` : `Company View • ${config.shortName}`}
                   </p>
-                </div>
+                </button>
               ) : (
                 <button
                   type="button"
@@ -300,11 +306,11 @@ export function ModuleSidebarNav({
         </div>
       )}
 
-      {/* Company Selector Dropdown (Collapsible - Tenant organizations only) */}
-      {role !== 'super_admin' && showCompanies && companies.length > 1 && !collapsed && (
+      {/* Company Selector Dropdown (Collapsible) */}
+      {showCompanies && companies.length > 1 && !collapsed && (
         <div className="p-2 border-b border-sidebar-border/60 bg-sidebar-accent/30 space-y-1">
           <p className="px-2 text-[10px] font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
-            Switch Company
+            {role === 'super_admin' ? 'Select Platform Scope' : 'Switch Company'}
           </p>
           <div className="max-h-36 overflow-y-auto space-y-0.5 scrollbar-thin">
             {companies.map((company) => (

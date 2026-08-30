@@ -89,9 +89,12 @@ export function useOperationalAlerts(status?: OperationalAlertStatus | 'active')
     queryFn: async () => {
       let query = supabase
         .from('operational_alerts' as never)
-        .select('*' as never)
-        .eq('company_id', activeCompanyId as string)
+        .select('*, companies:company_id(id, name)' as never)
         .order('created_at', { ascending: false });
+
+      if (activeCompanyId !== 'all') {
+        query = query.eq('company_id', activeCompanyId as string);
+      }
 
       if (status === 'active') query = query.in('status', ['open', 'acknowledged']);
       else if (status) query = query.eq('status', status);
@@ -111,11 +114,16 @@ export function useOpenOperationalAlertCount() {
     queryKey: openCountKey(activeCompanyId),
     enabled: Boolean(activeCompanyId),
     queryFn: async () => {
-      const { count, error } = await supabase
+      let query = supabase
         .from('operational_alerts' as never)
         .select('*' as never, { count: 'exact', head: true })
-        .eq('company_id', activeCompanyId as string)
         .in('status', ['open', 'acknowledged']);
+
+      if (activeCompanyId !== 'all') {
+        query = query.eq('company_id', activeCompanyId as string);
+      }
+
+      const { count, error } = await query;
       if (error) throw error;
       return count ?? 0;
     },
@@ -137,11 +145,16 @@ function useUpdateAlertStatus(status: 'acknowledged' | 'resolved' | 'dismissed')
       }
       if (status === 'resolved') payload.resolved_at = new Date().toISOString();
 
-      const { error } = await supabase
+      let query = supabase
         .from('operational_alerts' as never)
         .update(payload as never)
-        .eq('id', id)
-        .eq('company_id', activeCompanyId as string);
+        .eq('id', id);
+
+      if (activeCompanyId !== 'all') {
+        query = query.eq('company_id', activeCompanyId as string);
+      }
+
+      const { error } = await query;
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: alertsKey(activeCompanyId) }),

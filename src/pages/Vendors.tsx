@@ -9,7 +9,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useMyCompanies } from '@/hooks/useCompanies';
 import { useCreateVendor, useVendors, type VendorInput, type Vendor } from '@/hooks/useVendors';
+
+type VendorWithCompany = Vendor & {
+  companies?: {
+    id?: string;
+    name?: string;
+  } | null;
+};
 
 const emptyVendor: VendorInput = {
   name: '', vendor_type: '', contact_name: '', phone: '', email: '', address: '', status: 'active', notes: '', rating: null,
@@ -19,6 +28,9 @@ type VendorView = 'cards' | 'compact' | 'table';
 
 export default function Vendors() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { isSuperAdmin } = useUserRole();
+  const { data: companiesList = [] } = useMyCompanies();
+  const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<Vendor['status'] | 'all'>('active');
   const [view, setView] = useState<VendorView>('compact');
@@ -34,17 +46,23 @@ export default function Vendors() {
     if (searchParams.get('add') === 'true') setIsCreateOpen(true);
   }, [searchParams]);
 
-  const filtered = vendors.filter((vendor) => {
+  const typedVendors = vendors as VendorWithCompany[];
+
+  const filtered = typedVendors.filter((vendor) => {
+    const vendorCompanyId = vendor.company_id || vendor.companies?.id;
+    if (selectedOrgFilter !== 'all' && vendorCompanyId && vendorCompanyId !== selectedOrgFilter) {
+      return false;
+    }
     const query = search.toLowerCase();
     const matchesStatus = status === 'all' || vendor.status === status;
-    const matchesSearch = !query || [vendor.name, vendor.vendor_type, vendor.contact_name, vendor.email, vendor.phone]
+    const matchesSearch = !query || [vendor.name, vendor.vendor_type, vendor.contact_name, vendor.email, vendor.phone, vendor.companies?.name]
       .some((value) => value?.toLowerCase().includes(query));
     return matchesStatus && matchesSearch;
   });
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paginatedVendors = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  useEffect(() => setPage(1), [search, status, pageSize]);
+  useEffect(() => setPage(1), [search, status, pageSize, selectedOrgFilter]);
   useEffect(() => setPage((current) => Math.min(current, totalPages)), [totalPages]);
 
   const closeCreateDialog = () => {
@@ -84,6 +102,23 @@ export default function Vendors() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search vendors..." className="pl-9" />
         </div>
+        {isSuperAdmin && companiesList.length > 0 && (
+          <div className="w-full lg:w-auto min-w-[200px]">
+            <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="All Organizations (Global)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
+                {companiesList.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
           <Button size="sm" variant={status === 'all' ? 'default' : 'outline'} onClick={() => setStatus('all')}>All</Button>
           {(['active', 'inactive', 'suspended'] as const).map((value) => (
@@ -114,6 +149,11 @@ export default function Vendors() {
                   <div className="min-w-0">
                     <h2 className="truncate font-semibold">{vendor.name}</h2>
                     <p className="text-sm text-muted-foreground">{vendor.vendor_type || 'General contractor'}</p>
+                    {vendor.companies?.name && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
+                        🏢 {vendor.companies.name}
+                      </span>
+                    )}
                   </div>
                   <Badge variant={vendor.status === 'active' ? 'secondary' : 'outline'}>{vendor.status}</Badge>
                 </div>
@@ -132,7 +172,15 @@ export default function Vendors() {
       {view === 'compact' && <Card><CardContent className="divide-y p-0">
         {paginatedVendors.map((vendor) => (
           <Link key={vendor.id} to={`/vendors/${vendor.id}`} className="grid gap-2 px-4 py-3 transition-colors hover:bg-muted/40 sm:grid-cols-[minmax(180px,1.2fr)_minmax(140px,1fr)_minmax(160px,1fr)_auto] sm:items-center">
-            <div className="min-w-0"><p className="truncate font-medium">{vendor.name}</p><p className="truncate text-xs text-muted-foreground">{vendor.vendor_type || 'General contractor'}</p></div>
+            <div className="min-w-0">
+              <p className="truncate font-medium">{vendor.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{vendor.vendor_type || 'General contractor'}</p>
+              {vendor.companies?.name && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-0.5 font-medium">
+                  🏢 {vendor.companies.name}
+                </span>
+              )}
+            </div>
             <div className="min-w-0 text-sm"><p className="truncate">{vendor.contact_name || 'No contact name'}</p><p className="truncate text-xs text-muted-foreground">{vendor.phone || vendor.email || 'No contact details'}</p></div>
             <div className="flex items-center gap-1 text-sm"><Star className="h-3.5 w-3.5 text-warning" />{vendor.rating?.toFixed(1) ?? 'Not rated'}</div>
             <Badge variant={vendor.status === 'active' ? 'secondary' : 'outline'}>{vendor.status}</Badge>
@@ -140,7 +188,7 @@ export default function Vendors() {
         ))}
       </CardContent></Card>}
 
-      {view === 'table' && <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3 font-medium">Vendor</th><th className="px-4 py-3 font-medium">Service</th><th className="px-4 py-3 font-medium">Contact</th><th className="px-4 py-3 font-medium">Rating</th><th className="px-4 py-3 font-medium">Status</th></tr></thead><tbody className="divide-y">{paginatedVendors.map((vendor) => <tr key={vendor.id} className="transition-colors hover:bg-muted/40"><td className="px-4 py-3"><Link className="font-medium hover:underline" to={`/vendors/${vendor.id}`}>{vendor.name}</Link></td><td className="px-4 py-3 text-muted-foreground">{vendor.vendor_type || 'General contractor'}</td><td className="px-4 py-3"><p>{vendor.contact_name || '-'}</p><p className="text-xs text-muted-foreground">{vendor.phone || vendor.email || '-'}</p></td><td className="px-4 py-3">{vendor.rating?.toFixed(1) ?? '-'}</td><td className="px-4 py-3"><Badge variant={vendor.status === 'active' ? 'secondary' : 'outline'}>{vendor.status}</Badge></td></tr>)}</tbody></table></div></Card>}
+      {view === 'table' && <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3 font-medium">Vendor</th><th className="px-4 py-3 font-medium">Service</th><th className="px-4 py-3 font-medium">Contact</th><th className="px-4 py-3 font-medium">Rating</th><th className="px-4 py-3 font-medium">Status</th></tr></thead><tbody className="divide-y">{paginatedVendors.map((vendor) => <tr key={vendor.id} className="transition-colors hover:bg-muted/40"><td className="px-4 py-3"><Link className="font-medium hover:underline" to={`/vendors/${vendor.id}`}>{vendor.name}</Link>{vendor.companies?.name && <p className="text-[10px] text-primary">🏢 {vendor.companies.name}</p>}</td><td className="px-4 py-3 text-muted-foreground">{vendor.vendor_type || 'General contractor'}</td><td className="px-4 py-3"><p>{vendor.contact_name || '-'}</p><p className="text-xs text-muted-foreground">{vendor.phone || vendor.email || '-'}</p></td><td className="px-4 py-3">{vendor.rating?.toFixed(1) ?? '-'}</td><td className="px-4 py-3"><Badge variant={vendor.status === 'active' ? 'secondary' : 'outline'}>{vendor.status}</Badge></td></tr>)}</tbody></table></div></Card>}
 
       {!isLoading && !error && filtered.length > 0 && <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, filtered.length)} of {filtered.length} vendors</p>

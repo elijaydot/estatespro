@@ -22,12 +22,15 @@ export function useBroadcastAnnouncements() {
     queryKey: ['broadcasts', activeCompanyId],
     queryFn: async () => {
       if (!activeCompanyId) return [];
-      const query = supabase
+      let query = supabase
         .from('broadcasts')
-        .select('*')
-        .eq('company_id', activeCompanyId)
+        .select('*, companies:company_id(id, name)')
         .order('created_at', { ascending: false })
         .limit(50);
+
+      if (activeCompanyId !== 'all') {
+        query = query.eq('company_id', activeCompanyId);
+      }
 
       const { data, error } = await query;
       if (error) throw error;
