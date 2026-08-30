@@ -84,7 +84,9 @@ export default function TeamManagement() {
 
   // Company properties (those with company_id set)
   const propertyRows = (properties || []) as PropertyRow[];
-  const companyProperties = propertyRows.filter((p) => p.company_id === resolvedCompanyId);
+  const companyProperties = resolvedCompanyId === 'all'
+    ? propertyRows
+    : propertyRows.filter((p) => p.company_id === resolvedCompanyId);
 
   const handleInvite = async () => {
     const canProceed = await ensureAal2('team.invite_manager');

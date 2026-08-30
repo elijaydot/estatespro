@@ -467,7 +467,7 @@ export function useCrmLeadSearch(
       if (!companyId) return [] as CrmLead[];
 
       const { data, error } = await supabase.rpc('search_crm_leads' as never, {
-        p_company_id: companyId,
+        p_company_id: companyId === 'all' ? null : companyId,
         p_query: query.trim(),
         p_stage: stage === 'all' ? null : stage,
         p_status: status === 'all' ? null : status,
@@ -858,7 +858,7 @@ export function useManagedMarketplaceListings(companyId?: string | null) {
       if (!companyId) return [] as ManagedMarketplaceListing[];
 
       const { data, error } = await supabase.rpc('get_managed_marketplace_listings_with_inquiry_counts' as never, {
-        p_company_id: companyId,
+        p_company_id: companyId === 'all' ? null : companyId,
       } as never);
 
       if (error) throw error;
@@ -873,21 +873,30 @@ export function useVacantUnpublishedUnits(companyId?: string | null) {
     queryKey: ['marketplace', 'vacant-unpublished-units', companyId],
     queryFn: async () => {
       if (!companyId) return [] as VacantMarketplaceUnit[];
+      const isGlobal = companyId === 'all';
+      const propertiesRelation = isGlobal
+        ? 'properties:property_id(id, name, city, state, company_id)'
+        : 'properties:property_id!inner(id, name, city, state, company_id)';
 
-      const [unitsResult, listingsResult] = await Promise.all([
-        supabase
-          .from('units')
-          .select('id, property_id, unit_number, bedrooms, bathrooms, rent_amount, description, properties:property_id!inner(id, name, city, state, company_id)')
-          .eq('status', 'vacant')
-          .eq('properties.company_id', companyId)
-          .order('unit_number', { ascending: true }),
-        supabase
-          .from('marketplace_listings')
-          .select('unit_id')
-          .eq('company_id', companyId)
-          .neq('status', 'archived')
-          .not('unit_id', 'is', null),
-      ]);
+      let unitsQuery = supabase
+        .from('units')
+        .select(`id, property_id, unit_number, bedrooms, bathrooms, rent_amount, description, ${propertiesRelation}`)
+        .eq('status', 'vacant')
+        .order('unit_number', { ascending: true });
+      if (!isGlobal) {
+        unitsQuery = unitsQuery.eq('properties.company_id', companyId);
+      }
+
+      let listingsQuery = supabase
+        .from('marketplace_listings')
+        .select('unit_id')
+        .neq('status', 'archived')
+        .not('unit_id', 'is', null);
+      if (!isGlobal) {
+        listingsQuery = listingsQuery.eq('company_id', companyId);
+      }
+
+      const [unitsResult, listingsResult] = await Promise.all([unitsQuery, listingsQuery]);
 
       if (unitsResult.error) throw unitsResult.error;
       if (listingsResult.error) throw listingsResult.error;
@@ -1073,10 +1082,15 @@ export function useModerationCases(companyId?: string | null) {
     queryFn: async () => {
       if (!companyId) return [] as ModerationCase[];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('moderation_cases' as never)
-        .select('id, entity_type, entity_id, reason_code, severity, state, queue, assigned_moderator, resolved_by, resolved_at, resolution_notes, opened_at, closed_at, created_at, updated_at')
-        .eq('company_id', companyId)
+        .select('id, entity_type, entity_id, reason_code, severity, state, queue, assigned_moderator, resolved_by, resolved_at, resolution_notes, opened_at, closed_at, created_at, updated_at' as never);
+
+      if (companyId !== 'all') {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query
         .order('opened_at', { ascending: true })
         .limit(100);
 
@@ -1145,7 +1159,7 @@ export function usePublisherVerification(companyId?: string | null) {
   return useQuery({
     queryKey: ['marketplace', 'publisher-verification', companyId],
     queryFn: async () => {
-      if (!companyId) return null as PublisherVerification | null;
+      if (!companyId || companyId === 'all') return null as PublisherVerification | null;
 
       const { data, error } = await supabase
         .from('publisher_verifications')

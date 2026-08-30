@@ -81,7 +81,7 @@ export default function MarketplaceVerification() {
   const [documentsOpen, setDocumentsOpen] = useState(false);
 
   useEffect(() => {
-    if (activeCompanyId) evaluateTrust.mutate();
+    if (activeCompanyId && activeCompanyId !== 'all') evaluateTrust.mutate();
   // The mutation is intentionally run once per active company, not whenever its callback identity changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCompanyId]);
