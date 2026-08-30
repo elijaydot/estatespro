@@ -169,7 +169,7 @@ export default function Tenants() {
   const { data: properties = [] } = useProperties();
   const { data: units = [] } = useUnits();
   const { data: invites = [] } = useTenantInvites();
-  const { data: tenantExits = [] } = useTenantExits();
+  const { data: tenantExits = [], isLoading: loadingExits } = useTenantExits();
   const createTenant = useCreateTenant();
   const deleteTenant = useDeleteTenant();
   const confirmAction = useConfirmAction();
