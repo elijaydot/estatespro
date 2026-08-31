@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format, differenceInDays } from 'date-fns';
-import { Plus, Pencil, Trash2, FileText, Eye, Send, CheckCircle, Clock, FileSignature, MoreHorizontal, Search, Download, RefreshCw } from 'lucide-react';
+import { Plus, Pencil, Trash2, FileText, Eye, Send, CheckCircle, Clock, FileSignature, MoreHorizontal, Search, Download, RefreshCw, Home, User, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -46,13 +46,12 @@ import { SignaturePad, SignaturePadRef } from '@/components/ui/signature-pad';
 import { LeaseAttachments } from '@/components/leases/LeaseAttachments';
 import { toast } from '@/components/ui/use-toast';
 import { useSettings } from '@/contexts/useSettings';
-import { useLeases, useCreateLease, useUpdateLease, useDeleteLease, useSignLease, useUploadSignature, generateLeaseNumber } from '@/hooks/useLeases';
+import { useLeases, useCreateLease, useUpdateLease, useDeleteLease, useSignLease, useUploadSignature } from '@/hooks/useLeases';
 import { useProperties } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
 import { useTenants } from '@/hooks/useTenants';
 import { useCreateNotification } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
-import { DocumentIntelligence } from '@/components/ai/DocumentIntelligence';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMyCompanies } from '@/hooks/useCompanies';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -60,6 +59,8 @@ import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { Pagination } from '@/components/shared/Pagination';
 
 const statusVariants: Record<string, 'success' | 'warning' | 'destructive' | 'neutral'> = {
   draft: 'neutral',
@@ -159,6 +160,9 @@ export default function Leases() {
   const { activeCompanyId } = useActiveCompany();
   const { data: companiesList = [] } = useMyCompanies();
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
+  const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-leases') as ViewMode) || 'table');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -173,7 +177,10 @@ export default function Leases() {
   const [uploadedSignatureFile, setUploadedSignatureFile] = useState<File | null>(null);
   const signaturePadRef = useRef<SignaturePadRef>(null);
 
-  // Handle ?add=true query parameter from Quick Add
+  useEffect(() => {
+    localStorage.setItem('estatepro-view-leases', view);
+  }, [view]);
+
   useEffect(() => {
     if (searchParams.get('add') === 'true') {
       handleOpenDialog();
@@ -222,16 +229,21 @@ export default function Leases() {
     if (selectedOrgFilter !== 'all' && leaseCompanyId && leaseCompanyId !== selectedOrgFilter) {
       return false;
     }
-    const q = searchQuery.toLowerCase();
-    const matchesSearch = !q ||
-      (lease.lease_number || '').toLowerCase().includes(q) ||
-      (lease.tenants?.name || '').toLowerCase().includes(q) ||
-      (lease.properties?.name || '').toLowerCase().includes(q) ||
-      (lease.properties?.companies?.name || '').toLowerCase().includes(q);
-    
-    if (activeTab === 'all') return matchesSearch;
-    return matchesSearch && lease.status === activeTab;
+    const matchesTab = activeTab === 'all' || lease.status === activeTab;
+    const matchesSearch = 
+      lease.lease_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lease.tenants?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lease.properties?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lease.properties?.companies?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lease.units?.unit_number?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesTab && matchesSearch;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, selectedOrgFilter, pageSize, activeTab]);
+
+  const paginatedLeases = filteredLeases.slice((page - 1) * pageSize, page * pageSize);
 
   const handleOpenDialog = (lease?: LeaseRow) => {
     if (lease) {
@@ -274,6 +286,35 @@ export default function Leases() {
       unit_id: unitId,
       monthly_rent: unit?.rent_amount || prev.monthly_rent,
     }));
+  };
+
+  const handleDownloadPdf = async (leaseId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-lease-pdf', {
+        body: { leaseId, companyId: activeCompanyId },
+      });
+
+      if (error) throw new Error(error.message || 'Failed to generate PDF');
+
+      const html = typeof data === 'string' ? data : await new Response(data).text();
+      const htmlBlob = new Blob([html], { type: 'text/html' });
+      const htmlUrl = URL.createObjectURL(htmlBlob);
+
+      const printWindow = window.open(htmlUrl, '_blank', 'noopener,noreferrer');
+      if (printWindow) {
+        printWindow.addEventListener('load', () => {
+          setTimeout(() => {
+            printWindow.print();
+            URL.revokeObjectURL(htmlUrl);
+          }, 500);
+        }, { once: true });
+      } else {
+        URL.revokeObjectURL(htmlUrl);
+      }
+    } catch (error: unknown) {
+      console.error('Error downloading PDF:', error);
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to generate lease PDF', variant: 'destructive' });
+    }
   };
 
   const handleSubmit = async () => {
@@ -324,8 +365,6 @@ export default function Leases() {
         type: 'info',
         link: `/leases`,
       });
-      
-      // Send email notification via edge function
       try {
         await supabase.functions.invoke('send-lease-email', {
           body: {
@@ -336,47 +375,15 @@ export default function Leases() {
       } catch (emailError) {
         console.warn('Email notification failed:', emailError);
       }
-      
       toast({ title: 'Success', description: 'Lease sent for signature' });
     } catch (error) {
       console.error('Error sending for signature:', error);
-    }
-  };
-  
-  const handleDownloadPdf = async (leaseId: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-lease-pdf', {
-        body: { leaseId, companyId: activeCompanyId },
-      });
-
-      if (error) throw new Error(error.message || 'Failed to generate PDF');
-
-      // data is the HTML string when content-type is text/html
-      const html = typeof data === 'string' ? data : await new Response(data).text();
-      const htmlBlob = new Blob([html], { type: 'text/html' });
-      const htmlUrl = URL.createObjectURL(htmlBlob);
-
-      const printWindow = window.open(htmlUrl, '_blank', 'noopener,noreferrer');
-      if (printWindow) {
-        printWindow.addEventListener('load', () => {
-          setTimeout(() => {
-            printWindow.print();
-            URL.revokeObjectURL(htmlUrl);
-          }, 500);
-        }, { once: true });
-      } else {
-        URL.revokeObjectURL(htmlUrl);
-      }
-    } catch (error: unknown) {
-      console.error('Error downloading PDF:', error);
-      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to generate lease PDF', variant: 'destructive' });
     }
   };
 
   const handleSignLease = async () => {
     if (!signingLease) return;
 
-    // Check for uploaded file first, then drawn signature
     let blob: Blob | null = null;
     
     if (uploadedSignatureFile) {
@@ -425,7 +432,6 @@ export default function Leases() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Leases</h1>
@@ -437,7 +443,6 @@ export default function Leases() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-4">
         <Card className="card-shadow-sm">
           <CardContent className="pt-6">
@@ -482,7 +487,7 @@ export default function Leases() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-xl bg-destructive/10">
-                <FileSignature className="h-6 w-6 text-destructive" />
+                <RefreshCw className="h-6 w-6 text-destructive" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Expiring Soon</p>
@@ -493,8 +498,7 @@ export default function Leases() {
         </Card>
       </div>
 
-      {/* Tabs and Search */}
-      <FilterBar className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+      <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
@@ -504,7 +508,8 @@ export default function Leases() {
             <TabsTrigger value="expired">Expired</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+
+        <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search leases by number, tenant, property..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
@@ -527,28 +532,206 @@ export default function Leases() {
               </Select>
             </div>
           )}
+
+          <ViewToggle view={view} onViewChange={setView} />
         </div>
       </FilterBar>
 
-      {/* Leases Table */}
-      <Card className="card-shadow-md">
-        <CardHeader>
-          <CardTitle>Lease Agreements</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading leases...</div>
-          ) : filteredLeases.length === 0 ? (
-            <EmptyState
-              icon={FileText}
-              title="No leases found"
-              description="Create a lease agreement to get started."
-              action={<Button size="sm" onClick={() => handleOpenDialog()}><Plus className="h-4 w-4" />Create Lease</Button>}
-            />
-          ) : (
+      {!isLoading && view === 'cards' && paginatedLeases.length > 0 && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedLeases.map((lease) => {
+              const tenant = lease.tenants;
+              const property = lease.properties;
+              const unit = lease.units;
+              const daysRemaining = differenceInDays(new Date(lease.end_date), new Date());
+
+              return (
+                <Card key={lease.id} className="p-5 card-shadow-md hover:card-shadow-lg transition-all">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-primary shrink-0" />
+                        <span className="font-semibold text-foreground truncate">{lease.lease_number}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {property?.name || 'No property'} • Unit {unit?.unit_number || 'N/A'}
+                      </p>
+                      {(property as { companies?: { name?: string } | null } | null)?.companies?.name && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
+                          🏢 {(property as { companies?: { name?: string } | null }).companies?.name}
+                        </span>
+                      )}
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => { setViewingLease(lease); setIsViewDialogOpen(true); }}>
+                          <Eye className="h-4 w-4 mr-2" />View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDownloadPdf(lease.id)}>
+                          <Download className="h-4 w-4 mr-2" />Download PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDialog(lease)}>
+                          <Pencil className="h-4 w-4 mr-2" />Edit
+                        </DropdownMenuItem>
+                        {lease.status === 'draft' && (
+                          <DropdownMenuItem onClick={() => handleSendForSignature(lease)}>
+                            <Send className="h-4 w-4 mr-2" />Send for Signature
+                          </DropdownMenuItem>
+                        )}
+                        {(lease.status === 'pending_signature' || lease.status === 'draft') && !lease.landlord_signed_at && (
+                          <DropdownMenuItem onClick={() => { setSigningLease(lease); setIsSignDialogOpen(true); }}>
+                            <FileSignature className="h-4 w-4 mr-2" />Sign as Landlord
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => { setLeaseToDelete(lease.id); setDeleteDialogOpen(true); }} className="text-destructive">
+                          <Trash2 className="h-4 w-4 mr-2" />Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="mt-4 p-3 rounded-lg bg-secondary/40 space-y-1 text-xs">
+                    <div className="flex items-center justify-between font-medium text-foreground">
+                      <span className="flex items-center gap-1"><User className="h-3.5 w-3.5 text-muted-foreground" /> {tenant?.name || 'N/A'}</span>
+                      <span>{formatCurrency(lease.monthly_rent)}/mo</span>
+                    </div>
+                    <p className="text-muted-foreground truncate">{tenant?.email}</p>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-border flex items-center justify-between gap-2 flex-wrap text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <StatusPill variant={statusVariants[lease.status] || 'neutral'} className="capitalize">
+                        {lease.status.replace('_', ' ')}
+                      </StatusPill>
+                      {lease.status === 'active' && daysRemaining > 0 && daysRemaining <= 30 && (
+                        <StatusPill variant="warning">{daysRemaining}d left</StatusPill>
+                      )}
+                    </div>
+                    <div className="flex gap-1 items-center" title="Signatures: Landlord & Tenant">
+                      <ShieldCheck className={`h-4 w-4 ${lease.landlord_signed_at && lease.tenant_signed_at ? 'text-success' : 'text-muted-foreground'}`} />
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredLeases.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
+
+      {!isLoading && view === 'compact' && paginatedLeases.length > 0 && (
+        <div className="space-y-4">
+          <div className="divide-y rounded-lg border border-border bg-card shadow-xs">
+            {paginatedLeases.map((lease) => {
+              const tenant = lease.tenants;
+              const property = lease.properties;
+              const unit = lease.units;
+              const daysRemaining = differenceInDays(new Date(lease.end_date), new Date());
+
+              return (
+                <div key={lease.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-foreground truncate cursor-pointer hover:underline" onClick={() => { setViewingLease(lease); setIsViewDialogOpen(true); }}>
+                          {lease.lease_number}
+                        </span>
+                        <StatusPill variant={statusVariants[lease.status] || 'neutral'} className="capitalize text-xs">
+                          {lease.status.replace('_', ' ')}
+                        </StatusPill>
+                        {lease.status === 'active' && daysRemaining > 0 && daysRemaining <= 30 && (
+                          <StatusPill variant="warning" className="text-xs">{daysRemaining}d left</StatusPill>
+                        )}
+                        {(property as { companies?: { name?: string } | null } | null)?.companies?.name && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                            🏢 {(property as { companies?: { name?: string } | null }).companies?.name}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        Tenant: {tenant?.name || 'N/A'} • {property?.name || 'N/A'} (Unit {unit?.unit_number || 'N/A'}) • {format(new Date(lease.start_date), 'MMM d, yyyy')} - {format(new Date(lease.end_date), 'MMM d, yyyy')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-6 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0">
+                    <div className="text-left sm:text-right">
+                      <p className="font-semibold text-foreground text-sm">
+                        {formatCurrency(lease.monthly_rent)}
+                        <span className="text-xs text-muted-foreground font-normal">/mo</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">Deposit: {formatCurrency(lease.security_deposit)}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={() => { setViewingLease(lease); setIsViewDialogOpen(true); }}>
+                        View
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => { setViewingLease(lease); setIsViewDialogOpen(true); }}>
+                            <Eye className="h-4 w-4 mr-2" />View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDownloadPdf(lease.id)}>
+                            <Download className="h-4 w-4 mr-2" />Download PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleOpenDialog(lease)}>
+                            <Pencil className="h-4 w-4 mr-2" />Edit
+                          </DropdownMenuItem>
+                          {lease.status === 'draft' && (
+                            <DropdownMenuItem onClick={() => handleSendForSignature(lease)}>
+                              <Send className="h-4 w-4 mr-2" />Send for Signature
+                            </DropdownMenuItem>
+                          )}
+                          {(lease.status === 'pending_signature' || lease.status === 'draft') && !lease.landlord_signed_at && (
+                            <DropdownMenuItem onClick={() => { setSigningLease(lease); setIsSignDialogOpen(true); }}>
+                              <FileSignature className="h-4 w-4 mr-2" />Sign as Landlord
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => { setLeaseToDelete(lease.id); setDeleteDialogOpen(true); }} className="text-destructive">
+                            <Trash2 className="h-4 w-4 mr-2" />Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredLeases.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
+
+      {!isLoading && view === 'table' && paginatedLeases.length > 0 && (
+        <div className="rounded-lg border border-border bg-card shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/40">
                   <TableHead>Lease #</TableHead>
                   <TableHead>Tenant</TableHead>
                   <TableHead>Property / Unit</TableHead>
@@ -561,14 +744,14 @@ export default function Leases() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLeases.map((lease) => {
+                {paginatedLeases.map((lease) => {
                   const tenant = lease.tenants;
                   const property = lease.properties;
                   const unit = lease.units;
                   const daysRemaining = differenceInDays(new Date(lease.end_date), new Date());
 
                   return (
-                    <TableRow key={lease.id}>
+                    <TableRow key={lease.id} className="hover:bg-muted/30">
                       <TableCell className="font-medium">{lease.lease_number}</TableCell>
                       <TableCell>
                         <div>
@@ -649,11 +832,26 @@ export default function Leases() {
                 })}
               </TableBody>
             </Table>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredLeases.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
 
-      {/* Create/Edit Dialog */}
+      {!isLoading && filteredLeases.length === 0 && (
+        <EmptyState
+          icon={FileText}
+          title="No leases found"
+          description="Create a lease agreement to get started."
+          action={<Button size="sm" onClick={() => handleOpenDialog()}><Plus className="h-4 w-4" />Create Lease</Button>}
+        />
+      )}
+
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>

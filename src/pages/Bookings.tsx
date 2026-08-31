@@ -19,6 +19,8 @@ import {
   Share2,
   Copy,
   Send,
+  MoreHorizontal,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,6 +63,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useBookings, useCreateBooking, useUpdateBooking, useDeleteBooking, Booking } from '@/hooks/useBookings';
 import { useProperties, type Property } from '@/hooks/useProperties';
 import { useUnits, type Unit } from '@/hooks/useUnits';
@@ -68,6 +76,9 @@ import { useSettings } from '@/contexts/useSettings';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { Pagination } from '@/components/shared/Pagination';
+import { StatusPill } from '@/components/shared/StatusPill';
 
 type EmailType = 'status_update' | 'payment_request' | 'reminder' | 'check_in_details' | 'cancellation_notice';
 
@@ -104,9 +115,16 @@ export default function Bookings() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedProperty, setSelectedProperty] = useState('');
+  const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-bookings') as ViewMode) || 'table');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [sendingEmailForId, setSendingEmailForId] = useState<string | null>(null);
   const autoEmailTimersRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    localStorage.setItem('estatepro-view-bookings', view);
+  }, [view]);
 
   const { data: bookings = [], isLoading } = useBookings();
   const { data: properties = [] } = useProperties();
@@ -151,6 +169,12 @@ export default function Bookings() {
     return matchesSearch && matchesStatus && matchesProp;
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter, selectedProperty, pageSize]);
+
+  const paginatedBookings = filteredBookings.slice((page - 1) * pageSize, page * pageSize);
+
   const stats = useMemo(() => {
     const active = bookings.filter(b => ['confirmed', 'checked_in'].includes(b.status));
     const revenue = bookings.filter(b => b.payment_status === 'paid').reduce((sum, b) => sum + b.total_amount, 0);
@@ -160,153 +184,109 @@ export default function Bookings() {
 
   const resetForm = () => {
     setForm({
-      property_id: '', unit_id: '', guest_name: '', guest_email: '', guest_phone: '',
-      check_in: '', check_out: '', nightly_rate: 0, cleaning_fee: 0, service_fee: 0,
-      num_guests: 1, notes: '', special_requests: '',
+      property_id: '',
+      unit_id: '',
+      guest_name: '',
+      guest_email: '',
+      guest_phone: '',
+      check_in: '',
+      check_out: '',
+      nightly_rate: 0,
+      cleaning_fee: 0,
+      service_fee: 0,
+      num_guests: 1,
+      notes: '',
+      special_requests: '',
     });
   };
 
   const handleCreate = async () => {
     if (!form.property_id || !form.unit_id || !form.guest_name || !form.guest_email || !form.check_in || !form.check_out) {
+      toast({ title: 'Validation Error', description: 'Please fill in all required fields', variant: 'destructive' });
       return;
     }
-    await createBooking.mutateAsync({
-      ...form,
-      total_amount: totalAmount,
-    });
-    resetForm();
-    setIsCreateOpen(false);
-  };
 
-  useEffect(() => {
-    const timers = autoEmailTimersRef.current;
-    return () => {
-      Object.values(timers).forEach((timerId) => window.clearTimeout(timerId));
-    };
-  }, []);
-
-  const handleStatusChange = async (bookingId: string, newStatus: string) => {
-    await updateBooking.mutateAsync({ id: bookingId, status: newStatus });
-
-    // Always clear any pending auto email timer first.
-    const existingTimer = autoEmailTimersRef.current[bookingId];
-    if (existingTimer) {
-      window.clearTimeout(existingTimer);
-      delete autoEmailTimersRef.current[bookingId];
-    }
-
-    // Auto-send confirmation/payment email after a short delay.
-    if (newStatus === 'confirmed') {
-      const timerId = window.setTimeout(async () => {
-        try {
-          // Re-check status at send time to avoid sending if booking changed meanwhile.
-          const { data: latestBooking, error } = await supabase
-            .from('bookings')
-            .select('status')
-            .eq('id', bookingId)
-            .single();
-
-          if (error || latestBooking?.status !== 'confirmed') {
-            return;
-          }
-
-          await handleSendGuestEmail(bookingId, 'payment_request');
-        } catch {
-          // Non-blocking; manual email dropdown is still available.
-        } finally {
-          delete autoEmailTimersRef.current[bookingId];
-        }
-      }, 180000);
-
-      autoEmailTimersRef.current[bookingId] = timerId;
-    }
-  };
-
-  const handlePaymentStatusChange = async (bookingId: string, newStatus: string) => {
-    await updateBooking.mutateAsync({ id: bookingId, payment_status: newStatus });
-  };
-
-  const handleSendGuestEmail = async (bookingId: string, emailType: 'status_update' | 'payment_request' | 'reminder' | 'check_in_details' | 'cancellation_notice') => {
     try {
-      setSendingEmailForId(bookingId);
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+      await createBooking.mutateAsync({
+        ...form,
+        nights,
+        total_amount: totalAmount,
+        status: 'pending',
+        payment_status: 'unpaid',
+      });
+      setIsCreateOpen(false);
+      resetForm();
+    } catch {
+      // Error handled by mutation
+    }
+  };
 
-      if (!accessToken) {
-        throw new Error('Unauthorized: your session is missing or expired. Please log in again.');
+  const handleUpdate = async () => {
+    if (!editingBooking) return;
+    try {
+      await updateBooking.mutateAsync({
+        id: editingBooking.id,
+        ...form,
+        nights,
+        total_amount: totalAmount,
+      });
+      setEditingBooking(null);
+      resetForm();
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await deleteBooking.mutateAsync(deleteId);
+      setDeleteId(null);
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  const handleStatusChange = async (id: string, status: string) => {
+    try {
+      await updateBooking.mutateAsync({ id, status });
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  const handlePaymentStatusChange = async (id: string, payment_status: string) => {
+    try {
+      await updateBooking.mutateAsync({ id, payment_status });
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  const handleSendGuestEmail = async (bookingId: string, emailType: EmailType) => {
+    setSendingEmailForId(bookingId);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-guest-email', {
+        body: { bookingId, emailType, companyId: activeCompanyId },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to send guest communication email');
       }
 
-      const payload = {
-        operation: 'send_email',
-        bookingId,
-        emailType,
-        origin: window.location.origin,
-        companyId: activeCompanyId,
-      };
-
-      try {
-        const { data, error } = await supabase.functions.invoke('shortlet-booking-email', {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: payload,
-        });
-
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-      } catch (invokeError: unknown) {
-        // Fallback to direct fetch so we can expose clearer server details.
-        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shortlet-booking-email`;
-
-        const res = await fetch(functionUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: anonKey,
-            Authorization: `Bearer ${accessToken || anonKey}`,
-          },
-          body: JSON.stringify(payload),
-        });
-
-        const rawText = await res.text();
-        let parsed: FunctionErrorPayload | null = null;
-        try {
-          parsed = rawText ? (JSON.parse(rawText) as FunctionErrorPayload) : null;
-        } catch {
-          parsed = null;
-        }
-
-        if (!res.ok) {
-          const message = [
-            parsed?.error,
-            parsed?.message,
-            rawText && !parsed ? rawText : null,
-            `HTTP ${res.status}`,
-          ]
-            .filter(Boolean)
-            .join(' - ');
-          throw new Error(message || getErrorMessage(invokeError) || 'Edge function request failed');
-        }
-
-        if (parsed?.error) {
-          throw new Error(parsed.error);
-        }
+      if (data && typeof data === 'object' && 'success' in data && data.success === false) {
+        const payload = data as FunctionErrorPayload;
+        throw new Error(payload.error || payload.message || 'Failed to send guest communication email');
       }
 
       toast({
         title: 'Email Sent',
-        description: 'Guest booking email sent successfully.',
+        description: `Guest update (${emailType.replace(/_/g, ' ')}) delivered successfully.`,
       });
     } catch (error: unknown) {
-      const rawMessage = getErrorMessage(error) || 'Could not send guest email.';
-      const description = rawMessage.includes('Failed to send a request to the Edge Function')
-        ? `${rawMessage} - Please deploy the edge function shortlet-booking-email and confirm RESEND_API_KEY is set.`
-        : rawMessage;
-
       toast({
-        title: 'Email Failed',
-        description,
+        title: 'Email delivery failed',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -314,13 +294,8 @@ export default function Bookings() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    await deleteBooking.mutateAsync(deleteId);
-    setDeleteId(null);
-  };
-
   const openEdit = (booking: Booking) => {
+    setEditingBooking(booking);
     setForm({
       property_id: booking.property_id,
       unit_id: booking.unit_id,
@@ -336,18 +311,6 @@ export default function Bookings() {
       notes: booking.notes || '',
       special_requests: booking.special_requests || '',
     });
-    setEditingBooking(booking);
-  };
-
-  const handleUpdate = async () => {
-    if (!editingBooking) return;
-    await updateBooking.mutateAsync({
-      id: editingBooking.id,
-      ...form,
-      total_amount: totalAmount,
-    });
-    setEditingBooking(null);
-    resetForm();
   };
 
   // Calendar helpers
@@ -478,44 +441,17 @@ export default function Bookings() {
         <Label>Notes</Label>
         <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} />
       </div>
-      <div className="space-y-2">
-        <Label>Special Requests</Label>
-        <Textarea value={form.special_requests} onChange={(e) => setForm({ ...form, special_requests: e.target.value })} rows={2} />
-      </div>
-      <DialogFooter>
-        <Button onClick={onSubmit} disabled={isSubmitting} className="gap-2">
-          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {submitLabel}
-        </Button>
-      </DialogFooter>
     </div>
   );
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Bookings</h1>
-          <p className="text-muted-foreground mt-1">Manage short-let and Airbnb reservations</p>
+          <h1 className="text-3xl font-bold text-foreground">Short-Let Bookings</h1>
+          <p className="text-muted-foreground mt-1">Manage guest reservations, calendar availability, and guest communications</p>
         </div>
-        <div className="flex gap-2">
-          {shortLetProperties.length > 0 && (
-            <Select onValueChange={(propId) => {
-              const url = `${window.location.origin}/book/${propId}`;
-              navigator.clipboard.writeText(url);
-              toast({ title: 'Link Copied!', description: 'Share this link with guests so they can book directly.' });
-            }}>
-              <SelectTrigger className="w-auto gap-2">
-                <Share2 className="h-4 w-4" />
-                <SelectValue placeholder="Share Booking Link" />
-              </SelectTrigger>
-              <SelectContent>
-                {shortLetProperties.map((p: Property) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+        <div className="flex items-center gap-2">
           <Button onClick={() => { resetForm(); setIsCreateOpen(true); }} className="gap-2">
             <Plus className="h-4 w-4" />
             New Booking
@@ -580,143 +516,264 @@ export default function Bookings() {
 
       <Tabs defaultValue="list">
         <TabsList>
-          <TabsTrigger value="list">List View</TabsTrigger>
+          <TabsTrigger value="list">List / Views</TabsTrigger>
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="list" className="mt-4">
-          <Card className="card-shadow-md">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search guests..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-                      <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        <TabsContent value="list" className="mt-4 space-y-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Search guests by name or email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10 h-11" />
               </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : filteredBookings.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <CalendarIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>No bookings found</p>
-                  <p className="text-sm mt-1">Create a booking to get started</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Guest</TableHead>
-                        <TableHead>Property / Unit</TableHead>
-                        <TableHead>Check-in</TableHead>
-                        <TableHead>Check-out</TableHead>
-                        <TableHead>Nights</TableHead>
-                        <TableHead>Total</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Payment</TableHead>
-                        <TableHead>Guest Email</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredBookings.map((booking) => (
-                        <TableRow key={booking.id}>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">{booking.guest_name}</p>
-                              <p className="text-xs text-muted-foreground">{booking.guest_email}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="text-sm">{booking.property_name}</p>
-                              <p className="text-xs text-muted-foreground">Unit {booking.unit_number}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>{format(new Date(booking.check_in), 'MMM d, yyyy')}</TableCell>
-                          <TableCell>{format(new Date(booking.check_out), 'MMM d, yyyy')}</TableCell>
-                          <TableCell>{booking.nights}</TableCell>
-                          <TableCell className="font-medium">{formatCurrency(booking.total_amount)}</TableCell>
-                          <TableCell>
-                            <Select value={booking.status} onValueChange={(v) => handleStatusChange(booking.id, v)}>
-                              <SelectTrigger className="w-[130px] h-8">
-                                <Badge variant={STATUS_CONFIG[booking.status]?.variant || 'outline'}>
-                                  {STATUS_CONFIG[booking.status]?.label || booking.status}
-                                </Badge>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-                                  <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Select value={booking.payment_status} onValueChange={(v) => handlePaymentStatusChange(booking.id, v)}>
-                              <SelectTrigger className="w-[110px] h-8">
-                                <Badge variant={PAYMENT_STATUS_CONFIG[booking.payment_status]?.variant || 'outline'}>
-                                  {PAYMENT_STATUS_CONFIG[booking.payment_status]?.label || booking.payment_status}
-                                </Badge>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Object.entries(PAYMENT_STATUS_CONFIG).map(([k, v]) => (
-                                  <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            {booking.status === 'confirmed' || booking.status === 'pending' || booking.status === 'checked_in' ? (
-                              <Select onValueChange={(v) => handleSendGuestEmail(booking.id, v as EmailType)}>
-                                <SelectTrigger className="w-[180px] h-8">
-                                  <div className="flex items-center gap-2 text-xs">
-                                    {sendingEmailForId === booking.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                                    <SelectValue placeholder="Send update" />
-                                  </div>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="status_update">Status Update</SelectItem>
-                                  <SelectItem value="payment_request">Payment Request</SelectItem>
-                                  <SelectItem value="reminder">Stay Reminder</SelectItem>
-                                  <SelectItem value="check_in_details">Check-in Details</SelectItem>
-                                  <SelectItem value="cancellation_notice">Cancellation Notice</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">No actions</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button variant="ghost" size="icon" onClick={() => openEdit(booking)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => setDeleteId(booking.id)}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[160px] h-11"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <ViewToggle view={view} onViewChange={setView} />
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : filteredBookings.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground bg-card rounded-lg border border-border">
+              <CalendarIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p className="font-medium">No bookings found</p>
+              <p className="text-sm mt-1">Create a booking to get started</p>
+            </div>
+          ) : (
+            <>
+              {/* 1. Cards View */}
+              {view === 'cards' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {paginatedBookings.map((booking) => (
+                      <Card key={booking.id} className="p-5 card-shadow-md hover:card-shadow-lg transition-all">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground truncate">{booking.guest_name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{booking.guest_email}</p>
+                          </div>
+                          <Badge variant={STATUS_CONFIG[booking.status]?.variant || 'outline'}>
+                            {STATUS_CONFIG[booking.status]?.label || booking.status}
+                          </Badge>
+                        </div>
+
+                        <div className="mt-4 p-3 rounded-lg bg-secondary/40 space-y-1 text-xs">
+                          <div className="flex items-center justify-between text-muted-foreground">
+                            <span>{booking.property_name || 'Short-Let'} • Unit {booking.unit_number}</span>
+                            <span>{booking.nights} nights</span>
+                          </div>
+                          <p className="font-medium text-foreground">
+                            {format(new Date(booking.check_in), 'MMM d, yyyy')} - {format(new Date(booking.check_out), 'MMM d, yyyy')}
+                          </p>
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                          <div>
+                            <p className="text-lg font-bold text-foreground">{formatCurrency(booking.total_amount)}</p>
+                            <Badge variant={PAYMENT_STATUS_CONFIG[booking.payment_status]?.variant || 'outline'} className="text-[10px] h-4">
+                              {PAYMENT_STATUS_CONFIG[booking.payment_status]?.label || booking.payment_status}
+                            </Badge>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <Button variant="outline" size="sm" onClick={() => openEdit(booking)}>
+                              <Pencil className="h-3.5 w-3.5 mr-1" />
+                              Edit
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(booking.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                  <Pagination
+                    page={page}
+                    pageSize={pageSize}
+                    total={filteredBookings.length}
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                  />
                 </div>
               )}
-            </CardContent>
-          </Card>
+
+              {/* 2. Compact View */}
+              {view === 'compact' && (
+                <div className="space-y-4">
+                  <div className="divide-y rounded-lg border border-border bg-card shadow-xs">
+                    {paginatedBookings.map((booking) => (
+                      <div key={booking.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4 hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+                            <CalendarIcon className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-foreground truncate">{booking.guest_name}</span>
+                              <Badge variant={STATUS_CONFIG[booking.status]?.variant || 'outline'} className="text-xs">
+                                {STATUS_CONFIG[booking.status]?.label || booking.status}
+                              </Badge>
+                              <Badge variant={PAYMENT_STATUS_CONFIG[booking.payment_status]?.variant || 'outline'} className="text-xs">
+                                {PAYMENT_STATUS_CONFIG[booking.payment_status]?.label || booking.payment_status}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {booking.property_name} (Unit {booking.unit_number}) • {format(new Date(booking.check_in), 'MMM d')} - {format(new Date(booking.check_out), 'MMM d, yyyy')} ({booking.nights} nights)
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between sm:justify-end gap-6 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0">
+                          <p className="font-semibold text-foreground text-sm">{formatCurrency(booking.total_amount)}</p>
+                          <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => openEdit(booking)}>
+                              <Pencil className="h-3.5 w-3.5 mr-1" />
+                              Edit
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(booking.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <Pagination
+                    page={page}
+                    pageSize={pageSize}
+                    total={filteredBookings.length}
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                  />
+                </div>
+              )}
+
+              {/* 3. Table View */}
+              {view === 'table' && (
+                <div className="rounded-lg border border-border bg-card shadow-xs overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40">
+                          <TableHead>Guest</TableHead>
+                          <TableHead>Property / Unit</TableHead>
+                          <TableHead>Check-in</TableHead>
+                          <TableHead>Check-out</TableHead>
+                          <TableHead>Nights</TableHead>
+                          <TableHead>Total</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Payment</TableHead>
+                          <TableHead>Guest Email</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedBookings.map((booking) => (
+                          <TableRow key={booking.id} className="hover:bg-muted/30">
+                            <TableCell>
+                              <div>
+                                <p className="font-medium">{booking.guest_name}</p>
+                                <p className="text-xs text-muted-foreground">{booking.guest_email}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="text-sm">{booking.property_name}</p>
+                                <p className="text-xs text-muted-foreground">Unit {booking.unit_number}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>{format(new Date(booking.check_in), 'MMM d, yyyy')}</TableCell>
+                            <TableCell>{format(new Date(booking.check_out), 'MMM d, yyyy')}</TableCell>
+                            <TableCell>{booking.nights}</TableCell>
+                            <TableCell className="font-medium">{formatCurrency(booking.total_amount)}</TableCell>
+                            <TableCell>
+                              <Select value={booking.status} onValueChange={(v) => handleStatusChange(booking.id, v)}>
+                                <SelectTrigger className="w-[130px] h-8">
+                                  <Badge variant={STATUS_CONFIG[booking.status]?.variant || 'outline'}>
+                                    {STATUS_CONFIG[booking.status]?.label || booking.status}
+                                  </Badge>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <Select value={booking.payment_status} onValueChange={(v) => handlePaymentStatusChange(booking.id, v)}>
+                                <SelectTrigger className="w-[110px] h-8">
+                                  <Badge variant={PAYMENT_STATUS_CONFIG[booking.payment_status]?.variant || 'outline'}>
+                                    {PAYMENT_STATUS_CONFIG[booking.payment_status]?.label || booking.payment_status}
+                                  </Badge>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Object.entries(PAYMENT_STATUS_CONFIG).map(([k, v]) => (
+                                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              {booking.status === 'confirmed' || booking.status === 'pending' || booking.status === 'checked_in' ? (
+                                <Select onValueChange={(v) => handleSendGuestEmail(booking.id, v as EmailType)}>
+                                  <SelectTrigger className="w-[180px] h-8">
+                                    <div className="flex items-center gap-2 text-xs">
+                                      {sendingEmailForId === booking.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                                      <SelectValue placeholder="Send update" />
+                                    </div>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="status_update">Status Update</SelectItem>
+                                    <SelectItem value="payment_request">Payment Request</SelectItem>
+                                    <SelectItem value="reminder">Stay Reminder</SelectItem>
+                                    <SelectItem value="check_in_details">Check-in Details</SelectItem>
+                                    <SelectItem value="cancellation_notice">Cancellation Notice</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">No actions</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => openEdit(booking)}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => setDeleteId(booking.id)}>
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <Pagination
+                    page={page}
+                    pageSize={pageSize}
+                    total={filteredBookings.length}
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                  />
+                </div>
+              )}
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="calendar" className="mt-4">
@@ -749,12 +806,12 @@ export default function Bookings() {
                       <p className={`text-xs font-medium ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
                         {day.getDate()}
                       </p>
-                      <div className="space-y-0.5 mt-1">
+                      <div className="space-y-1 mt-1">
                         {dayBookings.slice(0, 2).map(b => (
                           <div
                             key={b.id}
-                            className="text-[10px] px-1 py-0.5 rounded bg-primary/10 text-primary truncate"
-                            title={`${b.guest_name} - Unit ${b.unit_number}`}
+                            className="text-[10px] p-1 rounded bg-primary/10 text-primary truncate cursor-pointer hover:bg-primary/20"
+                            onClick={() => openEdit(b)}
                           >
                             {b.guest_name}
                           </div>
@@ -774,32 +831,44 @@ export default function Bookings() {
 
       {/* Create Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-[700px]">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>New Booking</DialogTitle>
-            <DialogDescription>Create a new short-let reservation</DialogDescription>
+            <DialogTitle>New Reservation</DialogTitle>
+            <DialogDescription>Create a short-let booking for a guest</DialogDescription>
           </DialogHeader>
           <BookingForm onSubmit={handleCreate} isSubmitting={createBooking.isPending} submitLabel="Create Booking" />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={createBooking.isPending}>
+              {createBooking.isPending ? 'Creating...' : 'Create Booking'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={!!editingBooking} onOpenChange={() => { setEditingBooking(null); resetForm(); }}>
-        <DialogContent className="sm:max-w-[700px]">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit Booking</DialogTitle>
-            <DialogDescription>Update reservation details</DialogDescription>
+            <DialogTitle>Edit Reservation</DialogTitle>
+            <DialogDescription>Update booking details</DialogDescription>
           </DialogHeader>
           <BookingForm onSubmit={handleUpdate} isSubmitting={updateBooking.isPending} submitLabel="Save Changes" />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEditingBooking(null); resetForm(); }}>Cancel</Button>
+            <Button onClick={handleUpdate} disabled={updateBooking.isPending}>
+              {updateBooking.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Dialog */}
+      {/* Delete Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Booking</AlertDialogTitle>
-            <AlertDialogDescription>Are you sure? This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogDescription>Are you sure you want to delete this booking? This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

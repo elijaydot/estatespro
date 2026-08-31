@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Pencil, Trash2, Droplets, Shield, Zap, Wifi, Trash, MoreHorizontal, Search, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Pencil, Trash2, Droplets, Shield, Zap, Wifi, Trash, MoreHorizontal, Search, RefreshCw, Home, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,8 @@ import { useSettings } from '@/contexts/useSettings';
 import { useRecurringBills, useCreateRecurringBill, useUpdateRecurringBill, useDeleteRecurringBill, type RecurringBill } from '@/hooks/useRecurringBills';
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
+import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { Pagination } from '@/components/shared/Pagination';
 
 type RecurringBillRow = RecurringBill & {
   properties?: {
@@ -117,12 +119,19 @@ const defaultFormData: BillFormData = {
 
 export default function RecurringBills() {
   const { formatCurrency } = useSettings();
+  const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-recurring-bills') as ViewMode) || 'table');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<string | null>(null);
   const [formData, setFormData] = useState<BillFormData>(defaultFormData);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [billToDelete, setBillToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('estatepro-view-recurring-bills', view);
+  }, [view]);
 
   const { data: bills = [], isLoading } = useRecurringBills();
   const { data: properties = [] } = useProperties();
@@ -151,6 +160,12 @@ export default function RecurringBills() {
       (bill.bill_type || '').toLowerCase().includes(q)
     );
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, pageSize]);
+
+  const paginatedBills = (filteredBills as RecurringBillRow[]).slice((page - 1) * pageSize, page * pageSize);
 
   const handleOpenDialog = (bill?: typeof bills[0]) => {
     if (bill) {
@@ -221,12 +236,16 @@ export default function RecurringBills() {
     }
   };
 
-  // Calculate summary stats
-  const totalMonthlyBills = filteredBills
-    .filter(b => b.is_active && b.frequency === 'monthly')
-    .reduce((sum, b) => sum + b.amount, 0);
-  
-  const activeBillsCount = filteredBills.filter(b => b.is_active).length;
+  const totalMonthlyAmount = bills
+    .filter(b => b.is_active)
+    .reduce((sum, b) => {
+      if (b.frequency === 'monthly') return sum + b.amount;
+      if (b.frequency === 'quarterly') return sum + (b.amount / 3);
+      if (b.frequency === 'yearly') return sum + (b.amount / 12);
+      return sum;
+    }, 0);
+
+  const activeBills = bills.filter(b => b.is_active).length;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -234,9 +253,7 @@ export default function RecurringBills() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Recurring Bills</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage amenity bills like water, security, and utilities
-          </p>
+          <p className="text-muted-foreground mt-1">Manage automated recurring charges for utilities, security, and services</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="gap-2">
           <Plus className="h-4 w-4" />
@@ -244,63 +261,241 @@ export default function RecurringBills() {
         </Button>
       </div>
 
-      {/* Summary Cards */}
+      {/* Metrics */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <MetricCard title="Total Bills" value={filteredBills.length} subtitle="Matching the current search" icon={RefreshCw} accent="primary" />
-        <MetricCard title="Active Bills" value={activeBillsCount} subtitle="Currently generating charges" icon={Shield} iconColor="bg-success/10 text-success" accent="success" />
-        <MetricCard title="Monthly Total" value={formatCurrency(totalMonthlyBills)} subtitle="Active monthly schedules" icon={Droplets} iconColor="bg-info/10 text-info" accent="info" />
+        <MetricCard
+          title="Total Active Bills"
+          value={activeBills}
+          icon={RefreshCw}
+          variant="primary"
+          subtitle={`${bills.length - activeBills} inactive`}
+        />
+        <MetricCard
+          title="Est. Monthly Total"
+          value={formatCurrency(totalMonthlyAmount)}
+          icon={Zap}
+          variant="success"
+          subtitle="Across all properties"
+        />
+        <MetricCard
+          title="Total Bill Types"
+          value={new Set(bills.map(b => b.bill_type)).size}
+          icon={Shield}
+          variant="default"
+          subtitle="Configured categories"
+        />
       </div>
 
-      {/* Search */}
-      <FilterBar>
-        <div className="relative w-full sm:max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      {/* Filters & View Toggle */}
+      <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search bills..."
+            placeholder="Search recurring bills by name or type..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 h-11"
           />
         </div>
+
+        <ViewToggle view={view} onViewChange={setView} />
       </FilterBar>
 
-      {/* Bills Table */}
-      <Card className="card-shadow-md">
-        <CardHeader>
-          <CardTitle>All Recurring Bills</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading bills...</div>
-          ) : filteredBills.length === 0 ? (
-            <EmptyState
-              icon={RefreshCw}
-              title={searchQuery ? 'No matching recurring bills' : 'No recurring bills yet'}
-              description={searchQuery ? 'Try a different bill name or type.' : 'Create a recurring charge for utilities, services, or amenities.'}
-              action={!searchQuery ? <Button size="sm" onClick={() => handleOpenDialog()}><Plus />Add Recurring Bill</Button> : undefined}
-            />
-          ) : (
+      {/* 1. Cards / Grid View */}
+      {!isLoading && view === 'cards' && paginatedBills.length > 0 && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedBills.map((bill) => {
+              const IconComponent = getBillIcon(bill.bill_type);
+              const property = bill.properties;
+              const tenant = bill.tenants;
+
+              return (
+                <Card key={bill.id} className="p-5 card-shadow-md hover:card-shadow-lg transition-all">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+                        <IconComponent className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-foreground truncate">{bill.name}</p>
+                        <StatusPill variant="neutral" className="capitalize text-xs mt-1">
+                          {bill.bill_type}
+                        </StatusPill>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={bill.is_active}
+                        onCheckedChange={() => handleToggleActive(bill as never)}
+                      />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenDialog(bill as never)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setBillToDelete(bill.id);
+                              setDeleteDialogOpen(true);
+                            }}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 p-3 rounded-lg bg-secondary/40 space-y-1 text-xs">
+                    {bill.description && (
+                      <p className="text-muted-foreground truncate">{bill.description}</p>
+                    )}
+                    <div className="flex items-center justify-between text-muted-foreground pt-1">
+                      <span className="flex items-center gap-1"><Home className="h-3.5 w-3.5" /> {property?.name || 'All Properties'}</span>
+                      <span className="flex items-center gap-1"><User className="h-3.5 w-3.5" /> {tenant?.name || 'All Tenants'}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                    <div>
+                      <p className="text-lg font-bold text-foreground">{formatCurrency(bill.amount)}</p>
+                      <p className="text-xs text-muted-foreground capitalize">Billed {bill.frequency}</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => handleOpenDialog(bill as never)}>
+                      <Pencil className="h-3.5 w-3.5 mr-1" />
+                      Edit
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredBills.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
+
+      {/* 2. Compact View */}
+      {!isLoading && view === 'compact' && paginatedBills.length > 0 && (
+        <div className="space-y-4">
+          <div className="divide-y rounded-lg border border-border bg-card shadow-xs">
+            {paginatedBills.map((bill) => {
+              const IconComponent = getBillIcon(bill.bill_type);
+              const property = bill.properties;
+              const tenant = bill.tenants;
+
+              return (
+                <div key={bill.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+                      <IconComponent className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-foreground truncate">{bill.name}</span>
+                        <StatusPill variant="neutral" className="capitalize text-xs">
+                          {bill.bill_type}
+                        </StatusPill>
+                        <span className="text-xs text-muted-foreground capitalize font-medium">
+                          ({bill.frequency})
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {property?.name || 'All Properties'} • {tenant?.name || 'All Tenants'} {bill.description ? `• ${bill.description}` : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-6 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0">
+                    <div className="text-left sm:text-right">
+                      <p className="font-semibold text-foreground text-sm">{formatCurrency(bill.amount)}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{bill.frequency}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={bill.is_active}
+                        onCheckedChange={() => handleToggleActive(bill as never)}
+                      />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenDialog(bill as never)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setBillToDelete(bill.id);
+                              setDeleteDialogOpen(true);
+                            }}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredBills.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
+
+      {/* 3. Table View */}
+      {!isLoading && view === 'table' && paginatedBills.length > 0 && (
+        <div className="rounded-lg border border-border bg-card shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/40">
                   <TableHead>Bill Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Frequency</TableHead>
                   <TableHead>Property</TableHead>
                   <TableHead>Tenant</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Active</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(filteredBills as RecurringBillRow[]).map((bill) => {
+                {paginatedBills.map((bill) => {
                   const IconComponent = getBillIcon(bill.bill_type);
                   const property = bill.properties;
                   const tenant = bill.tenants;
                   
                   return (
-                    <TableRow key={bill.id}>
+                    <TableRow key={bill.id} className="hover:bg-muted/30">
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-muted">
@@ -340,7 +535,7 @@ export default function RecurringBills() {
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -367,9 +562,26 @@ export default function RecurringBills() {
                 })}
               </TableBody>
             </Table>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredBills.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && filteredBills.length === 0 && (
+        <EmptyState
+          icon={RefreshCw}
+          title={searchQuery ? 'No matching recurring bills' : 'No recurring bills yet'}
+          description={searchQuery ? 'Try a different bill name or type.' : 'Create a recurring charge for utilities, services, or amenities.'}
+          action={!searchQuery ? <Button size="sm" onClick={() => handleOpenDialog()}><Plus className="h-4 w-4" />Add Recurring Bill</Button> : undefined}
+        />
+      )}
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

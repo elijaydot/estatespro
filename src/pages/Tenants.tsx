@@ -75,6 +75,8 @@ import { FilterBar } from '@/components/shared/FilterBar';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { DataTable } from '@/components/shared/DataTable';
+import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { Pagination } from '@/components/shared/Pagination';
 
 type TenantRow = Tenant & {
   company_id?: string;
@@ -134,6 +136,9 @@ export default function Tenants() {
   const { data: companiesList = [] } = useMyCompanies();
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-tenants') as ViewMode) || 'table');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [invitingTenant, setInvitingTenant] = useState<TenantRow | null>(null);
@@ -155,6 +160,10 @@ export default function Tenants() {
     occupation: '',
     avatar_url: '',
   });
+
+  useEffect(() => {
+    localStorage.setItem('estatepro-view-tenants', view);
+  }, [view]);
 
   // Handle ?add=true query parameter from Quick Add
   useEffect(() => {
@@ -217,6 +226,12 @@ export default function Tenants() {
       (tenant.properties?.companies?.name || '').toLowerCase().includes(q)
     );
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, selectedOrgFilter, pageSize, activeTab]);
+
+  const paginatedTenants = filteredTenants.slice((page - 1) * pageSize, page * pageSize);
 
   const handleCreate = async () => {
     if (!formData.name || !formData.email || !formData.phone) {
@@ -386,35 +401,39 @@ export default function Tenants() {
         </TabsList>
 
         <TabsContent value="tenants" className="space-y-4 mt-4">
-          {/* Filters */}
-          <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tenants by name, email, or property..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+          {/* Filters & View Toggle */}
+          <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search tenants by name, email, or property..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {isSuperAdmin && companiesList.length > 0 && (
+                <div className="w-full sm:w-auto min-w-[220px]">
+                  <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="All Organizations (Global)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
+                      {companiesList.map((company) => (
+                        <SelectItem key={company.id} value={company.id}>
+                          {company.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
-            {isSuperAdmin && companiesList.length > 0 && (
-              <div className="w-full sm:w-auto min-w-[220px]">
-                <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="All Organizations (Global)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
-                    {companiesList.map((company) => (
-                      <SelectItem key={company.id} value={company.id}>
-                        {company.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <ViewToggle view={view} onViewChange={setView} />
           </FilterBar>
 
           {/* Loading State */}
@@ -424,161 +443,371 @@ export default function Tenants() {
             </div>
           )}
 
-      {/* Tenants Table */}
-      {!isLoading && filteredTenants.length > 0 && (
-        <DataTable className="animate-fade-in">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tenant</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Property / Unit</TableHead>
-                <TableHead>Portal Status</TableHead>
-                <TableHead>Lease Status</TableHead>
-                <TableHead>Balance</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTenants.map((tenant) => (
-                <TableRow key={tenant.id} className="hover:bg-muted/50">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
+          {/* 1. Cards / Grid View */}
+          {!isLoading && view === 'cards' && paginatedTenants.length > 0 && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {paginatedTenants.map((tenant, index: number) => (
+                  <Card
+                    key={tenant.id}
+                    className="p-5 card-shadow-md hover:card-shadow-lg transition-all duration-200 animate-fade-in"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Avatar className="h-11 w-11 shrink-0">
+                          {tenant.avatar_url && (
+                            <AvatarImage src={tenant.avatar_url} alt={tenant.name || 'Tenant'} />
+                          )}
+                          <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
+                            {getInitials(tenant.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <h3
+                            className="font-semibold text-foreground truncate cursor-pointer hover:underline"
+                            onClick={() => navigate(`/tenants/${tenant.id}`)}
+                          >
+                            {tenant.name}
+                          </h3>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {tenant.units ? `Unit ${tenant.units.unit_number}` : 'No Unit'} • {tenant.properties?.name || 'No property'}
+                          </p>
+                          {(tenant.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
+                              🏢 {(tenant.properties as { companies?: { name?: string } | null }).companies?.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onSelect={() => navigate(`/tenants/${tenant.id}`)}>
+                            <Eye className="h-4 w-4 mr-2" /> View Profile
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => navigate(`/tenants/${tenant.id}?edit=true`)}>
+                            <Edit className="h-4 w-4 mr-2" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => navigate(`/tenants/${tenant.id}?tab=messages`)}>
+                            <Mail className="h-4 w-4 mr-2" /> Send Message
+                          </DropdownMenuItem>
+                          {!tenant.tenant_user_id && (
+                            <>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  setInvitingTenant(tenant);
+                                  setIsInviteDialogOpen(true);
+                                }}
+                              >
+                                <Send className="h-4 w-4 mr-2" /> Send Portal Invite
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => handleCopyInviteLink(tenant)}
+                                disabled={isCopyingLink}
+                              >
+                                <Copy className="h-4 w-4 mr-2" /> Copy Invite Link
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(tenant)}>
+                            <Trash2 className="h-4 w-4 mr-2" /> Remove
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div className="mt-4 space-y-1.5 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 truncate">
+                        <Mail className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{tenant.email}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-3.5 w-3.5 shrink-0" />
+                        <span>{tenant.phone}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-border flex items-center justify-between gap-2 flex-wrap text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <PortalStatusBadge
+                          tenantUserId={tenant.tenant_user_id}
+                          hasPendingInvite={hasPendingInvite(tenant.id)}
+                        />
+                        {getLeaseStatusBadge(tenant.lease_end_date)}
+                      </div>
+                      <span className={tenant.balance > 0 ? 'text-destructive font-semibold' : 'text-success font-medium'}>
+                        {formatCurrency(tenant.balance)}
+                      </span>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                total={filteredTenants.length}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            </div>
+          )}
+
+          {/* 2. Compact / List View */}
+          {!isLoading && view === 'compact' && paginatedTenants.length > 0 && (
+            <div className="space-y-4">
+              <div className="divide-y rounded-lg border border-border bg-card shadow-xs">
+                {paginatedTenants.map((tenant) => (
+                  <div key={tenant.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4 hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <Avatar className="h-10 w-10 shrink-0">
                         {tenant.avatar_url && (
                           <AvatarImage src={tenant.avatar_url} alt={tenant.name || 'Tenant'} />
                         )}
-                        <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                        <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
                           {getInitials(tenant.name)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="font-medium">{tenant.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Mail className="h-3.5 w-3.5" />
-                        {tenant.email}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Phone className="h-3.5 w-3.5" />
-                        {tenant.phone}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      <Home className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium text-sm">
-                          {tenant.units ? `Unit ${tenant.units.unit_number}` : 'No unit'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {tenant.properties?.name || 'No property'}
-                        </p>
-                        {(tenant.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
-                            🏢 {(tenant.properties as { companies?: { name?: string } | null }).companies?.name}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className="font-semibold text-foreground truncate cursor-pointer hover:underline"
+                            onClick={() => navigate(`/tenants/${tenant.id}`)}
+                          >
+                            {tenant.name}
                           </span>
-                        )}
+                          <PortalStatusBadge
+                            tenantUserId={tenant.tenant_user_id}
+                            hasPendingInvite={hasPendingInvite(tenant.id)}
+                          />
+                          {getLeaseStatusBadge(tenant.lease_end_date)}
+                          {(tenant.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                              🏢 {(tenant.properties as { companies?: { name?: string } | null }).companies?.name}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {tenant.units ? `Unit ${tenant.units.unit_number}` : 'No Unit'} • {tenant.properties?.name || 'No property'} • {tenant.email} • {tenant.phone}
+                        </p>
                       </div>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <PortalStatusBadge 
-                      tenantUserId={tenant.tenant_user_id}
-                      hasPendingInvite={hasPendingInvite(tenant.id)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {getLeaseStatusBadge(tenant.lease_end_date)}
-                  </TableCell>
-                  <TableCell>
-                    <span className={tenant.balance > 0 ? 'text-destructive font-medium' : 'text-success'}>
-                      {formatCurrency(tenant.balance)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            navigate(`/tenants/${tenant.id}`);
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-2" /> View Profile
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            navigate(`/tenants/${tenant.id}?edit=true`);
-                          }}
-                        >
-                          <Edit className="h-4 w-4 mr-2" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            navigate(`/tenants/${tenant.id}?tab=messages`);
-                          }}
-                        >
-                          <Mail className="h-4 w-4 mr-2" /> Send Message
-                        </DropdownMenuItem>
-                        {!tenant.tenant_user_id && (
-                          <>
-                            <DropdownMenuItem
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                setInvitingTenant(tenant);
-                                setIsInviteDialogOpen(true);
-                              }}
-                            >
-                              <Send className="h-4 w-4 mr-2" /> Send Portal Invite
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                handleCopyInviteLink(tenant);
-                              }}
-                              disabled={isCopyingLink}
-                            >
-                              <Copy className="h-4 w-4 mr-2" /> Copy Invite Link
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onSelect={() => handleDelete(tenant)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" /> Remove
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </DataTable>
-      )}
 
-      {/* Empty State */}
-      {!isLoading && filteredTenants.length === 0 && (
-        <EmptyState
-          icon={Users}
-          title="No tenants found"
-          description="Try adjusting your search or add a new tenant."
-          action={<Button onClick={() => setIsAddDialogOpen(true)}><Plus className="h-4 w-4" />Add Tenant</Button>}
-        />
-      )}
+                    <div className="flex items-center justify-between sm:justify-end gap-6 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0">
+                      <div className="text-left sm:text-right">
+                        <p className="text-xs text-muted-foreground">Balance</p>
+                        <p className={`font-semibold text-sm ${tenant.balance > 0 ? 'text-destructive' : 'text-success'}`}>
+                          {formatCurrency(tenant.balance)}
+                        </p>
+                      </div>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => navigate(`/tenants/${tenant.id}`)}>
+                              <Eye className="h-4 w-4 mr-2" /> View Profile
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => navigate(`/tenants/${tenant.id}?edit=true`)}>
+                              <Edit className="h-4 w-4 mr-2" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => navigate(`/tenants/${tenant.id}?tab=messages`)}>
+                              <Mail className="h-4 w-4 mr-2" /> Send Message
+                            </DropdownMenuItem>
+                            {!tenant.tenant_user_id && (
+                              <>
+                                <DropdownMenuItem
+                                  onSelect={() => {
+                                    setInvitingTenant(tenant);
+                                    setIsInviteDialogOpen(true);
+                                  }}
+                                >
+                                  <Send className="h-4 w-4 mr-2" /> Send Portal Invite
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={() => handleCopyInviteLink(tenant)}
+                                  disabled={isCopyingLink}
+                                >
+                                  <Copy className="h-4 w-4 mr-2" /> Copy Invite Link
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(tenant)}>
+                              <Trash2 className="h-4 w-4 mr-2" /> Remove
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                ))}
+              </div>
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                total={filteredTenants.length}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            </div>
+          )}
+
+          {/* 3. Table View */}
+          {!isLoading && view === 'table' && paginatedTenants.length > 0 && (
+            <div className="rounded-lg border border-border bg-card shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/40">
+                      <TableHead>Tenant</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Property / Unit</TableHead>
+                      <TableHead>Portal Status</TableHead>
+                      <TableHead>Lease Status</TableHead>
+                      <TableHead>Balance</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedTenants.map((tenant) => (
+                      <TableRow key={tenant.id} className="hover:bg-muted/30">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9">
+                              {tenant.avatar_url && (
+                                <AvatarImage src={tenant.avatar_url} alt={tenant.name || 'Tenant'} />
+                              )}
+                              <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+                                {getInitials(tenant.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span
+                              className="font-medium text-foreground cursor-pointer hover:underline"
+                              onClick={() => navigate(`/tenants/${tenant.id}`)}
+                            >
+                              {tenant.name}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-0.5 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1.5">
+                              <Mail className="h-3.5 w-3.5" />
+                              {tenant.email}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Phone className="h-3.5 w-3.5" />
+                              {tenant.phone}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <Home className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium text-sm">
+                                {tenant.units ? `Unit ${tenant.units.unit_number}` : 'No unit'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {tenant.properties?.name || 'No property'}
+                              </p>
+                              {(tenant.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
+                                  🏢 {(tenant.properties as { companies?: { name?: string } | null }).companies?.name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <PortalStatusBadge 
+                            tenantUserId={tenant.tenant_user_id}
+                            hasPendingInvite={hasPendingInvite(tenant.id)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {getLeaseStatusBadge(tenant.lease_end_date)}
+                        </TableCell>
+                        <TableCell>
+                          <span className={tenant.balance > 0 ? 'text-destructive font-semibold' : 'text-success font-medium'}>
+                            {formatCurrency(tenant.balance)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => navigate(`/tenants/${tenant.id}`)}>
+                                <Eye className="h-4 w-4 mr-2" /> View Profile
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => navigate(`/tenants/${tenant.id}?edit=true`)}>
+                                <Edit className="h-4 w-4 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => navigate(`/tenants/${tenant.id}?tab=messages`)}>
+                                <Mail className="h-4 w-4 mr-2" /> Send Message
+                              </DropdownMenuItem>
+                              {!tenant.tenant_user_id && (
+                                <>
+                                  <DropdownMenuItem
+                                    onSelect={() => {
+                                      setInvitingTenant(tenant);
+                                      setIsInviteDialogOpen(true);
+                                    }}
+                                  >
+                                    <Send className="h-4 w-4 mr-2" /> Send Portal Invite
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() => handleCopyInviteLink(tenant)}
+                                    disabled={isCopyingLink}
+                                  >
+                                    <Copy className="h-4 w-4 mr-2" /> Copy Invite Link
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(tenant)}>
+                                <Trash2 className="h-4 w-4 mr-2" /> Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                total={filteredTenants.length}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && filteredTenants.length === 0 && (
+            <EmptyState
+              icon={Users}
+              title="No tenants found"
+              description="Try adjusting your search or add a new tenant."
+              action={<Button onClick={() => setIsAddDialogOpen(true)}><Plus className="h-4 w-4" />Add Tenant</Button>}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="invites" className="mt-4">

@@ -17,6 +17,9 @@ import {
   Loader2,
   Sparkles,
   Rocket,
+  Home,
+  User,
+  Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +48,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
 import { useSettings } from '@/contexts/useSettings';
@@ -62,23 +64,35 @@ import { StatusPill } from '@/components/shared/StatusPill';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Badge } from '@/components/ui/badge';
-
-type TenantWithRelations = Tenant & {
-  units?: { unit_number: string | null } | null;
-};
+import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { Pagination } from '@/components/shared/Pagination';
 
 type InvoiceWithRelations = Invoice & {
   company_id?: string;
-  tenants?: { name: string | null } | null;
+  guest_name?: string | null;
+  guest_email?: string | null;
+  tenants?: {
+    name: string;
+    email: string;
+    phone: string;
+  } | null;
   properties?: {
-    name: string | null;
+    name: string;
     company_id?: string;
     companies?: {
       id?: string;
       name?: string;
     } | null;
   } | null;
-  units?: { unit_number: string | null } | null;
+  units?: {
+    unit_number: string;
+  } | null;
+};
+
+type TenantWithRelations = Tenant & {
+  units?: {
+    unit_number: string;
+  } | null;
 };
 
 const getErrorMessage = (error: unknown, fallback: string) => {
@@ -131,10 +145,17 @@ export default function Invoices() {
   const { data: companiesList = [] } = useMyCompanies();
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-invoices') as ViewMode) || 'table');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceWithRelations | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('estatepro-view-invoices', view);
+  }, [view]);
 
   // Handle ?add=true query parameter from Quick Add
   useEffect(() => {
@@ -144,6 +165,7 @@ export default function Invoices() {
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+  
   const [formData, setFormData] = useState({
     tenant_id: '',
     property_id: '',
@@ -193,6 +215,12 @@ export default function Invoices() {
     );
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, selectedOrgFilter, pageSize]);
+
+  const paginatedInvoices = filteredInvoices.slice((page - 1) * pageSize, page * pageSize);
+
   const handleExport = () => {
     downloadCsv(
       'invoices-export.csv',
@@ -238,36 +266,62 @@ export default function Invoices() {
       } else {
         URL.revokeObjectURL(htmlUrl);
       }
-    } catch (error: unknown) {
-      console.error('Error downloading PDF:', error);
-      toast({ title: 'Error', description: getErrorMessage(error, 'Failed to generate invoice PDF'), variant: 'destructive' });
+    } catch (err: unknown) {
+      console.error('Error downloading PDF:', err);
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to generate invoice PDF',
+        variant: 'destructive',
+      });
     } finally {
       setDownloadingId(null);
     }
   };
 
   const handleCreate = async () => {
-    if (!formData.tenant_id || !formData.description || !formData.amount || !formData.due_date) {
+    if (!formData.tenant_id || !formData.amount || !formData.due_date) {
       toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
       return;
     }
 
     const selectedTenant = tenantRows.find((t) => t.id === formData.tenant_id);
-    
+    const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+
     await createInvoice.mutateAsync({
+      invoice_number: invoiceNumber,
       tenant_id: formData.tenant_id,
-      property_id: selectedTenant?.property_id || null,
-      unit_id: selectedTenant?.unit_id || null,
+      property_id: selectedTenant?.property_id || formData.property_id || null,
+      unit_id: selectedTenant?.unit_id || formData.unit_id || null,
       description: formData.description,
       amount: formData.amount,
+      paid_amount: 0,
       due_date: formData.due_date,
       status: 'pending',
-      paid_amount: 0,
       paid_at: null,
     });
 
     setIsCreateOpen(false);
-    resetForm();
+    setFormData({
+      tenant_id: '',
+      property_id: '',
+      unit_id: '',
+      description: '',
+      amount: 0,
+      due_date: '',
+    });
+  };
+
+  const openEdit = (invoice: InvoiceWithRelations) => {
+    setSelectedInvoice(invoice);
+    setFormData({
+      tenant_id: invoice.tenant_id || '',
+      property_id: invoice.property_id || '',
+      unit_id: invoice.unit_id || '',
+      description: invoice.description || '',
+      amount: invoice.amount,
+      due_date: invoice.due_date,
+    });
+    setIsEditOpen(true);
   };
 
   const handleUpdate = async () => {
@@ -282,59 +336,33 @@ export default function Invoices() {
 
     setIsEditOpen(false);
     setSelectedInvoice(null);
-    resetForm();
-  };
-
-  const resetForm = () => {
-    setFormData({
-      tenant_id: '',
-      property_id: '',
-      unit_id: '',
-      description: '',
-      amount: 0,
-      due_date: '',
-    });
-  };
-
-  const openEdit = (invoice: InvoiceWithRelations) => {
-    setSelectedInvoice(invoice);
-    setFormData({
-      tenant_id: invoice.tenant_id,
-      property_id: invoice.property_id || '',
-      unit_id: invoice.unit_id || '',
-      description: invoice.description,
-      amount: invoice.amount,
-      due_date: invoice.due_date,
-    });
-    setIsEditOpen(true);
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/80 flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5" />
-            Revenue command
-          </p>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Invoices</h1>
-          <p className="text-muted-foreground mt-1">Create, track, and settle tenant billing in one flow</p>
+          <h1 className="text-2xl font-bold text-foreground">Invoices</h1>
+          <p className="text-muted-foreground">Manage and track tenant invoices</p>
         </div>
-        <Button className="gap-2 w-full sm:w-auto rounded-full px-5" onClick={() => setIsCreateOpen(true)}>
+        <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
           <Plus className="h-4 w-4" />
           Create Invoice
         </Button>
       </div>
 
-      <Card className="border border-border/70 bg-card/85 backdrop-blur-sm card-shadow-md overflow-hidden">
-        <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Rocket className="h-4 w-4 text-primary" />
-              Billing cockpit
+      {/* Overview Card */}
+      <Card className="border-border/70 bg-gradient-to-r from-primary/5 via-card to-card">
+        <CardContent className="p-4 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-primary">Invoicing Operations</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Track outstanding balances, collection efficiency, and multi-channel tenant communications.
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">Move from invoice creation to payment reconciliation faster.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="rounded-full px-3 py-1 border-warning/30 text-warning">Pending {stats.pendingCount}</Badge>
@@ -348,98 +376,44 @@ export default function Invoices() {
         </CardContent>
       </Card>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-1">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Invoiced</p>
-                <p className="text-2xl font-bold text-foreground">{formatCurrency(stats.totalInvoiced)}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-primary/10">
-                <FileText className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-2">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Collected</p>
-                <p className="text-2xl font-bold text-success">{formatCurrency(stats.totalPaid)}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-success/10">
-                <CheckCircle className="h-6 w-6 text-success" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-3">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Overdue</p>
-                <p className="text-2xl font-bold text-destructive">{formatCurrency(stats.overdueAmount)}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-destructive/10">
-                <AlertCircle className="h-6 w-6 text-destructive" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-4">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Pending</p>
-                <p className="text-2xl font-bold text-warning">{stats.pendingCount}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-warning/10">
-                <Clock className="h-6 w-6 text-warning" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters & Search */}
-      <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by tenant, invoice number, or property..."
-            className="pl-10 h-11 border-border/70 bg-card/80"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        {isSuperAdmin && companiesList.length > 0 && (
-          <div className="w-full sm:w-auto min-w-[200px]">
-            <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="All Organizations (Global)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
-                {companiesList.map((company) => (
-                  <SelectItem key={company.id} value={company.id}>
-                    {company.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* Filters & View Toggle */}
+      <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by tenant, invoice number, or property..."
+              className="pl-10 h-11 border-border/70 bg-card/80"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-        )}
 
-        <div className="sm:flex">
+          {isSuperAdmin && companiesList.length > 0 && (
+            <div className="w-full sm:w-auto min-w-[200px]">
+              <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="All Organizations (Global)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
+                  {companiesList.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <Button variant="outline" className="w-full gap-2 sm:w-auto h-11" onClick={handleExport}>
             <Download className="h-4 w-4" />
             Export
           </Button>
         </div>
+
+        <ViewToggle view={view} onViewChange={setView} />
       </FilterBar>
 
       {/* Loading State */}
@@ -454,85 +428,181 @@ export default function Invoices() {
         </Card>
       )}
 
-      {isError && !isLoading && (
-        <Card className="card-shadow-md border-destructive/20">
-          <CardContent className="py-10 text-center space-y-3">
-            <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
-            <p className="font-medium">Could not load invoices</p>
-            <p className="text-sm text-muted-foreground">
-              {(error as Error)?.message || 'Please check your connection and try again.'}
-            </p>
-            <Button variant="outline" onClick={() => window.location.reload()}>
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Invoices Table */}
-      {!isLoading && !isError && (
-        <Card className="card-shadow-md border-border/70 animate-enter stagger-2">
-          <CardContent className="p-0">
-            <div className="md:hidden divide-y">
-              {filteredInvoices.length === 0 ? (
-                <EmptyState
-                  icon={FileText}
-                  title="No invoices found"
-                  description="Try adjusting your search query or create a new invoice."
-                  action={<Button size="sm" onClick={() => setIsCreateOpen(true)}><Plus className="h-4 w-4" />Create invoice</Button>}
-                />
-              ) : (
-                filteredInvoices.map((invoice, index) => (
-                  <div key={invoice.id} className={`p-4 space-y-3 animate-enter ${index < 5 ? `stagger-${(index % 5) + 1}` : ''}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{invoice.invoice_number}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Due {format(new Date(invoice.due_date), 'MMM dd, yyyy')}
-                        </p>
+      {/* 1. Cards / Grid View */}
+      {!isLoading && !isError && view === 'cards' && paginatedInvoices.length > 0 && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedInvoices.map((invoice) => {
+              const balance = invoice.amount - invoice.paid_amount;
+              return (
+                <Card key={invoice.id} className="p-5 card-shadow-md hover:card-shadow-lg transition-all animate-enter">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-primary shrink-0" />
+                        <span className="font-semibold text-foreground truncate">{invoice.invoice_number}</span>
                       </div>
-                      {getStatusBadge(invoice.status)}
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Due {format(new Date(invoice.due_date), 'MMM dd, yyyy')}
+                      </p>
                     </div>
+                    {getStatusBadge(invoice.status)}
+                  </div>
 
-                    <div className="space-y-1 text-sm">
-                      <p className="font-medium">{invoice.tenants?.name || invoice.guest_name || 'Guest Booking'}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-2">{invoice.description}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {invoice.properties?.name || '-'} {invoice.units ? `• Unit ${invoice.units.unit_number}` : ''}
+                  <div className="mt-4 p-3 rounded-lg bg-secondary/40 space-y-1 text-xs">
+                    <p className="font-medium text-foreground text-sm truncate">
+                      {invoice.tenants?.name || invoice.guest_name || 'Guest Booking'}
+                    </p>
+                    <p className="text-muted-foreground truncate">{invoice.description}</p>
+                    <p className="text-muted-foreground">
+                      {invoice.properties?.name || '-'} {invoice.units ? `• Unit ${invoice.units.unit_number}` : ''}
+                    </p>
+                    {(invoice.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
+                        🏢 {(invoice.properties as { companies?: { name?: string } | null }).companies?.name}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                    <div>
+                      <p className="text-lg font-bold text-foreground">{formatCurrency(invoice.amount)}</p>
+                      <p className={`text-xs ${balance > 0 ? 'text-destructive font-medium' : 'text-success'}`}>
+                        Balance: {formatCurrency(balance)}
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-lg font-semibold">{formatCurrency(invoice.amount)}</p>
-                        <p className={`text-xs ${invoice.amount - invoice.paid_amount > 0 ? 'text-destructive' : 'text-success'}`}>
-                          Balance {formatCurrency(invoice.amount - invoice.paid_amount)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDownloadPdf(invoice.id)}
-                          disabled={downloadingId === invoice.id}
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          PDF
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(invoice)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadPdf(invoice.id)}
+                        disabled={downloadingId === invoice.id}
+                      >
+                        <Download className="h-3.5 w-3.5 mr-1" />
+                        PDF
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(invoice)}>
+                            <Edit className="h-4 w-4 mr-2" /> Edit Invoice
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => toast({ title: 'Sent', description: 'Invoice sent to tenant.' })}>
+                            <Send className="h-4 w-4 mr-2" /> Send to Tenant
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => navigate('/payments')}>
+                            <DollarSign className="h-4 w-4 mr-2" /> Record Payment
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                </Card>
+              );
+            })}
+          </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredInvoices.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
 
-            <div className="hidden md:block overflow-x-auto">
+      {/* 2. Compact View */}
+      {!isLoading && !isError && view === 'compact' && paginatedInvoices.length > 0 && (
+        <div className="space-y-4">
+          <div className="divide-y rounded-lg border border-border bg-card shadow-xs">
+            {paginatedInvoices.map((invoice) => {
+              const balance = invoice.amount - invoice.paid_amount;
+              return (
+                <div key={invoice.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-foreground truncate">{invoice.invoice_number}</span>
+                        {getStatusBadge(invoice.status)}
+                        {(invoice.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                            🏢 {(invoice.properties as { companies?: { name?: string } | null }).companies?.name}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {invoice.tenants?.name || invoice.guest_name || 'Guest'} • {invoice.properties?.name || '-'} {invoice.units ? `(Unit ${invoice.units.unit_number})` : ''} • Due: {format(new Date(invoice.due_date), 'MMM dd, yyyy')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-6 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0">
+                    <div className="text-left sm:text-right">
+                      <p className="font-semibold text-foreground text-sm">{formatCurrency(invoice.amount)}</p>
+                      <p className={`text-xs ${balance > 0 ? 'text-destructive font-medium' : 'text-success'}`}>
+                        Bal: {formatCurrency(balance)}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadPdf(invoice.id)}
+                        disabled={downloadingId === invoice.id}
+                      >
+                        <Download className="h-3.5 w-3.5 mr-1" />
+                        PDF
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(invoice)}>
+                            <Edit className="h-4 w-4 mr-2" /> Edit Invoice
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => toast({ title: 'Sent', description: 'Invoice sent to tenant.' })}>
+                            <Send className="h-4 w-4 mr-2" /> Send to Tenant
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => navigate('/payments')}>
+                            <DollarSign className="h-4 w-4 mr-2" /> Record Payment
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredInvoices.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
+
+      {/* 3. Table View */}
+      {!isLoading && !isError && view === 'table' && paginatedInvoices.length > 0 && (
+        <div className="rounded-lg border border-border bg-card shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/40">
                   <TableHead>Invoice #</TableHead>
                   <TableHead>Tenant</TableHead>
                   <TableHead>Property / Unit</TableHead>
@@ -541,101 +611,105 @@ export default function Invoices() {
                   <TableHead>Balance</TableHead>
                   <TableHead>Due Date</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredInvoices.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                      <EmptyState
-                        icon={FileText}
-                        title="No invoices found"
-                        action={<Button size="sm" onClick={() => setIsCreateOpen(true)}><Plus className="h-4 w-4" />Create invoice</Button>}
-                      />
+                {paginatedInvoices.map((invoice) => (
+                  <TableRow key={invoice.id} className="hover:bg-muted/30">
+                    <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                    <TableCell>
+                      {invoice.tenant_id ? (
+                        <button
+                          className="hover:text-primary transition-colors font-medium text-left"
+                          onClick={() => navigate(`/tenants/${invoice.tenant_id}`)}
+                        >
+                          {invoice.tenants?.name || 'Unknown'}
+                        </button>
+                      ) : (
+                        <div>
+                          <p className="font-medium">{invoice.guest_name || 'Guest Booking'}</p>
+                          {invoice.guest_email ? <p className="text-xs text-muted-foreground">{invoice.guest_email}</p> : null}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <p>{invoice.properties?.name || '-'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {invoice.units ? `Unit ${invoice.units.unit_number}` : '-'}
+                        </p>
+                        {(invoice.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
+                            🏢 {(invoice.properties as { companies?: { name?: string } | null }).companies?.name}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground">{invoice.description}</TableCell>
+                    <TableCell className="font-semibold">{formatCurrency(invoice.amount)}</TableCell>
+                    <TableCell className={invoice.amount - invoice.paid_amount > 0 ? 'text-destructive font-semibold' : 'text-success'}>
+                      {formatCurrency(invoice.amount - invoice.paid_amount)}
+                    </TableCell>
+                    <TableCell className="text-sm">{format(new Date(invoice.due_date), 'MMM dd, yyyy')}</TableCell>
+                    <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(invoice)}>
+                            <Edit className="h-4 w-4 mr-2" /> Edit Invoice
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() => handleDownloadPdf(invoice.id)}
+                            disabled={downloadingId === invoice.id}
+                          >
+                            <Download className="h-4 w-4 mr-2" /> {downloadingId === invoice.id ? 'Generating...' : 'Download PDF'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() => toast({ title: 'Sent', description: 'Invoice sent to tenant.' })}
+                          >
+                            <Send className="h-4 w-4 mr-2" /> Send to Tenant
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() => toast({ title: 'Print', description: 'Opening print dialog...' })}
+                          >
+                            <Printer className="h-4 w-4 mr-2" /> Print
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onSelect={() => navigate('/payments')}>
+                            <DollarSign className="h-4 w-4 mr-2" /> Record Payment
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  filteredInvoices.map((invoice) => (
-                    <TableRow key={invoice.id}>
-                      <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                      <TableCell>
-                        {invoice.tenant_id ? (
-                          <button
-                            className="hover:text-primary transition-colors"
-                            onClick={() => navigate(`/tenants/${invoice.tenant_id}`)}
-                          >
-                            {invoice.tenants?.name || invoice.guest_name || 'Unknown'}
-                          </button>
-                        ) : (
-                          <div>
-                            <p>{invoice.guest_name || 'Guest Booking'}</p>
-                            {invoice.guest_email ? <p className="text-xs text-muted-foreground">{invoice.guest_email}</p> : null}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <p>{invoice.properties?.name || '-'}</p>
-                          <p className="text-muted-foreground">
-                            {invoice.units ? `Unit ${invoice.units.unit_number}` : '-'}
-                          </p>
-                          {(invoice.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
-                              🏢 {(invoice.properties as { companies?: { name?: string } | null }).companies?.name}
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">{invoice.description}</TableCell>
-                      <TableCell className="font-semibold">{formatCurrency(invoice.amount)}</TableCell>
-                      <TableCell className={invoice.amount - invoice.paid_amount > 0 ? 'text-destructive font-semibold' : 'text-success'}>
-                        {formatCurrency(invoice.amount - invoice.paid_amount)}
-                      </TableCell>
-                      <TableCell>{format(new Date(invoice.due_date), 'MMM dd, yyyy')}</TableCell>
-                      <TableCell>{getStatusBadge(invoice.status)}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEdit(invoice)}>
-                              <Edit className="h-4 w-4 mr-2" /> Edit Invoice
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={() => handleDownloadPdf(invoice.id)}
-                              disabled={downloadingId === invoice.id}
-                            >
-                              <Download className="h-4 w-4 mr-2" /> {downloadingId === invoice.id ? 'Generating...' : 'Download PDF'}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={() => toast({ title: 'Sent', description: 'Invoice sent to tenant.' })}
-                            >
-                              <Send className="h-4 w-4 mr-2" /> Send to Tenant
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={() => toast({ title: 'Print', description: 'Opening print dialog...' })}
-                            >
-                              <Printer className="h-4 w-4 mr-2" /> Print
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onSelect={() => navigate('/payments')}>
-                              <DollarSign className="h-4 w-4 mr-2" /> Record Payment
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                ))}
               </TableBody>
             </Table>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredInvoices.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && !isError && filteredInvoices.length === 0 && (
+        <EmptyState
+          icon={FileText}
+          title="No invoices found"
+          description="Try adjusting your search query or create a new invoice."
+          action={<Button size="sm" onClick={() => setIsCreateOpen(true)}><Plus className="h-4 w-4" />Create invoice</Button>}
+        />
       )}
 
       {/* Create Invoice Dialog */}

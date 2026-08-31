@@ -28,6 +28,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -51,6 +59,8 @@ import { useConfirmAction } from '@/components/ui/use-confirm-action';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { Pagination } from '@/components/shared/Pagination';
 
 type UnitTenant = {
   id: string;
@@ -98,8 +108,15 @@ export default function Units() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
+  const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-units') as ViewMode) || 'cards');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [listingUnitId, setListingUnitId] = useState<string | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('estatepro-view-units', view);
+  }, [view]);
 
   // Handle ?add=true query parameter from Quick Add
   useEffect(() => {
@@ -135,9 +152,7 @@ export default function Units() {
     description: `${property.city}, ${property.state}`,
   }));
 
-  const unitRows = units as UnitRow[];
-
-  const filteredUnits = unitRows.filter((unit) => {
+  const filteredUnits = (units as UnitRow[]).filter((unit) => {
     const unitCompanyId = unit.properties?.company_id || unit.properties?.companies?.id;
     if (selectedOrgFilter !== 'all' && unitCompanyId && unitCompanyId !== selectedOrgFilter) {
       return false;
@@ -147,22 +162,29 @@ export default function Units() {
     return (
       (unit.unit_number || '').toLowerCase().includes(q) ||
       (unit.properties?.name || '').toLowerCase().includes(q) ||
-      (unit.properties?.companies?.name || '').toLowerCase().includes(q)
+      (unit.properties?.companies?.name || '').toLowerCase().includes(q) ||
+      (unit.tenants && unit.tenants.some((t) => (t.name || '').toLowerCase().includes(q)))
     );
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, selectedOrgFilter, pageSize]);
+
+  const paginatedUnits = filteredUnits.slice((page - 1) * pageSize, page * pageSize);
+
   const handleCreate = async () => {
-    if (!formData.property_id || !formData.unit_number) {
-      toast({ title: 'Error', description: 'Property and Unit Number are required', variant: 'destructive' });
+    if (!formData.property_id || !formData.unit_number || !formData.rent_amount) {
+      toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
       return;
     }
 
-    const payload: Omit<Unit, 'id' | 'created_at' | 'updated_at' | 'user_id'> = {
-      ...formData, 
-      amenities: [],
-      description: formData.description || null,
+    const payload: Omit<Unit, 'id' | 'created_at' | 'updated_at'> = {
+      ...formData,
       image_url: formData.image_urls[0] || formData.image_url || null,
       image_urls: formData.image_urls,
+      sqft: formData.sqft || null,
+      description: formData.description || null,
     };
 
     await createUnit.mutateAsync(payload);
@@ -185,7 +207,7 @@ export default function Units() {
   const handleDelete = async (unit: UnitRow) => {
     const confirmed = await confirmAction({
       title: 'Delete unit?',
-      description: `Delete Unit ${unit.unit_number}${unit.properties?.name ? ` at ${unit.properties.name}` : ''}? This action cannot be undone.`,
+      description: `Delete Unit ${unit.unit_number}? This action cannot be undone.`,
       confirmLabel: 'Delete unit',
       destructive: true,
     });
@@ -209,35 +231,39 @@ export default function Units() {
         </Button>
       </div>
 
-      {/* Filters */}
-      <FilterBar className="animate-fade-in flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search units..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+      {/* Filters & View Toggle */}
+      <FilterBar className="animate-fade-in flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search units by number, property, company, or tenant..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {isSuperAdmin && companiesList.length > 0 && (
+            <div className="w-full sm:w-auto min-w-[220px]">
+              <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="All Organizations (Global)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
+                  {companiesList.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
-        {isSuperAdmin && companiesList.length > 0 && (
-          <div className="w-full sm:w-auto min-w-[220px]">
-            <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="All Organizations (Global)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
-                {companiesList.map((company) => (
-                  <SelectItem key={company.id} value={company.id}>
-                    {company.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <ViewToggle view={view} onViewChange={setView} />
       </FilterBar>
 
       {/* Loading State */}
@@ -247,103 +273,299 @@ export default function Units() {
         </div>
       )}
 
-      {/* Units Grid */}
-      {!isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredUnits.map((unit, index: number) => (
-            <Card
-              key={unit.id}
-              className="p-5 card-shadow-md hover:card-shadow-lg transition-all duration-200 animate-fade-in"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-primary/10">
-                    <Home className="h-5 w-5 text-primary" />
+      {/* 1. Cards / Grid View */}
+      {!isLoading && view === 'cards' && paginatedUnits.length > 0 && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedUnits.map((unit, index: number) => (
+              <Card
+                key={unit.id}
+                className="p-5 card-shadow-md hover:card-shadow-lg transition-all duration-200 animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-primary/10">
+                      <Home className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground">Unit {unit.unit_number}</h3>
+                      <p className="text-sm text-muted-foreground">{unit.properties?.name || 'No property'}</p>
+                      {unit.properties?.companies?.name && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
+                          🏢 {unit.properties.companies.name}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Unit {unit.unit_number}</h3>
-                    <p className="text-sm text-muted-foreground">{unit.properties?.name || 'No property'}</p>
-                    {unit.properties?.companies?.name && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
-                        🏢 {unit.properties.companies.name}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        navigate(`/units/${unit.id}`);
-                      }}
-                    >
-                      <Eye className="h-4 w-4 mr-2" /> View Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        navigate(`/units/${unit.id}?edit=true`);
-                      }}
-                    >
-                      <Edit className="h-4 w-4 mr-2" /> Edit Unit
-                    </DropdownMenuItem>
-                    {unit.status === 'vacant' && (
-                      <DropdownMenuItem onSelect={() => setListingUnitId(unit.id)}>
-                        <Store className="h-4 w-4 mr-2" /> Publish to marketplace
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          navigate(`/units/${unit.id}`);
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-2" /> View Details
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          navigate(`/units/${unit.id}?edit=true`);
+                        }}
+                      >
+                        <Edit className="h-4 w-4 mr-2" /> Edit Unit
+                      </DropdownMenuItem>
+                      {unit.status === 'vacant' && (
+                        <DropdownMenuItem onSelect={() => setListingUnitId(unit.id)}>
+                          <Store className="h-4 w-4 mr-2" /> Publish to marketplace
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onSelect={() => handleDelete(unit)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Unit Details */}
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Bed className="h-4 w-4" />
+                    <span>{unit.bedrooms} bed</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Bath className="h-4 w-4" />
+                    <span>{unit.bathrooms} bath</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Square className="h-4 w-4" />
+                    <span>{unit.sqft} sqft</span>
+                  </div>
+                </div>
+
+                {/* Rent & Status */}
+                <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                  <span className="font-semibold text-foreground">
+                    {formatCurrency(unit.rent_amount)}
+                    <span className="text-sm text-muted-foreground font-normal">/mo</span>
+                  </span>
+                  {getStatusBadge(unit.status)}
+                </div>
+
+                {/* Tenant Info */}
+                {unit.tenants && unit.tenants.length > 0 && (
+                  <div className="mt-3 p-3 rounded-lg bg-secondary/50 flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">{unit.tenants[0]?.name}</span>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredUnits.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
+
+      {/* 2. Compact / List View */}
+      {!isLoading && view === 'compact' && paginatedUnits.length > 0 && (
+        <div className="space-y-4">
+          <div className="divide-y rounded-lg border border-border bg-card shadow-xs">
+            {paginatedUnits.map((unit) => (
+              <div key={unit.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4 hover:bg-muted/30 transition-colors">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+                    <Home className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-foreground truncate cursor-pointer hover:underline" onClick={() => navigate(`/units/${unit.id}`)}>
+                        Unit {unit.unit_number}
+                      </span>
+                      {getStatusBadge(unit.status)}
+                      {unit.properties?.companies?.name && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                          🏢 {unit.properties.companies.name}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {unit.properties?.name || 'No property'} • {unit.bedrooms} Bed • {unit.bathrooms} Bath {unit.sqft ? `• ${unit.sqft} sqft` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between sm:justify-end gap-6 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0">
+                  <div className="text-left sm:text-right">
+                    <p className="font-semibold text-foreground text-sm">
+                      {formatCurrency(unit.rent_amount)}
+                      <span className="text-xs text-muted-foreground font-normal">/mo</span>
+                    </p>
+                    {unit.tenants && unit.tenants.length > 0 ? (
+                      <p className="text-xs text-primary flex items-center gap-1">
+                        <User className="h-3 w-3" /> {unit.tenants[0]?.name}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Vacant</p>
                     )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive"
-                      onSelect={() => handleDelete(unit)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" /> Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                  </div>
 
-              {/* Unit Details */}
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Bed className="h-4 w-4" />
-                  <span>{unit.bedrooms} bed</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Bath className="h-4 w-4" />
-                  <span>{unit.bathrooms} bath</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Square className="h-4 w-4" />
-                  <span>{unit.sqft} sqft</span>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => navigate(`/units/${unit.id}`)}>
+                      View
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => navigate(`/units/${unit.id}`)}>
+                          <Eye className="h-4 w-4 mr-2" /> View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => navigate(`/units/${unit.id}?edit=true`)}>
+                          <Edit className="h-4 w-4 mr-2" /> Edit Unit
+                        </DropdownMenuItem>
+                        {unit.status === 'vacant' && (
+                          <DropdownMenuItem onSelect={() => setListingUnitId(unit.id)}>
+                            <Store className="h-4 w-4 mr-2" /> Publish to marketplace
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(unit)}>
+                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </div>
+            ))}
+          </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredUnits.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
 
-              {/* Rent & Status */}
-              <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-                <span className="font-semibold text-foreground">
-                  {formatCurrency(unit.rent_amount)}
-                  <span className="text-sm text-muted-foreground font-normal">/mo</span>
-                </span>
-                {getStatusBadge(unit.status)}
-              </div>
-
-              {/* Tenant Info */}
-              {unit.tenants && unit.tenants.length > 0 && (
-                <div className="mt-3 p-3 rounded-lg bg-secondary/50 flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{unit.tenants[0]?.name}</span>
-                </div>
-              )}
-            </Card>
-          ))}
+      {/* 3. Table View */}
+      {!isLoading && view === 'table' && paginatedUnits.length > 0 && (
+        <div className="rounded-lg border border-border bg-card shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40">
+                  <TableHead>Unit #</TableHead>
+                  <TableHead>Property</TableHead>
+                  <TableHead>Organization</TableHead>
+                  <TableHead>Layout</TableHead>
+                  <TableHead>Rent</TableHead>
+                  <TableHead>Tenant</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedUnits.map((unit) => (
+                  <TableRow key={unit.id} className="hover:bg-muted/30">
+                    <TableCell>
+                      <span
+                        className="font-medium text-foreground cursor-pointer hover:underline flex items-center gap-1.5"
+                        onClick={() => navigate(`/units/${unit.id}`)}
+                      >
+                        <Home className="h-4 w-4 text-primary" />
+                        Unit {unit.unit_number}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm font-medium">
+                      {unit.properties?.name || '-'}
+                    </TableCell>
+                    <TableCell>
+                      {unit.properties?.companies?.name ? (
+                        <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 whitespace-nowrap">
+                          🏢 {unit.properties.companies.name}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {unit.bedrooms} bed • {unit.bathrooms} bath {unit.sqft ? `• ${unit.sqft} sqft` : ''}
+                    </TableCell>
+                    <TableCell className="font-semibold whitespace-nowrap">
+                      {formatCurrency(unit.rent_amount)}
+                      <span className="text-xs text-muted-foreground font-normal">/mo</span>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {unit.tenants && unit.tenants.length > 0 ? (
+                        <span className="flex items-center gap-1 text-primary">
+                          <User className="h-3.5 w-3.5" /> {unit.tenants[0]?.name}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">None (Vacant)</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(unit.status)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onSelect={() => navigate(`/units/${unit.id}`)}>
+                            <Eye className="h-4 w-4 mr-2" /> View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => navigate(`/units/${unit.id}?edit=true`)}>
+                            <Edit className="h-4 w-4 mr-2" /> Edit Unit
+                          </DropdownMenuItem>
+                          {unit.status === 'vacant' && (
+                            <DropdownMenuItem onSelect={() => setListingUnitId(unit.id)}>
+                              <Store className="h-4 w-4 mr-2" /> Publish to marketplace
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(unit)}>
+                            <Trash2 className="h-4 w-4 mr-2" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredUnits.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       )}
 
