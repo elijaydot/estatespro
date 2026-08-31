@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   Users, UserPlus, Building2, Shield, Clock, CheckCircle2, 
-  XCircle, Copy, Ban, MapPin, Loader2, Plus, Trash2, Pencil, Star
+  XCircle, Copy, Ban, MapPin, Loader2, Plus, Trash2, Pencil, Star, Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,9 +11,12 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { useUserRole } from '@/hooks/useUserRole';
+import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { Pagination } from '@/components/shared/Pagination';
 import {
   useMyCompanies,
   useCompanyMembers,
@@ -60,7 +63,15 @@ export default function TeamManagement() {
   const [editCompanyDialogOpen, setEditCompanyDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<{ id: string; name: string; email: string; phone: string; address: string } | null>(null);
   const [savingDefaultCompanyId, setSavingDefaultCompanyId] = useState<string | null>(null);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberView, setMemberView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-team-members') as ViewMode) || 'cards');
+  const [memberPage, setMemberPage] = useState(1);
+  const [memberPageSize, setMemberPageSize] = useState(10);
   const resolvedCompanyId = activeCompanyId || '';
+
+  useEffect(() => {
+    localStorage.setItem('estatepro-view-team-members', memberView);
+  }, [memberView]);
   
   const { data: members, isLoading: loadingMembers } = useCompanyMembers(resolvedCompanyId);
   const { data: assignments } = usePMAssignments(resolvedCompanyId);
@@ -427,67 +438,243 @@ export default function TeamManagement() {
             </Card>
           )}
 
-          {/* Approved Members */}
+          {/* Approved Members with 3 Views & Pagination */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Active Managers ({approvedMembers.length})</CardTitle>
-              <CardDescription>Approved property managers in your company</CardDescription>
+            <CardHeader className="pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-lg">Active Managers ({approvedMembers.length})</CardTitle>
+                  <CardDescription>Approved property managers across company portfolios</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ViewToggle view={memberView} onViewChange={setMemberView} />
+                </div>
+              </div>
+              <div className="pt-2">
+                <div className="relative max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search managers by name, email..."
+                    value={memberSearch}
+                    onChange={(e) => {
+                      setMemberSearch(e.target.value);
+                      setMemberPage(1);
+                    }}
+                    className="pl-9 h-9"
+                  />
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              {approvedMembers.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No approved managers yet. Invite or approve pending applications.</p>
-              ) : (
-                <div className="space-y-3">
-                  {approvedMembers.map(member => {
-                    const memberAssignments = assignments?.filter(a => a.manager_id === member.user_id) || [];
-                    return (
-                      <div key={member.id} className="p-4 rounded-lg border bg-card">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarFallback className="bg-success/10 text-success">
-                                {member.profiles?.name?.charAt(0) || 'U'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{member.profiles?.name || 'Unknown'}</p>
-                              <p className="text-sm text-muted-foreground">{member.profiles?.email}</p>
-                              {memberAssignments.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {memberAssignments.map(a => (
-                                    <Badge key={a.id} variant="secondary" className="text-xs">
-                                      {a.properties?.name || 'Property'}
-                                    </Badge>
-                                  ))}
+              {(() => {
+                const q = memberSearch.trim().toLowerCase();
+                const filtered = approvedMembers.filter(m =>
+                  !q ||
+                  (m.profiles?.name && m.profiles.name.toLowerCase().includes(q)) ||
+                  (m.profiles?.email && m.profiles.email.toLowerCase().includes(q))
+                );
+                const paginated = filtered.slice((memberPage - 1) * memberPageSize, memberPage * memberPageSize);
+
+                if (approvedMembers.length === 0) {
+                  return <p className="text-muted-foreground text-center py-8">No approved managers yet. Invite or approve pending applications.</p>;
+                }
+
+                if (filtered.length === 0) {
+                  return <p className="text-muted-foreground text-center py-8">No managers match "{memberSearch}".</p>;
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {/* Cards View */}
+                    {memberView === 'cards' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {paginated.map(member => {
+                          const memberAssignments = assignments?.filter(a => a.manager_id === member.user_id) || [];
+                          return (
+                            <div key={member.id} className="p-4 rounded-xl border border-border bg-card shadow-xs flex flex-col justify-between gap-3">
+                              <div className="flex items-start gap-3">
+                                <Avatar className="h-10 w-10">
+                                  <AvatarFallback className="bg-success/10 text-success font-bold">
+                                    {member.profiles?.name?.charAt(0) || 'U'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="font-semibold text-sm text-foreground truncate">{member.profiles?.name || 'Unknown'}</p>
+                                    {getStatusBadge(member.status)}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground truncate">{member.profiles?.email}</p>
+                                  {memberAssignments.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                      {memberAssignments.map(a => (
+                                        <Badge key={a.id} variant="secondary" className="text-[10px]">
+                                          {a.properties?.name || 'Property'}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-[11px] text-muted-foreground mt-2 italic">No property assigned</p>
+                                  )}
                                 </div>
-                              )}
+                              </div>
+                              <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-border/60">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs text-warning hover:text-warning"
+                                  onClick={() => void handleUpdateMemberStatus(member.id, 'deactivated')}
+                                >
+                                  <Ban className="h-3 w-3 mr-1" /> Deactivate
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs text-destructive hover:text-destructive"
+                                  onClick={() => void handleRemoveMember(member.id, member.profiles?.name || 'this manager')}
+                                >
+                                  <Trash2 className="h-3 w-3 mr-1" /> Remove
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {getStatusBadge(member.status)}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-warning hover:text-warning"
-                              onClick={() => void handleUpdateMemberStatus(member.id, 'deactivated')}
-                            >
-                              <Ban className="h-3 w-3 mr-1" /> Deactivate
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => void handleRemoveMember(member.id, member.profiles?.name || 'this manager')}
-                            >
-                              <Trash2 className="h-3 w-3 mr-1" /> Remove
-                            </Button>
-                          </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Compact View */}
+                    {memberView === 'compact' && (
+                      <div className="divide-y rounded-lg border border-border bg-card shadow-xs">
+                        {paginated.map(member => {
+                          const memberAssignments = assignments?.filter(a => a.manager_id === member.user_id) || [];
+                          return (
+                            <div key={member.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-3 hover:bg-muted/30 transition-colors">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarFallback className="bg-success/10 text-success text-xs font-bold">
+                                    {member.profiles?.name?.charAt(0) || 'U'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-xs sm:text-sm text-foreground truncate">{member.profiles?.name || 'Unknown'}</p>
+                                  <p className="text-xs text-muted-foreground truncate">{member.profiles?.email}</p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0">
+                                {memberAssignments.length > 0 ? (
+                                  <span className="text-xs text-muted-foreground hidden md:inline">
+                                    {memberAssignments.length} properties
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground hidden md:inline italic">Unassigned</span>
+                                )}
+                                {getStatusBadge(member.status)}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs text-warning hover:text-warning"
+                                  onClick={() => void handleUpdateMemberStatus(member.id, 'deactivated')}
+                                >
+                                  Deactivate
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                  onClick={() => void handleRemoveMember(member.id, member.profiles?.name || 'this manager')}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Table View */}
+                    {memberView === 'table' && (
+                      <div className="rounded-lg border border-border bg-card shadow-xs overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/40">
+                                <TableHead>Manager</TableHead>
+                                <TableHead>Email</TableHead>
+                                <TableHead>Assigned Properties</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {paginated.map(member => {
+                                const memberAssignments = assignments?.filter(a => a.manager_id === member.user_id) || [];
+                                return (
+                                  <TableRow key={member.id} className="hover:bg-muted/30">
+                                    <TableCell className="font-medium text-foreground">
+                                      <div className="flex items-center gap-2">
+                                        <Avatar className="h-7 w-7">
+                                          <AvatarFallback className="bg-success/10 text-success text-xs">
+                                            {member.profiles?.name?.charAt(0) || 'U'}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <span>{member.profiles?.name || 'Unknown'}</span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-xs text-muted-foreground">{member.profiles?.email}</TableCell>
+                                    <TableCell className="text-xs">
+                                      {memberAssignments.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1 max-w-xs">
+                                          {memberAssignments.map(a => (
+                                            <Badge key={a.id} variant="secondary" className="text-[10px]">
+                                              {a.properties?.name || 'Property'}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground italic">None</span>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>{getStatusBadge(member.status)}</TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex items-center justify-end gap-1">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-7 text-xs text-warning hover:text-warning"
+                                          onClick={() => void handleUpdateMemberStatus(member.id, 'deactivated')}
+                                        >
+                                          Deactivate
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                          onClick={() => void handleRemoveMember(member.id, member.profiles?.name || 'this manager')}
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    )}
+
+                    <Pagination
+                      page={memberPage}
+                      pageSize={memberPageSize}
+                      total={filtered.length}
+                      onPageChange={setMemberPage}
+                      onPageSizeChange={setMemberPageSize}
+                    />
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 

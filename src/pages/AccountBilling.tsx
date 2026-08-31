@@ -4,6 +4,7 @@ import { Building2, CreditCard, Layers3, Plus, RefreshCw, Settings2, Users } fro
 import { supabase } from '@/integrations/supabase/client';
 import { untypedSupabase } from '@/integrations/supabase/untypedClient';
 import { useAuth } from '@/contexts/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -69,6 +70,7 @@ function statusVariant(status: string): 'default' | 'secondary' | 'destructive' 
 
 export default function AccountBilling() {
   const { user } = useAuth();
+  const { isSuperAdmin } = useUserRole();
   const queryClient = useQueryClient();
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
@@ -80,13 +82,20 @@ export default function AccountBilling() {
   const [renameValue, setRenameValue] = useState('');
 
   const billing = useQuery({
-    queryKey: ['owner-account-billing', user?.id],
+    queryKey: ['owner-account-billing', user?.id, isSuperAdmin],
     enabled: Boolean(user?.id),
     queryFn: async (): Promise<BillingData> => {
       const client = untypedSupabase;
+      const companiesQuery = isSuperAdmin
+        ? client.from('companies').select('id,name').order('name')
+        : client.from('companies').select('id,name').eq('owner_id', user!.id).order('name');
+      const groupsQuery = isSuperAdmin
+        ? client.from('owner_billing_groups').select('id,name,status,created_at').order('created_at', { ascending: false })
+        : client.from('owner_billing_groups').select('id,name,status,created_at').eq('owner_id', user!.id).order('created_at', { ascending: false });
+
       const [companies, groups, plans, addons] = await Promise.all([
-        client.from('companies').select('id,name').eq('owner_id', user!.id).order('name'),
-        client.from('owner_billing_groups').select('id,name,status,created_at').eq('owner_id', user!.id).order('created_at', { ascending: false }),
+        companiesQuery,
+        groupsQuery,
         client.from('saas_plans').select('id,code,name,description,sort_order').is('product_id', null).eq('is_active', true).order('sort_order'),
         client.from('saas_addons').select('id,code,name,description').eq('is_active', true).order('sort_order'),
       ]);

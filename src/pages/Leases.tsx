@@ -44,6 +44,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { SignaturePad, SignaturePadRef } from '@/components/ui/signature-pad';
 import { LeaseAttachments } from '@/components/leases/LeaseAttachments';
+import { DocumentIntelligence } from '@/components/ai/DocumentIntelligence';
 import { toast } from '@/components/ui/use-toast';
 import { useSettings } from '@/contexts/useSettings';
 import { useLeases, useCreateLease, useUpdateLease, useDeleteLease, useSignLease, useUploadSignature } from '@/hooks/useLeases';
@@ -61,6 +62,28 @@ import { FilterBar } from '@/components/shared/FilterBar';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 import { Pagination } from '@/components/shared/Pagination';
+
+const formatDateSafe = (dateString?: string | null, formatPattern: string = 'MMM d, yyyy') => {
+  if (!dateString) return 'N/A';
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return 'N/A';
+    return format(d, formatPattern);
+  } catch {
+    return 'N/A';
+  }
+};
+
+const getDaysRemainingSafe = (endDateString?: string | null) => {
+  if (!endDateString) return null;
+  try {
+    const d = new Date(endDateString);
+    if (isNaN(d.getTime())) return null;
+    return differenceInDays(d, new Date());
+  } catch {
+    return null;
+  }
+};
 
 const statusVariants: Record<string, 'success' | 'warning' | 'destructive' | 'neutral'> = {
   draft: 'neutral',
@@ -421,9 +444,9 @@ export default function Leases() {
     const active = typedLeases.filter(l => l.status === 'active').length;
     const pending = typedLeases.filter(l => l.status === 'pending_signature').length;
     const expiringSoon = typedLeases.filter(l => {
-      if (l.status !== 'active') return false;
-      const daysUntilExpiry = differenceInDays(new Date(l.end_date), new Date());
-      return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+      if (l.status !== 'active' || !l.end_date) return false;
+      const days = getDaysRemainingSafe(l.end_date);
+      return days !== null && days <= 30 && days > 0;
     }).length;
     return { active, pending, expiringSoon, total: typedLeases.length };
   };
@@ -544,7 +567,7 @@ export default function Leases() {
               const tenant = lease.tenants;
               const property = lease.properties;
               const unit = lease.units;
-              const daysRemaining = differenceInDays(new Date(lease.end_date), new Date());
+              const daysRemaining = getDaysRemainingSafe(lease.end_date);
 
               return (
                 <Card key={lease.id} className="p-5 card-shadow-md hover:card-shadow-lg transition-all">
@@ -608,7 +631,7 @@ export default function Leases() {
                       <StatusPill variant={statusVariants[lease.status] || 'neutral'} className="capitalize">
                         {lease.status.replace('_', ' ')}
                       </StatusPill>
-                      {lease.status === 'active' && daysRemaining > 0 && daysRemaining <= 30 && (
+                      {lease.status === 'active' && daysRemaining !== null && daysRemaining > 0 && daysRemaining <= 30 && (
                         <StatusPill variant="warning">{daysRemaining}d left</StatusPill>
                       )}
                     </div>
@@ -637,7 +660,7 @@ export default function Leases() {
               const tenant = lease.tenants;
               const property = lease.properties;
               const unit = lease.units;
-              const daysRemaining = differenceInDays(new Date(lease.end_date), new Date());
+              const daysRemaining = getDaysRemainingSafe(lease.end_date);
 
               return (
                 <div key={lease.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4 hover:bg-muted/30 transition-colors">
@@ -653,7 +676,7 @@ export default function Leases() {
                         <StatusPill variant={statusVariants[lease.status] || 'neutral'} className="capitalize text-xs">
                           {lease.status.replace('_', ' ')}
                         </StatusPill>
-                        {lease.status === 'active' && daysRemaining > 0 && daysRemaining <= 30 && (
+                        {lease.status === 'active' && daysRemaining !== null && daysRemaining > 0 && daysRemaining <= 30 && (
                           <StatusPill variant="warning" className="text-xs">{daysRemaining}d left</StatusPill>
                         )}
                         {(property as { companies?: { name?: string } | null } | null)?.companies?.name && (
@@ -663,7 +686,7 @@ export default function Leases() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                        Tenant: {tenant?.name || 'N/A'} • {property?.name || 'N/A'} (Unit {unit?.unit_number || 'N/A'}) • {format(new Date(lease.start_date), 'MMM d, yyyy')} - {format(new Date(lease.end_date), 'MMM d, yyyy')}
+                        Tenant: {tenant?.name || 'N/A'} • {property?.name || 'N/A'} (Unit {unit?.unit_number || 'N/A'}) • {formatDateSafe(lease.start_date)} - {formatDateSafe(lease.end_date)}
                       </p>
                     </div>
                   </div>
@@ -748,7 +771,7 @@ export default function Leases() {
                   const tenant = lease.tenants;
                   const property = lease.properties;
                   const unit = lease.units;
-                  const daysRemaining = differenceInDays(new Date(lease.end_date), new Date());
+                  const daysRemaining = getDaysRemainingSafe(lease.end_date);
 
                   return (
                     <TableRow key={lease.id} className="hover:bg-muted/30">
@@ -772,9 +795,9 @@ export default function Leases() {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <p className="text-sm">{format(new Date(lease.start_date), 'MMM d, yyyy')}</p>
-                          <p className="text-xs text-muted-foreground">to {format(new Date(lease.end_date), 'MMM d, yyyy')}</p>
-                          {lease.status === 'active' && daysRemaining > 0 && daysRemaining <= 30 && (
+                          <p className="text-sm">{formatDateSafe(lease.start_date)}</p>
+                          <p className="text-xs text-muted-foreground">to {formatDateSafe(lease.end_date)}</p>
+                          {lease.status === 'active' && daysRemaining !== null && daysRemaining > 0 && daysRemaining <= 30 && (
                             <StatusPill variant="warning" className="mt-1">{daysRemaining} days left</StatusPill>
                           )}
                         </div>
@@ -943,7 +966,7 @@ export default function Leases() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Duration</p>
-                  <p className="font-medium">{format(new Date(viewingLease.start_date), 'MMM d, yyyy')} - {format(new Date(viewingLease.end_date), 'MMM d, yyyy')}</p>
+                  <p className="font-medium">{formatDateSafe(viewingLease.start_date)} - {formatDateSafe(viewingLease.end_date)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Rent</p>
@@ -966,7 +989,7 @@ export default function Leases() {
                   {viewingLease.landlord_signature_url ? (
                     <div>
                       <img src={viewingLease.landlord_signature_url} alt="Landlord Signature" className="max-h-20" />
-                      <p className="text-xs text-muted-foreground mt-1">Signed: {format(new Date(viewingLease.landlord_signed_at), 'MMM d, yyyy h:mm a')}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Signed: {formatDateSafe(viewingLease.landlord_signed_at, 'MMM d, yyyy h:mm a')}</p>
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground italic">Not signed yet</p>
@@ -977,7 +1000,7 @@ export default function Leases() {
                   {viewingLease.tenant_signature_url ? (
                     <div>
                       <img src={viewingLease.tenant_signature_url} alt="Tenant Signature" className="max-h-20" />
-                      <p className="text-xs text-muted-foreground mt-1">Signed: {format(new Date(viewingLease.tenant_signed_at), 'MMM d, yyyy h:mm a')}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Signed: {formatDateSafe(viewingLease.tenant_signed_at, 'MMM d, yyyy h:mm a')}</p>
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground italic">Not signed yet</p>

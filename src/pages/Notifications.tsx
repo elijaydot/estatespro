@@ -27,6 +27,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useBroadcastAnnouncements } from '@/hooks/useBroadcasts';
 import { Input } from '@/components/ui/input';
 import { TablePagination } from '@/components/marketplace-crm/TablePagination';
+import { Pagination } from '@/components/shared/Pagination';
+
+const formatDateSafe = (dateString?: string | null, formatPattern = 'MMM d, yyyy · h:mm a') => {
+  if (!dateString) return 'N/A';
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return 'N/A';
+    return format(d, formatPattern);
+  } catch {
+    return 'N/A';
+  }
+};
+
+const formatDistanceSafe = (dateString?: string | null) => {
+  if (!dateString) return 'recently';
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return 'recently';
+    return formatDistanceToNow(d, { addSuffix: true });
+  } catch {
+    return 'recently';
+  }
+};
 
 const typeIcons = {
   info: Info,
@@ -164,14 +187,16 @@ export default function Notifications() {
               ) : filteredAnnouncements.length === 0 ? (
                 renderEmpty('No announcements found.', 'Try a different search term or date range.', 'megaphone')
               ) : (
-                <div className="overflow-hidden rounded-lg border border-border/70">
+                <div className="overflow-hidden rounded-lg border border-border/70 space-y-3">
                   <div className="divide-y divide-border/60">{paginatedAnnouncements.map((announcement) => (
                     <article key={announcement.id} className="grid gap-2 px-4 py-3 hover:bg-muted/20 md:grid-cols-[minmax(0,1fr)_180px]">
                       <div className="min-w-0"><div className="flex items-center gap-2"><Megaphone className="h-4 w-4 shrink-0 text-primary" /><p className="truncate font-medium text-foreground">{announcement.title}</p><Badge variant="outline" className="text-[10px]">{announcement.target_role === 'all' ? 'All users' : announcement.target_role.replace('_', ' ')}</Badge></div><p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{announcement.message}</p></div>
-                      <div className="text-xs text-muted-foreground md:text-right"><p>{format(new Date(announcement.created_at), 'MMM d, yyyy · h:mm a')}</p><p className="mt-1">{formatDistanceToNow(new Date(announcement.created_at), { addSuffix: true })}</p></div>
+                      <div className="text-xs text-muted-foreground md:text-right"><p>{formatDateSafe(announcement.created_at)}</p><p className="mt-1">{formatDistanceSafe(announcement.created_at)}</p></div>
                     </article>
                   ))}</div>
-                  <TablePagination page={announcementPage} pageSize={announcementPageSize} total={filteredAnnouncements.length} onPageChange={setAnnouncementPage} onPageSizeChange={setAnnouncementPageSize} />
+                  <div className="p-3 pt-0">
+                    <Pagination page={announcementPage} pageSize={announcementPageSize} total={filteredAnnouncements.length} onPageChange={setAnnouncementPage} onPageSizeChange={setAnnouncementPageSize} />
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -205,7 +230,7 @@ export default function Notifications() {
               ) : filteredNotifications.length === 0 ? (
                 renderEmpty('No notifications found.', 'Adjust the filters to broaden this view.', 'bell')
               ) : (
-                <div className="overflow-hidden rounded-lg border border-border/70"><div className="divide-y divide-border/60">
+                <div className="overflow-hidden rounded-lg border border-border/70 space-y-3"><div className="divide-y divide-border/60">
                   {paginatedNotifications.map((notification) => {
                     const IconComponent = typeIcons[notification.type as keyof typeof typeIcons] || Info;
                     const colorClass = typeColors[notification.type as keyof typeof typeColors] || typeColors.info;
@@ -233,7 +258,7 @@ export default function Notifications() {
                               <Badge variant="secondary" className="shrink-0 bg-primary/10 text-primary text-xs">New</Badge>
                             )}
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-x-2 text-xs text-muted-foreground"><span>{format(new Date(notification.created_at), 'MMM d, yyyy · h:mm a')}</span><span>·</span><span>{formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}</span></div>
+                          <div className="mt-2 flex flex-wrap gap-x-2 text-xs text-muted-foreground"><span>{formatDateSafe(notification.created_at)}</span><span>·</span><span>{formatDistanceSafe(notification.created_at)}</span></div>
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -262,7 +287,11 @@ export default function Notifications() {
                       </div>
                     );
                   })}
-                </div><TablePagination page={notificationPage} pageSize={notificationPageSize} total={filteredNotifications.length} onPageChange={setNotificationPage} onPageSizeChange={setNotificationPageSize} /></div>
+                </div>
+                <div className="p-3 pt-0">
+                  <Pagination page={notificationPage} pageSize={notificationPageSize} total={filteredNotifications.length} onPageChange={setNotificationPage} onPageSizeChange={setNotificationPageSize} />
+                </div>
+              </div>
               )}
             </CardContent>
           </Card>

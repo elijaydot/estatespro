@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Search, Plus, Building, Users, FileText, Receipt, Command, Check, ChevronDown, Store, BriefcaseBusiness, Radar, LogOut, Home } from 'lucide-react';
+import { Bell, Search, Plus, Building, Users, FileText, Receipt, Command, Check, ChevronDown, Store, BriefcaseBusiness, Radar, LogOut, Home, Building2, Globe } from 'lucide-react';
 import { safeSearch } from '@/lib/safeSearch';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -12,11 +13,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useAuth } from '@/contexts/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useWorkspaceNavigation } from '@/hooks/useWorkspaceNavigation';
@@ -51,9 +58,27 @@ export function AppHeader() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { role } = useUserRole();
   const { user, profile, logout } = useAuth();
+  const { companies, activeCompanyId, setActiveCompanyId } = useActiveCompany();
   const { availableWorkspaceIds, currentWorkspaceId, getLandingPath } = useWorkspaceNavigation();
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [companySearchQuery, setCompanySearchQuery] = useState('');
 
   const { data: unreadCount = 0 } = useUnreadNotificationsCount();
+
+  const filteredScopeCompanies = useMemo(() => {
+    const q = companySearchQuery.trim().toLowerCase();
+    if (!q) return companies;
+    return companies.filter((c) =>
+      c.name.toLowerCase().includes(q) ||
+      (c.email && c.email.toLowerCase().includes(q)) ||
+      (c.address && c.address.toLowerCase().includes(q))
+    );
+  }, [companies, companySearchQuery]);
+
+  const activeScopeName = useMemo(() => {
+    if (activeCompanyId === 'all') return 'All Organizations (Global Seer)';
+    return companies.find((c) => c.id === activeCompanyId)?.name || 'Select Organization';
+  }, [companies, activeCompanyId]);
 
   const handleQuickAddClick = (type: QuickAddType) => {
     // Navigate to the respective page with add dialog state
@@ -223,12 +248,156 @@ export function AppHeader() {
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
+        {/* Platform Scope & Company Switcher (Searchable) */}
+        {(role === 'super_admin' || companies.length > 0) && (
+          <Popover open={scopeOpen} onOpenChange={setScopeOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "h-10 gap-2 rounded-[10px] px-3 font-normal max-w-[210px] sm:max-w-[260px] justify-between border-border bg-card hover:bg-muted text-foreground transition-all shadow-xs",
+                  activeCompanyId === 'all' && "border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-medium"
+                )}
+                title={`Scope: ${activeScopeName}`}
+              >
+                <div className="flex items-center gap-2 min-w-0 truncate text-xs sm:text-sm">
+                  {activeCompanyId === 'all' ? (
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                      <Globe className="h-3.5 w-3.5" />
+                    </span>
+                  ) : (
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
+                      <Building2 className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                  <span className="truncate">{activeScopeName}</span>
+                </div>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground ml-1" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 p-0 shadow-xl border-border bg-popover" sideOffset={6}>
+              <div className="p-3 border-b border-border bg-muted/40 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-foreground tracking-wide uppercase">
+                    {role === 'super_admin' ? 'Select Platform Scope' : 'Select Organization'}
+                  </p>
+                  <span className="text-[10px] text-muted-foreground font-medium px-1.5 py-0.5 rounded bg-background border border-border">
+                    {companies.length} {companies.length === 1 ? 'org' : 'orgs'}
+                  </span>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={companySearchQuery}
+                    onChange={(e) => setCompanySearchQuery(e.target.value)}
+                    placeholder="Search organizations..."
+                    className="h-8 pl-8 pr-7 text-xs bg-background"
+                    autoFocus
+                  />
+                  {companySearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setCompanySearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground p-0.5"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="max-h-72 overflow-y-auto p-1.5 space-y-1 scrollbar-thin">
+                {role === 'super_admin' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveCompanyId('all');
+                        setScopeOpen(false);
+                      }}
+                      className={cn(
+                        "w-full text-left rounded-lg px-3 py-2 text-xs transition-colors flex items-center justify-between group",
+                        activeCompanyId === 'all'
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-500/30"
+                          : "hover:bg-muted text-foreground"
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                          <Globe className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-xs leading-tight flex items-center gap-1.5">
+                            All Organizations
+                            <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold">
+                              Global Seer
+                            </span>
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                            Unified bird-eye platform monitoring & all tenant data
+                          </p>
+                        </div>
+                      </div>
+                      {activeCompanyId === 'all' && <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 ml-2" />}
+                    </button>
+                    <div className="my-1 border-t border-border/60" />
+                  </>
+                )}
+
+                {filteredScopeCompanies.length === 0 ? (
+                  <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                    No organizations matching "{companySearchQuery}"
+                  </div>
+                ) : (
+                  filteredScopeCompanies.map((c) => {
+                    const isSelected = activeCompanyId === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveCompanyId(c.id);
+                          setScopeOpen(false);
+                        }}
+                        className={cn(
+                          "w-full text-left rounded-lg px-3 py-2 text-xs transition-colors flex items-center justify-between group",
+                          isSelected
+                            ? "bg-primary text-primary-foreground font-semibold"
+                            : "hover:bg-muted text-foreground"
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className={cn(
+                            "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold",
+                            isSelected ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                          )}>
+                            <Building2 className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-xs leading-tight truncate">{c.name}</p>
+                            <p className={cn("text-[10px] truncate mt-0.5", isSelected ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                              {c.email || c.address || 'Tenant organization'}
+                            </p>
+                          </div>
+                        </div>
+                        {isSelected && <Check className="h-4 w-4 shrink-0 ml-2" />}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+
         <ThemeToggle />
+
         {/* Quick Add */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="sm" className="h-10 gap-2 rounded-[10px] px-4">
+            <Button size="sm" className="h-10 gap-2 rounded-[10px] px-4 shadow-xs">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Quick Add</span>
             </Button>

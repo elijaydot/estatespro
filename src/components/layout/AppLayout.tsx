@@ -27,7 +27,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const isSuperAdmin = role === 'super_admin';
   const activeCompanyName = isSuperAdmin 
-    ? 'FishGate SaaS • Global Monitor' 
+    ? 'FishGate • Global Platform' 
     : (companies.find((company) => company.id === activeCompanyId)?.name || profile?.name || 'FishGate');
 
   useEffect(() => {

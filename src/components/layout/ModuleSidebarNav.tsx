@@ -232,47 +232,27 @@ export function ModuleSidebarNav({
 
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              {role === 'super_admin' ? (
-                <button
-                  type="button"
-                  onClick={() => setShowCompanies((prev) => !prev)}
-                  className="text-left w-full group py-0.5"
-                  title="Switch global view or target organization"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <p className="font-bold text-xs leading-tight text-sidebar-foreground truncate group-hover:text-primary transition-colors">
-                      {activeCompanyId === 'all' ? 'FishGate SaaS' : (companies.find((c) => c.id === activeCompanyId)?.name || 'FishGate SaaS')}
-                    </p>
-                    <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                      {activeCompanyId === 'all' ? 'Global Seer' : 'Tenant Scope'}
+              <Link
+                to={getWorkspaceInfo(workspaceId).href}
+                className="block text-left w-full group py-0.5"
+                onClick={onNavigate}
+                title="FishGate Home"
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="font-bold text-sm leading-tight text-sidebar-foreground truncate group-hover:text-primary transition-colors">
+                    FishGate
+                  </span>
+                  {role === 'super_admin' && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
+                      Global Seer
                     </span>
-                    <ChevronDown className="h-3 w-3 shrink-0 text-sidebar-foreground/40 group-hover:text-sidebar-foreground transition-colors ml-auto" />
-                  </div>
-                  <p className="text-[10px] text-sidebar-foreground/60 leading-none truncate mt-0.5 flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                    {activeCompanyId === 'all' ? `Global Platform • ${config.shortName}` : `Company View • ${config.shortName}`}
-                  </p>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowCompanies((prev) => !prev)}
-                  className="flex items-center gap-1 text-left w-full group py-0.5"
-                  title="Switch company workspace"
-                >
-                  <div className="truncate min-w-0">
-                    <p className="font-semibold text-xs leading-tight text-sidebar-foreground truncate group-hover:text-primary transition-colors">
-                      {companies.find((c) => c.id === activeCompanyId)?.name || 'FishGate OS'}
-                    </p>
-                    <p className="text-[10px] text-sidebar-foreground/60 leading-none truncate">
-                      {config.shortName}
-                    </p>
-                  </div>
-                  {companies.length > 1 && (
-                    <ChevronDown className="h-3 w-3 shrink-0 text-sidebar-foreground/40 group-hover:text-sidebar-foreground transition-colors ml-0.5" />
                   )}
-                </button>
-              )}
+                </div>
+                <p className="text-[10px] text-sidebar-foreground/60 leading-none truncate mt-0.5 flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                  {config.shortName}
+                </p>
+              </Link>
             </div>
           )}
         </div>
@@ -303,37 +283,6 @@ export function ModuleSidebarNav({
           >
             <ChevronRight className="h-3.5 w-3.5" />
           </Button>
-        </div>
-      )}
-
-      {/* Company Selector Dropdown (Collapsible) */}
-      {showCompanies && companies.length > 1 && !collapsed && (
-        <div className="p-2 border-b border-sidebar-border/60 bg-sidebar-accent/30 space-y-1">
-          <p className="px-2 text-[10px] font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
-            {role === 'super_admin' ? 'Select Platform Scope' : 'Switch Company'}
-          </p>
-          <div className="max-h-36 overflow-y-auto space-y-0.5 scrollbar-thin">
-            {companies.map((company) => (
-              <button
-                key={company.id}
-                type="button"
-                onClick={() => {
-                  setActiveCompanyId(company.id);
-                  setShowCompanies(false);
-                  onNavigate?.();
-                }}
-                className={cn(
-                  'w-full text-left rounded px-2 py-1 text-xs transition-colors flex items-center justify-between',
-                  activeCompanyId === company.id
-                    ? 'bg-primary text-primary-foreground font-medium'
-                    : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-                )}
-              >
-                <span className="truncate">{company.name}</span>
-                {activeCompanyId === company.id && <span className="text-[10px]">✓</span>}
-              </button>
-            ))}
-          </div>
         </div>
       )}
 
