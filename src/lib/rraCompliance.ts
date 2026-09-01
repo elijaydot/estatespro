@@ -12,20 +12,39 @@ export type RraFilingStatus = {
   status: 'filed' | 'pending' | 'overdue' | 'exempt';
   badgeLabel: string;
   badgeVariant: 'default' | 'secondary' | 'destructive' | 'outline' | 'warning';
+  description: string;
+};
+
+export type RentalTaxRecordInput = {
+  propertyId: string;
+  propertyName: string;
+  unitId?: string;
+  unitNumber?: string;
+  tenantName?: string;
+  tenantTin?: string;
+  grossRentCollected: number;
+  currency?: string;
+};
+
+export type RentalTaxRecord = RentalTaxRecordInput & {
+  statutoryDeduction: number;
+  netTaxableRent: number;
+  estimatedTax: number;
 };
 
 export type RentalTaxSummary = {
   taxYear: number;
-  grossRentalIncome: number;
-  statutoryDeductionRate: number; // 0.50 (50%)
-  statutoryDeductionAmount: number;
-  netTaxableIncome: number;
-  estimatedTaxAmount: number;
-  effectiveTaxRatePercent: number;
   currency: string;
+  statutoryDeductionRate: number;
+  records: RentalTaxRecord[];
+  totalGrossRent: number;
+  totalStatutoryDeductions: number;
+  totalTaxableRent: number;
+  estimatedTaxPayable: number;
+  effectiveTaxRatePercent: number;
   propertyCount: number;
   unitCount: number;
-  filingDeadline: string; // e.g. "January 31, 2027"
+  filingDeadline: string;
 };
 
 /**
@@ -47,6 +66,7 @@ export function calculateRraLeaseFilingDeadline(
       status: 'filed',
       badgeLabel: 'RRA Filed ✓',
       badgeVariant: 'default',
+      description: 'This lease has been registered with RRA.',
     };
   }
 
@@ -68,6 +88,7 @@ export function calculateRraLeaseFilingDeadline(
       status: 'overdue',
       badgeLabel: `RRA Filing Overdue (${overdueDays}d)`,
       badgeVariant: 'destructive',
+      description: `RRA registration is ${overdueDays} day(s) past the statutory 15-day deadline.`,
     };
   }
 
@@ -80,6 +101,7 @@ export function calculateRraLeaseFilingDeadline(
       status: 'pending',
       badgeLabel: `RRA Filing Due in ${daysRemaining}d ⚠️`,
       badgeVariant: 'warning',
+      description: `Only ${daysRemaining} day(s) left to register this lease with RRA.`,
     };
   }
 
@@ -91,54 +113,65 @@ export function calculateRraLeaseFilingDeadline(
     status: 'pending',
     badgeLabel: `RRA Filing: ${daysRemaining}d left`,
     badgeVariant: 'outline',
+    description: `Lease must be registered with RRA within ${daysRemaining} day(s).`,
   };
 }
 
 /**
- * Computes Annual Rental Income Tax Report according to Rwanda Tax Code:
- * Gross Rental Income minus standard 50% statutory maintenance & wear allowance.
- * Annual filing deadline is January 31st of the following tax year.
+ * Computes the Annual Rental Income Tax declaration according to the Rwanda Tax Code:
+ * gross rental income minus the standard 50% statutory maintenance & wear allowance,
+ * with progressive rental income brackets. Filing deadline is January 31 of the next year.
  */
-export function computeRraRentalTaxReport(
-  grossIncome: number,
-  currency = 'RWF',
-  taxYear = new Date().getFullYear() - 1,
-  propertiesCount = 1,
-  unitsCount = 1
-): RentalTaxSummary {
-  const standardDeductionRate = 0.50; // 50% statutory deduction
-  const statutoryDeductionAmount = grossIncome * standardDeductionRate;
-  const netTaxableIncome = Math.max(0, grossIncome - statutoryDeductionAmount);
+const STATUTORY_DEDUCTION_RATE = 0.5;
 
-  // Rwandan Individual Rental Tax Brackets (progressive):
-  // 0 - 180,000 RWF -> 0%
-  // 180,001 - 1,000,000 RWF -> 20%
-  // Above 1,000,000 RWF -> 30%
-  let estimatedTax = 0;
-  if (currency === 'RWF') {
-    if (netTaxableIncome > 1_000_000) {
-      estimatedTax = (1_000_000 - 180_000) * 0.20 + (netTaxableIncome - 1_000_000) * 0.30;
-    } else if (netTaxableIncome > 180_000) {
-      estimatedTax = (netTaxableIncome - 180_000) * 0.20;
-    }
-  } else {
-    // For USD/other currencies: estimated standard 20% effective tax on taxable net
-    estimatedTax = netTaxableIncome * 0.20;
+function estimateRwandaRentalTax(netTaxableIncome: number, currency: string): number {
+  if (currency !== 'RWF') return Math.round(netTaxableIncome * 0.2);
+  if (netTaxableIncome > 1_000_000) {
+    return Math.round((1_000_000 - 180_000) * 0.2 + (netTaxableIncome - 1_000_000) * 0.3);
   }
+  if (netTaxableIncome > 180_000) {
+    return Math.round((netTaxableIncome - 180_000) * 0.2);
+  }
+  return 0;
+}
 
-  const effectiveRate = grossIncome > 0 ? (estimatedTax / grossIncome) * 100 : 0;
+export function computeRraRentalTaxReport(
+  inputs: RentalTaxRecordInput[],
+  taxYear = new Date().getFullYear(),
+  currency = 'RWF'
+): RentalTaxSummary {
+  const records: RentalTaxRecord[] = inputs.map((rec) => {
+    const gross = rec.grossRentCollected || 0;
+    const statutoryDeduction = Math.round(gross * STATUTORY_DEDUCTION_RATE);
+    const netTaxableRent = Math.max(0, gross - statutoryDeduction);
+    return {
+      ...rec,
+      statutoryDeduction,
+      netTaxableRent,
+      estimatedTax: estimateRwandaRentalTax(netTaxableRent, rec.currency || currency),
+    };
+  });
+
+  const totalGrossRent = records.reduce((sum, r) => sum + (r.grossRentCollected || 0), 0);
+  const totalStatutoryDeductions = records.reduce((sum, r) => sum + r.statutoryDeduction, 0);
+  const totalTaxableRent = records.reduce((sum, r) => sum + r.netTaxableRent, 0);
+  const estimatedTaxPayable = records.reduce((sum, r) => sum + r.estimatedTax, 0);
+  const effectiveTaxRatePercent = totalGrossRent > 0
+    ? Number(((estimatedTaxPayable / totalGrossRent) * 100).toFixed(2))
+    : 0;
 
   return {
     taxYear,
-    grossRentalIncome: grossIncome,
-    statutoryDeductionRate: standardDeductionRate,
-    statutoryDeductionAmount,
-    netTaxableIncome,
-    estimatedTaxAmount: Math.round(estimatedTax),
-    effectiveTaxRatePercent: Number(effectiveRate.toFixed(2)),
     currency,
-    propertyCount: propertiesCount,
-    unitCount: unitsCount,
+    statutoryDeductionRate: STATUTORY_DEDUCTION_RATE,
+    records,
+    totalGrossRent,
+    totalStatutoryDeductions,
+    totalTaxableRent,
+    estimatedTaxPayable,
+    effectiveTaxRatePercent,
+    propertyCount: new Set(records.map((r) => r.propertyId)).size,
+    unitCount: new Set(records.map((r) => r.unitId).filter(Boolean)).size,
     filingDeadline: `January 31, ${taxYear + 1}`,
   };
 }
@@ -146,25 +179,25 @@ export function computeRraRentalTaxReport(
 /**
  * Generates an RRA E-Tax portal ready CSV export string.
  */
-export function generateRraTaxExportCsv(summary: RentalTaxSummary, breakdownByProperty: Array<{ propertyName: string; units: number; collected: number }>): string {
+export function generateRraTaxExportCsv(summary: RentalTaxSummary): string {
   const lines: string[] = [
     `RWANDA REVENUE AUTHORITY (RRA) - ANNUAL RENTAL INCOME TAX DECLARATION`,
     `Tax Year,${summary.taxYear}`,
     `Filing Deadline,${summary.filingDeadline}`,
-    `Gross Rental Income (${summary.currency}),${summary.grossRentalIncome.toLocaleString()}`,
-    `Statutory Allowance (50%),${summary.statutoryDeductionAmount.toLocaleString()}`,
-    `Taxable Net Rental Income,${summary.netTaxableIncome.toLocaleString()}`,
-    `Estimated Tax Payable,${summary.estimatedTaxAmount.toLocaleString()}`,
+    `Gross Rental Income (${summary.currency}),${summary.totalGrossRent}`,
+    `Statutory Allowance (50%),${summary.totalStatutoryDeductions}`,
+    `Taxable Net Rental Income,${summary.totalTaxableRent}`,
+    `Estimated Tax Payable,${summary.estimatedTaxPayable}`,
     `Effective Tax Rate,${summary.effectiveTaxRatePercent}%`,
     ``,
-    `PROPERTY BREAKDOWN:`,
-    `Property Name,Units,Gross Collected (${summary.currency}),50% Deduction,Taxable Net`,
+    `PROPERTY & LEASE SCHEDULE:`,
+    `Property,Unit,Tenant,TIN,Gross Collected (${summary.currency}),50% Deduction,Taxable Net,Estimated Tax`,
   ];
 
-  for (const item of breakdownByProperty) {
-    const ded = item.collected * 0.5;
-    const net = item.collected * 0.5;
-    lines.push(`"${item.propertyName}",${item.units},${item.collected},${ded},${net}`);
+  for (const rec of summary.records) {
+    lines.push(
+      `"${rec.propertyName}","${rec.unitNumber || ''}","${rec.tenantName || ''}","${rec.tenantTin || ''}",${rec.grossRentCollected},${rec.statutoryDeduction},${rec.netTaxableRent},${rec.estimatedTax}`
+    );
   }
 
   return lines.join('\n');
