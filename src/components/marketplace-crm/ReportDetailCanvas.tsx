@@ -590,12 +590,12 @@ export function ReportDetailCanvas({
   const handleExportCsv = () => {
     const rows = filteredLeads.map((l) => ({
       ID: l.id,
-      Title: l.title || 'Inquiry',
+      Title: (l as { title?: string }).title || 'Inquiry',
       Stage: l.stage,
       Pipeline: l.pipeline_kind,
       Created: format(new Date(l.created_at), 'yyyy-MM-dd HH:mm'),
     }));
-    downloadCsv(rows, `${report.id}_${format(new Date(), 'yyyyMMdd')}.csv`);
+    downloadCsv(`${report.id}_${format(new Date(), 'yyyyMMdd')}.csv`, rows);
     toast({ title: 'Export complete', description: 'CSV file downloaded successfully.' });
   };
 

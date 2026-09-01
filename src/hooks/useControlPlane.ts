@@ -1068,7 +1068,7 @@ export function useRevenueMetricsAllCurrencies() {
             p_currency_code: curr,
           } as never);
           if (res.data) {
-            return { ...(res.data as object), currency_code: curr } as RevenueMetrics;
+            return { ...(res.data as object), currency_code: curr } as unknown as RevenueMetrics;
           }
           return {
             currency_code: curr,
