@@ -71,12 +71,13 @@ serve(async (req: Request): Promise<Response> => {
 
     // Log incoming webhook event for audit & replay tracking
     await emitAuditEvent({
-      action: "paystack.webhook.received",
-      actor_id: "paystack-webhook-gateway",
+      event_type: "paystack.webhook.received",
+      source: "paystack-webhook",
+      actor_user_id: null,
       correlation_id: correlationId,
       entity_type: "webhook_event",
       entity_id: reference || correlationId,
-      metadata: {
+      details: {
         event_type: eventType,
         reference,
         amount_minor: amountMinor,
