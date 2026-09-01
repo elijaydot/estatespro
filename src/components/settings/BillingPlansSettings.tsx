@@ -243,7 +243,7 @@ export function BillingPlansSettings() {
       const { data, error } = await supabase
         .from('saas_plans' as never)
         .select(
-          'id, code, tier, name, description, sort_order, saas_products:product_id(code, name), saas_plan_prices(currency_code, amount_minor, is_active), saas_plan_entitlements(bool_value, saas_entitlement_keys:entitlement_key_id(key, domain))'
+          'id, code, tier, name, description, sort_order, saas_products:product_id(code, name), saas_plan_prices(currency_code, amount_minor, is_active), saas_plan_entitlements(bool_value, saas_entitlement_keys(key, domain))'
         )
         .eq('is_active', true)
         .order('sort_order', { ascending: true });

@@ -125,15 +125,15 @@ export function GoogleStyleBillingOverview() {
     enabled: Boolean(activeCompanyId && activeCompanyId !== 'all'),
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('company_subscriptions' as never)
+        .from('saas_company_plan_subscriptions' as never)
         .select(`
           id,
           plan_id,
           status,
           trial_end_at,
           next_renewal_at,
-          current_period_start,
-          saas_plans (
+          created_at,
+          saas_plans:plan_id (
             id,
             code,
             name,
@@ -150,7 +150,7 @@ export function GoogleStyleBillingOverview() {
         status: string;
         trial_end_at: string | null;
         next_renewal_at: string | null;
-        current_period_start: string | null;
+        created_at: string | null;
         saas_plans: { id: string; code: string; name: string; tier: string } | null;
       } | null;
     },
@@ -193,13 +193,53 @@ export function GoogleStyleBillingOverview() {
     return `${Math.round(converted).toLocaleString()} ${currency}`;
   };
 
-  const handleUpgrade = (plan: PlanDefinition) => {
+  const handleUpgrade = async (plan: PlanDefinition) => {
+    if (!activeCompanyId || activeCompanyId === 'all') {
+      toast.error('Please select an active agency / company first.');
+      return;
+    }
+
     setIsCheckingOut(true);
-    toast.info(`Initializing Paystack / MoMo checkout for ${plan.name} plan (${formatPrice(plan.priceUsdMonthly)})...`);
-    setTimeout(() => {
+    try {
+      toast.info(`Initializing Paystack checkout for ${plan.name} plan (${formatPrice(plan.priceUsdMonthly)})...`);
+
+      const { data, error } = await supabase.functions.invoke('saas-subscription-checkout', {
+        body: {
+          companyId: activeCompanyId,
+          productCode: 'pm_core',
+          planCode: plan.code,
+          currency: currency === 'NGN' || currency === 'GBP' ? currency : 'USD',
+          gateway: 'paystack',
+          paymentMethod: 'link',
+          callbackUrl: `${window.location.origin}/settings?tab=billing`,
+        },
+      });
+
+      if (error) throw new Error(error.message || 'Unable to initialize checkout');
+
+      const payload = data as {
+        success?: boolean;
+        requiresPayment?: boolean;
+        checkoutUrl?: string;
+        changed?: boolean;
+        reason?: string;
+      };
+
+      if (payload.requiresPayment && payload.checkoutUrl) {
+        toast.success(`Redirecting to Paystack secure checkout...`);
+        window.location.href = payload.checkoutUrl;
+      } else if (payload.changed) {
+        toast.success(`Subscription plan updated to ${plan.name}!`);
+        await subQuery.refetch();
+      } else {
+        toast.info(payload.reason || 'Plan update processed.');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Checkout failed';
+      toast.error(`Checkout error: ${msg}`);
+    } finally {
       setIsCheckingOut(false);
-      toast.success(`Redirecting to Paystack secure checkout.`);
-    }, 1200);
+    }
   };
 
   return (
