@@ -1,6 +1,6 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import type { LooseSupabaseClient } from "./supabase-client-types.ts";
 
-type SupabaseClient = ReturnType<typeof createClient>;
+type SupabaseClient = LooseSupabaseClient;
 
 type QuotaCheckResult = {
   allowed: boolean;
