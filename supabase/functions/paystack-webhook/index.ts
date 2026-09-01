@@ -70,7 +70,7 @@ serve(async (req: Request): Promise<Response> => {
     console.info(`[Paystack Webhook] Received event=${eventType} ref=${reference} mode=${sigCheck.secretMatched || 'live'} amount=${amountMinor} ${currency}`);
 
     // Log incoming webhook event for audit & replay tracking
-    await emitAuditEvent(admin, {
+    await emitAuditEvent({
       action: "paystack.webhook.received",
       actor_id: "paystack-webhook-gateway",
       correlation_id: correlationId,

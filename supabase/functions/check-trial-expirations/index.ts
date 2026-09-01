@@ -30,7 +30,7 @@ Deno.serve(async (request) => {
     if (error) throw error;
 
     for (const subscription of subscriptions || []) {
-      const userId = subscription.companies.owner_id;
+      const userId = (subscription as any).companies.owner_id;
       const { data: existing } = await supabase
         .from('notifications')
         .select('id')
@@ -47,7 +47,7 @@ Deno.serve(async (request) => {
       const { error: notificationError } = await supabase.from('notifications').insert({
         user_id: userId,
         title,
-        message: `${subscription.saas_plans.name} trial access ${daysRemaining === 0 ? 'ends today' : `ends on ${targetDate}`}. Choose a plan to continue.`,
+        message: `${(subscription as any).saas_plans.name} trial access ${daysRemaining === 0 ? 'ends today' : `ends on ${targetDate}`}. Choose a plan to continue.`,
         type: 'trial_expiring',
         link: '/upgrade',
         metadata: { subscription_id: subscription.id, days_remaining: daysRemaining, trial_end_at: subscription.trial_end_at },
