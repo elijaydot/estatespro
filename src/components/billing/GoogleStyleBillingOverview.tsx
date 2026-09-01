@@ -181,11 +181,7 @@ export function GoogleStyleBillingOverview() {
 
   const formatPrice = (usdMonthly: number) => {
     const baseUsd = isAnnual ? usdMonthly * 0.80 : usdMonthly;
-<<<<<<< HEAD
     if (currency === 'USD') return `$${Math.round(baseUsd).toLocaleString()}`;
-=======
-    if (currency === 'USD') return `$${baseUsd.toFixed(0)}`;
->>>>>>> bb6d7208c1bfb8c17e4bb0016009a66be254f552
     const converted = convert(baseUsd, 'USD', currency);
     if (currency === 'RWF') return `${Math.round(converted).toLocaleString()} RWF`;
     if (currency === 'NGN') return `₦${Math.round(converted).toLocaleString()}`;
