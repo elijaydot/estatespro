@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
       .eq("status", "completed")
       .order("created_at", { ascending: false });
 
-    const totalPayments = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+    const totalPayments = payments?.reduce((sum: any, p: any) => sum + Number(p.amount), 0) || 0;
 
     // Fetch invoices
     const { data: invoices } = await supabase
@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
     const moveInDate = tenant.move_in_date ? new Date(tenant.move_in_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A';
     const exitDate = exitData.exit_date ? new Date(exitData.exit_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A';
 
-    const damagedItems = inspectionItems?.filter(i => i.condition === 'damaged') || [];
+    const damagedItems = inspectionItems?.filter(i: any => i.condition === 'damaged') || [];
     
     const emailHtml = `
 <!DOCTYPE html>
@@ -190,21 +190,21 @@ Deno.serve(async (req) => {
       <hr style="border:0;border-top:1px solid #e5e7eb;margin:24px 0;">
       <h2 style="color:#1e3a5f;font-size:18px;">Recurring Bills</h2>
       <ul style="padding-left:20px;color:#666;">
-        ${recurringBills.map(b => `<li style="margin:4px 0;">${b.name} - ${Number(b.amount).toLocaleString()} (${b.frequency})</li>`).join('')}
+        ${recurringBills.map(b: any => `<li style="margin:4px 0;">${b.name} - ${Number(b.amount).toLocaleString()} (${b.frequency})</li>`).join('')}
       </ul>` : ''}
       
       ${maintenance && maintenance.length > 0 ? `
       <hr style="border:0;border-top:1px solid #e5e7eb;margin:24px 0;">
       <h2 style="color:#1e3a5f;font-size:18px;">Maintenance Requests (${maintenance.length})</h2>
       <ul style="padding-left:20px;color:#666;">
-        ${maintenance.map(m => `<li style="margin:4px 0;">${m.title} - <em>${m.status}</em></li>`).join('')}
+        ${maintenance.map(m: any => `<li style="margin:4px 0;">${m.title} - <em>${m.status}</em></li>`).join('')}
       </ul>` : ''}
       
       ${damagedItems.length > 0 ? `
       <hr style="border:0;border-top:1px solid #e5e7eb;margin:24px 0;">
       <h2 style="color:#1e3a5f;font-size:18px;">Inspection Notes</h2>
       <ul style="padding-left:20px;color:#666;">
-        ${damagedItems.map(i => `<li style="margin:4px 0;">${i.item_name}: ${i.notes || 'Damaged'} ${i.damage_cost > 0 ? `(Cost: ${i.damage_cost.toLocaleString()})` : ''}</li>`).join('')}
+        ${damagedItems.map(i: any => `<li style="margin:4px 0;">${i.item_name}: ${i.notes || 'Damaged'} ${i.damage_cost > 0 ? `(Cost: ${i.damage_cost.toLocaleString()})` : ''}</li>`).join('')}
       </ul>` : ''}
       
       <hr style="border:0;border-top:1px solid #e5e7eb;margin:24px 0;">

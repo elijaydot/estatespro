@@ -56,7 +56,7 @@ serve(async (req) => {
       return jsonResponse(req, { error: quotaResult.message }, quotaResult.status);
     }
 
-    const conversationContext = messages.map((m) => 
+    const conversationContext = messages.map((m: any) => 
       `${m.isFromMe ? "Property Manager" : tenantName}: ${m.content}`
     ).join("\n");
 

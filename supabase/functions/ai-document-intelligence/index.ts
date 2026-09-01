@@ -69,7 +69,7 @@ serve(async (req) => {
         .in("id", leaseIds);
 
       if (leases?.length) {
-        leaseContext = leases.map((l, i: number) => `
+        leaseContext = leases.map((l: any, i: number) => `
 Lease ${i + 1}: ${l.lease_number}
 Property: ${l.properties?.name} (${l.properties?.address})
 Unit: ${l.units?.unit_number}

@@ -44,10 +44,10 @@ Monthly Rent: ${tenant.monthly_rent}
 ${lease ? `Lease: ${lease.start_date} to ${lease.end_date}, Status: ${lease.status}` : 'No active lease'}
 
 Recent Invoices:
-${invoices.map((inv) => `- ${inv.invoice_number}: ${inv.amount} due ${inv.due_date} (${inv.status}, paid: ${inv.paid_amount})`).join('\n') || 'None'}
+${invoices.map((inv: any) => `- ${inv.invoice_number}: ${inv.amount} due ${inv.due_date} (${inv.status}, paid: ${inv.paid_amount})`).join('\n') || 'None'}
 
 Recent Maintenance:
-${maintenance.map((m) => `- ${m.title}: ${m.status} (${m.priority})`).join('\n') || 'None'}
+${maintenance.map((m: any) => `- ${m.title}: ${m.status} (${m.priority})`).join('\n') || 'None'}
 `.trim();
 }
 
