@@ -117,7 +117,7 @@ export function GoogleStyleBillingOverview() {
   const [isAnnual, setIsAnnual] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  const { convert } = useExchangeRates(currency);
+  const { convert, rates, isFallback, lastUpdated } = useExchangeRates('USD');
 
   // Fetch current company subscription
   const subQuery = useQuery({
@@ -166,7 +166,7 @@ export function GoogleStyleBillingOverview() {
     return map;
   }, [quotas]);
 
-  const unitsQuota = quotaMap.get('units_managed') || { used_value: 18, hard_limit: currentPlan.unitsLimit, usage_percent: 24 };
+  const unitsQuota = quotaMap.get('properties_count') || { used_value: 3, hard_limit: currentPlan.unitsLimit, usage_percent: 40 };
   const seatsQuota = quotaMap.get('property_manager_seats') || { used_value: 2, hard_limit: currentPlan.seatsLimit, usage_percent: 66 };
   const momoQuota = quotaMap.get('mobile_money_collections_monthly') || { used_value: 120, hard_limit: typeof currentPlan.momoMonthlyLimit === 'number' ? currentPlan.momoMonthlyLimit : 500, usage_percent: 24 };
 
@@ -181,13 +181,15 @@ export function GoogleStyleBillingOverview() {
 
   const formatPrice = (usdMonthly: number) => {
     const baseUsd = isAnnual ? usdMonthly * 0.80 : usdMonthly;
-    if (currency === 'USD') return `$${baseUsd.toFixed(0)}`;
-    const converted = convert(baseUsd, 'USD');
+    if (currency === 'USD') return `$${Math.round(baseUsd).toLocaleString()}`;
+    const converted = convert(baseUsd, 'USD', currency);
     if (currency === 'RWF') return `${Math.round(converted).toLocaleString()} RWF`;
     if (currency === 'NGN') return `₦${Math.round(converted).toLocaleString()}`;
-    if (currency === 'GBP') return `£${baseUsd.toFixed(0)}`;
-    if (currency === 'EUR') return `€${baseUsd.toFixed(0)}`;
+    if (currency === 'GBP') return `£${converted < 10 ? converted.toFixed(2) : Math.round(converted).toLocaleString()}`;
+    if (currency === 'EUR') return `€${converted < 10 ? converted.toFixed(2) : Math.round(converted).toLocaleString()}`;
     if (currency === 'KES') return `${Math.round(converted).toLocaleString()} KSh`;
+    if (currency === 'GHS') return `GH₵${Math.round(converted).toLocaleString()}`;
+    if (currency === 'ZAR') return `R ${Math.round(converted).toLocaleString()}`;
     return `${Math.round(converted).toLocaleString()} ${currency}`;
   };
 
@@ -211,10 +213,15 @@ export function GoogleStyleBillingOverview() {
               🎉 3 Months (90 Days) Free Agency Trial Active
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="bg-background text-xs border-primary/30 text-primary font-medium">
               <Clock className="h-3.5 w-3.5 mr-1 text-primary" /> {trialDaysRemaining} days remaining
             </Badge>
+            {currency !== 'USD' && rates[currency] && (
+              <span className="hidden sm:inline-block text-[11px] font-mono text-muted-foreground bg-background/90 px-2 py-1 rounded border border-border shadow-2xs">
+                1 USD ≈ {Math.round(rates[currency]).toLocaleString()} {currency} {isFallback ? '(Ref)' : '(Live API)'}
+              </span>
+            )}
             <Select value={currency} onValueChange={setCurrency}>
               <SelectTrigger className="w-28 h-8 text-xs font-semibold bg-background">
                 <SelectValue />

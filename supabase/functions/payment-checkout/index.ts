@@ -169,6 +169,15 @@ function getGatewaySecret(gateway: Gateway, ownerUserId?: string) {
     if (ownerScoped) return ownerScoped;
   }
 
+  if (gateway === "paystack") {
+    return (
+      Deno.env.get("PAYSTACK_SECRET_KEY") ||
+      Deno.env.get("PAYSTACK_TEST_SECRET_KEY") ||
+      Deno.env.get("PAYSTACK_LIVE_SECRET_KEY") ||
+      ""
+    );
+  }
+
   return Deno.env.get(baseName) || "";
 }
 

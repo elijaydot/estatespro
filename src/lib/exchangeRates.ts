@@ -17,6 +17,7 @@ export type ExchangeRateState = {
 // Resilient fallback rates table (reference base: USD)
 export const FALLBACK_EXCHANGE_RATES: Record<string, number> = {
   USD: 1.0,
+  RWF: 1380.0,
   NGN: 1550.0,
   GBP: 0.78,
   EUR: 0.92,

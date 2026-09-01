@@ -91,7 +91,15 @@ function mapPaymentChannels(gateway: Gateway, method: PaymentMethod) {
 }
 
 function getGatewaySecret(gateway: Gateway) {
-  const baseName = gateway === "paystack" ? "PAYSTACK_SECRET_KEY" : "FLUTTERWAVE_SECRET_KEY";
+  if (gateway === "paystack") {
+    return (
+      Deno.env.get("PAYSTACK_SECRET_KEY") ||
+      Deno.env.get("PAYSTACK_TEST_SECRET_KEY") ||
+      Deno.env.get("PAYSTACK_LIVE_SECRET_KEY") ||
+      ""
+    );
+  }
+  const baseName = "FLUTTERWAVE_SECRET_KEY";
   return Deno.env.get(baseName) || "";
 }
 
