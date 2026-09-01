@@ -209,7 +209,6 @@ export default function Bookings() {
     try {
       await createBooking.mutateAsync({
         ...form,
-        nights,
         total_amount: totalAmount,
         status: 'pending',
         payment_status: 'unpaid',
@@ -227,7 +226,6 @@ export default function Bookings() {
       await updateBooking.mutateAsync({
         id: editingBooking.id,
         ...form,
-        nights,
         total_amount: totalAmount,
       });
       setEditingBooking(null);

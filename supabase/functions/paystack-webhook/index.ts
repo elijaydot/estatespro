@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "../_shared/supabase-client-types.ts";
 import {
   buildCorsHeaders,
   handleCorsPreflight,
@@ -70,13 +70,14 @@ serve(async (req: Request): Promise<Response> => {
     console.info(`[Paystack Webhook] Received event=${eventType} ref=${reference} mode=${sigCheck.secretMatched || 'live'} amount=${amountMinor} ${currency}`);
 
     // Log incoming webhook event for audit & replay tracking
-    await emitAuditEvent(admin, {
-      action: "paystack.webhook.received",
-      actor_id: "paystack-webhook-gateway",
+    await emitAuditEvent({
+      event_type: "paystack.webhook.received",
+      source: "paystack-webhook",
+      actor_user_id: null,
       correlation_id: correlationId,
       entity_type: "webhook_event",
       entity_id: reference || correlationId,
-      metadata: {
+      details: {
         event_type: eventType,
         reference,
         amount_minor: amountMinor,

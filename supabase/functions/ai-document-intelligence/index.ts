@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/supabase-client-types.ts";
 import {
   buildCorsHeaders,
   checkRateLimit,
@@ -69,7 +69,7 @@ serve(async (req) => {
         .in("id", leaseIds);
 
       if (leases?.length) {
-        leaseContext = leases.map((l, i: number) => `
+        leaseContext = leases.map((l: any, i: number) => `
 Lease ${i + 1}: ${l.lease_number}
 Property: ${l.properties?.name} (${l.properties?.address})
 Unit: ${l.units?.unit_number}

@@ -19,10 +19,10 @@ Deno.serve(async (request) => {
     .single();
   if (error || !subscription) return new Response(JSON.stringify({ error: 'Subscription not found' }), { status: 404, headers });
 
-  const { data: profile } = await supabase.from('profiles').select('email,name').eq('user_id', subscription.companies.owner_id).single();
+  const { data: profile } = await supabase.from('profiles').select('email,name').eq('user_id', (subscription as any).companies.owner_id).single();
   if (!profile?.email) return new Response(JSON.stringify({ error: 'Owner email not found' }), { status: 404, headers });
 
-  const plan = subscription.saas_plans;
+  const plan = (subscription as any).saas_plans;
   const usd = plan.saas_plan_prices.find((price: { currency_code: string }) => price.currency_code === 'USD');
   const features = [
     ...plan.saas_plan_quotas.map((quota: { is_unlimited: boolean; hard_limit: number; saas_quota_dimensions: { name: string } }) => `${quota.is_unlimited ? 'Unlimited' : quota.hard_limit.toLocaleString()} ${quota.saas_quota_dimensions.name}`),
@@ -31,7 +31,7 @@ Deno.serve(async (request) => {
   ];
   const heading = daysRemaining === 0 ? 'Your trial ends today' : `Your trial ends in ${daysRemaining} days`;
   const appUrl = Deno.env.get('APP_URL') || 'https://app.fishgate.co';
-  const html = `<!doctype html><html><body style="margin:0;background:#f4f4f0;color:#191919;font-family:Arial,sans-serif"><div style="max-width:620px;margin:auto;padding:40px 20px"><p style="font-size:13px;font-weight:bold;letter-spacing:1px">FISHGATE</p><h1>${escapeHtml(heading)}</h1><p>Hi ${escapeHtml(profile.name || 'there')}, choose a plan before ${escapeHtml(new Date(subscription.trial_end_at).toLocaleDateString())} to keep your workspace active.</p><div style="background:white;border:1px solid #ddd;padding:24px;margin:28px 0"><h2 style="margin-top:0">${escapeHtml(plan.name)}</h2><p>${escapeHtml(plan.description || '')}</p><p style="font-size:30px;font-weight:bold">$${escapeHtml(((usd?.amount_minor || 0) / 100).toFixed(0))}<span style="font-size:14px;font-weight:normal"> / month</span></p><ul style="padding-left:20px">${features.map((feature: string) => `<li style="margin:10px 0">${escapeHtml(feature)}</li>`).join('')}</ul><a href="${appUrl}/upgrade" style="display:inline-block;background:#18181b;color:white;text-decoration:none;padding:12px 18px">View plans</a></div><p style="color:#666;font-size:13px">Platform checkout is not yet available. The plan page will connect you with the FishGate team.</p></div></body></html>`;
+  const html = `<!doctype html><html><body style="margin:0;background:#f4f4f0;color:#191919;font-family:Arial,sans-serif"><div style="max-width:620px;margin:auto;padding:40px 20px"><p style="font-size:13px;font-weight:bold;letter-spacing:1px">FISHGATE</p><h1>${escapeHtml(heading)}</h1><p>Hi ${escapeHtml(profile.name || 'there')}, choose a plan before ${escapeHtml(new Date((subscription as any).trial_end_at).toLocaleDateString())} to keep your workspace active.</p><div style="background:white;border:1px solid #ddd;padding:24px;margin:28px 0"><h2 style="margin-top:0">${escapeHtml(plan.name)}</h2><p>${escapeHtml(plan.description || '')}</p><p style="font-size:30px;font-weight:bold">$${escapeHtml(((usd?.amount_minor || 0) / 100).toFixed(0))}<span style="font-size:14px;font-weight:normal"> / month</span></p><ul style="padding-left:20px">${features.map((feature: string) => `<li style="margin:10px 0">${escapeHtml(feature)}</li>`).join('')}</ul><a href="${appUrl}/upgrade" style="display:inline-block;background:#18181b;color:white;text-decoration:none;padding:12px 18px">View plans</a></div><p style="color:#666;font-size:13px">Platform checkout is not yet available. The plan page will connect you with the FishGate team.</p></div></body></html>`;
 
   const resend = new Resend(Deno.env.get('RESEND_API_KEY')!);
   const result = await resend.emails.send({ from: 'FishGate <noreply@fishgate.co>', to: [profile.email], subject: `${heading} - ${plan.name}`, html });

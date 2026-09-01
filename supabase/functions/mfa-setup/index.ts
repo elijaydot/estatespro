@@ -1,8 +1,8 @@
 // MFA Setup: generate a fresh TOTP secret, store ciphertext (enabled=false), return otpauth URI.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/supabase-client-types.ts";
 import * as OTPAuth from "https://esm.sh/otpauth@9.3.4";
-import { encode as b32encode } from "https://deno.land/std@0.224.0/encoding/base32.ts";
+import { encodeBase32 as b32encode } from "https://deno.land/std@0.224.0/encoding/base32.ts";
 import { checkRateLimit } from "../_shared/security.ts";
 
 const corsHeaders = {

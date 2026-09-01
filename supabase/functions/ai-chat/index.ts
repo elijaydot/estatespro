@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/supabase-client-types.ts";
 import {
   buildCorsHeaders,
   checkRateLimit,
@@ -7,6 +7,8 @@ import {
 } from "../_shared/security.ts";
 import { enforceAiCreditQuota } from "../_shared/saas-quota.ts";
 import { executeAiChat } from "../_shared/ai-provider.ts";
+import { createCorrelationId } from "../_shared/observability.ts";
+import type { LooseSupabaseClient } from "../_shared/supabase-client-types.ts";
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -15,14 +17,14 @@ function jsonResponse(req: Request, body: unknown, status = 200) {
   });
 }
 
-async function getPortfolioContext(supabase: ReturnType<typeof createClient>, companyId: string) {
+async function getPortfolioContext(supabase: LooseSupabaseClient, companyId: string) {
   const propertiesRes = await supabase
     .from('properties')
     .select('id, name, total_units, occupied_units')
     .eq('company_id', companyId);
 
   const properties = propertiesRes.data || [];
-  const propertyIds = properties.map((property) => property.id);
+  const propertyIds = properties.map((property: { id: string }) => property.id);
   if (propertyIds.length === 0) {
     return 'Portfolio Summary:\n- Properties: 0\n- Units: 0\n- Active Tenants: 0\n- Revenue (Last 30 days): 0\n- Pending Maintenance: 0';
   }
@@ -37,7 +39,7 @@ async function getPortfolioContext(supabase: ReturnType<typeof createClient>, co
   const units = unitsRes.data || [];
   const tenants = tenantsRes.data || [];
   const maintenance = maintenanceRes.data || [];
-  const invoiceIds = (invoicesRes.data || []).map((invoice) => invoice.id);
+  const invoiceIds = (invoicesRes.data || []).map((invoice: { id: string }) => invoice.id);
   const paymentsRes = invoiceIds.length > 0
     ? await supabase
       .from('payments')
@@ -48,15 +50,15 @@ async function getPortfolioContext(supabase: ReturnType<typeof createClient>, co
   const payments = paymentsRes.data || [];
 
   const occupancyRate = units.length > 0 
-    ? Math.round((units.filter((u) => u.status === 'occupied').length / units.length) * 100)
+    ? Math.round((units.filter((u: { status: string }) => u.status === 'occupied').length / units.length) * 100)
     : 0;
 
   const revenue30d = payments
-    .filter((p) => p.status === 'completed')
-    .reduce((sum: number, p) => sum + Number(p.amount), 0);
+    .filter((p: { status: string }) => p.status === 'completed')
+    .reduce((sum: number, p: { amount: number | string }) => sum + Number(p.amount), 0);
 
-  const activeTenants = tenants.filter((t) => t.status === 'active').length;
-  const pendingMaintenance = maintenance.filter((m) => m.status === 'submitted' || m.status === 'in_progress').length;
+  const activeTenants = tenants.filter((t: { status: string }) => t.status === 'active').length;
+  const pendingMaintenance = maintenance.filter((m: { status: string }) => m.status === 'submitted' || m.status === 'in_progress').length;
 
   return `
 Portfolio Summary:

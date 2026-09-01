@@ -15,7 +15,7 @@
 //   ?mode=objects&bucket=<b>&limit=1000&offset=0  -> object manifest for a bucket
 //   ?mode=sign&bucket=<b>&path=<p>&expires=3600   -> signed download URL
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { createClient } from "../_shared/supabase-client-types.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
