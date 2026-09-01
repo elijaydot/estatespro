@@ -215,7 +215,22 @@ export function GoogleStyleBillingOverview() {
         },
       });
 
-      if (error) throw new Error(error.message || 'Unable to initialize checkout');
+      if (error) {
+        let detailedMsg = error.message;
+        try {
+          if ('context' in error && (error as any).context) {
+            const body = await (error as any).context.json();
+            if (body?.error?.message) {
+              detailedMsg = body.error.message;
+            } else if (body?.message) {
+              detailedMsg = body.message;
+            }
+          }
+        } catch {
+          // ignore
+        }
+        throw new Error(detailedMsg || 'Unable to initialize checkout');
+      }
 
       const payload = data as {
         success?: boolean;
