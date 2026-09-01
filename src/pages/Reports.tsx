@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import {
   BarChart3,
@@ -59,6 +59,7 @@ import {
   rowsToCsv,
 } from '@/lib/pmReports';
 import { useCompanyExecutiveReport, type CompanyExecutiveReportRow } from '@/hooks/useCompanyExecutiveReport';
+import { computeRraRentalTaxReport, generateRraTaxExportCsv } from '@/lib/rraCompliance';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--info))'];
 
@@ -173,6 +174,31 @@ export default function Reports() {
     .map((payment) => ({ ...payment, vendorName: vendorById.get(payment.vendor_id) ?? 'Unknown vendor' }));
   const vendorPaymentTotals = summarizeVendorPayments(vendorPaymentRows);
 
+  // Rwanda Revenue Authority (RRA) Rental Tax Declaration
+  const rraRecords = useMemo(() => {
+    return leases.map(lease => {
+      const leaseInvoices = invoices.filter(i => i.lease_id === lease.id);
+      const leaseInvoiceIds = new Set(leaseInvoices.map(i => i.id));
+      const leasePayments = payments.filter(p => p.status === 'completed' && p.invoice_id && leaseInvoiceIds.has(p.invoice_id));
+      const grossCollected = leasePayments.reduce((sum, p) => sum + p.amount, 0);
+
+      return {
+        propertyId: lease.property_id,
+        propertyName: lease.properties?.name || 'Property',
+        unitId: lease.unit_id,
+        unitNumber: lease.units?.unit_number || 'Unit',
+        tenantName: lease.tenants?.name || 'Tenant',
+        tenantTin: (lease.tenants as unknown as { tin?: string })?.tin || '',
+        grossRentCollected: grossCollected > 0 ? grossCollected : (lease.monthly_rent * 12),
+        currency: 'RWF',
+      };
+    });
+  }, [leases, invoices, payments]);
+
+  const rraTaxSummary = useMemo(() => {
+    return computeRraRentalTaxReport(rraRecords, new Date().getFullYear());
+  }, [rraRecords]);
+
   // Occupancy by property
   const occupancyByProperty = properties.map(p => ({
     name: p.name,
@@ -226,6 +252,9 @@ export default function Reports() {
         ['Company', 'Access', 'Email', 'Phone', 'Address', 'Properties', 'Units', 'Occupied Units', 'Occupancy Rate', 'Active Tenants', 'Team Members', 'Collected', 'Outstanding', 'Open Maintenance', 'AI Credits Used'],
         executiveRows.map((row) => [row.company_name, row.access_role, row.company_email ?? '', row.company_phone ?? '', row.company_address ?? '', row.property_count, row.unit_count, row.occupied_unit_count, `${row.occupancy_rate}%`, row.active_tenant_count, row.team_member_count, row.total_collected, row.outstanding_balance, row.open_maintenance_count, row.ai_credits_used ?? 'Restricted']),
       );
+    } else if (activeReport === 'rra-tax') {
+      fileName = `rra-rental-income-tax-declaration-${rraTaxSummary.taxYear}`;
+      csvContent = generateRraTaxExportCsv(rraTaxSummary);
     } else if (activeReport === 'rent-roll') {
       fileName = 'rent-roll';
       csvContent = rowsToCsv(
@@ -450,6 +479,7 @@ export default function Reports() {
           <TabsTrigger value="occupancy-trend">Occupancy Trend</TabsTrigger>
           <TabsTrigger value="maintenance-cost">Maintenance Cost</TabsTrigger>
           <TabsTrigger value="vendor-payments">Vendor Payments</TabsTrigger>
+          <TabsTrigger value="rra-tax" className="gap-2 font-medium">🇷🇼 RRA Rental Tax</TabsTrigger>
           <TabsTrigger value="executive" className="gap-2"><Building2 className="h-4 w-4" />All Companies</TabsTrigger>
         </TabsList>
 
@@ -757,6 +787,142 @@ export default function Reports() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="rra-tax">
+          <Card className="card-shadow-md">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🇷🇼</span>
+                  <CardTitle className="text-lg font-bold">Rwanda Revenue Authority (RRA) — Annual Rental Income Tax Declaration</CardTitle>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Compliant with Law N° 016/2018 on Direct Taxes on Income (Article 49). Annual returns due by <strong>January 31st</strong>.
+                </p>
+              </div>
+              <Button 
+                onClick={handleExportReport} 
+                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-xs shrink-0"
+              >
+                <Download className="h-4 w-4" />
+                Export RRA E-Tax CSV
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-6">
+              {/* Statutory Metrics Grid */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="p-4 rounded-xl border border-border bg-card">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">1. Gross Rental Income</p>
+                  <p className="text-2xl font-extrabold text-foreground mt-1">
+                    {rraTaxSummary.totalGrossRent.toLocaleString()} <span className="text-xs font-semibold text-muted-foreground">RWF</span>
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Total rent collected across all properties</p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase tracking-wider text-emerald-700 dark:text-emerald-400 font-medium">2. Statutory 50% Allowance</p>
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-[10px] font-bold">Article 49</Badge>
+                  </div>
+                  <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
+                    - {rraTaxSummary.totalStatutoryDeductions.toLocaleString()} <span className="text-xs font-semibold text-muted-foreground">RWF</span>
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Automatic flat deduction for maintenance & depreciation</p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+                  <p className="text-xs uppercase tracking-wider text-blue-700 dark:text-blue-400 font-medium">3. Net Taxable Income</p>
+                  <p className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
+                    {rraTaxSummary.totalTaxableRent.toLocaleString()} <span className="text-xs font-semibold text-muted-foreground">RWF</span>
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Gross income less statutory allowance</p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 font-medium">4. Est. Tax Payable</p>
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-[10px] font-bold">Progressive</Badge>
+                  </div>
+                  <p className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">
+                    {rraTaxSummary.estimatedTaxPayable.toLocaleString()} <span className="text-xs font-semibold text-muted-foreground">RWF</span>
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Progressive rate (0%, 20%, 30%)</p>
+                </div>
+              </div>
+
+              {/* RRA Tax Brackets Reference */}
+              <div className="rounded-lg bg-muted/40 p-4 border border-border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs">
+                <div className="space-y-1">
+                  <span className="font-semibold text-foreground">Rwanda Individual Rental Income Progressive Brackets (RWF):</span>
+                  <div className="flex flex-wrap gap-3 text-muted-foreground pt-1">
+                    <span>• 0 to 180,000 RWF: <strong>0%</strong> (Exempt)</span>
+                    <span>• 180,001 to 1,000,000 RWF: <strong>20%</strong></span>
+                    <span>• Above 1,000,000 RWF: <strong>30%</strong></span>
+                  </div>
+                </div>
+                <div className="shrink-0">
+                  <Badge variant="secondary" className="text-xs">Tax Year: {rraTaxSummary.taxYear}</Badge>
+                </div>
+              </div>
+
+              {/* Property / Unit Detailed Schedule */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-foreground">Property & Lease Schedule for Declaration ({rraTaxSummary.records.length} Units)</h4>
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        <th className="py-3 px-4">Property</th>
+                        <th className="py-3 px-4">Unit</th>
+                        <th className="py-3 px-4">Tenant</th>
+                        <th className="py-3 px-4">Tenant TIN</th>
+                        <th className="py-3 px-4 text-right">Gross Rent</th>
+                        <th className="py-3 px-4 text-right">50% Deduction</th>
+                        <th className="py-3 px-4 text-right">Net Taxable</th>
+                        <th className="py-3 px-4 text-right">Est. Tax</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {rraTaxSummary.records.map((rec, i) => (
+                        <tr key={`${rec.propertyId}-${rec.unitId || i}`} className="hover:bg-muted/30 transition-colors">
+                          <td className="py-3 px-4 font-medium text-foreground">{rec.propertyName}</td>
+                          <td className="py-3 px-4 text-muted-foreground">{rec.unitNumber || '-'}</td>
+                          <td className="py-3 px-4 text-foreground">{rec.tenantName || 'N/A'}</td>
+                          <td className="py-3 px-4 text-muted-foreground font-mono text-xs">{rec.tenantTin || '-'}</td>
+                          <td className="py-3 px-4 text-right font-medium">{rec.grossRentCollected.toLocaleString()} RWF</td>
+                          <td className="py-3 px-4 text-right text-emerald-600 dark:text-emerald-400 font-medium">
+                            - {rec.statutoryDeduction.toLocaleString()} RWF
+                          </td>
+                          <td className="py-3 px-4 text-right font-semibold text-foreground">
+                            {rec.netTaxableRent.toLocaleString()} RWF
+                          </td>
+                          <td className="py-3 px-4 text-right font-semibold text-amber-600 dark:text-amber-400">
+                            {rec.estimatedTax.toLocaleString()} RWF
+                          </td>
+                        </tr>
+                      ))}
+                      {rraTaxSummary.records.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                            No active lease records available for the {rraTaxSummary.taxYear} tax year.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                    <tfoot className="border-t-2 border-border bg-muted/40 font-semibold text-xs">
+                      <tr>
+                        <td colSpan={4} className="py-3 px-4 uppercase tracking-wider text-foreground">Totals</td>
+                        <td className="py-3 px-4 text-right font-bold text-foreground">{rraTaxSummary.totalGrossRent.toLocaleString()} RWF</td>
+                        <td className="py-3 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">- {rraTaxSummary.totalStatutoryDeductions.toLocaleString()} RWF</td>
+                        <td className="py-3 px-4 text-right font-bold text-blue-600 dark:text-blue-400">{rraTaxSummary.totalTaxableRent.toLocaleString()} RWF</td>
+                        <td className="py-3 px-4 text-right font-bold text-amber-600 dark:text-amber-400">{rraTaxSummary.estimatedTaxPayable.toLocaleString()} RWF</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
         <TabsContent value="vendor-payments">
           <Card className="card-shadow-md">
             <CardHeader><CardTitle>Vendor Payments</CardTitle></CardHeader>

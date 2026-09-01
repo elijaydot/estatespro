@@ -14,6 +14,8 @@ import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 import { Pagination } from '@/components/shared/Pagination';
 import { EmptyState } from '@/components/shared/EmptyState';
 
+const TablePagination = Pagination;
+
 export default function OwnerPortal() {
   const report = useCompanyExecutiveReport();
   const { setActiveCompanyId } = useActiveCompany();
@@ -58,7 +60,7 @@ export default function OwnerPortal() {
       <header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase text-muted-foreground">Owner / Investor Portal</p>
-          <h1 className="mt-1 text-2xl font-bold text-foreground sm:text-3xl">Portfolio Command View</h1>
+          <h1 className="mt-1 text-2xl font-bold text-foreground sm:text-3xl">Portfolio command view</h1>
           <p className="mt-1 text-sm text-muted-foreground">Financial performance, occupancy, and operating metrics across portfolio companies.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -258,7 +260,7 @@ export default function OwnerPortal() {
             </Table>
           </div>
           <div className="p-4 pt-0">
-            <Pagination
+            <TablePagination
               page={page}
               pageSize={pageSize}
               total={rows.length}

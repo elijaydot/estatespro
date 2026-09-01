@@ -183,7 +183,7 @@ export default function Alerts() {
 
         <div className="flex items-center gap-2 justify-end">
           <Button variant="outline" size="sm" disabled={visibleOpenAlerts.length === 0 || acknowledgeMany.isPending} onClick={() => void acknowledgeVisible()}>
-            <Check className="mr-2 h-4 w-4" /> Acknowledge ({visibleOpenAlerts.length})
+            <Check className="mr-2 h-4 w-4" /> Acknowledge visible ({visibleOpenAlerts.length})
           </Button>
           <ViewToggle view={view} onViewChange={setView} />
         </div>

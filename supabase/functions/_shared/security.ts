@@ -41,7 +41,7 @@ function getClientIp(req: Request): string {
   return forwarded || realIp || "unknown";
 }
 
-function timingSafeEqual(left: string, right: string): boolean {
+export function timingSafeEqual(left: string, right: string): boolean {
   if (left.length !== right.length) return false;
 
   let diff = 0;
@@ -52,7 +52,7 @@ function timingSafeEqual(left: string, right: string): boolean {
   return diff === 0;
 }
 
-async function hmacSha256Hex(secret: string, payload: string): Promise<string> {
+export async function hmacSha256Hex(secret: string, payload: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),
@@ -65,6 +65,53 @@ async function hmacSha256Hex(secret: string, payload: string): Promise<string> {
   return Array.from(new Uint8Array(signature))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+export async function hmacSha512Hex(secret: string, payload: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-512" },
+    false,
+    ["sign"],
+  );
+
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(signature))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+export async function validatePaystackWebhookSignature(
+  req: Request,
+  rawBody: string,
+  explicitSecret?: string,
+): Promise<{ valid: boolean; secretMatched?: string; reason?: string }> {
+  const incomingSignature = req.headers.get("x-paystack-signature")?.trim();
+  if (!incomingSignature) {
+    return { valid: false, reason: "Missing x-paystack-signature header" };
+  }
+
+  // Dual-mode secret resolution: test key, live key, or general secret key
+  const candidates = [
+    explicitSecret,
+    Deno.env.get("PAYSTACK_SECRET_KEY"),
+    Deno.env.get("PAYSTACK_LIVE_SECRET_KEY"),
+    Deno.env.get("PAYSTACK_TEST_SECRET_KEY"),
+  ].filter((s): s is string => Boolean(s && s.trim().length > 0));
+
+  if (candidates.length === 0) {
+    return { valid: false, reason: "No Paystack secret key configured in environment" };
+  }
+
+  for (const secret of candidates) {
+    const computed = await hmacSha512Hex(secret.trim(), rawBody);
+    if (timingSafeEqual(computed.toLowerCase(), incomingSignature.toLowerCase())) {
+      return { valid: true, secretMatched: secret.startsWith("sk_test_") ? "test" : "live" };
+    }
+  }
+
+  return { valid: false, reason: "Paystack HMAC-SHA512 signature mismatch" };
 }
 
 export function buildCorsHeaders(req: Request, methods = "POST, OPTIONS") {

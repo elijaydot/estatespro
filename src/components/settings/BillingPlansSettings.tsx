@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { GoogleStyleBillingOverview } from '@/components/billing/GoogleStyleBillingOverview';
 
 type PriceRow = {
   currency_code: 'USD' | 'NGN' | 'GBP';
@@ -533,11 +534,13 @@ export function BillingPlansSettings() {
   }, [handleVerifyPendingPayment, pendingVerificationByProduct, pendingPlanId]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-[1500px] mx-auto">
+      <GoogleStyleBillingOverview />
+
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center justify-between gap-3">
-            <span>Billing & Plans</span>
+        <CardHeader className="pb-3 border-b border-border/40">
+          <CardTitle className="flex items-center justify-between gap-3 text-base">
+            <span>Historical Invoices & Audit Timeline</span>
             <Select value={currency} onValueChange={(value) => setCurrency(value as 'USD' | 'NGN' | 'GBP')}>
               <SelectTrigger className="w-[120px] h-8">
                 <SelectValue />

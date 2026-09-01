@@ -62,6 +62,7 @@ import { FilterBar } from '@/components/shared/FilterBar';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 import { Pagination } from '@/components/shared/Pagination';
+import { calculateRraLeaseFilingDeadline } from '@/lib/rraCompliance';
 
 const formatDateSafe = (dateString?: string | null, formatPattern: string = 'MMM d, yyyy') => {
   if (!dateString) return 'N/A';
@@ -627,13 +628,31 @@ export default function Leases() {
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-border flex items-center justify-between gap-2 flex-wrap text-xs">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <StatusPill variant={statusVariants[lease.status] || 'neutral'} className="capitalize">
                         {lease.status.replace('_', ' ')}
                       </StatusPill>
                       {lease.status === 'active' && daysRemaining !== null && daysRemaining > 0 && daysRemaining <= 30 && (
                         <StatusPill variant="warning">{daysRemaining}d left</StatusPill>
                       )}
+                      {(() => {
+                        const rra = calculateRraLeaseFilingDeadline(lease.start_date);
+                        if (rra.isUrgent || rra.isOverdue) {
+                          return (
+                            <span 
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                                rra.isOverdue 
+                                  ? 'bg-destructive/10 text-destructive border-destructive/30' 
+                                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-pulse'
+                              }`}
+                              title={rra.description}
+                            >
+                              {rra.badgeLabel}
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                     <div className="flex gap-1 items-center" title="Signatures: Landlord & Tenant">
                       <ShieldCheck className={`h-4 w-4 ${lease.landlord_signed_at && lease.tenant_signed_at ? 'text-success' : 'text-muted-foreground'}`} />
@@ -679,6 +698,24 @@ export default function Leases() {
                         {lease.status === 'active' && daysRemaining !== null && daysRemaining > 0 && daysRemaining <= 30 && (
                           <StatusPill variant="warning" className="text-xs">{daysRemaining}d left</StatusPill>
                         )}
+                        {(() => {
+                          const rra = calculateRraLeaseFilingDeadline(lease.start_date);
+                          if (rra.isUrgent || rra.isOverdue) {
+                            return (
+                              <span 
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                                  rra.isOverdue 
+                                    ? 'bg-destructive/10 text-destructive border-destructive/30' 
+                                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-pulse'
+                                }`}
+                                title={rra.description}
+                              >
+                                {rra.badgeLabel}
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                         {(property as { companies?: { name?: string } | null } | null)?.companies?.name && (
                           <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
                             🏢 {(property as { companies?: { name?: string } | null }).companies?.name}
@@ -804,9 +841,29 @@ export default function Leases() {
                       </TableCell>
                       <TableCell className="font-medium">{formatCurrency(lease.monthly_rent)}/mo</TableCell>
                       <TableCell>
-                        <StatusPill variant={statusVariants[lease.status] || 'neutral'} className="capitalize">
-                          {lease.status.replace('_', ' ')}
-                        </StatusPill>
+                        <div className="flex flex-col gap-1 items-start">
+                          <StatusPill variant={statusVariants[lease.status] || 'neutral'} className="capitalize">
+                            {lease.status.replace('_', ' ')}
+                          </StatusPill>
+                          {(() => {
+                            const rra = calculateRraLeaseFilingDeadline(lease.start_date);
+                            if (rra.isUrgent || rra.isOverdue) {
+                              return (
+                                <span 
+                                  className={`text-[9px] font-medium px-1.5 py-0.5 rounded border ${
+                                    rra.isOverdue 
+                                      ? 'bg-destructive/10 text-destructive border-destructive/30' 
+                                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                                  }`}
+                                  title={rra.description}
+                                >
+                                  {rra.badgeLabel}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <StatusPill variant={renewalStatusVariants[lease.renewal_status || 'not_renewed'] || 'neutral'}>

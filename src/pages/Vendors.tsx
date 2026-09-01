@@ -29,6 +29,8 @@ const emptyVendor: VendorInput = {
   name: '', vendor_type: '', contact_name: '', phone: '', email: '', address: '', status: 'active', notes: '', rating: null,
 };
 
+type VendorView = 'cards' | 'compact' | 'table';
+
 export default function Vendors() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isSuperAdmin } = useUserRole();
@@ -99,21 +101,21 @@ export default function Vendors() {
 
       <div className="grid gap-3 sm:grid-cols-3">
         <MetricCard
-          title="All Vendors"
+          title="All vendors"
           value={vendors.length}
           icon={UsersRound}
           variant="primary"
           subtitle="Registered suppliers"
         />
         <MetricCard
-          title="Active Vendors"
+          title="Active vendors"
           value={vendors.filter((vendor) => vendor.status === 'active').length}
           icon={Building2}
           variant="success"
           subtitle="Available for work orders"
         />
         <MetricCard
-          title="Needs Review"
+          title="Needs review"
           value={vendors.filter((vendor) => vendor.status === 'suspended').length}
           icon={ShieldAlert}
           variant="warning"
@@ -278,6 +280,7 @@ export default function Vendors() {
               </table>
             </div>
           </Card>
+          {/* Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filtered.length)} of {filtered.length} records */}
           <Pagination
             page={page}
             pageSize={pageSize}

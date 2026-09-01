@@ -101,3 +101,7 @@ verify_jwt = false
 
 [functions.exit-export]
 verify_jwt = false
+
+[functions.paystack-webhook]
+verify_jwt = false
+
