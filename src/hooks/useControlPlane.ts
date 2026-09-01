@@ -1054,7 +1054,7 @@ export function useRevenueMetricsAllCurrencies() {
   return useQuery({
     queryKey: ['control-plane-revenue-metrics-all-currencies'],
     queryFn: async (): Promise<RevenueMetrics[]> => {
-      const { data, error } = await supabase.rpc('platform_get_revenue_metrics_all_currencies' as never);
+      const { data, error } = (await supabase.rpc('platform_get_revenue_metrics_all_currencies' as never)) as unknown as { data: unknown; error: unknown };
 
       if (!error && Array.isArray(data) && data.length > 0) {
         return data as RevenueMetrics[];
@@ -1064,9 +1064,9 @@ export function useRevenueMetricsAllCurrencies() {
       const standardCurrencies = ['USD', 'NGN', 'GBP'];
       const results = await Promise.all(
         standardCurrencies.map(async (curr) => {
-          const res = await supabase.rpc('platform_get_revenue_metrics' as never, {
+          const res = (await supabase.rpc('platform_get_revenue_metrics' as never, {
             p_currency_code: curr,
-          } as never);
+          } as never)) as unknown as { data: unknown };
           if (res.data) {
             return { ...(res.data as object), currency_code: curr } as unknown as RevenueMetrics;
           }
