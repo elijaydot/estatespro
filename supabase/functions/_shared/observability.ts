@@ -1,6 +1,6 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "./supabase-client-types.ts";
 
-export type AuditSeverity = "info" | "warning" | "error";
+export type AuditSeverity = "info" | "warning" | "error" | "critical";
 
 export interface AuditEventInput {
   event_type: string;

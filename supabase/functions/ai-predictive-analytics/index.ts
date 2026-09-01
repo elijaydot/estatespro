@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/supabase-client-types.ts";
 import {
   buildCorsHeaders,
   checkRateLimit,
@@ -63,7 +63,7 @@ serve(async (req) => {
       .select("*")
       .eq("company_id", quotaResult.companyId)
       .limit(100);
-    const propertyIds = (propertiesRes.data || []).map((property) => property.id);
+    const propertyIds = (propertiesRes.data || []).map((property: any) => property.id);
     const [unitsRes, tenantsRes, leasesRes, invoicesRes, maintenanceRes] = propertyIds.length > 0
       ? await Promise.all([
         supabaseClient.from("units").select("id, property_id, unit_number, status, rent_amount, bedrooms, bathrooms, sqft").in("property_id", propertyIds).limit(500),
@@ -73,7 +73,7 @@ serve(async (req) => {
         supabaseClient.from("maintenance_requests").select("id, title, priority, status, created_at, completed_at, property_id, unit_id").in("property_id", propertyIds).limit(500),
       ])
       : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
-    const invoiceIds = (invoicesRes.data || []).map((invoice) => invoice.id);
+    const invoiceIds = (invoicesRes.data || []).map((invoice: any) => invoice.id);
     const paymentsRes = invoiceIds.length > 0
       ? await supabaseClient.from("payments").select("id, amount, method, status, created_at, tenant_id").in("invoice_id", invoiceIds).limit(1000)
       : { data: [] };
@@ -90,24 +90,24 @@ serve(async (req) => {
 
     // Build analytics context
     const totalUnits = units.length;
-    const occupiedUnits = units.filter((u) => u.status === "occupied").length;
-    const vacantUnits = units.filter((u) => u.status === "vacant").length;
+    const occupiedUnits = units.filter((u: any) => u.status === "occupied").length;
+    const vacantUnits = units.filter((u: any) => u.status === "vacant").length;
     const occupancyRate = totalUnits > 0 ? ((occupiedUnits / totalUnits) * 100).toFixed(1) : "0";
 
-    const totalInvoiced = invoices.reduce((s: number, i) => s + (i.amount || 0), 0);
-    const totalPaid = invoices.reduce((s: number, i) => s + (i.paid_amount || 0), 0);
-    const overdueInvoices = invoices.filter((i) => i.status === "overdue" || (i.status !== "paid" && new Date(i.due_date) < new Date()));
+    const totalInvoiced = invoices.reduce((s: number, i: any) => s + (i.amount || 0), 0);
+    const totalPaid = invoices.reduce((s: number, i: any) => s + (i.paid_amount || 0), 0);
+    const overdueInvoices = invoices.filter((i: any) => i.status === "overdue" || (i.status !== "paid" && new Date(i.due_date) < new Date()));
 
-    const activeLeasesExpiring = leases.filter((l) => {
+    const activeLeasesExpiring = leases.filter((l: any) => {
       const end = new Date(l.end_date);
       const now = new Date();
       const threeMonths = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
       return l.status === "active" && end <= threeMonths && end > now;
     });
 
-    const maintenancePending = maintenance.filter((m) => m.status !== "completed" && m.status !== "cancelled");
+    const maintenancePending = maintenance.filter((m: any) => m.status !== "completed" && m.status !== "cancelled");
     const maintenanceByPriority = { urgent: 0, high: 0, medium: 0, low: 0 };
-    maintenance.forEach((m) => {
+    maintenance.forEach((m: any) => {
       if (m.priority in maintenanceByPriority) {
         const priority = m.priority as PriorityKey;
         maintenanceByPriority[priority] += 1;
@@ -119,18 +119,18 @@ PORTFOLIO SUMMARY:
 - Properties: ${properties.length}
 - Total Units: ${totalUnits} (Occupied: ${occupiedUnits}, Vacant: ${vacantUnits})
 - Occupancy Rate: ${occupancyRate}%
-- Active Tenants: ${tenants.filter((t) => t.status === "active").length}
+- Active Tenants: ${tenants.filter((t: any) => t.status === "active").length}
 
 FINANCIAL DATA:
 - Total Invoiced: ${totalInvoiced}
 - Total Collected: ${totalPaid}
 - Collection Rate: ${totalInvoiced > 0 ? ((totalPaid / totalInvoiced) * 100).toFixed(1) : "0"}%
-- Overdue Invoices: ${overdueInvoices.length} (Total: ${overdueInvoices.reduce((s: number, i) => s + (i.amount - i.paid_amount), 0)})
+- Overdue Invoices: ${overdueInvoices.length} (Total: ${overdueInvoices.reduce((s: number, i: any) => s + (i.amount - i.paid_amount), 0)})
 
 LEASE DATA:
-- Active Leases: ${leases.filter((l) => l.status === "active").length}
+- Active Leases: ${leases.filter((l: any) => l.status === "active").length}
 - Expiring in 90 days: ${activeLeasesExpiring.length}
-- Renewal Status: ${leases.filter((l) => l.renewal_status === "renewed").length} renewed, ${leases.filter((l) => l.renewal_status === "not_renewed").length} not renewed
+- Renewal Status: ${leases.filter((l: any) => l.renewal_status === "renewed").length} renewed, ${leases.filter((l: any) => l.renewal_status === "not_renewed").length} not renewed
 
 MAINTENANCE:
 - Total Requests: ${maintenance.length}
@@ -138,18 +138,18 @@ MAINTENANCE:
 - By Priority: Urgent: ${maintenanceByPriority.urgent}, High: ${maintenanceByPriority.high}, Medium: ${maintenanceByPriority.medium}, Low: ${maintenanceByPriority.low}
 
 PROPERTY DETAILS:
-${properties.map((p) => `- ${p.name}: ${p.occupied_units}/${p.total_units} units occupied`).join("\n")}
+${properties.map((p: any) => `- ${p.name}: ${p.occupied_units}/${p.total_units} units occupied`).join("\n")}
 
 LEASE DETAILS (expiring soon):
-${activeLeasesExpiring.map((l) => {
-  const tenant = tenants.find((t) => t.id === l.tenant_id);
+${activeLeasesExpiring.map((l: any) => {
+  const tenant = tenants.find((t: any) => t.id === l.tenant_id);
   return `- ${l.lease_number}: ${tenant?.name || "Unknown"}, ends ${l.end_date}, rent ${l.monthly_rent}`;
 }).join("\n")}
 
 MONTHLY PAYMENT TRENDS:
 ${(() => {
   const monthlyPayments: Record<string, number> = {};
-  payments.forEach((p) => {
+  payments.forEach((p: any) => {
     const month = p.created_at?.substring(0, 7);
     if (month) monthlyPayments[month] = (monthlyPayments[month] || 0) + (p.amount || 0);
   });

@@ -48,7 +48,7 @@ export interface CrmReportItem {
   category: ReportCategoryKey;
   icon: LucideIcon;
   badge?: string;
-  defaultPeriod: '7d' | '30d' | '90d' | 'year';
+  defaultPeriod: '7d' | '30d' | '90d' | 'year' | 'all';
   tags: string[];
   kpiMetrics: {
     primaryLabel: string;

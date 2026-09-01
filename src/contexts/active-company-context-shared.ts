@@ -3,6 +3,8 @@ import { createContext } from 'react';
 export type CompanyOption = {
   id: string;
   name: string;
+  email?: string | null;
+  address?: string | null;
 };
 
 export type ActiveCompanyContextType = {

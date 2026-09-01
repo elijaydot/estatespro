@@ -104,21 +104,21 @@ export default function Vendors() {
           title="All vendors"
           value={vendors.length}
           icon={UsersRound}
-          variant="primary"
+          accent="primary"
           subtitle="Registered suppliers"
         />
         <MetricCard
           title="Active vendors"
           value={vendors.filter((vendor) => vendor.status === 'active').length}
           icon={Building2}
-          variant="success"
+          accent="success"
           subtitle="Available for work orders"
         />
         <MetricCard
           title="Needs review"
           value={vendors.filter((vendor) => vendor.status === 'suspended').length}
           icon={ShieldAlert}
-          variant="warning"
+          accent="warning"
           subtitle="Suspended accounts"
         />
       </div>

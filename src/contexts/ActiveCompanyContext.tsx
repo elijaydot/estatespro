@@ -8,6 +8,8 @@ import { ActiveCompanyContext, ActiveCompanyContextType } from './active-company
 export type CompanyOption = {
   id: string;
   name: string;
+  email?: string | null;
+  address?: string | null;
 };
 
 type CompanyMemberCompanyRow = {

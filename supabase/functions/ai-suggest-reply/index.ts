@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/supabase-client-types.ts";
 import {
   buildCorsHeaders,
   checkRateLimit,
@@ -56,7 +56,7 @@ serve(async (req) => {
       return jsonResponse(req, { error: quotaResult.message }, quotaResult.status);
     }
 
-    const conversationContext = messages.map((m) => 
+    const conversationContext = messages.map((m: any) => 
       `${m.isFromMe ? "Property Manager" : tenantName}: ${m.content}`
     ).join("\n");
 

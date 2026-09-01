@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/supabase-client-types.ts";
 import {
   buildCorsHeaders,
   checkRateLimit,
@@ -62,7 +62,7 @@ serve(async (req) => {
       .select("id")
       .eq("company_id", quotaResult.companyId);
     if (propertiesError) throw propertiesError;
-    const propertyIds = (companyProperties || []).map((property) => property.id);
+    const propertyIds = (companyProperties || []).map((property: any) => property.id);
 
     const [invoicesRes, leasesRes, tenantsRes] = propertyIds.length > 0
       ? await Promise.all([
@@ -86,7 +86,7 @@ serve(async (req) => {
           .limit(200),
       ])
       : [{ data: [] }, { data: [] }, { data: [] }];
-    const invoiceIds = (invoicesRes.data || []).map((invoice) => invoice.id);
+    const invoiceIds = (invoicesRes.data || []).map((invoice: any) => invoice.id);
     const paymentsRes = invoiceIds.length > 0
       ? await supabaseClient
         .from("payments")
@@ -103,20 +103,20 @@ serve(async (req) => {
 
     // Build financial summary for AI analysis
     const now = new Date();
-    const overdueInvoices = invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled' && new Date(i.due_date) < now);
-    const paidInvoices = invoices.filter(i => i.status === 'paid');
-    const totalMonthlyRent = leases.reduce((sum, l) => sum + Number(l.monthly_rent), 0);
-    const shortletInvoices = invoices.filter(i => i.source === 'shortlet_booking' || i.booking_id);
-    const shortletPayments = payments.filter(p => p.source === 'shortlet_booking' || p.booking_id);
+    const overdueInvoices = invoices.filter((i: any) => i.status !== 'paid' && i.status !== 'cancelled' && new Date(i.due_date) < now);
+    const paidInvoices = invoices.filter((i: any) => i.status === 'paid');
+    const totalMonthlyRent = leases.reduce((sum: any, l: any) => sum + Number(l.monthly_rent), 0);
+    const shortletInvoices = invoices.filter((i: any) => i.source === 'shortlet_booking' || i.booking_id);
+    const shortletPayments = payments.filter((p: any) => p.source === 'shortlet_booking' || p.booking_id);
 
     // Calculate per-tenant payment patterns
-    const tenantPaymentStats = tenants.map(t => {
-      const tInvoices = invoices.filter(i => i.tenant_id === t.id);
-      const tPayments = payments.filter(p => p.tenant_id === t.id);
-      const tOverdue = tInvoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled' && new Date(i.due_date) < now);
-      const latePays = tInvoices.filter(i => {
+    const tenantPaymentStats = tenants.map((t: any) => {
+      const tInvoices = invoices.filter((i: any) => i.tenant_id === t.id);
+      const tPayments = payments.filter((p: any) => p.tenant_id === t.id);
+      const tOverdue = tInvoices.filter((i: any) => i.status !== 'paid' && i.status !== 'cancelled' && new Date(i.due_date) < now);
+      const latePays = tInvoices.filter((i: any) => {
         if (i.status !== 'paid') return false;
-        const payment = tPayments.find(p => p.invoice_id === i.id);
+        const payment = tPayments.find((p: any) => p.invoice_id === i.id);
         if (!payment) return false;
         return new Date(payment.created_at) > new Date(i.due_date);
       });
@@ -125,20 +125,20 @@ serve(async (req) => {
         totalInvoices: tInvoices.length,
         overdueCount: tOverdue.length,
         latePayCount: latePays.length,
-        totalOwed: tOverdue.reduce((s, i) => s + Number(i.amount) - Number(i.paid_amount), 0),
+        totalOwed: tOverdue.reduce((s: any, i: any) => s + Number(i.amount) - Number(i.paid_amount), 0),
         monthlyRent: t.monthly_rent,
       };
-    }).filter(t => t.totalInvoices > 0);
+    }).filter((t: any) => t.totalInvoices > 0);
 
     // Payment method breakdown
     const methodCounts: Record<string, number> = {};
-    payments.forEach(p => {
+    payments.forEach((p: any) => {
       methodCounts[p.method] = (methodCounts[p.method] || 0) + 1;
     });
 
     // Monthly collection for last 6 months
     const monthlyCollections: Record<string, number> = {};
-    payments.filter(p => p.status === 'completed').forEach(p => {
+    payments.filter((p: any) => p.status === 'completed').forEach((p: any) => {
       const month = new Date(p.created_at).toISOString().slice(0, 7);
       monthlyCollections[month] = (monthlyCollections[month] || 0) + Number(p.amount);
     });
@@ -149,13 +149,13 @@ serve(async (req) => {
         totalActiveTenants: tenants.length,
         totalShortletInvoices: shortletInvoices.length,
         totalShortletPayments: shortletPayments.length,
-        totalShortletCollected: shortletPayments.filter(p => p.status === 'completed').reduce((s, p) => s + Number(p.amount), 0),
+        totalShortletCollected: shortletPayments.filter((p: any) => p.status === 'completed').reduce((s: any, p: any) => s + Number(p.amount), 0),
         totalMonthlyRent,
         totalInvoices: invoices.length,
         totalPaidInvoices: paidInvoices.length,
         totalOverdueInvoices: overdueInvoices.length,
-        totalOverdueAmount: overdueInvoices.reduce((s, i) => s + Number(i.amount) - Number(i.paid_amount), 0),
-        totalCollected: payments.filter(p => p.status === 'completed').reduce((s, p) => s + Number(p.amount), 0),
+        totalOverdueAmount: overdueInvoices.reduce((s: any, i: any) => s + Number(i.amount) - Number(i.paid_amount), 0),
+        totalCollected: payments.filter((p: any) => p.status === 'completed').reduce((s: any, p: any) => s + Number(p.amount), 0),
         totalPayments: payments.length,
       },
       tenantPaymentStats: tenantPaymentStats.slice(0, 20), // Top 20 tenants

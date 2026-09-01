@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/supabase-client-types.ts";
 import {
   buildCorsHeaders,
   checkRateLimit,
@@ -64,7 +64,7 @@ serve(async (req) => {
       .select("id, name, address, city, type, total_units, occupied_units")
       .eq("company_id", quotaResult.companyId)
       .limit(100);
-    const propertyIds = (propertiesRes.data || []).map((property) => property.id);
+    const propertyIds = (propertiesRes.data || []).map((property: any) => property.id);
 
     const [tenantsRes, invoicesRes, maintenanceRes, leasesRes] = propertyIds.length > 0
       ? await Promise.all([
@@ -74,29 +74,29 @@ serve(async (req) => {
         supabaseClient.from("leases").select("id, lease_number, start_date, end_date, monthly_rent, status, tenant_id, property_id, unit_id, renewal_status").in("property_id", propertyIds).limit(200),
       ])
       : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
-    const invoiceIds = (invoicesRes.data || []).map((invoice) => invoice.id);
+    const invoiceIds = (invoicesRes.data || []).map((invoice: any) => invoice.id);
     const paymentsRes = invoiceIds.length > 0
       ? await supabaseClient.from("payments").select("id, amount, method, status, created_at, tenant_id, booking_id, source, payer_name, payer_email, invoice_id").in("invoice_id", invoiceIds).limit(500)
       : { data: [] };
 
     const dataContext = `
 Properties (${propertiesRes.data?.length || 0}):
-  ${(propertiesRes.data || []).map((p) => `- ${p.name} | Property ID: ${p.id} | ${p.address}, ${p.city} | Type: ${p.type} | Units: ${p.occupied_units}/${p.total_units}`).join("\n")}
+  ${(propertiesRes.data || []).map((p: any) => `- ${p.name} | Property ID: ${p.id} | ${p.address}, ${p.city} | Type: ${p.type} | Units: ${p.occupied_units}/${p.total_units}`).join("\n")}
 
 Tenants (${tenantsRes.data?.length || 0}):
-  ${(tenantsRes.data || []).map((t) => `- ${t.name} | Tenant ID: ${t.id} | Email: ${t.email} | Status: ${t.status} | Rent: ${t.monthly_rent} | Balance: ${t.balance} | Property ID: ${t.property_id || 'Missing property link'} | Unit ID: ${t.unit_id || 'Missing unit link'}`).join("\n")}
+  ${(tenantsRes.data || []).map((t: any) => `- ${t.name} | Tenant ID: ${t.id} | Email: ${t.email} | Status: ${t.status} | Rent: ${t.monthly_rent} | Balance: ${t.balance} | Property ID: ${t.property_id || 'Missing property link'} | Unit ID: ${t.unit_id || 'Missing unit link'}`).join("\n")}
 
 Invoices (${invoicesRes.data?.length || 0}):
-  ${(invoicesRes.data || []).map((i) => `- ${i.invoice_number} | Invoice ID: ${i.id} | Amount: ${i.amount} | Due: ${i.due_date} | Status: ${i.status} | Paid: ${i.paid_amount} | Source: ${i.source} | Tenant ID: ${i.tenant_id || 'Missing tenant link'} | Property ID: ${i.property_id || 'Missing property link'} | Booking ID: ${i.booking_id || 'No booking link'}${i.guest_name ? ` | Guest: ${i.guest_name} (${i.guest_email || 'No guest email'})` : ''}`).join("\n")}
+  ${(invoicesRes.data || []).map((i: any) => `- ${i.invoice_number} | Invoice ID: ${i.id} | Amount: ${i.amount} | Due: ${i.due_date} | Status: ${i.status} | Paid: ${i.paid_amount} | Source: ${i.source} | Tenant ID: ${i.tenant_id || 'Missing tenant link'} | Property ID: ${i.property_id || 'Missing property link'} | Booking ID: ${i.booking_id || 'No booking link'}${i.guest_name ? ` | Guest: ${i.guest_name} (${i.guest_email || 'No guest email'})` : ''}`).join("\n")}
 
 Maintenance (${maintenanceRes.data?.length || 0}):
-  ${(maintenanceRes.data || []).map((m) => `- ${m.title} | Request ID: ${m.id} | ${m.priority} priority | ${m.status} | Created: ${m.created_at} | Property ID: ${m.property_id || 'Missing property link'} | Unit ID: ${m.unit_id || 'Missing unit link'} | Tenant ID: ${m.tenant_id || 'Missing tenant link'}`).join("\n")}
+  ${(maintenanceRes.data || []).map((m: any) => `- ${m.title} | Request ID: ${m.id} | ${m.priority} priority | ${m.status} | Created: ${m.created_at} | Property ID: ${m.property_id || 'Missing property link'} | Unit ID: ${m.unit_id || 'Missing unit link'} | Tenant ID: ${m.tenant_id || 'Missing tenant link'}`).join("\n")}
 
 Leases (${leasesRes.data?.length || 0}):
-  ${(leasesRes.data || []).map((l) => `- ${l.lease_number} | Lease ID: ${l.id} | ${l.start_date} to ${l.end_date} | Rent: ${l.monthly_rent} | Status: ${l.status} | Renewal: ${l.renewal_status} | Tenant ID: ${l.tenant_id || 'Missing tenant link'} | Property ID: ${l.property_id || 'Missing property link'} | Unit ID: ${l.unit_id || 'Missing unit link'}`).join("\n")}
+  ${(leasesRes.data || []).map((l: any) => `- ${l.lease_number} | Lease ID: ${l.id} | ${l.start_date} to ${l.end_date} | Rent: ${l.monthly_rent} | Status: ${l.status} | Renewal: ${l.renewal_status} | Tenant ID: ${l.tenant_id || 'Missing tenant link'} | Property ID: ${l.property_id || 'Missing property link'} | Unit ID: ${l.unit_id || 'Missing unit link'}`).join("\n")}
 
 Recent Payments (${paymentsRes.data?.length || 0}):
-  ${(paymentsRes.data || []).slice(0, 50).map((p) => `- Payment ID: ${p.id} | Amount: ${p.amount} via ${p.method} | ${p.status} | ${p.created_at} | Source: ${p.source} | Tenant ID: ${p.tenant_id || 'Missing tenant link'} | Invoice ID: ${p.invoice_id || 'Missing invoice link'} | Booking ID: ${p.booking_id || 'No booking link'}${p.payer_name ? ` | Payer: ${p.payer_name} (${p.payer_email || 'No payer email'})` : ''}`).join("\n")}
+  ${(paymentsRes.data || []).slice(0, 50).map((p: any) => `- Payment ID: ${p.id} | Amount: ${p.amount} via ${p.method} | ${p.status} | ${p.created_at} | Source: ${p.source} | Tenant ID: ${p.tenant_id || 'Missing tenant link'} | Invoice ID: ${p.invoice_id || 'Missing invoice link'} | Booking ID: ${p.booking_id || 'No booking link'}${p.payer_name ? ` | Payer: ${p.payer_name} (${p.payer_email || 'No payer email'})` : ''}`).join("\n")}
 `;
 
     const formattingRules = `

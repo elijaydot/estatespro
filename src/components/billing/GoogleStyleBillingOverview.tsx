@@ -182,7 +182,7 @@ export function GoogleStyleBillingOverview() {
   const formatPrice = (usdMonthly: number) => {
     const baseUsd = isAnnual ? usdMonthly * 0.80 : usdMonthly;
     if (currency === 'USD') return `$${baseUsd.toFixed(0)}`;
-    const converted = convert(baseUsd, 'USD');
+    const converted = convert(baseUsd, 'USD', currency);
     if (currency === 'RWF') return `${Math.round(converted).toLocaleString()} RWF`;
     if (currency === 'NGN') return `₦${Math.round(converted).toLocaleString()}`;
     if (currency === 'GBP') return `£${baseUsd.toFixed(0)}`;

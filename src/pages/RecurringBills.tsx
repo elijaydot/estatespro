@@ -267,21 +267,21 @@ export default function RecurringBills() {
           title="Total Active Bills"
           value={activeBills}
           icon={RefreshCw}
-          variant="primary"
+          accent="primary"
           subtitle={`${bills.length - activeBills} inactive`}
         />
         <MetricCard
           title="Est. Monthly Total"
           value={formatCurrency(totalMonthlyAmount)}
           icon={Zap}
-          variant="success"
+          accent="success"
           subtitle="Across all properties"
         />
         <MetricCard
           title="Total Bill Types"
           value={new Set(bills.map(b => b.bill_type)).size}
           icon={Shield}
-          variant="default"
+          accent="info"
           subtitle="Configured categories"
         />
       </div>
