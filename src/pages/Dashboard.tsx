@@ -153,7 +153,7 @@ export default function Dashboard() {
                 Platform Collections
               </p>
               <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                {formatCurrency(stats?.totalRevenue || 0)}
+                {formatCurrency(stats?.monthlyRevenue || 0)}
               </p>
               <p className="text-[10px] text-muted-foreground">
                 Total settled across all orgs
@@ -291,14 +291,14 @@ export default function Dashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(companyDirectory?.items || companiesList.slice(0, 8)).length === 0 ? (
+                  {(companyDirectory?.rows || companiesList.slice(0, 8)).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
                         No customer organizations registered yet.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    (companyDirectory?.items || companiesList.slice(0, 8)).map((org) => (
+                    (companyDirectory?.rows || companiesList.slice(0, 8)).map((org) => (
                       <TableRow key={org.id} className="hover:bg-muted/40 transition-colors">
                         <TableCell>
                           <div className="flex items-center gap-2.5">
