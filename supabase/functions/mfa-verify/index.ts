@@ -1,6 +1,6 @@
 // MFA Verify: validates a 6-digit TOTP code OR a recovery code. Used at login.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/supabase-client-types.ts";
 import * as OTPAuth from "https://esm.sh/otpauth@9.3.4";
 import { checkRateLimit } from "../_shared/security.ts";
 

@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.90.1";
+import { createClient } from "../_shared/supabase-client-types.ts";
 import { apiError, apiSuccess, isUuid, parseApiListQuery } from "../_shared/api-contract.ts";
 import { authenticateApiRequest, authorizeApiAccess, hashApiKey, type ApiAuthClient, type ApiAuthSuccess, type ApiScope, type ApiTier } from "../_shared/api-auth.ts";
 import { buildCorsHeaders, handleCorsPreflight } from "../_shared/security.ts";

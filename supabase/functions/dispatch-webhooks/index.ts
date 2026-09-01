@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.90.1";
+import { createClient } from "../_shared/supabase-client-types.ts";
 import { buildWebhookSignature, computeWebhookBackoffMs, shouldRetryWebhookDelivery } from "../_shared/webhook-delivery.ts";
 import { buildWebhookEventEnvelope } from "../_shared/webhook-events.ts";
 
