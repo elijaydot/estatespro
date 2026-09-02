@@ -428,6 +428,107 @@ serve(async (req: Request) => {
       );
     }
 
+    // Persist invoice and payment attempt so Billing History and Verification have immediate records
+    try {
+      const { data: productData } = await supabase
+        .from("saas_products")
+        .select("id")
+        .eq("code", body.productCode || "pm_core")
+        .maybeSingle();
+
+      const productId = productData?.id;
+
+      const { data: planData } = await supabase
+        .from("saas_plans")
+        .select("id, name")
+        .eq("code", body.planCode)
+        .maybeSingle();
+
+      const planId = planData?.id;
+
+      let subscriptionId: string | null = null;
+      if (productId && planId) {
+        const { data: existingSub } = await supabase
+          .from("saas_company_plan_subscriptions")
+          .select("id")
+          .eq("company_id", body.companyId)
+          .eq("product_id", productId)
+          .maybeSingle();
+
+        if (existingSub?.id) {
+          subscriptionId = existingSub.id;
+        } else {
+          const { data: newSub } = await supabase
+            .from("saas_company_plan_subscriptions")
+            .insert({
+              company_id: body.companyId,
+              product_id: productId,
+              plan_id: planId,
+              status: "pending_verification",
+              current_period_start: new Date().toISOString(),
+              current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              next_renewal_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            })
+            .select("id")
+            .maybeSingle();
+          if (newSub?.id) subscriptionId = newSub.id;
+        }
+      }
+
+      const validCurrencyCode = ["USD", "NGN", "GBP"].includes(paystackCurrency)
+        ? paystackCurrency
+        : "USD";
+
+      if (subscriptionId && productId) {
+        await supabase
+          .from("saas_subscription_invoices")
+          .insert({
+            id: invoiceId,
+            company_id: body.companyId,
+            subscription_id: subscriptionId,
+            product_id: productId,
+            invoice_kind: "plan_change_proration",
+            invoice_status: "open",
+            amount_minor: finalAmountMinor,
+            currency_code: validCurrencyCode,
+            external_reference: reference,
+            correlation_id: correlationId,
+            metadata: {
+              plan_code: body.planCode,
+              plan_name: planData?.name || body.planCode,
+              gateway,
+              currency: paystackCurrency,
+            },
+          });
+
+        await supabase
+          .from("saas_subscription_payment_attempts")
+          .insert({
+            id: attemptId,
+            company_id: body.companyId,
+            subscription_id: subscriptionId,
+            invoice_id: invoiceId,
+            gateway,
+            payment_method: paymentMethod,
+            amount_minor: finalAmountMinor,
+            currency_code: validCurrencyCode,
+            gateway_reference: reference,
+            idempotency_key: reference,
+            payment_status: "pending",
+            correlation_id: correlationId,
+            metadata: {
+              plan_code: body.planCode,
+              plan_name: planData?.name || body.planCode,
+              gateway,
+              currency: paystackCurrency,
+              base_usd: baseUsd,
+            },
+          });
+      }
+    } catch (persistErr) {
+      console.warn("Could not pre-persist attempt record:", persistErr);
+    }
+
     const checkoutUrl = gateway === "paystack"
       ? await createPaystackCheckout({
           secretKey,

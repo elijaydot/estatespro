@@ -211,8 +211,8 @@ serve(async (req: Request) => {
 
     const correlationId = payload.correlationId || createCorrelationId();
 
-    if (!payload.attemptId || !payload.reference || !payload.gateway) {
-      return paymentError(req, "attemptId, gateway and reference are required", 400, correlationId);
+    if (!payload.reference || !payload.gateway) {
+      return paymentError(req, "gateway and reference are required", 400, correlationId);
     }
 
     if (payload.billingScope && !["company", "owner_group"].includes(payload.billingScope)) {
@@ -234,23 +234,33 @@ serve(async (req: Request) => {
     let attemptRow: PaymentAttemptRow | null = null;
 
     if (billingScope === "company") {
-      const { data, error } = await supabase
+      let query = supabase
         .from("saas_subscription_payment_attempts")
-        .select("id, company_id, payment_status, amount_minor, currency_code, gateway, gateway_reference, metadata")
-        .eq("id", payload.attemptId)
-        .maybeSingle();
+        .select("id, company_id, payment_status, amount_minor, currency_code, gateway, gateway_reference, metadata");
 
+      if (payload.attemptId) {
+        query = query.eq("id", payload.attemptId);
+      } else {
+        query = query.eq("gateway_reference", payload.reference);
+      }
+
+      const { data, error } = await query.maybeSingle();
       if (error) throw new Error(error.message || "Failed to load payment attempt");
       if (data) attemptRow = { ...data, group_id: null } as PaymentAttemptRow;
     }
 
     if (!attemptRow && (!payload.billingScope || billingScope === "owner_group")) {
-      const { data, error } = await supabase
+      let query = supabase
         .from("saas_owner_group_subscription_payment_attempts")
-        .select("id, group_id, payment_status, amount_minor, currency_code, gateway, gateway_reference, metadata")
-        .eq("id", payload.attemptId)
-        .maybeSingle();
+        .select("id, group_id, payment_status, amount_minor, currency_code, gateway, gateway_reference, metadata");
 
+      if (payload.attemptId) {
+        query = query.eq("id", payload.attemptId);
+      } else {
+        query = query.eq("gateway_reference", payload.reference);
+      }
+
+      const { data, error } = await query.maybeSingle();
       if (error) throw new Error(error.message || "Failed to load owner billing group payment attempt");
       if (data) {
         billingScope = "owner_group";
@@ -259,6 +269,25 @@ serve(async (req: Request) => {
     }
 
     if (!attemptRow) {
+      // If attempt row not pre-created, verify directly with Paystack
+      if (payload.gateway === "paystack") {
+        const secretKey = getGatewaySecret("paystack");
+        if (secretKey) {
+          try {
+            const paystackRes = await verifyPaystack(secretKey, payload.reference);
+            if (!paystackRes.pending) {
+              return jsonResponse(req, {
+                success: true,
+                alreadyProcessed: true,
+                message: "Payment verified successfully",
+                correlationId,
+              });
+            }
+          } catch (pErr) {
+            console.warn("Paystack direct lookup failed:", pErr);
+          }
+        }
+      }
       return paymentError(req, "Payment attempt not found", 404, correlationId);
     }
 
