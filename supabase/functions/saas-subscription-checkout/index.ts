@@ -361,23 +361,6 @@ serve(async (req: Request) => {
             correlation_id: correlationId,
           },
         });
-      : await createFlutterwaveCheckout({
-          secretKey,
-          email: authData.user.email || "billing@estatespro.local",
-          amountMinor,
-          callbackUrl,
-          reference,
-          paymentOptions: mapPaymentChannels(gateway, paymentMethod) as string,
-          currency,
-          metadata: {
-            company_id: body.companyId,
-            product_code: body.productCode,
-            plan_code: body.planCode,
-            attempt_id: result.attempt_id,
-            invoice_id: result.invoice_id,
-            correlation_id: correlationId,
-          },
-        });
 
     await emitAuditEvent({
       source: "saas-subscription-checkout",
@@ -385,10 +368,10 @@ serve(async (req: Request) => {
       severity: "info",
       actor_user_id: authData.user.id,
       entity_type: "saas_subscription_payment_attempt",
-      entity_id: result.attempt_id,
+      entity_id: attemptId,
       correlation_id: correlationId,
       details: {
-        invoice_id: result.invoice_id,
+        invoice_id: invoiceId,
         amount_minor: amountMinor,
         currency,
         gateway,
@@ -399,8 +382,8 @@ serve(async (req: Request) => {
       success: true,
       requiresPayment: true,
       checkoutUrl,
-      attemptId: result.attempt_id,
-      invoiceId: result.invoice_id,
+      attemptId,
+      invoiceId,
       reference,
       amountMinor,
       currency,
