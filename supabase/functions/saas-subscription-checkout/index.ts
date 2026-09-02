@@ -143,38 +143,83 @@ async function createPaystackCheckout(opts: {
   currency?: string;
   callbackUrl: string;
   reference: string;
-  channels: string[];
+  channels?: string[];
   metadata: Record<string, unknown>;
 }) {
-  const bodyPayload: Record<string, unknown> = {
-    email: opts.email,
-    amount: opts.amountMinor,
-    callback_url: opts.callbackUrl,
-    reference: opts.reference,
-    channels: opts.channels,
-    metadata: opts.metadata,
+  const email = (opts.email && opts.email.includes("@") && !opts.email.endsWith(".local"))
+    ? opts.email
+    : "billing@estatespro.com";
+
+  // Build payload
+  const buildPayload = (cur?: string, amt?: number, ref?: string) => {
+    const payload: Record<string, unknown> = {
+      email,
+      amount: amt !== undefined ? amt : opts.amountMinor,
+      callback_url: opts.callbackUrl,
+      reference: ref || opts.reference,
+      metadata: opts.metadata,
+    };
+    if (cur) {
+      payload.currency = cur.toUpperCase();
+    }
+    return payload;
   };
 
-  const curr = opts.currency?.toUpperCase();
-  if (curr && ["NGN", "USD", "GHS", "ZAR", "KES"].includes(curr)) {
-    bodyPayload.currency = curr;
+  const executeInit = async (payload: Record<string, unknown>) => {
+    const response = await fetch("https://api.paystack.co/transaction/initialize", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${opts.secretKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    return { ok: response.ok && data?.status && data?.data?.authorization_url, data };
+  };
+
+  // Attempt 1: Try with explicitly requested currency if one of supported Paystack currencies
+  const reqCurr = opts.currency?.toUpperCase();
+  const attempt1 = await executeInit(
+    buildPayload(
+      reqCurr && ["NGN", "USD", "GHS", "ZAR", "KES"].includes(reqCurr) ? reqCurr : undefined,
+      opts.amountMinor
+    )
+  );
+
+  if (attempt1.ok) {
+    return attempt1.data.data.authorization_url as string;
   }
 
-  const response = await fetch("https://api.paystack.co/transaction/initialize", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${opts.secretKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(bodyPayload),
-  });
+  console.warn("Paystack attempt 1 failed:", attempt1.data?.message, "Attempting converted NGN/merchant fallback...");
 
-  const data = await response.json();
-  if (!response.ok || !data?.status || !data?.data?.authorization_url) {
-    throw new Error(data?.message || "Unable to initialize Paystack checkout");
+  // Attempt 2: If currency wasn't supported by merchant (e.g. test Nigerian account receiving USD),
+  // convert base USD to NGN kobo and initialize
+  const baseUsd = Number(opts.metadata?.base_usd || 29);
+  const fxRate = await getLiveExchangeRate("NGN");
+  const ngnAmountMinor = Math.round(baseUsd * fxRate * 100);
+  const fallbackRef = `${opts.reference.slice(0, 24)}_${Date.now()}`;
+
+  const attempt2 = await executeInit(
+    buildPayload("NGN", ngnAmountMinor, fallbackRef)
+  );
+
+  if (attempt2.ok) {
+    return attempt2.data.data.authorization_url as string;
   }
 
-  return data.data.authorization_url as string;
+  // Attempt 3: Merchant default without currency header
+  const attempt3 = await executeInit(
+    buildPayload(undefined, ngnAmountMinor, `${fallbackRef}_d`)
+  );
+
+  if (attempt3.ok) {
+    return attempt3.data.data.authorization_url as string;
+  }
+
+  throw new Error(
+    attempt1.data?.message || attempt2.data?.message || attempt3.data?.message || "Unable to initialize Paystack checkout"
+  );
 }
 
 async function createFlutterwaveCheckout(opts: {

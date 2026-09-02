@@ -220,11 +220,17 @@ export function GoogleStyleBillingOverview() {
         let detailedMsg = error.message;
         try {
           if ('context' in error && (error as any).context) {
-            const body = await (error as any).context.json();
-            if (body?.error?.message) {
-              detailedMsg = body.error.message;
-            } else if (body?.message) {
-              detailedMsg = body.message;
+            const ctx = (error as any).context;
+            const text = typeof ctx.text === 'function' ? await ctx.text() : '';
+            try {
+              const parsed = JSON.parse(text);
+              if (parsed?.error?.message) {
+                detailedMsg = parsed.error.message;
+              } else if (parsed?.message) {
+                detailedMsg = parsed.message;
+              }
+            } catch {
+              if (text && text.length < 200) detailedMsg = text;
             }
           }
         } catch {
