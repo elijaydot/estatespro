@@ -248,7 +248,7 @@ async function createFlutterwaveCheckout(opts: {
         email: opts.email,
       },
       customizations: {
-        title: "EstatesPro SaaS Billing",
+        title: "FishGate SaaS Billing",
         description: "Subscription plan upgrade charge",
       },
       meta: opts.metadata,
@@ -416,7 +416,7 @@ serve(async (req: Request) => {
     const attemptId = result?.attempt_id || crypto.randomUUID();
     const invoiceId = result?.invoice_id || crypto.randomUUID();
 
-    const callbackUrl = body.callbackUrl || `${req.headers.get("origin") || "https://app.estatespro.com"}/settings?tab=billing`;
+    const callbackUrl = body.callbackUrl || `${req.headers.get("origin") || "https://app.fishgate.app"}/settings?tab=billing`;
     const secretKey = getGatewaySecret(gateway);
 
     if (!secretKey) {
@@ -532,7 +532,7 @@ serve(async (req: Request) => {
     const checkoutUrl = gateway === "paystack"
       ? await createPaystackCheckout({
           secretKey,
-          email: authData.user.email || "billing@estatespro.local",
+          email: authData.user.email || "billing@fishgate.app",
           amountMinor: finalAmountMinor,
           currency: paystackCurrency,
           callbackUrl,
@@ -551,7 +551,7 @@ serve(async (req: Request) => {
         })
       : await createFlutterwaveCheckout({
           secretKey,
-          email: authData.user.email || "billing@estatespro.local",
+          email: authData.user.email || "billing@fishgate.app",
           amountMinor: finalAmountMinor,
           callbackUrl,
           reference,

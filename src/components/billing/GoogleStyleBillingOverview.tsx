@@ -795,7 +795,7 @@ export function GoogleStyleBillingOverview() {
 
           <DialogHeader>
             <DialogTitle className="text-2xl font-extrabold text-foreground text-center">
-              🎉 Welcome to EstatesPro {celebrationPlan?.name}!
+              🎉 Welcome to FishGate {celebrationPlan?.name}!
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground text-center">
               Your subscription is now active. Your operational limits and features have been instantly upgraded across the platform.
@@ -857,7 +857,7 @@ export function GoogleStyleBillingOverview() {
             <div>
               <h3 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-primary" />
-                EstatesPro Cloud SaaS
+                FishGate Cloud SaaS
               </h3>
               <p className="text-xs text-muted-foreground">Official VAT Tax Invoice & Receipt</p>
             </div>
