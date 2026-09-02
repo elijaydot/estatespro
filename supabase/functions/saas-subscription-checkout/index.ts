@@ -433,7 +433,7 @@ serve(async (req: Request) => {
       correlation_id: correlationId,
       details: {
         invoice_id: invoiceId,
-        amount_minor: amountMinor,
+        amount_minor: finalAmountMinor,
         currency,
         gateway,
       },
@@ -446,7 +446,7 @@ serve(async (req: Request) => {
       attemptId,
       invoiceId,
       reference,
-      amountMinor,
+      amountMinor: finalAmountMinor,
       currency,
       correlationId,
     });
