@@ -103,29 +103,70 @@ function getGatewaySecret(gateway: Gateway) {
   return Deno.env.get(baseName) || "";
 }
 
+const FALLBACK_EXCHANGE_RATES: Record<string, number> = {
+  USD: 1.0,
+  RWF: 1380.0,
+  NGN: 1550.0,
+  GBP: 0.78,
+  EUR: 0.92,
+  KES: 130.0,
+  GHS: 15.5,
+  ZAR: 18.2,
+  CAD: 1.36,
+  AUD: 1.52,
+};
+
+async function getLiveExchangeRate(targetCurrency: string): Promise<number> {
+  const curr = targetCurrency.toUpperCase();
+  if (curr === "USD") return 1.0;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch("https://open.er-api.com/v6/latest/USD", { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.rates?.[curr]) {
+        return Number(data.rates[curr]);
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return FALLBACK_EXCHANGE_RATES[curr] || 1.0;
+}
+
 async function createPaystackCheckout(opts: {
   secretKey: string;
   email: string;
   amountMinor: number;
+  currency?: string;
   callbackUrl: string;
   reference: string;
   channels: string[];
   metadata: Record<string, unknown>;
 }) {
+  const bodyPayload: Record<string, unknown> = {
+    email: opts.email,
+    amount: opts.amountMinor,
+    callback_url: opts.callbackUrl,
+    reference: opts.reference,
+    channels: opts.channels,
+    metadata: opts.metadata,
+  };
+
+  const curr = opts.currency?.toUpperCase();
+  if (curr && ["NGN", "USD", "GHS", "ZAR", "KES"].includes(curr)) {
+    bodyPayload.currency = curr;
+  }
+
   const response = await fetch("https://api.paystack.co/transaction/initialize", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${opts.secretKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      email: opts.email,
-      amount: opts.amountMinor,
-      callback_url: opts.callbackUrl,
-      reference: opts.reference,
-      channels: opts.channels,
-      metadata: opts.metadata,
-    }),
+    body: JSON.stringify(bodyPayload),
   });
 
   const data = await response.json();
@@ -303,14 +344,29 @@ serve(async (req: Request) => {
       });
     }
 
-    const UNIFIED_PRICES: Record<string, number> = {
-      fishgate_starter: 900,
-      fishgate_growth: 2900,
-      fishgate_professional: 6900,
-      fishgate_enterprise: 14900,
+    const UNIFIED_USD_PRICES: Record<string, number> = {
+      fishgate_starter: 9,
+      fishgate_growth: 29,
+      fishgate_professional: 69,
+      fishgate_enterprise: 149,
     };
 
-    const amountMinor = result?.estimated_charge_minor || UNIFIED_PRICES[body.planCode] || 2900;
+    const basePlanPriceUsd = UNIFIED_USD_PRICES[body.planCode] || 29;
+    const isAnnual = body.isAnnual === true;
+    const baseUsd = isAnnual ? basePlanPriceUsd * 0.80 : basePlanPriceUsd;
+
+    const reqCurrency = (body.currency || "USD").toUpperCase();
+    let paystackCurrency = reqCurrency;
+    let finalAmountMinor: number;
+
+    if (result?.estimated_charge_minor && result.estimated_charge_minor > 0) {
+      finalAmountMinor = result.estimated_charge_minor;
+    } else {
+      const fxRate = await getLiveExchangeRate(reqCurrency);
+      const convertedAmount = baseUsd * fxRate;
+      finalAmountMinor = Math.round(convertedAmount * 100);
+    }
+
     const reference = result?.gateway_reference || `fg_sub_${body.companyId.replace(/-/g, "").slice(0, 8)}_${Date.now()}`;
     const attemptId = result?.attempt_id || crypto.randomUUID();
     const invoiceId = result?.invoice_id || crypto.randomUUID();
@@ -331,7 +387,8 @@ serve(async (req: Request) => {
       ? await createPaystackCheckout({
           secretKey,
           email: authData.user.email || "billing@estatespro.local",
-          amountMinor,
+          amountMinor: finalAmountMinor,
+          currency: paystackCurrency,
           callbackUrl,
           reference,
           channels: mapPaymentChannels(gateway, paymentMethod) as string[],
@@ -342,16 +399,18 @@ serve(async (req: Request) => {
             attempt_id: attemptId,
             invoice_id: invoiceId,
             correlation_id: correlationId,
+            currency: reqCurrency,
+            base_usd: baseUsd,
           },
         })
       : await createFlutterwaveCheckout({
           secretKey,
           email: authData.user.email || "billing@estatespro.local",
-          amountMinor,
+          amountMinor: finalAmountMinor,
           callbackUrl,
           reference,
           paymentOptions: mapPaymentChannels(gateway, paymentMethod) as string,
-          currency,
+          currency: reqCurrency,
           metadata: {
             company_id: body.companyId,
             product_code: body.productCode || "pm_core",
@@ -359,6 +418,8 @@ serve(async (req: Request) => {
             attempt_id: attemptId,
             invoice_id: invoiceId,
             correlation_id: correlationId,
+            currency: reqCurrency,
+            base_usd: baseUsd,
           },
         });
 
