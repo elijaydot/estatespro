@@ -1,4 +1,4 @@
-﻿import { createClient } from "../_shared/supabase-client-types.ts";
+import { createClient } from "../_shared/supabase-client-types.ts";
 import {
   buildCorsHeaders,
   checkRateLimit,
@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
         html: string;
         cc?: string[];
       } = {
-        from: "FishGate <noreply@resend.dev>",
+        from: "FishGate <noreply@fishgatepro.com>",
         to: toEmails.map(e => e.email),
         subject: `Thank You & Tenancy Summary - ${property?.name || 'Your Property'}`,
         html: emailHtml,

@@ -173,7 +173,7 @@ serve(async (req: Request) => {
 
     const gateway = ((payload as { gateway?: string }).gateway || "paystack") as Gateway;
     const paymentMethod = ((payload as { paymentMethod?: string }).paymentMethod || "link") as PaymentMethod;
-    const callbackUrl = ((payload as { callbackUrl?: string }).callbackUrl || `${req.headers.get("origin") || "https://app.estatespro.com"}/settings?tab=billing`) as string;
+    const callbackUrl = ((payload as { callbackUrl?: string }).callbackUrl || `${req.headers.get("origin") || Deno.env.get("PUBLIC_APP_URL") || "https://fishgatepro.com"}/settings?tab=billing`) as string;
 
     const { error: queueError } = await supabase.rpc("saas_queue_subscription_renewal_invoices", {
       p_limit: limit,

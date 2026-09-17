@@ -1,4 +1,4 @@
-﻿import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Resend } from 'https://esm.sh/resend@2.0.0';
 import {
   buildCorsHeaders,
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
         if (resend && lease.tenants?.email) {
           // Email to tenant
           await resend.emails.send({
-            from: 'FishGate <noreply@resend.dev>',
+            from: 'FishGate <noreply@fishgatepro.com>',
             to: [lease.tenants.email],
             subject: `Lease Renewal Reminder - ${lease.properties?.name}`,
             html: `

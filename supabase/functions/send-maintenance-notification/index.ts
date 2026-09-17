@@ -153,7 +153,7 @@ const handler = async (req: Request): Promise<Response> => {
       const unitNumber = unit?.unit_number || '';
 
       await resend.emails.send({
-        from: "Property Management <onboarding@resend.dev>",
+        from: "FishGate Maintenance <notifications@fishgatepro.com>",
         to: [tenant.email],
         subject: `Maintenance Request ${statusLabel} - ${request.title}`,
         html: `

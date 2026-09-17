@@ -213,15 +213,15 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailsSent = [];
-    const fromEmail = branding.companyEmail 
-      ? `${companyName} <${branding.companyEmail}>`
-      : `${companyName} <noreply@resend.dev>`;
+    const fromEmail = `${companyName} <billing@fishgatepro.com>`;
+    const replyTo = branding.companyEmail ? [branding.companyEmail] : undefined;
 
     // Send to tenant
     if (recipientEmail) {
       try {
         await resend.emails.send({
           from: fromEmail,
+          reply_to: replyTo,
           to: [recipientEmail],
           subject: `Payment Confirmation - ${invoice?.invoice_number || 'Receipt'}`,
           html: emailHtml.replace('Your payment has been successfully received.', `Hello ${recipientName}, your payment has been successfully received.`),
@@ -242,6 +242,7 @@ const handler = async (req: Request): Promise<Response> => {
       try {
         await resend.emails.send({
           from: fromEmail,
+          reply_to: replyTo,
           to: [ownerProfile.email],
           subject: `Payment Received - ${recipientName} - ${invoice?.invoice_number}`,
           html: ownerEmailHtml,

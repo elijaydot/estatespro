@@ -30,10 +30,10 @@ Deno.serve(async (request) => {
     ...plan.saas_plan_entitlements.filter((item: { json_value: unknown }) => item.json_value && item.json_value !== 'none').map((item: { json_value: unknown; saas_entitlement_keys: { key: string } }) => `${item.saas_entitlement_keys.key.replaceAll('.', ' ')}: ${String(item.json_value)}`),
   ];
   const heading = daysRemaining === 0 ? 'Your trial ends today' : `Your trial ends in ${daysRemaining} days`;
-  const appUrl = Deno.env.get('APP_URL') || 'https://app.fishgate.co';
+  const appUrl = Deno.env.get('APP_URL') || Deno.env.get('PUBLIC_APP_URL') || 'https://fishgatepro.com';
   const html = `<!doctype html><html><body style="margin:0;background:#f4f4f0;color:#191919;font-family:Arial,sans-serif"><div style="max-width:620px;margin:auto;padding:40px 20px"><p style="font-size:13px;font-weight:bold;letter-spacing:1px">FISHGATE</p><h1>${escapeHtml(heading)}</h1><p>Hi ${escapeHtml(profile.name || 'there')}, choose a plan before ${escapeHtml(new Date((subscription as any).trial_end_at).toLocaleDateString())} to keep your workspace active.</p><div style="background:white;border:1px solid #ddd;padding:24px;margin:28px 0"><h2 style="margin-top:0">${escapeHtml(plan.name)}</h2><p>${escapeHtml(plan.description || '')}</p><p style="font-size:30px;font-weight:bold">$${escapeHtml(((usd?.amount_minor || 0) / 100).toFixed(0))}<span style="font-size:14px;font-weight:normal"> / month</span></p><ul style="padding-left:20px">${features.map((feature: string) => `<li style="margin:10px 0">${escapeHtml(feature)}</li>`).join('')}</ul><a href="${appUrl}/upgrade" style="display:inline-block;background:#18181b;color:white;text-decoration:none;padding:12px 18px">View plans</a></div><p style="color:#666;font-size:13px">Platform checkout is not yet available. The plan page will connect you with the FishGate team.</p></div></body></html>`;
 
   const resend = new Resend(Deno.env.get('RESEND_API_KEY')!);
-  const result = await resend.emails.send({ from: 'FishGate <noreply@fishgate.co>', to: [profile.email], subject: `${heading} - ${plan.name}`, html });
+  const result = await resend.emails.send({ from: 'FishGate <noreply@fishgatepro.com>', to: [profile.email], subject: `${heading} - ${plan.name}`, html });
   return new Response(JSON.stringify({ sent: true, result }), { headers });
 });

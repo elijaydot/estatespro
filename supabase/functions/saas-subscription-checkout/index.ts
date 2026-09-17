@@ -148,7 +148,7 @@ async function createPaystackCheckout(opts: {
 }) {
   const email = (opts.email && opts.email.includes("@") && !opts.email.endsWith(".local"))
     ? opts.email
-    : "billing@estatespro.com";
+    : "billing@fishgatepro.com";
 
   // Build payload
   const buildPayload = (cur?: string, amt?: number, ref?: string) => {
@@ -416,7 +416,7 @@ serve(async (req: Request) => {
     const attemptId = result?.attempt_id || crypto.randomUUID();
     const invoiceId = result?.invoice_id || crypto.randomUUID();
 
-    const callbackUrl = body.callbackUrl || `${req.headers.get("origin") || "https://app.fishgate.app"}/settings?tab=billing`;
+    const callbackUrl = body.callbackUrl || `${req.headers.get("origin") || Deno.env.get("PUBLIC_APP_URL") || "https://fishgatepro.com"}/settings?tab=billing`;
     const secretKey = getGatewaySecret(gateway);
 
     if (!secretKey) {
@@ -532,7 +532,7 @@ serve(async (req: Request) => {
     const checkoutUrl = gateway === "paystack"
       ? await createPaystackCheckout({
           secretKey,
-          email: authData.user.email || "billing@fishgate.app",
+          email: authData.user.email || "billing@fishgatepro.com",
           amountMinor: finalAmountMinor,
           currency: paystackCurrency,
           callbackUrl,
@@ -551,7 +551,7 @@ serve(async (req: Request) => {
         })
       : await createFlutterwaveCheckout({
           secretKey,
-          email: authData.user.email || "billing@fishgate.app",
+          email: authData.user.email || "billing@fishgatepro.com",
           amountMinor: finalAmountMinor,
           callbackUrl,
           reference,

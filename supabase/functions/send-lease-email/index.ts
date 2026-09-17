@@ -144,8 +144,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get project URL from environment
-    const projectUrl = Deno.env.get("SUPABASE_URL")?.replace('.supabase.co', '') || '';
-    const appUrl = `https://${projectUrl.split('//')[1]?.split('.')[0] || 'app'}.lovable.app`;
+    const appUrl = Deno.env.get("PUBLIC_APP_URL") || Deno.env.get("APP_URL") || "https://fishgatepro.com";
     const signingUrl = `${appUrl}/portal/lease/sign/${leaseId}`;
 
     let subject: string;
@@ -305,7 +304,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Sending email to:", tenant.email);
 
     const emailResponse = await resend.emails.send({
-      from: "Property Management <onboarding@resend.dev>",
+      from: "FishGate Leases <notifications@fishgatepro.com>",
       to: [tenant.email],
       subject,
       html: htmlContent,

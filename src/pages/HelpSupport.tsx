@@ -8,7 +8,7 @@ const quickLinks = [
   { label: 'Frequently Asked Questions', icon: CircleHelp, href: '/settings' },
   { label: 'Help Videos', icon: Video, href: '/settings' },
   { label: 'Business Guides', icon: BookOpen, href: '/settings' },
-  { label: 'Mail Us', icon: Mail, href: 'mailto:support@fishgate.app', external: true },
+  { label: 'Mail Us', icon: Mail, href: 'mailto:support@fishgatepro.com', external: true },
 ];
 
 export default function HelpSupport() {
@@ -34,7 +34,7 @@ export default function HelpSupport() {
               <p className="text-sm sm:text-base text-muted-foreground mt-1">
                 Attend our free webinar to understand more about your FishGate product setup.
               </p>
-              <Button className="mt-4 gap-2 rounded-xl" onClick={() => window.open('https://fishgate.app', '_blank', 'noopener,noreferrer')}>
+              <Button className="mt-4 gap-2 rounded-xl" onClick={() => window.open('https://fishgatepro.com', '_blank', 'noopener,noreferrer')}>
                 <PlayCircle className="h-4 w-4" />
                 Attend a Webinar
               </Button>

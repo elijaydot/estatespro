@@ -141,7 +141,7 @@ export function ReportDetailCanvas({
         frequency: 'weekly',
         time: '08:00 AM',
         dayOfWeek: 'Monday',
-        recipients: 'management@fishgate.com',
+        recipients: 'management@fishgatepro.com',
         format: 'pdf',
         inAppNotification: true,
         active: true,

@@ -1,4 +1,4 @@
-﻿import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "../_shared/supabase-client-types.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import {
@@ -162,7 +162,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Published app URL - use this as the default for production invites
-    const PUBLISHED_APP_URL = "https://fishgate.lovable.app";
+    const PUBLISHED_APP_URL = Deno.env.get("PUBLIC_APP_URL") || Deno.env.get("APP_URL") || "https://fishgatepro.com";
     
     // Determine App URL
     let appUrl: string = origin || "";
@@ -179,7 +179,7 @@ const handler = async (req: Request): Promise<Response> => {
       } else if (refererOrigin && isValidAppUrl(refererOrigin)) {
         appUrl = refererOrigin;
       } else {
-        appUrl = Deno.env.get("APP_URL") || PUBLISHED_APP_URL;
+        appUrl = Deno.env.get("PUBLIC_APP_URL") || Deno.env.get("APP_URL") || PUBLISHED_APP_URL;
       }
     }
     
@@ -195,7 +195,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email
     const emailResponse = await resend.emails.send({
-      from: `${companyName} <onboarding@resend.dev>`,
+      from: `${companyName} <notifications@fishgatepro.com>`,
       to: [email],
       subject: `You're invited to access your tenant portal`,
       html: `

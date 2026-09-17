@@ -1,4 +1,4 @@
-﻿import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "../_shared/supabase-client-types.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import {
@@ -35,9 +35,9 @@ function jsonResponse(body: unknown, status = 200, req?: Request) {
 
 function getAppUrl(origin?: string | null) {
 	if (origin && origin.startsWith("http")) return origin;
-	const configured = Deno.env.get("PUBLIC_APP_URL");
+	const configured = Deno.env.get("PUBLIC_APP_URL") || Deno.env.get("APP_URL");
 	if (configured && configured.startsWith("http")) return configured;
-	return "http://localhost:5173";
+	return "https://fishgatepro.com";
 }
 
 async function requireUserFromBearer(req: Request, supabaseUrl: string, serviceRoleKey: string) {
@@ -209,9 +209,8 @@ serve(async (req) => {
 			});
 
 			const companyName = branding.companyName || "FishGate";
-			const fromEmail = branding.companyEmail
-				? `${companyName} <${branding.companyEmail}>`
-				: `${companyName} <noreply@resend.dev>`;
+			const fromEmail = `${companyName} <bookings@fishgatepro.com>`;
+			const replyTo = branding.companyEmail ? [branding.companyEmail] : undefined;
 
 			const actionBase = `${appUrl}/bookings/guest-action?token=${encodeURIComponent(token)}`;
 			const acceptUrl = `${actionBase}&action=accept`;
@@ -256,6 +255,7 @@ serve(async (req) => {
 			const resend = new Resend(resendApiKey);
 			const emailResponse = await resend.emails.send({
 				from: fromEmail,
+				reply_to: replyTo,
 				to: [booking.guest_email],
 				subject: `${companyName}: ${statusMap[emailType]} (${booking.properties?.name || "Shortlet"})`,
 				html,

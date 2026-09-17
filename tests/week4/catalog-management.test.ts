@@ -54,7 +54,7 @@ describe('trial reminders and upgrade catalog', () => {
       expect(source).toContain('saas_plan_entitlements');
       expect(source).toContain('saas_plan_prices');
     }
-    expect(upgradePage).toContain("mailto:sales@fishgate.co");
+    expect(upgradePage).toContain("mailto:sales@fishgatepro.com");
     expect(upgradePage).not.toContain('Save X%');
   });
 });
