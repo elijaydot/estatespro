@@ -273,8 +273,8 @@ export function GoogleStyleBillingOverview() {
     },
   });
 
-  const currentPlanCode = subQuery.data?.saas_plans?.code || 'fishgate_growth';
-  const currentPlan = RWA_PLANS.find((p) => p.code === currentPlanCode) || RWA_PLANS[1];
+  const currentPlanCode = subQuery.data?.saas_plans?.code || (subQuery.data?.status === 'trialing' ? 'fishgate_growth' : 'fishgate_starter');
+  const currentPlan = RWA_PLANS.find((p) => p.code === currentPlanCode) || RWA_PLANS[0];
 
   // Map Quotas into Google One Resource Metrics
   const quotaMap = useMemo(() => {
@@ -322,10 +322,14 @@ export function GoogleStyleBillingOverview() {
     toast.info('Reconciling payment with Paystack...', { duration: 4000 });
 
     try {
+      const pendingPlanCode = typeof window !== 'undefined' ? window.sessionStorage.getItem('fishgate_pending_plan_code') : null;
+
       const { data, error } = await supabase.functions.invoke('saas-verify-subscription-payment', {
         body: {
           gateway: 'paystack',
           reference: reference,
+          plan_code: pendingPlanCode || undefined,
+          companyId: activeCompanyId,
         },
       });
 
@@ -336,6 +340,7 @@ export function GoogleStyleBillingOverview() {
       // Invalidate all related caches to immediately expand quotas and unlock features
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['company-saas-subscription-google-style'] }),
+        queryClient.invalidateQueries({ queryKey: ['saas-access'] }),
         queryClient.invalidateQueries({ queryKey: ['saas-access-quotas'] }),
         queryClient.invalidateQueries({ queryKey: ['saas-access-entitlements'] }),
         queryClient.invalidateQueries({ queryKey: ['saas-billing-history'] }),
@@ -352,9 +357,23 @@ export function GoogleStyleBillingOverview() {
         window.history.replaceState({}, document.title, url.pathname + url.search);
       }
 
-      // Display Google-style activation celebration
-      const matchedPlan = RWA_PLANS.find(p => p.code === (data?.plan_code || subQuery.data?.saas_plans?.code)) || currentPlan;
+      // Resolve the matched plan dynamically without hardcoding Growth
+      const resolvedPlanCode =
+        data?.plan_code ||
+        data?.target_plan_code ||
+        pendingPlanCode ||
+        subQuery.data?.saas_plans?.code ||
+        'fishgate_starter';
+
+      const matchedPlan =
+        RWA_PLANS.find(p => p.code === resolvedPlanCode) ||
+        (pendingPlanCode ? RWA_PLANS.find(p => p.code === pendingPlanCode) : null) ||
+        currentPlan;
+
       setCelebrationPlan(matchedPlan);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem('fishgate_pending_plan_code');
+      }
       toast.success(`🎉 Subscription successfully activated for ${matchedPlan.name} plan!`);
     } catch (err) {
       console.error('Auto verification error:', err);
@@ -362,7 +381,7 @@ export function GoogleStyleBillingOverview() {
     } finally {
       setIsVerifyingPayment(false);
     }
-  }, [currentPlan, queryClient, subQuery, billingHistoryQuery]);
+  }, [activeCompanyId, currentPlan, queryClient, subQuery, billingHistoryQuery]);
 
   // Check URL on mount for payment gateway return reference
   useEffect(() => {
@@ -381,12 +400,16 @@ export function GoogleStyleBillingOverview() {
 
     setIsCheckingOut(true);
     try {
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem('fishgate_pending_plan_code', plan.code);
+      }
+
       toast.info(`Initializing Paystack checkout for ${plan.name} plan (${formatPrice(plan.priceUsdMonthly)})...`);
 
       const { data, error } = await supabase.functions.invoke('saas-subscription-checkout', {
         body: {
           companyId: activeCompanyId,
-          productCode: 'pm_core',
+          productCode: 'core_property',
           planCode: plan.code,
           currency: currency,
           isAnnual: isAnnual,
@@ -434,6 +457,9 @@ export function GoogleStyleBillingOverview() {
         toast.success(`Subscription plan updated to ${plan.name}!`);
         await subQuery.refetch();
         setCelebrationPlan(plan);
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.removeItem('fishgate_pending_plan_code');
+        }
       } else {
         toast.info(payload.reason || 'Plan update processed.');
       }
@@ -522,18 +548,34 @@ export function GoogleStyleBillingOverview() {
               </div>
             </div>
 
-            {/* Trial Counter Banner */}
-            <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 px-4 py-2.5 rounded-xl">
-              <Clock className="h-5 w-5 text-primary shrink-0 animate-pulse" />
-              <div>
-                <p className="text-xs font-semibold text-primary">
-                  {trialDaysRemaining} Days Left in Free Trial
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Zero charges until 90-day onboarding window concludes.
-                </p>
+            {/* Trial Counter Banner / Active Plan Badge */}
+            {subQuery.data?.status === 'trialing' || !subQuery.data ? (
+              <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 px-4 py-2.5 rounded-xl">
+                <Clock className="h-5 w-5 text-primary shrink-0 animate-pulse" />
+                <div>
+                  <p className="text-xs font-semibold text-primary">
+                    {trialDaysRemaining} Days Left in Free Trial
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Zero charges until 90-day onboarding window concludes.
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2.5 rounded-xl">
+                <BadgeCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">
+                    FishGate {currentPlan.name} Active
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {subQuery.data?.next_renewal_at
+                      ? `Renews on ${new Date(subQuery.data.next_renewal_at).toLocaleDateString()}`
+                      : 'Recurring subscription is active'}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </CardHeader>
 

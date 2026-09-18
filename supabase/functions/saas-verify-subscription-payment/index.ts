@@ -22,6 +22,8 @@ type VerifyPayload = {
   attemptId: string;
   gateway: Gateway;
   reference: string;
+  plan_code?: string;
+  companyId?: string;
   billingScope?: BillingScope;
   test_mode?: boolean;
   correlationId?: string;
@@ -45,6 +47,7 @@ type GatewayVerificationResult = {
   providerTransactionId: string;
   pending: boolean;
   providerStatus?: string;
+  metadata?: Record<string, unknown>;
 };
 
 const PENDING_VERIFICATION_ALERT_THRESHOLD = 5;
@@ -124,6 +127,7 @@ async function verifyPaystack(secretKey: string, reference: string): Promise<Gat
       providerTransactionId: String(data?.data?.id || ""),
       pending: true,
       providerStatus,
+      metadata: (data?.data?.metadata && typeof data?.data?.metadata === "object") ? data.data.metadata : undefined,
     };
   }
 
@@ -137,6 +141,7 @@ async function verifyPaystack(secretKey: string, reference: string): Promise<Gat
     providerTransactionId: String(data.data.id || ""),
     pending: false,
     providerStatus,
+    metadata: (data?.data?.metadata && typeof data?.data?.metadata === "object") ? data.data.metadata : undefined,
   };
 }
 
@@ -276,9 +281,35 @@ serve(async (req: Request) => {
           try {
             const paystackRes = await verifyPaystack(secretKey, payload.reference);
             if (!paystackRes.pending) {
+              const meta = (paystackRes.metadata && typeof paystackRes.metadata === "object") ? paystackRes.metadata : {};
+              const targetPlan = String(meta.target_plan_code || meta.plan_code || payload.plan_code || "fishgate_starter");
+              const companyId = String(meta.company_id || payload.companyId || "");
+
+              if (companyId) {
+                try {
+                  await supabase.rpc("saas_change_subscription_plan", {
+                    p_company_id: companyId,
+                    p_product_code: "core_property",
+                    p_new_plan_code: targetPlan,
+                    p_currency_code: String(meta.currency || "USD"),
+                    p_effective_now: true,
+                    p_reason: "payment_verified_direct_fallback",
+                    p_correlation_id: correlationId,
+                    p_metadata: {
+                      source: "edge.saas-verify-subscription-payment.direct_paystack",
+                      reference: payload.reference,
+                    },
+                  });
+                } catch (changeErr) {
+                  console.warn("Direct plan activation non-fatal warning:", changeErr);
+                }
+              }
+
               return jsonResponse(req, {
                 success: true,
                 alreadyProcessed: true,
+                plan_code: targetPlan,
+                target_plan_code: targetPlan,
                 message: "Payment verified successfully",
                 correlationId,
               });
@@ -311,10 +342,16 @@ serve(async (req: Request) => {
       : "saas_subscription_payment_attempt";
 
     if (attemptRow.payment_status === "succeeded") {
+      const existingMeta = (attemptRow.metadata && typeof attemptRow.metadata === "object")
+        ? (attemptRow.metadata as Record<string, unknown>)
+        : {};
+      const planCode = String(existingMeta.target_plan_code || existingMeta.plan_code || payload.plan_code || "");
       return jsonResponse(req, {
         success: true,
         alreadyProcessed: true,
         attemptId: attemptRow.id,
+        plan_code: planCode,
+        target_plan_code: planCode,
         correlationId,
       });
     }
@@ -501,6 +538,8 @@ serve(async (req: Request) => {
           verified_amount_minor: verifiedAmountMinor,
           payment_method: paymentMethod,
           billing_scope: billingScope,
+          target_plan_code: existingMetadata.target_plan_code || existingMetadata.plan_code || payload.plan_code,
+          plan_code: existingMetadata.target_plan_code || existingMetadata.plan_code || payload.plan_code,
           source: "edge.saas-verify-subscription-payment",
           test_mode: Boolean(payload.test_mode),
         },
@@ -609,12 +648,21 @@ serve(async (req: Request) => {
       },
     });
 
+    const finalPlanCode = String(
+      existingMetadata.target_plan_code ||
+      existingMetadata.plan_code ||
+      payload.plan_code ||
+      ""
+    );
+
     return jsonResponse(req, {
       success: true,
       pending: false,
       verificationStatus: "confirmed",
       alreadyProcessed: false,
       attemptId: payload.attemptId,
+      plan_code: finalPlanCode,
+      target_plan_code: finalPlanCode,
       finalizeResult,
       correlationId,
     });

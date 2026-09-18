@@ -324,6 +324,7 @@ serve(async (req: Request) => {
       return paymentError(req, "companyId, productCode and planCode are required", 400, correlationId);
     }
 
+    const productCode = (body.productCode === "pm_core" || !body.productCode) ? "core_property" : body.productCode;
     const currency = body.currency || "USD";
     const gateway = body.gateway || "paystack";
     const paymentMethod = body.paymentMethod || "link";
@@ -332,7 +333,7 @@ serve(async (req: Request) => {
     try {
       const { data, error } = await supabase.rpc("saas_prepare_plan_change_charge", {
         p_company_id: body.companyId,
-        p_product_code: body.productCode || "pm_core",
+        p_product_code: productCode,
         p_new_plan_code: body.planCode,
         p_currency_code: currency,
         p_gateway: gateway,
@@ -364,7 +365,7 @@ serve(async (req: Request) => {
 
       const { data: immediateChange, error: immediateError } = await supabase.rpc("saas_change_subscription_plan", {
         p_company_id: body.companyId,
-        p_product_code: body.productCode || "pm_core",
+        p_product_code: productCode,
         p_new_plan_code: body.planCode,
         p_currency_code: currency,
         p_effective_now: true,
@@ -433,7 +434,7 @@ serve(async (req: Request) => {
       const { data: productData } = await supabase
         .from("saas_products")
         .select("id")
-        .eq("code", body.productCode || "pm_core")
+        .eq("code", productCode)
         .maybeSingle();
 
       const productId = productData?.id;
@@ -495,6 +496,7 @@ serve(async (req: Request) => {
             correlation_id: correlationId,
             metadata: {
               plan_code: body.planCode,
+              target_plan_code: body.planCode,
               plan_name: planData?.name || body.planCode,
               gateway,
               currency: paystackCurrency,
@@ -518,6 +520,7 @@ serve(async (req: Request) => {
             correlation_id: correlationId,
             metadata: {
               plan_code: body.planCode,
+              target_plan_code: body.planCode,
               plan_name: planData?.name || body.planCode,
               gateway,
               currency: paystackCurrency,
@@ -540,8 +543,9 @@ serve(async (req: Request) => {
           channels: mapPaymentChannels(gateway, paymentMethod) as string[],
           metadata: {
             company_id: body.companyId,
-            product_code: body.productCode || "pm_core",
+            product_code: productCode,
             plan_code: body.planCode,
+            target_plan_code: body.planCode,
             attempt_id: attemptId,
             invoice_id: invoiceId,
             correlation_id: correlationId,
@@ -559,8 +563,9 @@ serve(async (req: Request) => {
           currency: reqCurrency,
           metadata: {
             company_id: body.companyId,
-            product_code: body.productCode || "pm_core",
+            product_code: productCode,
             plan_code: body.planCode,
+            target_plan_code: body.planCode,
             attempt_id: attemptId,
             invoice_id: invoiceId,
             correlation_id: correlationId,

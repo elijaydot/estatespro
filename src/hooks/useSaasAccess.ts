@@ -40,6 +40,10 @@ export type SaasQuotaSnapshot = {
 type SaasAccessResult = {
   entitlements: Record<SaasEntitlementKey, boolean>;
   quotas: SaasQuotaSnapshot[];
+  isTrialing: boolean;
+  trialDaysRemaining: number;
+  activePlanCode: string;
+  activePlanName: string;
 };
 
 const ENTITLEMENT_KEYS: SaasEntitlementKey[] = [
@@ -90,7 +94,85 @@ export function useSaasAccess() {
     enabled: isValidCompanyUuid,
     queryFn: async (): Promise<SaasAccessResult> => {
       if (!isValidCompanyUuid || !activeCompanyId) {
-        return { entitlements: ALL_TRUE_ENTITLEMENTS, quotas: [] };
+        return {
+          entitlements: ALL_TRUE_ENTITLEMENTS,
+          quotas: [],
+          isTrialing: false,
+          trialDaysRemaining: 0,
+          activePlanCode: 'fishgate_enterprise',
+          activePlanName: 'Enterprise',
+        };
+      }
+
+      // Check active subscription status & company creation
+      const [subRes, companyRes] = await Promise.all([
+        supabase
+          .from('saas_company_plan_subscriptions' as never)
+          .select('id, status, trial_end_at, created_at, saas_plans:plan_id(code, name, tier)')
+          .eq('company_id', activeCompanyId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('companies')
+          .select('id, created_at')
+          .eq('id', activeCompanyId)
+          .maybeSingle(),
+      ]);
+
+      const sub = subRes.data as {
+        id: string;
+        status: string;
+        trial_end_at: string | null;
+        created_at: string | null;
+        saas_plans: { code: string; name: string; tier: string } | null;
+      } | null;
+      const companyCreatedAt = companyRes.data?.created_at;
+
+      let isTrialing = false;
+      let trialDaysRemaining = 90;
+
+      if (sub?.status === 'trialing') {
+        isTrialing = true;
+        if (sub.trial_end_at) {
+          const diff = new Date(sub.trial_end_at).getTime() - Date.now();
+          trialDaysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+        } else if (sub.created_at) {
+          const diff = new Date(sub.created_at).getTime() + (90 * 24 * 60 * 60 * 1000) - Date.now();
+          trialDaysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+        }
+      } else if (!sub || sub.status === 'pending_verification') {
+        // Newly registered company within 90-day free onboarding window
+        if (companyCreatedAt) {
+          const diff = new Date(companyCreatedAt).getTime() + (90 * 24 * 60 * 60 * 1000) - Date.now();
+          const days = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+          if (days > 0) {
+            isTrialing = true;
+            trialDaysRemaining = days;
+          }
+        } else {
+          isTrialing = true;
+          trialDaysRemaining = 90;
+        }
+      }
+
+      // If company is in free onboarding trial, unlock all platform capabilities immediately
+      if (isTrialing) {
+        const { data: quotaRows } = await supabase.rpc('saas_get_quota_snapshot' as never, {
+          p_company_id: activeCompanyId,
+          p_product_code: 'core_property',
+        } as never);
+
+        const quotas = Array.isArray(quotaRows) ? (quotaRows as SaasQuotaSnapshot[]) : [];
+
+        return {
+          entitlements: ALL_TRUE_ENTITLEMENTS,
+          quotas,
+          isTrialing: true,
+          trialDaysRemaining,
+          activePlanCode: sub?.saas_plans?.code || 'fishgate_growth',
+          activePlanName: sub?.saas_plans?.name || '90-Day Free Onboarding Trial',
+        };
       }
 
       const entitlementResults = await Promise.all(
@@ -122,7 +204,14 @@ export function useSaasAccess() {
         ? (quotaRows as SaasQuotaSnapshot[])
         : [];
 
-      return { entitlements, quotas };
+      return {
+        entitlements,
+        quotas,
+        isTrialing: false,
+        trialDaysRemaining: 0,
+        activePlanCode: sub?.saas_plans?.code || 'fishgate_starter',
+        activePlanName: sub?.saas_plans?.name || 'Standard Tier',
+      };
     },
   });
 
@@ -143,5 +232,9 @@ export function useSaasAccess() {
       : (query.data?.entitlements ?? EMPTY_ENTITLEMENTS),
     quotas: query.data?.quotas ?? [],
     quotaByCode,
+    isTrialing: hasAllAccess ? false : (query.data?.isTrialing ?? false),
+    trialDaysRemaining: query.data?.trialDaysRemaining ?? 0,
+    activePlanCode: query.data?.activePlanCode ?? 'fishgate_starter',
+    activePlanName: query.data?.activePlanName ?? 'Standard Tier',
   };
 }

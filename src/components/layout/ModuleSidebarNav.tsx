@@ -16,6 +16,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -63,7 +65,7 @@ export function ModuleSidebarNav({
   const { user, profile, logout } = useAuth();
   const { role } = useUserRole();
   const { companies, activeCompanyId, setActiveCompanyId } = useActiveCompany();
-  const { entitlements } = useSaasAccess();
+  const { entitlements, isTrialing, trialDaysRemaining } = useSaasAccess();
   const { canOverride, overrideEnabled, setOverrideEnabled } = useSuperAdminOverride();
   const reviewerAccess = useIsInternalMarketplaceReviewer(user?.id);
   const canReviewMarketplace = role === 'super_admin' || reviewerAccess.data === true;
@@ -591,6 +593,28 @@ export function ModuleSidebarNav({
               })}
             </div>
           </div>
+
+          {/* Active Free Trial Countdown Card */}
+          {isTrialing && (
+            <Link
+              to="/settings?tab=billing"
+              onClick={onNavigate}
+              className="block rounded-lg border border-primary/30 bg-primary/10 hover:bg-primary/15 p-2.5 transition-all text-sidebar-foreground group shadow-xs"
+            >
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="text-[11px] font-bold text-primary flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 animate-pulse text-primary shrink-0" />
+                  Free Trial
+                </span>
+                <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary py-0 px-1.5 bg-primary/5">
+                  {trialDaysRemaining}d left
+                </Badge>
+              </div>
+              <p className="text-[10px] text-sidebar-foreground/75 leading-tight group-hover:text-sidebar-foreground">
+                All features unlocked. Manage plans &rarr;
+              </p>
+            </Link>
+          )}
 
           <Separator className="bg-sidebar-border/50" />
 
