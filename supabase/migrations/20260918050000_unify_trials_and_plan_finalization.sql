@@ -1,7 +1,10 @@
 -- Unified 90-Day Trial Entitlements, Plan Finalization & Catalog Grants
--- Fixes trial feature unlocking across modules and dynamic subscription activation.
+-- Fixes trial feature unlocking across modules, dynamic subscription activation,
+-- default Starter tier trial auto-provisioning, and trial expiry locking.
 
--- 1. Update saas_has_entitlement to automatically grant full access during active company trials
+-- 1. Update saas_has_entitlement:
+--    - Grants full access during active 90-day trial (trial_end_at > now())
+--    - Locks all trial features when trial is over with no active paid plan
 CREATE OR REPLACE FUNCTION public.saas_has_entitlement(
   p_company_id uuid,
   p_entitlement_key text,
@@ -35,6 +38,11 @@ BEGIN
     RETURN true;
   END IF;
 
+  -- If trial has expired and status is not active, lock all trial-dependent features
+  IF (v_sub_status = 'trialing' AND v_trial_end_at <= now()) OR v_sub_status = 'expired' THEN
+    RETURN false;
+  END IF;
+
   -- If no subscription row exists yet, check if company is within the 90-day onboarding window
   IF v_sub_status IS NULL THEN
     SELECT created_at INTO v_company_created_at
@@ -43,6 +51,8 @@ BEGIN
 
     IF v_company_created_at IS NOT NULL AND v_company_created_at + interval '90 days' > now() THEN
       RETURN true;
+    ELSE
+      RETURN false;
     END IF;
   END IF;
 
@@ -84,7 +94,67 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.saas_has_entitlement(uuid, text, text) TO authenticated;
 
--- 2. Update saas_finalize_subscription_payment_attempt to accept target_plan_code or plan_code
+-- 2. Update auto_provision_company_trial to default to 'fishgate_starter' (1-3 properties)
+CREATE OR REPLACE FUNCTION public.auto_provision_company_trial()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_product_id uuid;
+  v_plan_id uuid;
+  v_trial_days integer := 90;
+BEGIN
+  -- Get core property product
+  SELECT id INTO v_product_id 
+  FROM public.saas_products 
+  WHERE code = 'core_property' AND is_active = true 
+  LIMIT 1;
+
+  -- Default onboarding plan: Starter pack (fishgate_starter) for 1-3 properties
+  SELECT id, COALESCE(trial_days, 90) INTO v_plan_id, v_trial_days
+  FROM public.saas_plans
+  WHERE code = 'fishgate_starter' AND is_active = true
+  LIMIT 1;
+
+  IF v_plan_id IS NULL THEN
+    SELECT id, COALESCE(trial_days, 90) INTO v_plan_id, v_trial_days
+    FROM public.saas_plans
+    WHERE is_active = true
+    ORDER BY sort_order ASC
+    LIMIT 1;
+  END IF;
+
+  IF v_plan_id IS NOT NULL AND v_product_id IS NOT NULL THEN
+    INSERT INTO public.saas_company_plan_subscriptions (
+      company_id,
+      product_id,
+      plan_id,
+      status,
+      start_at,
+      trial_end_at,
+      created_by,
+      metadata
+    ) VALUES (
+      NEW.id,
+      v_product_id,
+      v_plan_id,
+      'trialing',
+      COALESCE(NEW.created_at, now()),
+      COALESCE(NEW.created_at, now()) + make_interval(days => v_trial_days),
+      NEW.owner_id,
+      jsonb_build_object('auto_provisioned', true, 'trial_days', v_trial_days)
+    )
+    ON CONFLICT DO NOTHING;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- 3. Update saas_finalize_subscription_payment_attempt to accept target_plan_code or plan_code
+--    and ensure company subscription transitions to 'active' on the purchased plan
 CREATE OR REPLACE FUNCTION public.saas_finalize_subscription_payment_attempt(
   p_attempt_id uuid,
   p_gateway_transaction_id text DEFAULT NULL,
@@ -103,6 +173,7 @@ DECLARE
   v_invoice public.saas_subscription_invoices%ROWTYPE;
   v_product_code text;
   v_target_plan_code text;
+  v_new_plan_id uuid;
   v_change_result jsonb := '{}'::jsonb;
 BEGIN
   SELECT * INTO v_attempt
@@ -179,27 +250,42 @@ BEGIN
   );
 
   IF v_target_plan_code IS NOT NULL AND v_target_plan_code <> '' THEN
-    SELECT public.saas_change_subscription_plan(
-      v_attempt.company_id,
-      v_product_code,
-      v_target_plan_code,
-      v_attempt.currency_code,
-      true,
-      'payment_verified_plan_change',
-      coalesce(p_correlation_id, v_attempt.correlation_id),
-      jsonb_build_object('payment_attempt_id', v_attempt.id, 'invoice_id', v_invoice.id)
-    ) INTO v_change_result;
-  ELSE
-    UPDATE public.saas_company_plan_subscriptions
-    SET payment_state = 'current',
-        dunning_attempt_count = 0,
-        last_paid_at = now(),
-        last_dunning_attempt_at = NULL,
-        grace_end_at = NULL,
-        status = CASE WHEN status = 'grace_period' THEN 'active' ELSE status END,
-        updated_at = now()
-    WHERE id = v_attempt.subscription_id;
+    SELECT id INTO v_new_plan_id
+    FROM public.saas_plans
+    WHERE code = v_target_plan_code AND is_active = true
+    LIMIT 1;
+
+    BEGIN
+      SELECT public.saas_change_subscription_plan(
+        v_attempt.company_id,
+        v_product_code,
+        v_target_plan_code,
+        v_attempt.currency_code,
+        true,
+        'payment_verified_plan_change',
+        coalesce(p_correlation_id, v_attempt.correlation_id),
+        jsonb_build_object('payment_attempt_id', v_attempt.id, 'invoice_id', v_invoice.id)
+      ) INTO v_change_result;
+    EXCEPTION WHEN OTHERS THEN
+      v_change_result := jsonb_build_object('warning', SQLERRM);
+    END;
   END IF;
+
+  -- Transition subscription to active status on purchased plan
+  UPDATE public.saas_company_plan_subscriptions
+  SET plan_id = COALESCE(v_new_plan_id, plan_id),
+      status = 'active',
+      payment_state = 'current',
+      dunning_attempt_count = 0,
+      last_paid_at = now(),
+      last_dunning_attempt_at = NULL,
+      grace_end_at = NULL,
+      next_renewal_at = now() + interval '1 month',
+      updated_at = now(),
+      metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('activated_via_payment', true, 'plan_code', v_target_plan_code)
+  WHERE company_id = v_attempt.company_id
+    AND (id = v_attempt.subscription_id OR v_attempt.subscription_id IS NULL)
+    AND status IN ('active', 'trialing', 'grace_period', 'past_due', 'pending_verification');
 
   RETURN jsonb_build_object(
     'applied', true,
@@ -211,7 +297,68 @@ BEGIN
 END;
 $$;
 
--- 3. Seed baseline entitlements for unified plans so paid tiers retain their features
+-- 4. Update saas_process_expired_trials to lock trial features and issue in-app notifications
+CREATE OR REPLACE FUNCTION public.saas_process_expired_trials(
+  p_limit integer DEFAULT 100,
+  p_correlation_id text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_subscription record;
+  v_processed integer := 0;
+BEGIN
+  FOR v_subscription IN
+    SELECT s.id, s.company_id, s.plan_id, c.owner_id
+    FROM public.saas_company_plan_subscriptions s
+    JOIN public.companies c ON c.id = s.company_id
+    WHERE s.status = 'trialing'
+      AND s.trial_end_at IS NOT NULL
+      AND s.trial_end_at <= now()
+    ORDER BY s.trial_end_at, s.id
+    LIMIT greatest(least(coalesce(p_limit, 100), 1000), 1)
+    FOR UPDATE OF s SKIP LOCKED
+  LOOP
+    UPDATE public.saas_company_plan_subscriptions
+    SET status = 'expired',
+        payment_state = 'canceled',
+        auto_renew = false,
+        end_at = now(),
+        trial_policy_enforced_at = now(),
+        trial_final_action = 'lockout',
+        updated_at = now(),
+        notes = coalesce(notes, '') || ' Trial ended and advanced modules locked at ' || now()::text
+    WHERE id = v_subscription.id;
+
+    IF v_subscription.owner_id IS NOT NULL THEN
+      INSERT INTO public.notifications (
+        user_id,
+        title,
+        message,
+        type,
+        link,
+        metadata
+      ) VALUES (
+        v_subscription.owner_id,
+        'Your 90-Day Free Trial Has Concluded',
+        'Your free trial period has ended. Advanced modules (AI Assistant, CRM, Marketplace, and Owner Portals) are currently locked. Your base Property Management workspace remains active. Choose a plan anytime in Billing & Plans to restore all features.',
+        'trial_expired',
+        '/settings?tab=billing',
+        jsonb_build_object('subscription_id', v_subscription.id, 'company_id', v_subscription.company_id, 'action', 'trial_concluded')
+      );
+    END IF;
+
+    v_processed := v_processed + 1;
+  END LOOP;
+
+  RETURN jsonb_build_object('processed', v_processed);
+END;
+$$;
+
+-- 5. Seed baseline entitlements for unified plans so paid tiers retain their features
 WITH all_plans AS (
   SELECT id, code
   FROM public.saas_plans

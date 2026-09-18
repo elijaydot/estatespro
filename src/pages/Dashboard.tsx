@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarDays, Store, Building2, Users, ShieldCheck, Activity, Layers, ExternalLink, Sparkles, AlertTriangle, TrendingUp } from 'lucide-react';
+import { ArrowRight, CalendarDays, Store, Building2, Users, ShieldCheck, Activity, Layers, ExternalLink, Sparkles, AlertTriangle, TrendingUp, Lock, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SmartSearchInsights } from '@/components/ai/SmartSearchInsights';
 import { PredictiveAnalytics } from '@/components/ai/PredictiveAnalytics';
@@ -31,7 +31,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { role, isSuperAdmin } = useUserRole();
   const { data: stats, isLoading } = useDashboardStats();
-  const { entitlements, isLoading: saasLoading } = useSaasAccess();
+  const { entitlements, isTrialing, isTrialExpired, trialDaysRemaining, isLoading: saasLoading } = useSaasAccess();
   const { data: openAlertCount = 0 } = useOpenOperationalAlertCount();
   const { data: vendors = [] } = useVendors();
   const { data: vendorPayments = [] } = useVendorPayments();
@@ -100,6 +100,50 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
+
+      {/* Trial Expiration Warning / Reminder Banner */}
+      {!isSuperAdmin && isTrialExpired && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border border-destructive/30 bg-destructive/10 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-destructive/20 text-destructive shrink-0">
+              <Lock className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                90-Day Free Trial Concluded • Advanced Modules Locked
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Your base Property Management workspace remains active. Activate a plan to re-enable AI Assistant, CRM, Marketplace, and Owner Portals.
+              </p>
+            </div>
+          </div>
+          <Button size="sm" onClick={() => navigate('/settings?tab=billing')} className="shrink-0 gap-1.5">
+            Select Plan & Unlock
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
+      {!isSuperAdmin && !isTrialExpired && isTrialing && trialDaysRemaining <= 14 && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/20 text-amber-500 shrink-0">
+              <Clock className="h-5 w-5 animate-pulse" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                {trialDaysRemaining === 0 ? 'Your Free Trial Concludes Today!' : `Free Trial Ending in ${trialDaysRemaining} Days`}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Choose a plan before your trial ends to ensure continuous access to AI Insights, CRM, and Marketplace.
+              </p>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => navigate('/settings?tab=billing')} className="shrink-0 border-amber-500/30 text-foreground hover:bg-amber-500/10">
+            View Plans
+          </Button>
+        </div>
+      )}
 
       {/* Super Admin Global Fleet Metrics Strip */}
       {isSuperAdmin && (

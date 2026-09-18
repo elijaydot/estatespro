@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildCorsHeaders, handleCorsPreflight } from '../_shared/security.ts';
 
-const THRESHOLDS = [30, 14, 3, 1, 0];
+const THRESHOLDS = [30, 14, 7, 3, 1, 0];
 const dateAtOffset = (days: number) => {
   const date = new Date();
   date.setUTCDate(date.getUTCDate() + days);
@@ -47,9 +47,9 @@ Deno.serve(async (request) => {
       const { error: notificationError } = await supabase.from('notifications').insert({
         user_id: userId,
         title,
-        message: `${(subscription as any).saas_plans.name} trial access ${daysRemaining === 0 ? 'ends today' : `ends on ${targetDate}`}. Choose a plan to continue.`,
+        message: `${(subscription as any).saas_plans.name} trial access ${daysRemaining === 0 ? 'ends today' : `ends on ${targetDate}`}. Select your plan in Billing & Plans to continue without interruption.`,
         type: 'trial_expiring',
-        link: '/upgrade',
+        link: '/settings?tab=billing',
         metadata: { subscription_id: subscription.id, days_remaining: daysRemaining, trial_end_at: subscription.trial_end_at },
       });
       if (notificationError) throw notificationError;

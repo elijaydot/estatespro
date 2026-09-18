@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   ExternalLink,
   RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -141,10 +142,18 @@ type BillingReceipt = {
 export function GoogleStyleBillingOverview() {
   const queryClient = useQueryClient();
   const { activeCompanyId, activeCompany } = useActiveCompany();
-  const { quotas, entitlements } = useSaasAccess();
+  const { quotas, entitlements, isTrialExpired } = useSaasAccess();
   const [currency, setCurrency] = useState<string>('USD');
   const [isAnnual, setIsAnnual] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+  // Selected target plan for real-time dynamic pricing breakdown & highlight
+  const [selectedPlanCode, setSelectedPlanCode] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return window.sessionStorage.getItem('fishgate_pending_plan_code');
+    }
+    return null;
+  });
 
   // Post-purchase Google-style UX state
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
@@ -182,12 +191,12 @@ export function GoogleStyleBillingOverview() {
       if (error) throw error;
 
       if (!data && activeCompanyId && activeCompanyId !== 'all') {
-        // Automatically self-heal and provision 90-day onboarding trial if not yet created
+        // Automatically self-heal and provision 90-day onboarding trial if not yet created (default to Starter 1-3 properties)
         try {
           const { data: plan } = await supabase
             .from('saas_plans' as never)
             .select('id, trial_days')
-            .eq('code', 'fishgate_growth')
+            .eq('code', 'fishgate_starter')
             .maybeSingle();
 
           const { data: product } = await supabase
@@ -273,8 +282,13 @@ export function GoogleStyleBillingOverview() {
     },
   });
 
-  const currentPlanCode = subQuery.data?.saas_plans?.code || (subQuery.data?.status === 'trialing' ? 'fishgate_growth' : 'fishgate_starter');
-  const currentPlan = RWA_PLANS.find((p) => p.code === currentPlanCode) || RWA_PLANS[0];
+  // Active / Selected plan resolution: Honors user's selection, paid subscription, or defaults to Starter for 1-3 properties
+  const activePlanCode =
+    selectedPlanCode ||
+    subQuery.data?.saas_plans?.code ||
+    (typeof window !== 'undefined' ? window.sessionStorage.getItem('fishgate_pending_plan_code') : null) ||
+    'fishgate_starter';
+  const currentPlan = RWA_PLANS.find((p) => p.code === activePlanCode) || RWA_PLANS[0];
 
   // Map Quotas into Google One Resource Metrics
   const quotaMap = useMemo(() => {
@@ -549,7 +563,19 @@ export function GoogleStyleBillingOverview() {
             </div>
 
             {/* Trial Counter Banner / Active Plan Badge */}
-            {subQuery.data?.status === 'trialing' || !subQuery.data ? (
+            {isTrialExpired && subQuery.data?.status !== 'active' ? (
+              <div className="flex items-center gap-3 bg-destructive/10 border border-destructive/20 px-4 py-2.5 rounded-xl">
+                <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-destructive">
+                    Free Trial Concluded • Features Locked
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Select a plan below to activate and unlock all features.
+                  </p>
+                </div>
+              </div>
+            ) : subQuery.data?.status === 'trialing' || !subQuery.data ? (
               <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 px-4 py-2.5 rounded-xl">
                 <Clock className="h-5 w-5 text-primary shrink-0 animate-pulse" />
                 <div>
@@ -729,17 +755,23 @@ export function GoogleStyleBillingOverview() {
         {/* 4 Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {RWA_PLANS.map((plan) => {
-            const isCurrent = plan.code === currentPlanCode;
+            const isCurrent = plan.code === activePlanCode;
             return (
               <Card
                 key={plan.code}
-                className={`relative flex flex-col justify-between transition-all duration-200 ${
-                  plan.highlighted
-                    ? 'border-primary shadow-md ring-1 ring-primary/30 bg-card'
-                    : 'border-border/80 bg-card/60'
+                className={`relative flex flex-col justify-between transition-all duration-200 cursor-pointer ${
+                  isCurrent
+                    ? 'border-primary shadow-lg ring-2 ring-primary/40 bg-card'
+                    : 'border-border/80 bg-card/60 hover:border-primary/40'
                 }`}
+                onClick={() => {
+                  setSelectedPlanCode(plan.code);
+                  if (typeof window !== 'undefined') {
+                    window.sessionStorage.setItem('fishgate_pending_plan_code', plan.code);
+                  }
+                }}
               >
-                {plan.highlighted && (
+                {plan.code === 'fishgate_growth' && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <Badge className="bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
                       Most Popular
@@ -751,7 +783,7 @@ export function GoogleStyleBillingOverview() {
                   <div className="flex justify-between items-center">
                     <CardTitle className="text-lg font-bold">{plan.name}</CardTitle>
                     {isCurrent && (
-                      <Badge variant="secondary" className="text-[10px] font-semibold">
+                      <Badge variant="secondary" className="text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
                         Current Plan
                       </Badge>
                     )}
@@ -817,9 +849,13 @@ export function GoogleStyleBillingOverview() {
 
                   <Button
                     className="w-full mt-4 font-semibold text-xs"
-                    variant={isCurrent ? 'outline' : plan.highlighted ? 'default' : 'secondary'}
+                    variant={isCurrent ? 'outline' : 'default'}
                     disabled={isCurrent || isCheckingOut}
-                    onClick={() => handleUpgrade(plan)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPlanCode(plan.code);
+                      handleUpgrade(plan);
+                    }}
                   >
                     {isCurrent ? 'Current Tier' : `Select ${plan.name}`}
                   </Button>

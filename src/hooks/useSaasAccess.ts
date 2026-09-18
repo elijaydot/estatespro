@@ -41,6 +41,7 @@ type SaasAccessResult = {
   entitlements: Record<SaasEntitlementKey, boolean>;
   quotas: SaasQuotaSnapshot[];
   isTrialing: boolean;
+  isTrialExpired: boolean;
   trialDaysRemaining: number;
   activePlanCode: string;
   activePlanName: string;
@@ -98,6 +99,7 @@ export function useSaasAccess() {
           entitlements: ALL_TRUE_ENTITLEMENTS,
           quotas: [],
           isTrialing: false,
+          isTrialExpired: false,
           trialDaysRemaining: 0,
           activePlanCode: 'fishgate_enterprise',
           activePlanName: 'Enterprise',
@@ -130,10 +132,10 @@ export function useSaasAccess() {
       const companyCreatedAt = companyRes.data?.created_at;
 
       let isTrialing = false;
+      let isTrialExpired = false;
       let trialDaysRemaining = 90;
 
       if (sub?.status === 'trialing') {
-        isTrialing = true;
         if (sub.trial_end_at) {
           const diff = new Date(sub.trial_end_at).getTime() - Date.now();
           trialDaysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
@@ -141,6 +143,16 @@ export function useSaasAccess() {
           const diff = new Date(sub.created_at).getTime() + (90 * 24 * 60 * 60 * 1000) - Date.now();
           trialDaysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
         }
+        if (trialDaysRemaining <= 0) {
+          isTrialing = false;
+          isTrialExpired = true;
+        } else {
+          isTrialing = true;
+        }
+      } else if (sub?.status === 'expired') {
+        isTrialing = false;
+        isTrialExpired = true;
+        trialDaysRemaining = 0;
       } else if (!sub || sub.status === 'pending_verification') {
         // Newly registered company within 90-day free onboarding window
         if (companyCreatedAt) {
@@ -149,6 +161,10 @@ export function useSaasAccess() {
           if (days > 0) {
             isTrialing = true;
             trialDaysRemaining = days;
+          } else {
+            isTrialing = false;
+            isTrialExpired = true;
+            trialDaysRemaining = 0;
           }
         } else {
           isTrialing = true;
@@ -169,9 +185,28 @@ export function useSaasAccess() {
           entitlements: ALL_TRUE_ENTITLEMENTS,
           quotas,
           isTrialing: true,
+          isTrialExpired: false,
           trialDaysRemaining,
-          activePlanCode: sub?.saas_plans?.code || 'fishgate_growth',
+          activePlanCode: sub?.saas_plans?.code || 'fishgate_starter',
           activePlanName: sub?.saas_plans?.name || '90-Day Free Onboarding Trial',
+        };
+      }
+
+      // If trial has expired and there is no active paid plan, lock all trial features
+      if (isTrialExpired && sub?.status !== 'active') {
+        const { data: quotaRows } = await supabase.rpc('saas_get_quota_snapshot' as never, {
+          p_company_id: activeCompanyId,
+          p_product_code: 'core_property',
+        } as never);
+
+        return {
+          entitlements: EMPTY_ENTITLEMENTS,
+          quotas: Array.isArray(quotaRows) ? (quotaRows as SaasQuotaSnapshot[]) : [],
+          isTrialing: false,
+          isTrialExpired: true,
+          trialDaysRemaining: 0,
+          activePlanCode: sub?.saas_plans?.code || 'fishgate_starter',
+          activePlanName: 'Base Property Management (Trial Concluded)',
         };
       }
 
@@ -208,6 +243,7 @@ export function useSaasAccess() {
         entitlements,
         quotas,
         isTrialing: false,
+        isTrialExpired,
         trialDaysRemaining: 0,
         activePlanCode: sub?.saas_plans?.code || 'fishgate_starter',
         activePlanName: sub?.saas_plans?.name || 'Standard Tier',
@@ -233,6 +269,7 @@ export function useSaasAccess() {
     quotas: query.data?.quotas ?? [],
     quotaByCode,
     isTrialing: hasAllAccess ? false : (query.data?.isTrialing ?? false),
+    isTrialExpired: hasAllAccess ? false : (query.data?.isTrialExpired ?? false),
     trialDaysRemaining: query.data?.trialDaysRemaining ?? 0,
     activePlanCode: query.data?.activePlanCode ?? 'fishgate_starter',
     activePlanName: query.data?.activePlanName ?? 'Standard Tier',

@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Clock,
   Sparkles,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -65,7 +66,7 @@ export function ModuleSidebarNav({
   const { user, profile, logout } = useAuth();
   const { role } = useUserRole();
   const { companies, activeCompanyId, setActiveCompanyId } = useActiveCompany();
-  const { entitlements, isTrialing, trialDaysRemaining } = useSaasAccess();
+  const { entitlements, isTrialing, isTrialExpired, trialDaysRemaining } = useSaasAccess();
   const { canOverride, overrideEnabled, setOverrideEnabled } = useSuperAdminOverride();
   const reviewerAccess = useIsInternalMarketplaceReviewer(user?.id);
   const canReviewMarketplace = role === 'super_admin' || reviewerAccess.data === true;
@@ -594,24 +595,57 @@ export function ModuleSidebarNav({
             </div>
           </div>
 
-          {/* Active Free Trial Countdown Card */}
-          {isTrialing && (
+          {/* Trial Status / Expiration Banner */}
+          {isTrialExpired && !collapsed && (
             <Link
               to="/settings?tab=billing"
               onClick={onNavigate}
-              className="block rounded-lg border border-primary/30 bg-primary/10 hover:bg-primary/15 p-2.5 transition-all text-sidebar-foreground group shadow-xs"
+              className="block rounded-lg border border-destructive/30 bg-destructive/10 hover:bg-destructive/15 p-2.5 transition-all text-sidebar-foreground group shadow-xs"
             >
               <div className="flex items-center justify-between gap-1 mb-1">
-                <span className="text-[11px] font-bold text-primary flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 animate-pulse text-primary shrink-0" />
+                <span className="text-[11px] font-bold text-destructive flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                  Trial Ended
+                </span>
+                <Badge variant="outline" className="text-[10px] font-mono border-destructive/40 text-destructive py-0 px-1.5 bg-destructive/5">
+                  Locked
+                </Badge>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-tight group-hover:text-sidebar-foreground">
+                Base PM active. Choose a plan to unlock all features &rarr;
+              </p>
+            </Link>
+          )}
+
+          {isTrialing && !collapsed && (
+            <Link
+              to="/settings?tab=billing"
+              onClick={onNavigate}
+              className={`block rounded-lg border p-2.5 transition-all text-sidebar-foreground group shadow-xs ${
+                trialDaysRemaining <= 14
+                  ? 'border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/15'
+                  : 'border-primary/30 bg-primary/10 hover:bg-primary/15'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className={`text-[11px] font-bold flex items-center gap-1.5 ${
+                  trialDaysRemaining <= 14 ? 'text-amber-500' : 'text-primary'
+                }`}>
+                  <Clock className={`h-3.5 w-3.5 animate-pulse shrink-0 ${
+                    trialDaysRemaining <= 14 ? 'text-amber-500' : 'text-primary'
+                  }`} />
                   Free Trial
                 </span>
-                <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary py-0 px-1.5 bg-primary/5">
+                <Badge variant="outline" className={`text-[10px] font-mono py-0 px-1.5 ${
+                  trialDaysRemaining <= 14
+                    ? 'border-amber-500/40 text-amber-500 bg-amber-500/5'
+                    : 'border-primary/40 text-primary bg-primary/5'
+                }`}>
                   {trialDaysRemaining}d left
                 </Badge>
               </div>
               <p className="text-[10px] text-sidebar-foreground/75 leading-tight group-hover:text-sidebar-foreground">
-                All features unlocked. Manage plans &rarr;
+                {trialDaysRemaining <= 14 ? 'Expiring soon. Choose your plan →' : 'All features unlocked. Manage plans →'}
               </p>
             </Link>
           )}

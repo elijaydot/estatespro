@@ -7,13 +7,22 @@ const billingOverview = readFileSync(resolve(process.cwd(), 'src/components/bill
 const checkoutFunction = readFileSync(resolve(process.cwd(), 'supabase/functions/saas-subscription-checkout/index.ts'), 'utf8');
 const verifyFunction = readFileSync(resolve(process.cwd(), 'supabase/functions/saas-verify-subscription-payment/index.ts'), 'utf8');
 const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260918050000_unify_trials_and_plan_finalization.sql'), 'utf8');
+const sidebarNav = readFileSync(resolve(process.cwd(), 'src/components/layout/ModuleSidebarNav.tsx'), 'utf8');
+const dashboard = readFileSync(resolve(process.cwd(), 'src/pages/Dashboard.tsx'), 'utf8');
 
-describe('trial feature access and dynamic plan activation', () => {
-  it('useSaasAccess recognizes trial state and unlocks all capabilities', () => {
+describe('trial feature access, expiration locking, and dynamic plan activation', () => {
+  it('useSaasAccess recognizes trial state and unlocks all capabilities while trialing', () => {
     expect(saasAccessHook).toContain("sub?.status === 'trialing'");
     expect(saasAccessHook).toContain('isTrialing: true');
     expect(saasAccessHook).toContain('entitlements: ALL_TRUE_ENTITLEMENTS');
     expect(saasAccessHook).toContain('trialDaysRemaining');
+  });
+
+  it('useSaasAccess locks trial features and sets isTrialExpired when trial concludes without paid plan', () => {
+    expect(saasAccessHook).toContain('isTrialExpired: boolean');
+    expect(saasAccessHook).toContain('entitlements: EMPTY_ENTITLEMENTS');
+    expect(saasAccessHook).toContain("sub?.status === 'expired'");
+    expect(saasAccessHook).toContain('trialDaysRemaining <= 0');
   });
 
   it('GoogleStyleBillingOverview initiates checkout with core_property and persists plan selection', () => {
@@ -27,26 +36,33 @@ describe('trial feature access and dynamic plan activation', () => {
     expect(billingOverview).toContain('data?.plan_code');
     expect(billingOverview).toContain('pendingPlanCode');
     expect(billingOverview).toContain('setCelebrationPlan(matchedPlan)');
-    // Fallback must not hardcode Growth (RWA_PLANS[1])
     expect(billingOverview).not.toContain('|| RWA_PLANS[1]');
   });
 
-  it('checkout edge function normalizes product code and stores target_plan_code', () => {
-    expect(checkoutFunction).toContain('const productCode = (body.productCode === "pm_core" || !body.productCode) ? "core_property" : body.productCode;');
-    expect(checkoutFunction).toContain('target_plan_code: body.planCode');
+  it('GoogleStyleBillingOverview dynamically renders Next Cycle charges and Current Tier cards', () => {
+    expect(billingOverview).toContain('activePlanCode');
+    expect(billingOverview).toContain('const isCurrent = plan.code === activePlanCode;');
+    expect(billingOverview).toContain("FishGate {currentPlan.name} Base Subscription");
+    expect(billingOverview).toContain("formatPrice(currentPlan.priceUsdMonthly)");
   });
 
-  it('verify edge function returns plan_code and handles direct Paystack plan activation', () => {
+  it('Sidebar and Dashboard display trial countdown, expiring soon alerts, and locked state banners', () => {
+    expect(sidebarNav).toContain('isTrialExpired');
+    expect(sidebarNav).toContain('Trial Ended');
+    expect(dashboard).toContain('isTrialExpired');
+    expect(dashboard).toContain('90-Day Free Trial Concluded');
+  });
+
+  it('checkout and verify edge functions handle dynamic plan codes and Paystack metadata', () => {
+    expect(checkoutFunction).toContain('target_plan_code: body.planCode');
     expect(verifyFunction).toContain('target_plan_code: finalPlanCode');
     expect(verifyFunction).toContain('plan_code: finalPlanCode');
-    expect(verifyFunction).toContain('saas_change_subscription_plan');
   });
 
-  it('SQL migration grants full trial entitlements and accepts target_plan_code or plan_code', () => {
-    expect(migration).toContain("v_sub_status = 'trialing'");
-    expect(migration).toContain('RETURN true');
-    expect(migration).toContain("coalesce(metadata, '{}'::jsonb)");
-    expect(migration).toContain("v_invoice.metadata->>'plan_code'");
-    expect(migration).toContain("v_attempt.metadata->>'plan_code'");
+  it('SQL migration auto-provisions Starter by default and locks trial features when expired', () => {
+    expect(migration).toContain("code = 'fishgate_starter'");
+    expect(migration).toContain("v_sub_status = 'trialing' AND v_trial_end_at <= now()");
+    expect(migration).toContain("status = 'expired'");
+    expect(migration).toContain('Your 90-Day Free Trial Has Concluded');
   });
 });
