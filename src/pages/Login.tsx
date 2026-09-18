@@ -88,12 +88,12 @@ export default function Login() {
       <div className="w-full max-w-md animate-scale-in">
         {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-xl shadow-lg">
-            FG
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden border border-border/80 shadow-lg bg-[#060b18]">
+            <img src="/fishgate-mark.png" alt="FishGate" className="h-full w-full object-cover" />
           </div>
           <div>
             <span className="font-bold text-2xl text-foreground leading-none block">FishGate</span>
-            <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80">Property OS</span>
+            <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80 font-semibold">Property OS</span>
           </div>
         </div>
 

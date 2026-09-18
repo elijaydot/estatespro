@@ -226,11 +226,11 @@ export function ModuleSidebarNav({
         <div className={cn('flex items-center gap-2.5 min-w-0', collapsed && 'justify-center w-full')}>
           <Link
             to={getWorkspaceInfo(workspaceId).href}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-sm"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-background/50 border border-sidebar-border shadow-sm group hover:ring-1 hover:ring-primary/40 transition-all"
             onClick={onNavigate}
             title="FishGate Home"
           >
-            FG
+            <img src="/fishgate-mark.png" alt="FishGate" className="h-full w-full object-cover" />
           </Link>
 
           {!collapsed && (
