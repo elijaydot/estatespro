@@ -47,12 +47,16 @@ export default function TenantForgotPassword() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-success/10 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md animate-scale-in">
+        {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg">
-            <Home className="h-6 w-6" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden border border-border/80 shadow-lg bg-[#060b18]">
+            <img src="/fishgate-mark.png" alt="FishGate" className="h-full w-full object-cover" />
           </div>
-          <span className="font-display font-bold text-2xl text-foreground">Tenant Portal</span>
+          <div>
+            <span className="font-bold text-2xl text-foreground leading-none block">FishGate</span>
+            <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80 font-semibold">Tenant Portal</span>
+          </div>
         </div>
 
         <Card className="card-shadow-lg border-0">

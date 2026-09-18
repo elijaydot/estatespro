@@ -176,26 +176,33 @@ export default function TenantSignup() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-success/10 p-4">
-      {confirmationPending ? (
-        <div className="w-full max-w-md">
+      <div className="w-full max-w-md animate-scale-in">
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden border border-border/80 shadow-lg bg-[#060b18]">
+            <img src="/fishgate-mark.png" alt="FishGate" className="h-full w-full object-cover" />
+          </div>
+          <div>
+            <span className="font-bold text-2xl text-foreground leading-none block">FishGate</span>
+            <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80 font-semibold">Tenant Portal</span>
+          </div>
+        </div>
+
+        {confirmationPending ? (
           <EmailConfirmationPending
             email={formData.email}
             role="tenant"
             onBackToSignup={() => setConfirmationPending(false)}
             loginPath="/tenant/login"
           />
-        </div>
-      ) : (
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 p-3 rounded-xl bg-primary/10 w-fit">
-              <Building2 className="h-8 w-8 text-primary" />
-            </div>
-            <CardTitle className="text-2xl font-display">Create Your Account</CardTitle>
-            <CardDescription>
-              Set up your tenant portal account to access your lease, payments, and maintenance requests.
-            </CardDescription>
-          </CardHeader>
+        ) : (
+          <Card className="w-full card-shadow-lg border-0">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-display">Create Your Account</CardTitle>
+              <CardDescription>
+                Set up your tenant portal account to access your lease, payments, and maintenance requests.
+              </CardDescription>
+            </CardHeader>
         <CardContent>
           <div className="mb-6 p-3 bg-success/10 rounded-lg flex items-center gap-3">
             <CheckCircle className="h-5 w-5 text-success flex-shrink-0" />
@@ -275,6 +282,7 @@ export default function TenantSignup() {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 }

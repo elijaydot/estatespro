@@ -80,22 +80,35 @@ export default function ResetPassword() {
   if (!hasSession) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md card-shadow-lg border-0">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-destructive/10">
-              <AlertCircle className="h-5 w-5 text-destructive" />
+        <div className="w-full max-w-md animate-scale-in">
+          {/* Logo */}
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden border border-border/80 shadow-lg bg-[#060b18]">
+              <img src="/fishgate-mark.png" alt="FishGate" className="h-full w-full object-cover" />
             </div>
-            <CardTitle className="text-2xl font-bold">Reset link expired</CardTitle>
-            <CardDescription>
-              Please request a new password reset link.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center">
-            <Link to="/forgot-password" className="text-primary font-medium hover:underline">
-              Request a new reset link
-            </Link>
-          </CardContent>
-        </Card>
+            <div>
+              <span className="font-bold text-2xl text-foreground leading-none block">FishGate</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80 font-semibold">Property OS</span>
+            </div>
+          </div>
+
+          <Card className="w-full card-shadow-lg border-0">
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-destructive/10">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+              </div>
+              <CardTitle className="text-2xl font-bold">Reset link expired</CardTitle>
+              <CardDescription>
+                Please request a new password reset link.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <Link to="/forgot-password" className="text-primary font-medium hover:underline">
+                Request a new reset link
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -103,11 +116,15 @@ export default function ResetPassword() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center p-4">
       <div className="w-full max-w-md animate-scale-in">
+        {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg">
-            <Building2 className="h-6 w-6" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden border border-border/80 shadow-lg bg-[#060b18]">
+            <img src="/fishgate-mark.png" alt="FishGate" className="h-full w-full object-cover" />
           </div>
-          <span className="font-bold text-2xl text-foreground">FishGate</span>
+          <div>
+            <span className="font-bold text-2xl text-foreground leading-none block">FishGate</span>
+            <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80 font-semibold">Property OS</span>
+          </div>
         </div>
 
         <Card className="card-shadow-lg border-0">

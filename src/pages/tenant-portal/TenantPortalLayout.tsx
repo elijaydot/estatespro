@@ -153,13 +153,13 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
     <div className="min-h-screen bg-background">
       <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-1 flex-col bg-card border-r border-border">
-          <div className="flex h-16 items-center gap-2 px-6 border-b border-border">
-            <div className="p-2 rounded-lg bg-primary">
-              <Home className="h-5 w-5 text-primary-foreground" />
+          <div className="flex h-16 items-center gap-3 px-6 border-b border-border">
+            <div className="h-9 w-9 rounded-xl overflow-hidden border border-border/80 bg-[#060b18] shrink-0 shadow-sm">
+              <img src="/fishgate-mark.png" alt="FishGate" className="h-full w-full object-cover" />
             </div>
-            <div>
-              <span className="font-display font-bold text-foreground">Tenant Portal</span>
-              <p className="text-xs text-muted-foreground truncate max-w-[140px]">{propertyName}</p>
+            <div className="min-w-0">
+              <span className="font-display font-bold text-foreground block leading-tight">FishGate</span>
+              <p className="text-[11px] text-muted-foreground truncate max-w-[140px]">Tenant • {propertyName}</p>
             </div>
           </div>
 
@@ -211,11 +211,14 @@ export function TenantPortalLayout({ children }: TenantPortalLayoutProps) {
             </SheetTrigger>
             <SheetContent side="left" className="w-64 p-0 [&>button]:hidden">
               <div className="flex flex-col h-full">
-                <div className="flex h-16 items-center gap-2 px-6 border-b border-border">
-                  <div className="p-2 rounded-lg bg-primary">
-                    <Home className="h-5 w-5 text-primary-foreground" />
+                <div className="flex h-16 items-center gap-3 px-6 border-b border-border">
+                  <div className="h-9 w-9 rounded-xl overflow-hidden border border-border/80 bg-[#060b18] shrink-0 shadow-sm">
+                    <img src="/fishgate-mark.png" alt="FishGate" className="h-full w-full object-cover" />
                   </div>
-                  <span className="font-bold text-foreground">Tenant Portal</span>
+                  <div className="min-w-0">
+                    <span className="font-bold text-foreground block leading-tight">FishGate</span>
+                    <p className="text-[11px] text-muted-foreground truncate max-w-[140px]">Tenant Portal</p>
+                  </div>
                 </div>
                 <div className="flex-1 px-4 py-6">
                   <NavLinks onNavigate={() => setMobileNavOpen(false)} />

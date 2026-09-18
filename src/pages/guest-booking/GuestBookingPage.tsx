@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { format, differenceInDays, addDays, parseISO, isWithinInterval } from 'date-fns';
 import {
@@ -621,8 +621,9 @@ export default function GuestBookingPage() {
       </div>
 
       {/* Footer */}
-      <div className="border-t bg-muted/30 py-6 text-center text-sm text-muted-foreground">
-        Powered by <strong>FishGate</strong>
+      <div className="border-t bg-muted/30 py-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <img src="/fishgate-mark.png" alt="FishGate" className="h-4 w-4 rounded object-cover" />
+        <span>Powered by <strong>FishGate Property OS</strong></span>
       </div>
     </div>
   );

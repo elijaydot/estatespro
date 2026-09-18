@@ -121,7 +121,19 @@ export default function MfaChallenge() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary/5 via-background to-accent/5">
-      <Card className="w-full max-w-md">
+      <div className="w-full max-w-md animate-scale-in">
+        {/* Brand Header */}
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden border border-border/80 shadow-lg bg-[#060b18]">
+            <img src="/fishgate-mark.png" alt="FishGate" className="h-full w-full object-cover" />
+          </div>
+          <div>
+            <span className="font-bold text-2xl text-foreground leading-none block">FishGate</span>
+            <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80 font-semibold">Security • MFA</span>
+          </div>
+        </div>
+
+        <Card className="w-full card-shadow-lg border-0">
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
             <ShieldCheck className="h-5 w-5" />
@@ -210,6 +222,7 @@ export default function MfaChallenge() {
           </Button>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
