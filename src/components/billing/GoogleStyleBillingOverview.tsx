@@ -175,9 +175,75 @@ export function GoogleStyleBillingOverview() {
           )
         `)
         .eq('company_id', activeCompanyId)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (error) throw error;
+
+      if (!data && activeCompanyId && activeCompanyId !== 'all') {
+        // Automatically self-heal and provision 90-day onboarding trial if not yet created
+        try {
+          const { data: plan } = await supabase
+            .from('saas_plans' as never)
+            .select('id, trial_days')
+            .eq('code', 'fishgate_growth')
+            .maybeSingle();
+
+          const { data: product } = await supabase
+            .from('saas_products' as never)
+            .select('id')
+            .eq('code', 'core_property')
+            .maybeSingle();
+
+          if (plan && product) {
+            const trialDays = (plan as { trial_days?: number })?.trial_days || 90;
+            const trialEndAt = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString();
+
+            const { data: newSub } = await supabase
+              .from('saas_company_plan_subscriptions' as never)
+              .insert({
+                company_id: activeCompanyId,
+                product_id: (product as { id: string }).id,
+                plan_id: (plan as { id: string }).id,
+                status: 'trialing',
+                start_at: new Date().toISOString(),
+                trial_end_at: trialEndAt,
+                metadata: { auto_provisioned: true, trial_days: trialDays },
+              } as never)
+              .select(`
+                id,
+                plan_id,
+                status,
+                trial_end_at,
+                next_renewal_at,
+                created_at,
+                saas_plans:plan_id (
+                  id,
+                  code,
+                  name,
+                  tier
+                )
+              `)
+              .maybeSingle();
+
+            if (newSub) {
+              return newSub as {
+                id: string;
+                plan_id: string;
+                status: string;
+                trial_end_at: string | null;
+                next_renewal_at: string | null;
+                created_at: string | null;
+                saas_plans: { id: string; code: string; name: string; tier: string } | null;
+              };
+            }
+          }
+        } catch (provisionErr) {
+          console.warn('Auto-provisioning trial subscription non-fatal warning:', provisionErr);
+        }
+      }
+
       return data as {
         id: string;
         plan_id: string;
@@ -217,17 +283,23 @@ export function GoogleStyleBillingOverview() {
     return map;
   }, [quotas]);
 
-  const unitsQuota = quotaMap.get('properties_count') || { used_value: 3, hard_limit: currentPlan.unitsLimit, usage_percent: 40 };
-  const seatsQuota = quotaMap.get('property_manager_seats') || { used_value: 2, hard_limit: currentPlan.seatsLimit, usage_percent: 66 };
-  const momoQuota = quotaMap.get('mobile_money_collections_monthly') || { used_value: 120, hard_limit: typeof currentPlan.momoMonthlyLimit === 'number' ? currentPlan.momoMonthlyLimit : 500, usage_percent: 24 };
+  const unitsQuota = quotaMap.get('properties_count') || { used_value: 0, hard_limit: currentPlan.unitsLimit, usage_percent: 0 };
+  const seatsQuota = quotaMap.get('property_manager_seats') || { used_value: 1, hard_limit: currentPlan.seatsLimit, usage_percent: Math.round((1 / currentPlan.seatsLimit) * 100) };
+  const momoQuota = quotaMap.get('mobile_money_collections_monthly') || { used_value: 0, hard_limit: typeof currentPlan.momoMonthlyLimit === 'number' ? currentPlan.momoMonthlyLimit : 500, usage_percent: 0 };
+  const storageQuota = quotaMap.get('storage_mb') || { used_value: 0, hard_limit: 5120, usage_percent: 0 };
 
-  // Calculate Trial Days Remaining (90 Days Free Trial)
+  // Calculate Trial Days Remaining (90 Days Free Trial) dynamically per company
   const trialDaysRemaining = useMemo(() => {
     if (subQuery.data?.trial_end_at) {
       const diff = new Date(subQuery.data.trial_end_at).getTime() - Date.now();
       return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
     }
-    return 78; // Default active trial presentation for new agency onboarding
+    if (subQuery.data?.created_at) {
+      const trialEndTime = new Date(subQuery.data.created_at).getTime() + (90 * 24 * 60 * 60 * 1000);
+      const diff = trialEndTime - Date.now();
+      return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    }
+    return 90; // Fresh 90-day onboarding trial for newly registered company
   }, [subQuery.data]);
 
   const formatPrice = (usdMonthly: number) => {
@@ -510,9 +582,9 @@ export function GoogleStyleBillingOverview() {
                 <HardDrive className="h-4 w-4 text-purple-500" />
               </div>
               <p className="text-xl font-bold mt-2 text-foreground">
-                1.4 GB <span className="text-xs font-normal text-muted-foreground">/ 5.0 GB</span>
+                {(storageQuota.used_value / 1024).toFixed(1)} GB <span className="text-xs font-normal text-muted-foreground">/ {(storageQuota.hard_limit / 1024).toFixed(1)} GB</span>
               </p>
-              <Progress value={28} className="h-1.5 mt-2" />
+              <Progress value={storageQuota.usage_percent} className="h-1.5 mt-2" />
             </div>
           </div>
         </CardContent>
