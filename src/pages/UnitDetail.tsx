@@ -97,7 +97,7 @@ export default function UnitDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { formatCurrency } = useSettings();
+  const { formatCurrency, settings } = useSettings();
   
   const { data: unit, isLoading } = useUnit(id || '');
   const { data: maintenanceRequests = [] } = useMaintenanceRequests();
@@ -545,7 +545,7 @@ export default function UnitDetail() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="unitRent">Monthly Rent</Label>
+                <Label htmlFor="unitRent">Monthly Rent ({settings.currencySymbol || 'RWF'})</Label>
                 <Input 
                   id="unitRent" 
                   type="number" 

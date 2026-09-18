@@ -8,40 +8,91 @@ import { toast } from '@/components/ui/use-toast';
 import { useSettings } from '@/contexts/useSettings';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 
-const currencyOptions = [
-  { value: 'RWF', label: 'RWF - Rwandan Franc', description: 'Rwanda' },
-  { value: 'USD', label: 'USD - US Dollar', description: 'United States' },
-  { value: 'EUR', label: 'EUR - Euro', description: 'European Union' },
-  { value: 'GBP', label: 'GBP - British Pound', description: 'United Kingdom' },
-  { value: 'GHS', label: 'GHS - Ghanaian Cedi', description: 'Ghana' },
-  { value: 'NGN', label: 'NGN - Nigerian Naira', description: 'Nigeria' },
-  { value: 'KES', label: 'KES - Kenyan Shilling', description: 'Kenya' },
-  { value: 'ZAR', label: 'ZAR - South African Rand', description: 'South Africa' },
-  { value: 'UGX', label: 'UGX - Ugandan Shilling', description: 'Uganda' },
-  { value: 'TZS', label: 'TZS - Tanzanian Shilling', description: 'Tanzania' },
-];
+import { SUPPORTED_CURRENCIES, CURRENCY_SYMBOLS } from '@/lib/exchangeRates';
+
+const currencyOptions = SUPPORTED_CURRENCIES.map(c => ({
+  value: c.code,
+  label: `${c.code} - ${c.name} (${c.symbol})`,
+  description: `${c.country} • ${c.region}`,
+}));
 
 const countryOptions = [
-  { value: 'Rwanda', label: 'Rwanda', description: 'Africa/Kigali' },
-  { value: 'Ghana', label: 'Ghana', description: 'Africa/Accra' },
-  { value: 'Nigeria', label: 'Nigeria', description: 'Africa/Lagos' },
-  { value: 'Kenya', label: 'Kenya', description: 'Africa/Nairobi' },
-  { value: 'South Africa', label: 'South Africa', description: 'Africa/Johannesburg' },
-  { value: 'Uganda', label: 'Uganda', description: 'Africa/Kampala' },
-  { value: 'Tanzania', label: 'Tanzania', description: 'Africa/Dar_es_Salaam' },
-  { value: 'United States', label: 'United States', description: 'America/New_York' },
-  { value: 'United Kingdom', label: 'United Kingdom', description: 'Europe/London' },
+  // East Africa
+  { value: 'Rwanda', label: 'Rwanda', description: 'Africa/Kigali (CAT)' },
+  { value: 'Kenya', label: 'Kenya', description: 'Africa/Nairobi (EAT)' },
+  { value: 'Uganda', label: 'Uganda', description: 'Africa/Kampala (EAT)' },
+  { value: 'Tanzania', label: 'Tanzania', description: 'Africa/Dar_es_Salaam (EAT)' },
+  { value: 'Burundi', label: 'Burundi', description: 'Africa/Bujumbura (CAT)' },
+  { value: 'Ethiopia', label: 'Ethiopia', description: 'Africa/Addis_Ababa (EAT)' },
+  { value: 'South Sudan', label: 'South Sudan', description: 'Africa/Juba (CAT)' },
+  { value: 'Somalia', label: 'Somalia', description: 'Africa/Mogadishu (EAT)' },
+
+  // West & Central Africa
+  { value: 'Nigeria', label: 'Nigeria', description: 'Africa/Lagos (WAT)' },
+  { value: 'Ghana', label: 'Ghana', description: 'Africa/Accra (GMT)' },
+  { value: 'Cameroon', label: 'Cameroon', description: 'Africa/Douala (WAT)' },
+  { value: 'DR Congo', label: 'DR Congo', description: 'Africa/Kinshasa (WAT)' },
+  { value: 'Senegal', label: 'Senegal', description: 'Africa/Dakar (GMT)' },
+  { value: 'Côte d\'Ivoire', label: 'Côte d\'Ivoire', description: 'Africa/Abidjan (GMT)' },
+  { value: 'Sierra Leone', label: 'Sierra Leone', description: 'Africa/Freetown (GMT)' },
+  { value: 'Liberia', label: 'Liberia', description: 'Africa/Monrovia (GMT)' },
+  { value: 'Gambia', label: 'Gambia', description: 'Africa/Banjul (GMT)' },
+
+  // Southern & Northern Africa
+  { value: 'South Africa', label: 'South Africa', description: 'Africa/Johannesburg (SAST)' },
+  { value: 'Egypt', label: 'Egypt', description: 'Africa/Cairo (EEST)' },
+  { value: 'Morocco', label: 'Morocco', description: 'Africa/Casablanca (WET)' },
+  { value: 'Mauritius', label: 'Mauritius', description: 'Indian/Mauritius (MUT)' },
+  { value: 'Botswana', label: 'Botswana', description: 'Africa/Gaborone (CAT)' },
+  { value: 'Zambia', label: 'Zambia', description: 'Africa/Lusaka (CAT)' },
+  { value: 'Namibia', label: 'Namibia', description: 'Africa/Windhoek (CAT)' },
+
+  // Global Majors & Middle East / Asia
+  { value: 'United States', label: 'United States', description: 'America/New_York (EST)' },
+  { value: 'United Kingdom', label: 'United Kingdom', description: 'Europe/London (GMT/BST)' },
+  { value: 'European Union', label: 'European Union', description: 'Europe/Paris (CET)' },
+  { value: 'Canada', label: 'Canada', description: 'America/Toronto (EST)' },
+  { value: 'Australia', label: 'Australia', description: 'Australia/Sydney (AEST)' },
+  { value: 'United Arab Emirates', label: 'United Arab Emirates', description: 'Asia/Dubai (GST)' },
+  { value: 'Saudi Arabia', label: 'Saudi Arabia', description: 'Asia/Riyadh (AST)' },
+  { value: 'Qatar', label: 'Qatar', description: 'Asia/Qatar (AST)' },
+  { value: 'India', label: 'India', description: 'Asia/Kolkata (IST)' },
+  { value: 'China', label: 'China', description: 'Asia/Shanghai (CST)' },
+  { value: 'Japan', label: 'Japan', description: 'Asia/Tokyo (JST)' },
+  { value: 'Singapore', label: 'Singapore', description: 'Asia/Singapore (SGT)' },
+  { value: 'Switzerland', label: 'Switzerland', description: 'Europe/Zurich (CET)' },
+  { value: 'Brazil', label: 'Brazil', description: 'America/Sao_Paulo (BRT)' },
+  { value: 'Turkey', label: 'Turkey', description: 'Europe/Istanbul (TRT)' },
 ];
 
 const timezoneOptions = [
   { value: 'Africa/Kigali', label: 'Africa/Kigali (CAT)', description: 'UTC+2' },
-  { value: 'Africa/Accra', label: 'Africa/Accra (GMT)', description: 'UTC+0' },
-  { value: 'Africa/Lagos', label: 'Africa/Lagos (WAT)', description: 'UTC+1' },
   { value: 'Africa/Nairobi', label: 'Africa/Nairobi (EAT)', description: 'UTC+3' },
+  { value: 'Africa/Kampala', label: 'Africa/Kampala (EAT)', description: 'UTC+3' },
+  { value: 'Africa/Dar_es_Salaam', label: 'Africa/Dar_es_Salaam (EAT)', description: 'UTC+3' },
+  { value: 'Africa/Bujumbura', label: 'Africa/Bujumbura (CAT)', description: 'UTC+2' },
+  { value: 'Africa/Addis_Ababa', label: 'Africa/Addis_Ababa (EAT)', description: 'UTC+3' },
+  { value: 'Africa/Lagos', label: 'Africa/Lagos (WAT)', description: 'UTC+1' },
+  { value: 'Africa/Accra', label: 'Africa/Accra (GMT)', description: 'UTC+0' },
+  { value: 'Africa/Douala', label: 'Africa/Douala (WAT)', description: 'UTC+1' },
+  { value: 'Africa/Kinshasa', label: 'Africa/Kinshasa (WAT)', description: 'UTC+1' },
   { value: 'Africa/Johannesburg', label: 'Africa/Johannesburg (SAST)', description: 'UTC+2' },
+  { value: 'Africa/Cairo', label: 'Africa/Cairo (EEST)', description: 'UTC+2' },
+  { value: 'Africa/Casablanca', label: 'Africa/Casablanca (WET)', description: 'UTC+1' },
   { value: 'America/New_York', label: 'America/New_York (EST)', description: 'UTC-5' },
-  { value: 'Europe/London', label: 'Europe/London (GMT)', description: 'UTC+0' },
+  { value: 'America/Chicago', label: 'America/Chicago (CST)', description: 'UTC-6' },
+  { value: 'America/Denver', label: 'America/Denver (MST)', description: 'UTC-7' },
+  { value: 'America/Los_Angeles', label: 'America/Los_Angeles (PST)', description: 'UTC-8' },
+  { value: 'America/Toronto', label: 'America/Toronto (EST)', description: 'UTC-5' },
+  { value: 'Europe/London', label: 'Europe/London (GMT/BST)', description: 'UTC+0 / UTC+1' },
+  { value: 'Europe/Paris', label: 'Europe/Paris (CET)', description: 'UTC+1' },
+  { value: 'Europe/Berlin', label: 'Europe/Berlin (CET)', description: 'UTC+1' },
   { value: 'Asia/Dubai', label: 'Asia/Dubai (GST)', description: 'UTC+4' },
+  { value: 'Asia/Riyadh', label: 'Asia/Riyadh (AST)', description: 'UTC+3' },
+  { value: 'Asia/Kolkata', label: 'Asia/Kolkata (IST)', description: 'UTC+5:30' },
+  { value: 'Asia/Singapore', label: 'Asia/Singapore (SGT)', description: 'UTC+8' },
+  { value: 'Asia/Tokyo', label: 'Asia/Tokyo (JST)', description: 'UTC+9' },
+  { value: 'Australia/Sydney', label: 'Australia/Sydney (AEST)', description: 'UTC+10' },
 ];
 
 const dateFormatOptions = [
@@ -76,7 +127,8 @@ export function GeneralSettings() {
   }, [settings, isLoading]);
 
   const handleCurrencyChange = (value: string) => {
-    setFormData(prev => ({ ...prev, currencyCode: value, currencySymbol: value }));
+    const symbol = CURRENCY_SYMBOLS[value] || value;
+    setFormData(prev => ({ ...prev, currencyCode: value, currencySymbol: symbol }));
   };
 
   const handleSave = async () => {

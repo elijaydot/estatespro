@@ -179,7 +179,7 @@ const defaultLeaseTerms = `STANDARD RESIDENTIAL LEASE AGREEMENT
 
 export default function Leases() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { formatCurrency } = useSettings();
+  const { formatCurrency, settings } = useSettings();
   const { isSuperAdmin } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
   const { data: companiesList = [] } = useMyCompanies();
@@ -975,11 +975,11 @@ export default function Leases() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label>Monthly Rent *</Label>
+                <Label>Monthly Rent ({settings.currencySymbol || 'RWF'}) *</Label>
                 <Input type="number" min="0" value={formData.monthly_rent || ''} onChange={(e) => setFormData({ ...formData, monthly_rent: parseFloat(e.target.value) || 0 })} />
               </div>
               <div className="grid gap-2">
-                <Label>Security Deposit</Label>
+                <Label>Security Deposit ({settings.currencySymbol || 'RWF'})</Label>
                 <Input type="number" min="0" value={formData.security_deposit || ''} onChange={(e) => setFormData({ ...formData, security_deposit: parseFloat(e.target.value) || 0 })} />
               </div>
             </div>

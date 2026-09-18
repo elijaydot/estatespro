@@ -118,7 +118,7 @@ const defaultFormData: BillFormData = {
 };
 
 export default function RecurringBills() {
-  const { formatCurrency } = useSettings();
+  const { formatCurrency, settings } = useSettings();
   const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-recurring-bills') as ViewMode) || 'table');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -630,7 +630,7 @@ export default function RecurringBills() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="amount">Amount *</Label>
+              <Label htmlFor="amount">Amount ({settings.currencySymbol || 'RWF'}) *</Label>
               <Input
                 id="amount"
                 type="number"

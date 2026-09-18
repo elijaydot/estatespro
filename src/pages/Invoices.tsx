@@ -139,7 +139,7 @@ const getStatusBadge = (status: string) => {
 export default function Invoices() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { formatCurrency } = useSettings();
+  const { formatCurrency, settings } = useSettings();
   const { isSuperAdmin } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
   const { data: companiesList = [] } = useMyCompanies();
@@ -754,7 +754,7 @@ export default function Invoices() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="invoiceAmount">Amount *</Label>
+              <Label htmlFor="invoiceAmount">Amount ({settings.currencySymbol || 'RWF'}) *</Label>
               <Input
                 id="invoiceAmount"
                 type="number"
@@ -799,7 +799,7 @@ export default function Invoices() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="editAmount">Amount *</Label>
+                <Label htmlFor="editAmount">Amount ({settings.currencySymbol || 'RWF'}) *</Label>
                 <Input
                   id="editAmount"
                   type="number"

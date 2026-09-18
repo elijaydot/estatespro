@@ -164,7 +164,7 @@ const paymentMethodOptions = [
 
 export default function Payments() {
   const navigate = useNavigate();
-  const { formatCurrency } = useSettings();
+  const { formatCurrency, settings } = useSettings();
   const { isSuperAdmin } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
   const { data: companiesList = [] } = useMyCompanies();
@@ -679,7 +679,7 @@ export default function Payments() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="paymentAmount">Amount *</Label>
+                <Label htmlFor="paymentAmount">Amount ({settings.currencySymbol || 'RWF'}) *</Label>
                 <Input
                   id="paymentAmount"
                   type="number"

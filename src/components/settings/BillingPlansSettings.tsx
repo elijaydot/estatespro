@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useToast } from '@/hooks/use-toast';
+import { useSettings } from '@/contexts/useSettings';
 import { GoogleStyleBillingOverview } from '@/components/billing/GoogleStyleBillingOverview';
 
 type PriceRow = {
@@ -325,9 +326,16 @@ export function BillingPlansSettings() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { quotas, isLoading: saasAccessLoading } = useSaasAccess();
-  const [currency, setCurrency] = useState<'USD' | 'NGN' | 'GBP'>('USD');
+  const { settings } = useSettings();
+  const [currency, setCurrency] = useState<string>(() => settings.currencyCode || 'USD');
   const [pendingPlanId, setPendingPlanId] = useState<string | null>(null);
   const [pendingVerificationByProduct, setPendingVerificationByProduct] = useState<Record<string, PendingPaymentVerification>>({});
+
+  useEffect(() => {
+    if (settings.currencyCode) {
+      setCurrency(settings.currencyCode);
+    }
+  }, [settings.currencyCode]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

@@ -46,8 +46,25 @@ type AppSettingsRow = {
   lease_header_color?: string | null;
 };
 
+const SETTINGS_STORAGE_KEY = 'fishgate_app_settings';
+
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && typeof parsed === 'object') {
+            return { ...defaultSettings, ...parsed };
+          }
+        }
+      } catch {
+        // Ignore cache read errors
+      }
+    }
+    return defaultSettings;
+  });
   const [isLoading, setIsLoading] = useState(true);
   const { user, isAuthenticated } = useAuth();
 
@@ -55,7 +72,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     if (isAuthenticated && user) {
       fetchSettings();
     } else {
-      setSettings(defaultSettings);
       setIsLoading(false);
     }
   }, [isAuthenticated, user]);
@@ -84,19 +100,25 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
       if (data) {
         const settingsRow = data as unknown as AppSettingsRow;
-        setSettings({
+        const loaded: AppSettings = {
           id: settingsRow.id,
-          currencyCode: settingsRow.currency_code,
-          currencySymbol: settingsRow.currency_symbol,
-          defaultCountry: settingsRow.default_country,
-          timezone: settingsRow.timezone,
-          dateFormat: settingsRow.date_format,
+          currencyCode: settingsRow.currency_code || defaultSettings.currencyCode,
+          currencySymbol: settingsRow.currency_symbol || defaultSettings.currencySymbol,
+          defaultCountry: settingsRow.default_country || defaultSettings.defaultCountry,
+          timezone: settingsRow.timezone || defaultSettings.timezone,
+          dateFormat: settingsRow.date_format || defaultSettings.dateFormat,
           accentColor: settingsRow.accent_color || '#f59e0b',
           leaseFont: settingsRow.lease_font || 'Georgia',
           leasePrimaryColor: settingsRow.lease_primary_color || '#1e3a5f',
           leaseSecondaryColor: settingsRow.lease_secondary_color || '#2563eb',
           leaseHeaderColor: settingsRow.lease_header_color || '#f0f7ff',
-        });
+        };
+        setSettings(loaded);
+        try {
+          window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(loaded));
+        } catch {
+          // Ignore cache write errors
+        }
       }
     } catch (error) {
       if (!isAbortLikeError(error)) {
@@ -112,7 +134,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
 
-      const updateData: Record<string, unknown> = {};
+      const updateData: Record<string, unknown> = {
+        user_id: authUser.id,
+      };
       if (newSettings.currencyCode !== undefined) updateData.currency_code = newSettings.currencyCode;
       if (newSettings.currencySymbol !== undefined) updateData.currency_symbol = newSettings.currencySymbol;
       if (newSettings.defaultCountry !== undefined) updateData.default_country = newSettings.defaultCountry;
@@ -124,25 +148,51 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       if (newSettings.leaseSecondaryColor !== undefined) updateData.lease_secondary_color = newSettings.leaseSecondaryColor;
       if (newSettings.leaseHeaderColor !== undefined) updateData.lease_header_color = newSettings.leaseHeaderColor;
 
+      // Use upsert to guarantee persistence whether or not row previously existed
       const { error } = await supabase
         .from('app_settings')
-        .update(updateData)
-        .eq('user_id', authUser.id);
+        .upsert(updateData, { onConflict: 'user_id' });
 
       if (error) {
-        console.error('Error updating settings:', error);
+        console.error('Error updating settings in database:', error);
         throw error;
       }
 
-      setSettings(prev => ({ ...prev, ...newSettings }));
+      const merged = { ...settings, ...newSettings };
+      setSettings(merged);
+      try {
+        window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(merged));
+      } catch {
+        // Ignore cache write errors
+      }
     } catch (error) {
       console.error('Error updating settings:', error);
       throw error;
     }
   };
 
-  const formatCurrency = (amount: number): string => {
-    return `${settings.currencySymbol} ${amount.toLocaleString()}`;
+  const formatCurrency = (
+    amount: number | null | undefined,
+    options?: { showCode?: boolean; decimals?: number }
+  ): string => {
+    if (amount === null || amount === undefined || isNaN(Number(amount))) {
+      return `${settings.currencySymbol || 'RWF'} 0`;
+    }
+    const num = Number(amount);
+    const decimals = options?.decimals !== undefined
+      ? options.decimals
+      : (num % 1 !== 0 ? 2 : 0);
+
+    const formattedNum = num.toLocaleString(undefined, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+
+    const symbol = settings.currencySymbol || settings.currencyCode || 'RWF';
+    if (options?.showCode && settings.currencyCode && settings.currencyCode !== symbol) {
+      return `${symbol} ${formattedNum} (${settings.currencyCode})`;
+    }
+    return `${symbol} ${formattedNum}`;
   };
 
   return (

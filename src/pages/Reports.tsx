@@ -100,7 +100,7 @@ function ExecutiveCompanyDrilldown({
 }
 
 export default function Reports() {
-  const { formatCurrency } = useSettings();
+  const { formatCurrency, settings } = useSettings();
   const [dateRange, setDateRange] = useState('6m');
   const [activeReport, setActiveReport] = useState('revenue');
   const [selectedExecutiveCompanyId, setSelectedExecutiveCompanyId] = useState<string | null>(null);
@@ -190,7 +190,7 @@ export default function Reports() {
         tenantName: lease.tenants?.name || 'Tenant',
         tenantTin: (lease.tenants as unknown as { tin?: string })?.tin || '',
         grossRentCollected: grossCollected > 0 ? grossCollected : (lease.monthly_rent * 12),
-        currency: 'RWF',
+        currency: settings.currencyCode || 'RWF',
       };
     });
   }, [leases, invoices, payments]);

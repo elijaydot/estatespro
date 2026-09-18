@@ -106,7 +106,7 @@ export default function Units() {
   const { data: companiesList = [] } = useMyCompanies();
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [searchParams, setSearchParams] = useSearchParams();
-  const { formatCurrency } = useSettings();
+  const { formatCurrency, settings } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-units') as ViewMode) || 'cards');
   const [page, setPage] = useState(1);
@@ -665,7 +665,7 @@ export default function Units() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="rent">Monthly Rent</Label>
+                <Label htmlFor="rent">Monthly Rent ({settings.currencySymbol || 'RWF'})</Label>
                 <Input
                   id="rent"
                   type="number"

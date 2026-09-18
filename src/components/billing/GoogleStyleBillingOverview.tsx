@@ -42,6 +42,8 @@ import {
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useSaasAccess, type SaasQuotaSnapshot } from '@/hooks/useSaasAccess';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
+import { useSettings } from '@/contexts/useSettings';
+import { SUPPORTED_CURRENCIES, CURRENCY_SYMBOLS } from '@/lib/exchangeRates';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -143,9 +145,17 @@ export function GoogleStyleBillingOverview() {
   const queryClient = useQueryClient();
   const { activeCompanyId, activeCompany } = useActiveCompany();
   const { quotas, entitlements, isTrialExpired } = useSaasAccess();
-  const [currency, setCurrency] = useState<string>('USD');
+  const { settings } = useSettings();
+  const [currency, setCurrency] = useState<string>(() => settings.currencyCode || 'USD');
   const [isAnnual, setIsAnnual] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+  // Sync currency whenever general settings load or change
+  useEffect(() => {
+    if (settings.currencyCode) {
+      setCurrency(settings.currencyCode);
+    }
+  }, [settings.currencyCode]);
 
   // Selected target plan for real-time dynamic pricing breakdown & highlight
   const [selectedPlanCode, setSelectedPlanCode] = useState<string | null>(() => {
@@ -320,14 +330,15 @@ export function GoogleStyleBillingOverview() {
     const baseUsd = isAnnual ? usdMonthly * 0.80 : usdMonthly;
     if (currency === 'USD') return `$${Math.round(baseUsd).toLocaleString()}`;
     const converted = convert(baseUsd, 'USD', currency);
-    if (currency === 'RWF') return `${Math.round(converted).toLocaleString()} RWF`;
-    if (currency === 'NGN') return `₦${Math.round(converted).toLocaleString()}`;
-    if (currency === 'GBP') return `£${converted < 10 ? converted.toFixed(2) : Math.round(converted).toLocaleString()}`;
-    if (currency === 'EUR') return `€${converted < 10 ? converted.toFixed(2) : Math.round(converted).toLocaleString()}`;
-    if (currency === 'KES') return `${Math.round(converted).toLocaleString()} KSh`;
-    if (currency === 'GHS') return `GH₵${Math.round(converted).toLocaleString()}`;
-    if (currency === 'ZAR') return `R ${Math.round(converted).toLocaleString()}`;
-    return `${Math.round(converted).toLocaleString()} ${currency}`;
+    const sym = CURRENCY_SYMBOLS[currency] || currency;
+    const rounded = Math.round(converted).toLocaleString();
+    if (['$', '€', '£', '¥', '₹', '₺'].includes(sym)) {
+      return `${sym}${converted < 10 && converted % 1 !== 0 ? converted.toFixed(2) : rounded}`;
+    }
+    if (sym !== currency) {
+      return `${sym} ${rounded}`;
+    }
+    return `${rounded} ${currency}`;
   };
 
   // Instant Post-Purchase Callback & Auto-Verification Handshake (The Google Way)
@@ -521,18 +532,15 @@ export function GoogleStyleBillingOverview() {
               Currency:
             </Label>
             <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger id="currency-select" className="w-[120px] h-9 text-xs font-semibold">
+              <SelectTrigger id="currency-select" className="w-[145px] h-9 text-xs font-semibold">
                 <SelectValue placeholder="Currency" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="USD">USD ($)</SelectItem>
-                <SelectItem value="RWF">RWF (FRw)</SelectItem>
-                <SelectItem value="NGN">NGN (₦)</SelectItem>
-                <SelectItem value="GBP">GBP (£)</SelectItem>
-                <SelectItem value="EUR">EUR (€)</SelectItem>
-                <SelectItem value="KES">KES (KSh)</SelectItem>
-                <SelectItem value="GHS">GHS (GH₵)</SelectItem>
-                <SelectItem value="ZAR">ZAR (R)</SelectItem>
+              <SelectContent className="max-h-80">
+                {SUPPORTED_CURRENCIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code} className="text-xs">
+                    {c.code} ({c.symbol})
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
