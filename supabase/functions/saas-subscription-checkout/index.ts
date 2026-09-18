@@ -23,11 +23,14 @@ type CheckoutPayload = {
   companyId: string;
   productCode: string;
   planCode: string;
-  currency?: "USD" | "NGN" | "GBP";
+  currency?: string;
   gateway?: Gateway;
   paymentMethod?: PaymentMethod;
   callbackUrl?: string;
   correlationId?: string;
+  action?: "checkout" | "schedule_downgrade" | "cancel_downgrade";
+  downgradeReason?: string;
+  isAnnual?: boolean;
 };
 
 type PreparePlanChangeResult = {
@@ -36,7 +39,7 @@ type PreparePlanChangeResult = {
   reason?: string;
   estimated_charge_minor?: number;
   estimated_credit_minor?: number;
-  currency_code?: "USD" | "NGN" | "GBP";
+  currency_code?: string;
   invoice_id?: string;
   attempt_id?: string;
   gateway_reference?: string;
@@ -352,6 +355,38 @@ serve(async (req: Request) => {
       return paymentError(req, "companyId, productCode and planCode are required", 400, correlationId);
     }
 
+    if (body.action === "cancel_downgrade") {
+      const { data: cancelData, error: cancelErr } = await supabase.rpc("saas_cancel_scheduled_downgrade", {
+        p_company_id: body.companyId,
+      });
+      if (cancelErr) {
+        return paymentError(req, cancelErr.message || "Failed to cancel scheduled downgrade", 400, correlationId);
+      }
+      return jsonResponse(req, {
+        success: true,
+        cancelled: true,
+        data: cancelData,
+        correlationId,
+      });
+    }
+
+    if (body.action === "schedule_downgrade") {
+      const { data: schedData, error: schedErr } = await supabase.rpc("saas_schedule_plan_downgrade", {
+        p_company_id: body.companyId,
+        p_target_plan_code: body.planCode,
+        p_reason: body.downgradeReason || "self_service_downgrade",
+      });
+      if (schedErr) {
+        return paymentError(req, schedErr.message || "Failed to schedule plan downgrade", 400, correlationId);
+      }
+      return jsonResponse(req, {
+        success: true,
+        scheduled: true,
+        data: schedData,
+        correlationId,
+      });
+    }
+
     const productCode = (body.productCode === "pm_core" || !body.productCode) ? "core_property" : body.productCode;
     const currency = body.currency || "USD";
     const gateway = body.gateway || "paystack";
@@ -504,11 +539,74 @@ serve(async (req: Request) => {
         }
       }
 
-      const validCurrencyCode = ["USD", "NGN", "GBP"].includes(paystackCurrency)
-        ? paystackCurrency
-        : "USD";
-
       if (subscriptionId && productId) {
+        // 1. Supersede / void prior uncompleted draft invoices to prevent phantom debt build-up
+        try {
+          await supabase
+            .from("saas_subscription_invoices")
+            .update({
+              invoice_status: "void",
+              metadata: {
+                void_reason: "superseded_by_new_checkout",
+                superseded_at: new Date().toISOString(),
+              },
+            })
+            .eq("company_id", body.companyId)
+            .eq("invoice_status", "open")
+            .eq("invoice_kind", "plan_change_proration");
+        } catch (voidErr) {
+          console.warn("Could not void prior open invoices:", voidErr);
+        }
+
+        // 2. Generate official sequential invoice number (FG-INV-YYYY-XXXXX)
+        let invoiceNumber = "";
+        try {
+          const { data: invNumData, error: invNumErr } = await supabase.rpc("generate_saas_invoice_number");
+          if (!invNumErr && invNumData) {
+            invoiceNumber = String(invNumData);
+          }
+        } catch {
+          // ignore
+        }
+        if (!invoiceNumber) {
+          const y = new Date().getFullYear();
+          invoiceNumber = `FG-INV-${y}-${Math.floor(10000 + Math.random() * 90000)}`;
+        }
+
+        // 3. Fetch company profile for customer & billing details
+        let companyName = "Customer Entity";
+        let companyCountry = "Rwanda";
+        try {
+          const { data: comp } = await supabase
+            .from("companies")
+            .select("name, country, currency, email, phone")
+            .eq("id", body.companyId)
+            .maybeSingle();
+          if (comp?.name) companyName = comp.name;
+          if (comp?.country) companyCountry = comp.country;
+        } catch {
+          // ignore
+        }
+
+        const customerDetails = {
+          company_id: body.companyId,
+          company_name: companyName,
+          email: authData.user.email || "",
+          country: companyCountry,
+          currency: reqCurrency,
+        };
+
+        const billingDetails = {
+          issuer: "FishGate Technologies Ltd",
+          issuer_address: "Kigali Financial Square, KG 7 Ave, Kigali, Rwanda",
+          issuer_tin: "TIN-109283746-RW",
+          billing_contact: "billing@fishgatepro.com",
+          plan_code: body.planCode,
+          plan_name: planData?.name || body.planCode,
+          is_annual: isAnnual,
+          base_usd: baseUsd,
+        };
+
         await supabase
           .from("saas_subscription_invoices")
           .insert({
@@ -519,8 +617,11 @@ serve(async (req: Request) => {
             invoice_kind: "plan_change_proration",
             invoice_status: "open",
             amount_minor: finalAmountMinor,
-            currency_code: validCurrencyCode,
+            currency_code: paystackCurrency,
             external_reference: reference,
+            invoice_number: invoiceNumber,
+            customer_details: customerDetails,
+            billing_details: billingDetails,
             correlation_id: correlationId,
             metadata: {
               plan_code: body.planCode,
@@ -528,6 +629,8 @@ serve(async (req: Request) => {
               plan_name: planData?.name || body.planCode,
               gateway,
               currency: paystackCurrency,
+              base_usd: baseUsd,
+              is_annual: isAnnual,
             },
           });
 
@@ -541,7 +644,7 @@ serve(async (req: Request) => {
             gateway,
             payment_method: paymentMethod,
             amount_minor: finalAmountMinor,
-            currency_code: validCurrencyCode,
+            currency_code: paystackCurrency,
             gateway_reference: reference,
             idempotency_key: reference,
             payment_status: "pending",
@@ -553,8 +656,33 @@ serve(async (req: Request) => {
               gateway,
               currency: paystackCurrency,
               base_usd: baseUsd,
+              invoice_number: invoiceNumber,
             },
           });
+
+        // 4. Log event in saas_subscription_events
+        try {
+          await supabase
+            .from("saas_subscription_events")
+            .insert({
+              subscription_id: subscriptionId,
+              company_id: body.companyId,
+              product_id: productId,
+              actor_user_id: authData.user.id,
+              event_type: "checkout_initiated",
+              details: {
+                invoice_number: invoiceNumber,
+                invoice_id: invoiceId,
+                plan_code: body.planCode,
+                amount_minor: finalAmountMinor,
+                currency: paystackCurrency,
+                gateway,
+                reference,
+              },
+            });
+        } catch (evtErr) {
+          console.warn("Could not insert saas_subscription_events:", evtErr);
+        }
       }
     } catch (persistErr) {
       console.warn("Could not pre-persist attempt record:", persistErr);

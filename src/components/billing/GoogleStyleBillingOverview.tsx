@@ -46,6 +46,14 @@ import { useSettings } from '@/contexts/useSettings';
 import { SUPPORTED_CURRENCIES, CURRENCY_SYMBOLS } from '@/lib/exchangeRates';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { OfficialSubscriptionInvoiceModal, type OfficialInvoiceData } from './OfficialSubscriptionInvoiceModal';
+
+export const TIER_RANK: Record<string, number> = {
+  fishgate_starter: 1,
+  fishgate_growth: 2,
+  fishgate_professional: 3,
+  fishgate_enterprise: 4,
+};
 
 export type PlanDefinition = {
   code: string;
@@ -170,6 +178,13 @@ export function GoogleStyleBillingOverview() {
   const [celebrationPlan, setCelebrationPlan] = useState<PlanDefinition | null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<BillingReceipt | null>(null);
 
+  // Downgrade governance & official invoice modal state
+  const [downgradePlan, setDowngradePlan] = useState<PlanDefinition | null>(null);
+  const [isSchedulingDowngrade, setIsSchedulingDowngrade] = useState(false);
+  const [isCancellingDowngrade, setIsCancellingDowngrade] = useState(false);
+  const [officialInvoiceModalOpen, setOfficialInvoiceModalOpen] = useState(false);
+  const [activeInvoiceForModal, setActiveInvoiceForModal] = useState<OfficialInvoiceData | null>(null);
+
   const { convert, rates, isFallback, lastUpdated } = useExchangeRates('USD');
 
   // Fetch current company subscription
@@ -186,7 +201,16 @@ export function GoogleStyleBillingOverview() {
           trial_end_at,
           next_renewal_at,
           created_at,
+          scheduled_plan_id,
+          scheduled_change_at,
+          scheduled_reason,
           saas_plans:plan_id (
+            id,
+            code,
+            name,
+            tier
+          ),
+          scheduled_plan:scheduled_plan_id (
             id,
             code,
             name,
@@ -237,7 +261,16 @@ export function GoogleStyleBillingOverview() {
                 trial_end_at,
                 next_renewal_at,
                 created_at,
+                scheduled_plan_id,
+                scheduled_change_at,
+                scheduled_reason,
                 saas_plans:plan_id (
+                  id,
+                  code,
+                  name,
+                  tier
+                ),
+                scheduled_plan:scheduled_plan_id (
                   id,
                   code,
                   name,
@@ -247,15 +280,7 @@ export function GoogleStyleBillingOverview() {
               .maybeSingle();
 
             if (newSub) {
-              return newSub as {
-                id: string;
-                plan_id: string;
-                status: string;
-                trial_end_at: string | null;
-                next_renewal_at: string | null;
-                created_at: string | null;
-                saas_plans: { id: string; code: string; name: string; tier: string } | null;
-              };
+              return newSub as any;
             }
           }
         } catch (provisionErr) {
@@ -263,15 +288,7 @@ export function GoogleStyleBillingOverview() {
         }
       }
 
-      return data as {
-        id: string;
-        plan_id: string;
-        status: string;
-        trial_end_at: string | null;
-        next_renewal_at: string | null;
-        created_at: string | null;
-        saas_plans: { id: string; code: string; name: string; tier: string } | null;
-      } | null;
+      return data as any;
     },
   });
 
@@ -496,6 +513,101 @@ export function GoogleStyleBillingOverview() {
     }
   };
 
+  const handlePlanSelect = (plan: PlanDefinition) => {
+    const currentRank = TIER_RANK[currentPlan.code] || 1;
+    const targetRank = TIER_RANK[plan.code] || 1;
+    const isPaidActive = subQuery.data?.status === 'active' || subQuery.data?.status === 'succeeded';
+
+    if (targetRank < currentRank && isPaidActive) {
+      // Governed Enterprise Downgrade: schedule at end of cycle
+      setDowngradePlan(plan);
+      return;
+    }
+
+    // Direct Upgrade or Trial Activation
+    handleUpgrade(plan);
+  };
+
+  const handleConfirmDowngrade = async () => {
+    if (!downgradePlan || !activeCompanyId) return;
+    setIsSchedulingDowngrade(true);
+    try {
+      const { error } = await supabase.rpc('saas_schedule_plan_downgrade', {
+        p_company_id: activeCompanyId,
+        p_target_plan_code: downgradePlan.code,
+        p_reason: 'self_service_scheduled_downgrade',
+      });
+
+      if (error) throw error;
+
+      toast.success(
+        `Scheduled transition to ${downgradePlan.name} plan at next renewal (${subQuery.data?.next_renewal_at ? new Date(subQuery.data.next_renewal_at).toLocaleDateString() : 'end of period'}). Your current features remain active until then.`
+      );
+      setDowngradePlan(null);
+      await Promise.all([
+        subQuery.refetch(),
+        queryClient.invalidateQueries({ queryKey: ['company-saas-subscription-google-style'] }),
+      ]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unable to schedule downgrade';
+      toast.error(`Downgrade error: ${msg}`);
+    } finally {
+      setIsSchedulingDowngrade(false);
+    }
+  };
+
+  const handleCancelDowngrade = async () => {
+    if (!activeCompanyId) return;
+    setIsCancellingDowngrade(true);
+    try {
+      const { error } = await supabase.rpc('saas_cancel_scheduled_downgrade', {
+        p_company_id: activeCompanyId,
+      });
+
+      if (error) throw error;
+
+      toast.success('Scheduled downgrade cancelled! Your current plan will continue to renew uninterrupted.');
+      await Promise.all([
+        subQuery.refetch(),
+        queryClient.invalidateQueries({ queryKey: ['company-saas-subscription-google-style'] }),
+      ]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unable to cancel downgrade';
+      toast.error(`Cancellation error: ${msg}`);
+    } finally {
+      setIsCancellingDowngrade(false);
+    }
+  };
+
+  const handleOpenReceiptModal = (receipt: BillingReceipt) => {
+    const officialData: OfficialInvoiceData = {
+      id: receipt.invoice_id || receipt.id,
+      invoice_number: receipt.metadata?.invoice_number || `FG-INV-${new Date(receipt.created_at).getFullYear()}-${receipt.id.slice(0, 6).toUpperCase()}`,
+      invoice_status: receipt.payment_status === 'completed' || receipt.payment_status === 'success' || receipt.payment_status === 'succeeded' ? 'paid' : 'open',
+      invoice_kind: 'subscription_renewal',
+      amount_minor: receipt.amount_minor,
+      currency_code: receipt.currency_code,
+      created_at: receipt.created_at,
+      paid_at: receipt.created_at,
+      external_reference: receipt.gateway_reference,
+      customer_details: {
+        company_name: activeCompany?.name || 'Customer Entity',
+        company_id: activeCompanyId,
+      },
+      billing_details: {
+        plan_name: currentPlan.name,
+        plan_code: currentPlan.code,
+        is_annual: isAnnual,
+      },
+      metadata: {
+        ...receipt.metadata,
+        gateway: receipt.gateway,
+      },
+    };
+    setActiveInvoiceForModal(officialData);
+    setOfficialInvoiceModalOpen(true);
+  };
+
   const handlePrintReceipt = () => {
     window.print();
   };
@@ -546,6 +658,41 @@ export function GoogleStyleBillingOverview() {
           </div>
         </div>
       </div>
+
+      {/* Deferred Downgrade Notice Banner */}
+      {subQuery.data?.scheduled_plan && (
+        <div className="rounded-xl border-2 border-amber-500/30 bg-amber-500/10 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <Clock className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-sm text-foreground">
+                  Scheduled Downgrade: Transitioning to {subQuery.data.scheduled_plan.name} Tier
+                </h4>
+                <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider border-amber-500/40 text-amber-600 dark:text-amber-400">
+                  Deferred at renewal
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Your subscription will automatically switch to <strong>{subQuery.data.scheduled_plan.name}</strong> on{' '}
+                <strong>{subQuery.data.scheduled_change_at ? new Date(subQuery.data.scheduled_change_at).toLocaleDateString() : 'next renewal date'}</strong>.
+                Until then, you retain 100% of your paid {currentPlan.name} capacity, manager seats, and advanced add-ons.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isCancellingDowngrade}
+            onClick={handleCancelDowngrade}
+            className="shrink-0 border-amber-500/40 hover:bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold text-xs h-9"
+          >
+            {isCancellingDowngrade ? 'Cancelling...' : 'Cancel Downgrade (Keep Current Plan)'}
+          </Button>
+        </div>
+      )}
 
       {/* 1. Google One-Style Top Active Quota Summary Card */}
       <Card className="border-border/80 shadow-sm bg-gradient-to-br from-card via-card to-muted/20">
@@ -858,14 +1005,20 @@ export function GoogleStyleBillingOverview() {
                   <Button
                     className="w-full mt-4 font-semibold text-xs"
                     variant={isCurrent ? 'outline' : 'default'}
-                    disabled={isCurrent || isCheckingOut}
+                    disabled={isCurrent || isCheckingOut || subQuery.data?.scheduled_plan?.code === plan.code}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedPlanCode(plan.code);
-                      handleUpgrade(plan);
+                      handlePlanSelect(plan);
                     }}
                   >
-                    {isCurrent ? 'Current Tier' : `Select ${plan.name}`}
+                    {isCurrent
+                      ? 'Current Tier'
+                      : subQuery.data?.scheduled_plan?.code === plan.code
+                        ? 'Scheduled at Renewal'
+                        : (TIER_RANK[plan.code] < (TIER_RANK[currentPlan.code] || 1) && (subQuery.data?.status === 'active' || subQuery.data?.status === 'succeeded'))
+                          ? `Schedule Downgrade to ${plan.name}`
+                          : `Select ${plan.name}`}
                   </Button>
                 </CardContent>
               </Card>
@@ -911,7 +1064,7 @@ export function GoogleStyleBillingOverview() {
                       <span className="font-semibold text-sm text-foreground">
                         SaaS Subscription • {item.currency_code} {(item.amount_minor / 100).toLocaleString()}
                       </span>
-                      <Badge variant={item.payment_status === 'completed' || item.payment_status === 'success' ? 'default' : 'secondary'} className="text-[10px]">
+                      <Badge variant={item.payment_status === 'completed' || item.payment_status === 'success' || item.payment_status === 'succeeded' ? 'default' : 'secondary'} className="text-[10px]">
                         {item.payment_status}
                       </Badge>
                     </div>
@@ -925,11 +1078,11 @@ export function GoogleStyleBillingOverview() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs font-semibold shrink-0 flex items-center gap-1.5"
-                    onClick={() => setSelectedReceipt(item)}
+                    className="text-xs font-semibold shrink-0 flex items-center gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                    onClick={() => handleOpenReceiptModal(item)}
                   >
                     <Download className="h-3.5 w-3.5" />
-                    Download Receipt
+                    Official Tax Receipt (PDF)
                   </Button>
                 </div>
               ))}
@@ -1087,6 +1240,87 @@ export function GoogleStyleBillingOverview() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Governed Downgrade Confirmation Dialog */}
+      <Dialog open={Boolean(downgradePlan)} onOpenChange={(open) => !open && setDowngradePlan(null)}>
+        <DialogContent className="max-w-md p-6 space-y-4">
+          <DialogHeader>
+            <div className="h-12 w-12 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto mb-2">
+              <Clock className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-center text-lg font-bold">
+              Schedule Downgrade to {downgradePlan?.name}
+            </DialogTitle>
+            <DialogDescription className="text-center text-xs text-muted-foreground">
+              FishGate protects your subscription investment. In accordance with enterprise billing governance, downgrades take effect at the end of your current prepaid billing cycle.
+            </DialogDescription>
+          </DialogHeader>
+
+          {downgradePlan && (
+            <div className="space-y-3 text-xs">
+              <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Current Active Plan:</span>
+                  <span className="font-semibold text-foreground">{currentPlan.name} ({formatPrice(currentPlan.priceUsdMonthly)}/mo)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Target Downgrade:</span>
+                  <span className="font-semibold text-primary">{downgradePlan.name} ({formatPrice(downgradePlan.priceUsdMonthly)}/mo)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Effective Date:</span>
+                  <span className="font-semibold text-foreground">
+                    {subQuery.data?.next_renewal_at ? new Date(subQuery.data.next_renewal_at).toLocaleDateString() : 'Next Renewal'}
+                  </span>
+                </div>
+              </div>
+
+              {unitsQuota.used_value > downgradePlan.unitsLimit && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 flex items-start gap-2 text-destructive">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">Capacity Warning</p>
+                    <p className="text-[11px] mt-0.5">
+                      You currently manage <strong>{unitsQuota.used_value} units</strong>. The {downgradePlan.name} plan limit is <strong>{downgradePlan.unitsLimit} units</strong>. Please archive or unassign extra units before renewal.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                ✓ No prorated refund is charged or lost.<br />
+                ✓ You retain full {currentPlan.name} features and higher quota until the renewal date.<br />
+                ✓ You can cancel this scheduled change anytime with 1 click before renewal.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto text-xs"
+              onClick={() => setDowngradePlan(null)}
+            >
+              Keep Current Plan
+            </Button>
+            <Button
+              className="w-full sm:w-auto text-xs bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+              disabled={isSchedulingDowngrade}
+              onClick={handleConfirmDowngrade}
+            >
+              {isSchedulingDowngrade ? 'Scheduling...' : 'Confirm Scheduled Downgrade'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Official Platform Tax Invoice Modal */}
+      <OfficialSubscriptionInvoiceModal
+        isOpen={officialInvoiceModalOpen}
+        onClose={() => setOfficialInvoiceModalOpen(false)}
+        invoice={activeInvoiceForModal}
+        companyName={activeCompany?.name}
+      />
     </div>
   );
 }

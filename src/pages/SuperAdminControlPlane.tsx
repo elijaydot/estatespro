@@ -109,6 +109,7 @@ import { EmptyState } from '@/components/control-plane/EmptyState';
 import { AnalyticsOpsTab } from '@/components/control-plane/tabs/AnalyticsOpsTab';
 import { OverviewTab } from '@/components/control-plane/tabs/OverviewTab';
 import { OperatorsTab, type OperatorRole } from '@/components/control-plane/tabs/OperatorsTab';
+import { SuperAdminMonetizationInvoices } from '@/components/control-plane/SuperAdminMonetizationInvoices';
 import {
   buildCompany360Rows,
   buildCorrelationSummary,
@@ -2544,42 +2545,10 @@ export default function SuperAdminControlPlane() {
                 </Card>
               </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Recent Company Invoices</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {companyInvoices.length === 0 ? (
-                    <EmptyState title="No invoices" description="No subscription invoices found for selected company." />
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Created</TableHead>
-                          <TableHead>Kind</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Due</TableHead>
-                          <TableHead>Paid</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {companyInvoices.slice((companyInvoicesPage - 1) * companyBillingPageSize, companyInvoicesPage * companyBillingPageSize).map((item, index) => (
-                          <TableRow key={`${String(item.id || index)}`}>
-                            <TableCell>{item.created_at ? formatDate(String(item.created_at)) : '-'}</TableCell>
-                            <TableCell>{String(item.invoice_kind || '-')}</TableCell>
-                            <TableCell>{String(item.invoice_status || '-')}</TableCell>
-                            <TableCell>{formatMinor(Number(item.amount_minor || 0), String(item.currency_code || 'USD'))}</TableCell>
-                            <TableCell>{item.due_at ? formatDate(String(item.due_at)) : '-'}</TableCell>
-                            <TableCell>{item.paid_at ? formatDate(String(item.paid_at)) : '-'}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                  <TablePagination page={companyInvoicesPage} pageSize={companyBillingPageSize} total={companyInvoices.length} onPageChange={setCompanyInvoicesPage} onPageSizeChange={(size) => { setCompanyBillingPageSize(size); setCompanySubscriptionsPage(1); setCompanyAddonsPage(1); setCompanyInvoicesPage(1); }} />
-                </CardContent>
-              </Card>
+              <SuperAdminMonetizationInvoices
+                selectedCompanyId={effectiveBillingCompanyId || undefined}
+                onSelectCompany={setBillingCompanyId}
+              />
             </div>
           </TabsContent>
 

@@ -16,10 +16,19 @@ import {
   Layers,
   BarChart3,
   BadgeCheck,
+  Download,
+  Printer,
+  LayoutGrid,
+  List,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle2,
+  Receipt,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useSaasAccess } from '@/hooks/useSaasAccess';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,9 +39,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/contexts/useSettings';
 import { GoogleStyleBillingOverview } from '@/components/billing/GoogleStyleBillingOverview';
+import { OfficialSubscriptionInvoiceModal, type OfficialInvoiceData } from '@/components/billing/OfficialSubscriptionInvoiceModal';
 
 type PriceRow = {
-  currency_code: 'USD' | 'NGN' | 'GBP';
+  currency_code: string;
   amount_minor: number;
   is_active: boolean;
 };
@@ -90,11 +100,15 @@ type InvoiceRow = {
   invoice_kind: string;
   invoice_status: string;
   amount_minor: number;
-  currency_code: 'USD' | 'NGN' | 'GBP';
-  due_at: string;
-  paid_at: string | null;
-  external_reference: string | null;
+  currency_code: string;
+  due_at?: string | null;
+  paid_at?: string | null;
+  external_reference?: string | null;
   created_at: string;
+  invoice_number?: string;
+  customer_details?: any;
+  billing_details?: any;
+  metadata?: any;
 };
 
 type SubscriptionEventRow = {
@@ -112,7 +126,7 @@ type PendingPaymentVerification = {
   gateway: 'paystack' | 'flutterwave';
   reference: string;
   amountMinor: number;
-  currency: 'USD' | 'NGN' | 'GBP';
+  currency: string;
 };
 
 const PENDING_VERIFICATIONS_STORAGE_KEY = 'saas.pendingPlanVerifications.v1';
@@ -306,14 +320,30 @@ const TIER_RANK: Record<string, number> = {
   enterprise: 4,
 };
 
-function formatPrice(amountMinor: number, currencyCode: 'USD' | 'NGN' | 'GBP') {
+function formatPrice(amountMinor: number, currencyCode: string) {
   const decimals = 2;
-  const amount = amountMinor / 10 ** decimals;
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currencyCode,
-    maximumFractionDigits: decimals,
-  }).format(amount);
+  const amount = (amountMinor || 0) / 10 ** decimals;
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+      maximumFractionDigits: decimals,
+    }).format(amount);
+  } catch {
+    return `${currencyCode} ${amount.toFixed(2)}`;
+  }
+}
+
+function formatMoney(amount: number, currencyCode: string) {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${currencyCode} ${amount.toFixed(2)}`;
+  }
 }
 
 function formatDate(value: string | null | undefined) {
@@ -322,14 +352,23 @@ function formatDate(value: string | null | undefined) {
 }
 
 export function BillingPlansSettings() {
-  const { activeCompanyId } = useActiveCompany();
+  const { activeCompanyId, activeCompany } = useActiveCompany();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { quotas, isLoading: saasAccessLoading } = useSaasAccess();
   const { settings } = useSettings();
+  const { convert: convertCurrency } = useExchangeRates('USD');
   const [currency, setCurrency] = useState<string>(() => settings.currencyCode || 'USD');
   const [pendingPlanId, setPendingPlanId] = useState<string | null>(null);
   const [pendingVerificationByProduct, setPendingVerificationByProduct] = useState<Record<string, PendingPaymentVerification>>({});
+
+  // Landlord Invoice Views & Controls
+  const [invoiceViewMode, setInvoiceViewMode] = useState<'table' | 'cards'>('table');
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<'all' | 'paid' | 'open' | 'void'>('all');
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [invoicePageSize, setInvoicePageSize] = useState(10);
+  const [selectedOfficialInvoice, setSelectedOfficialInvoice] = useState<OfficialInvoiceData | null>(null);
+  const [isOfficialInvoiceModalOpen, setIsOfficialInvoiceModalOpen] = useState(false);
 
   useEffect(() => {
     if (settings.currencyCode) {
@@ -385,16 +424,16 @@ export function BillingPlansSettings() {
   });
 
   // Load invoices
-  const { data: recentInvoices = [], isLoading: isInvoicesLoading } = useQuery({
+  const { data: recentInvoices = [], isLoading: isInvoicesLoading, refetch: refetchInvoices } = useQuery({
     queryKey: ['saas-recent-invoices', activeCompanyId],
     enabled: !!activeCompanyId,
     queryFn: async (): Promise<InvoiceRow[]> => {
       const { data, error } = await supabase
         .from('saas_subscription_invoices' as never)
-        .select('id, company_id, subscription_id, invoice_kind, invoice_status, amount_minor, currency_code, due_at, paid_at, external_reference, created_at')
+        .select('id, company_id, subscription_id, invoice_kind, invoice_status, amount_minor, currency_code, due_at, paid_at, external_reference, created_at, invoice_number, customer_details, billing_details, metadata')
         .eq('company_id', activeCompanyId)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(50);
 
       if (error) throw error;
       return (data || []) as unknown as InvoiceRow[];
@@ -402,7 +441,7 @@ export function BillingPlansSettings() {
   });
 
   // Load events
-  const { data: recentEvents = [], isLoading: isEventsLoading } = useQuery({
+  const { data: recentEvents = [], isLoading: isEventsLoading, refetch: refetchEvents } = useQuery({
     queryKey: ['saas-subscription-events', activeCompanyId],
     enabled: !!activeCompanyId,
     queryFn: async (): Promise<SubscriptionEventRow[]> => {
@@ -411,7 +450,7 @@ export function BillingPlansSettings() {
         .select('id, company_id, event_type, details, created_at')
         .eq('company_id', activeCompanyId)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(30);
 
       if (error) throw error;
       return (data || []) as unknown as SubscriptionEventRow[];
@@ -421,14 +460,17 @@ export function BillingPlansSettings() {
   const billingSummary = useMemo(() => {
     let openCount = 0;
     let paidCount = 0;
-    let outstandingMinor = 0;
+    let convertedOutstanding = 0;
     let maxDunning = 0;
     let nextBillingAt: string | null = null;
 
     for (const invoice of recentInvoices) {
-      if (invoice.invoice_status === 'open') {
+      // Exclude void or superseded drafts from outstanding balance
+      if (invoice.invoice_status === 'open' && invoice.metadata?.void_reason !== 'superseded_by_new_checkout') {
         openCount += 1;
-        outstandingMinor += invoice.amount_minor;
+        const nativeMajor = (invoice.amount_minor || 0) / 100;
+        const inActiveCurrency = convertCurrency(nativeMajor, invoice.currency_code || 'USD', currency);
+        convertedOutstanding += inActiveCurrency;
       } else if (invoice.invoice_status === 'paid') {
         paidCount += 1;
       }
@@ -449,11 +491,11 @@ export function BillingPlansSettings() {
     return {
       openCount,
       paidCount,
-      outstandingMinor,
+      convertedOutstanding,
       maxDunning,
       nextBillingAt,
     };
-  }, [recentInvoices, currentSubscriptions]);
+  }, [recentInvoices, currentSubscriptions, convertCurrency, currency]);
 
   const handleChoosePlan = useCallback(async (plan: PlanRow, productCode: string) => {
     if (!activeCompanyId) return;
@@ -865,13 +907,14 @@ export function BillingPlansSettings() {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="pt-2 pb-6 space-y-4">
+                {/* Metric Summary Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
                       Outstanding Balance
                     </p>
                     <p className="text-lg font-bold mt-1 text-foreground">
-                      {formatPrice(billingSummary.outstandingMinor, currency)}
+                      {formatMoney(billingSummary.convertedOutstanding, currency)}
                     </p>
                   </div>
                   <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
@@ -900,45 +943,206 @@ export function BillingPlansSettings() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <h5 className="text-xs font-semibold text-foreground">Recent Subscription Invoices</h5>
-                  {isInvoicesLoading ? (
-                    <p className="text-xs text-muted-foreground">Loading invoices...</p>
-                  ) : recentInvoices.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No subscription invoices yet for this company.</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-xs">Created</TableHead>
-                          <TableHead className="text-xs">Kind</TableHead>
-                          <TableHead className="text-xs">Status</TableHead>
-                          <TableHead className="text-xs">Amount</TableHead>
-                          <TableHead className="text-xs">Due</TableHead>
-                          <TableHead className="text-xs">Paid</TableHead>
-                          <TableHead className="text-xs">Reference</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {recentInvoices.slice(0, 10).map((invoice) => (
-                          <TableRow key={invoice.id}>
-                            <TableCell className="text-xs">{formatDate(invoice.created_at)}</TableCell>
-                            <TableCell className="text-xs">{invoice.invoice_kind}</TableCell>
-                            <TableCell className="text-xs">
-                              <Badge variant={invoice.invoice_status === 'paid' ? 'default' : 'outline'}>
+                {/* Landlord Invoice Controls Bar */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t border-border/60">
+                  <div className="flex items-center gap-2">
+                    <Select value={invoiceStatusFilter} onValueChange={(val: any) => { setInvoiceStatusFilter(val); setInvoicePage(1); }}>
+                      <SelectTrigger className="w-32 h-8 text-xs">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="paid">Paid & Settled</SelectItem>
+                        <SelectItem value="open">Open / Unpaid</SelectItem>
+                        <SelectItem value="void">Void / Superseded</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => refetchInvoices()}
+                      disabled={isInvoicesLoading}
+                      className="h-8 text-xs gap-1.5"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${isInvoicesLoading ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                  </div>
+
+                  {/* View Mode Toggle: Table vs Cards */}
+                  <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border/60">
+                    <Button
+                      variant={invoiceViewMode === 'table' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setInvoiceViewMode('table')}
+                      className="h-7 text-xs px-2.5 gap-1.5"
+                    >
+                      <List className="h-3.5 w-3.5" />
+                      Table View
+                    </Button>
+                    <Button
+                      variant={invoiceViewMode === 'cards' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setInvoiceViewMode('cards')}
+                      className="h-7 text-xs px-2.5 gap-1.5"
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                      Cards View
+                    </Button>
+                  </div>
+                </div>
+
+                {/* View 1: Table Ledger View */}
+                {invoiceViewMode === 'table' && (
+                  <div className="space-y-2">
+                    {isInvoicesLoading ? (
+                      <p className="text-xs text-muted-foreground p-4 text-center">Loading invoices...</p>
+                    ) : recentInvoices.filter(i => invoiceStatusFilter === 'all' || i.invoice_status === invoiceStatusFilter).length === 0 ? (
+                      <div className="p-8 text-center space-y-1 bg-muted/10 rounded-xl border border-dashed border-border">
+                        <Receipt className="h-6 w-6 text-muted-foreground mx-auto opacity-50" />
+                        <p className="text-xs font-semibold text-muted-foreground">No invoices matching the selected filter.</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-border/60 overflow-hidden">
+                        <Table>
+                          <TableHeader className="bg-muted/40">
+                            <TableRow>
+                              <TableHead className="text-xs font-bold">Invoice #</TableHead>
+                              <TableHead className="text-xs">Date</TableHead>
+                              <TableHead className="text-xs">Plan / Kind</TableHead>
+                              <TableHead className="text-xs">Status</TableHead>
+                              <TableHead className="text-xs">Amount</TableHead>
+                              <TableHead className="text-xs">Reference</TableHead>
+                              <TableHead className="text-xs text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {recentInvoices
+                              .filter(i => invoiceStatusFilter === 'all' || i.invoice_status === invoiceStatusFilter)
+                              .slice((invoicePage - 1) * invoicePageSize, invoicePage * invoicePageSize)
+                              .map((invoice) => {
+                                const invNumber = invoice.invoice_number || `FG-INV-${new Date(invoice.created_at).getFullYear()}-${invoice.id.slice(0, 6).toUpperCase()}`;
+                                const isPaid = invoice.invoice_status === 'paid';
+                                const isVoid = invoice.invoice_status === 'void';
+                                return (
+                                  <TableRow key={invoice.id} className="hover:bg-muted/20">
+                                    <TableCell className="text-xs font-mono font-bold text-foreground">
+                                      {invNumber}
+                                    </TableCell>
+                                    <TableCell className="text-xs text-muted-foreground">
+                                      {formatDate(invoice.created_at)}
+                                    </TableCell>
+                                    <TableCell className="text-xs capitalize">
+                                      {invoice.metadata?.plan_name || invoice.metadata?.plan_code?.replace('fishgate_', '') || invoice.invoice_kind.replace(/_/g, ' ')}
+                                    </TableCell>
+                                    <TableCell className="text-xs">
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-[10px] font-bold uppercase tracking-wider ${
+                                          isPaid
+                                            ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
+                                            : isVoid
+                                              ? 'bg-rose-500/10 text-rose-600 border-rose-500/30'
+                                              : 'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                                        }`}
+                                      >
+                                        {invoice.invoice_status}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-xs font-mono font-semibold">
+                                      {formatPrice(invoice.amount_minor, invoice.currency_code)}
+                                    </TableCell>
+                                    <TableCell className="text-xs font-mono max-w-[140px] truncate text-muted-foreground">
+                                      {invoice.external_reference || '-'}
+                                    </TableCell>
+                                    <TableCell className="text-xs text-right">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs font-semibold gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                                        onClick={() => {
+                                          setSelectedOfficialInvoice(invoice as unknown as OfficialInvoiceData);
+                                          setIsOfficialInvoiceModalOpen(true);
+                                        }}
+                                      >
+                                        <Download className="h-3 w-3" />
+                                        Official PDF
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* View 2: Receipt Cards View */}
+                {invoiceViewMode === 'cards' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {recentInvoices
+                      .filter(i => invoiceStatusFilter === 'all' || i.invoice_status === invoiceStatusFilter)
+                      .slice((invoicePage - 1) * invoicePageSize, invoicePage * invoicePageSize)
+                      .map((invoice) => {
+                        const invNumber = invoice.invoice_number || `FG-INV-${new Date(invoice.created_at).getFullYear()}-${invoice.id.slice(0, 6).toUpperCase()}`;
+                        const isPaid = invoice.invoice_status === 'paid';
+                        const isVoid = invoice.invoice_status === 'void';
+                        return (
+                          <div
+                            key={invoice.id}
+                            className="rounded-xl border border-border/70 bg-card p-4 space-y-3 hover:border-primary/40 transition-colors shadow-sm"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <span className="font-mono text-xs font-bold text-foreground block">
+                                  {invNumber}
+                                </span>
+                                <span className="text-[11px] text-muted-foreground">
+                                  {formatDate(invoice.created_at)}
+                                </span>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] font-bold uppercase ${
+                                  isPaid
+                                    ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
+                                    : isVoid
+                                      ? 'bg-rose-500/10 text-rose-600 border-rose-500/30'
+                                      : 'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                                }`}
+                              >
                                 {invoice.invoice_status}
                               </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs font-mono">{formatPrice(invoice.amount_minor, invoice.currency_code)}</TableCell>
-                            <TableCell className="text-xs">{formatDate(invoice.due_at)}</TableCell>
-                            <TableCell className="text-xs">{formatDate(invoice.paid_at)}</TableCell>
-                            <TableCell className="text-xs font-mono max-w-[180px] truncate">{invoice.external_reference || '-'}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-border/50 flex justify-between items-end">
+                              <div>
+                                <p className="text-[11px] text-muted-foreground uppercase font-semibold">Total Amount</p>
+                                <p className="text-base font-extrabold text-foreground font-mono">
+                                  {formatPrice(invoice.amount_minor, invoice.currency_code)}
+                                </p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs font-medium gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                                onClick={() => {
+                                  setSelectedOfficialInvoice(invoice as unknown as OfficialInvoiceData);
+                                  setIsOfficialInvoiceModalOpen(true);
+                                }}
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                                View Receipt
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
               </AccordionContent>
             </AccordionItem>
 
@@ -960,40 +1164,73 @@ export function BillingPlansSettings() {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="pt-2 pb-6 space-y-3">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs text-muted-foreground">Recent lifecycle events and billing state changes</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => refetchEvents()}
+                    disabled={isEventsLoading}
+                    className="h-7 text-xs gap-1"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${isEventsLoading ? 'animate-spin' : ''}`} />
+                    Refresh Logs
+                  </Button>
+                </div>
+
                 {recentEvents.length === 0 ? (
-                  <div className="rounded-lg bg-muted/20 p-4 text-center text-xs text-muted-foreground">
-                    No plan adjustments or verification events recorded yet.
+                  <div className="rounded-lg bg-muted/20 p-6 text-center space-y-1.5 border border-dashed border-border">
+                    <Clock className="h-6 w-6 text-muted-foreground mx-auto opacity-40" />
+                    <p className="text-xs font-semibold text-muted-foreground">No plan adjustments or verification events recorded yet.</p>
+                    <p className="text-[11px] text-muted-foreground">Events appear automatically as checkouts are initiated, plans adjusted, or payments reconciled.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {recentEvents.map((event) => (
-                      <div
-                        key={event.id}
-                        className="rounded-lg border border-border/50 bg-muted/10 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-                      >
-                        <div className="space-y-0.5">
-                          <span className="font-semibold text-foreground font-mono">
-                            {event.event_type}
+                    {recentEvents.map((event) => {
+                      const isPlanChange = event.event_type.includes('plan') || event.event_type.includes('downgrade') || event.event_type.includes('upgrade');
+                      const isPayment = event.event_type.includes('payment') || event.event_type.includes('checkout');
+                      return (
+                        <div
+                          key={event.id}
+                          className="rounded-lg border border-border/50 bg-muted/10 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs hover:bg-muted/20 transition-colors"
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <div className="mt-0.5 h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                              {isPlanChange ? <Sparkles className="h-3 w-3" /> : isPayment ? <Receipt className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="font-semibold text-foreground font-mono capitalize">
+                                {event.event_type.replace(/_/g, ' ')}
+                              </span>
+                              {event.details && typeof event.details === 'object' && (
+                                <p className="text-[11px] text-muted-foreground truncate max-w-md">
+                                  {Object.entries(event.details)
+                                    .slice(0, 4)
+                                    .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
+                                    .join(' · ')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-[11px] text-muted-foreground font-mono shrink-0">
+                            {new Date(event.created_at).toLocaleString()}
                           </span>
-                          {event.details && typeof event.details === 'object' && (
-                            <p className="text-[11px] text-muted-foreground truncate max-w-md">
-                              {Object.entries(event.details)
-                                .slice(0, 3)
-                                .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
-                                .join(' · ')}
-                            </p>
-                          )}
                         </div>
-                        <span className="text-[11px] text-muted-foreground font-mono shrink-0">
-                          {new Date(event.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </AccordionContent>
             </AccordionItem>
           </Accordion>
+
+          {/* Official Subscription Invoice Slide-Over / Modal */}
+          <OfficialSubscriptionInvoiceModal
+            isOpen={isOfficialInvoiceModalOpen}
+            onClose={() => setIsOfficialInvoiceModalOpen(false)}
+            invoice={selectedOfficialInvoice}
+            companyName={activeCompany?.name}
+          />
         </CardContent>
       </Card>
     </div>
