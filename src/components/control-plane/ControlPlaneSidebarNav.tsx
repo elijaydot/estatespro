@@ -176,6 +176,7 @@ interface ControlPlaneSidebarNavProps {
   onSelectView: (viewId: string) => void;
   openAlertsCount?: number;
   openInvoicesCount?: number;
+  collapsed?: boolean;
 }
 
 export function ControlPlaneSidebarNav({
@@ -183,6 +184,7 @@ export function ControlPlaneSidebarNav({
   onSelectView,
   openAlertsCount = 0,
   openInvoicesCount = 0,
+  collapsed = false,
 }: ControlPlaneSidebarNavProps) {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');

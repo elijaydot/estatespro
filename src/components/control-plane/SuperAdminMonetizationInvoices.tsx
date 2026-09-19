@@ -65,18 +65,22 @@ export type SuperAdminInvoiceRow = {
 };
 
 interface SuperAdminMonetizationInvoicesProps {
+  defaultView?: string;
   selectedCompanyId?: string;
   onSelectCompany?: (companyId: string) => void;
 }
 
 export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvoicesProps> = ({
+  defaultView = 'table',
   selectedCompanyId,
   onSelectCompany,
 }) => {
   const queryClient = useQueryClient();
 
   // View state: 'table' | 'grouped' | 'analytics'
-  const [activeView, setActiveView] = useState<'table' | 'grouped' | 'analytics'>('table');
+  const initialView: 'table' | 'grouped' | 'analytics' =
+    defaultView === 'grouped' || defaultView === 'analytics' ? defaultView : 'table';
+  const [activeView, setActiveView] = useState<'table' | 'grouped' | 'analytics'>(initialView);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'open' | 'void'>('all');
   const [currencyFilter, setCurrencyFilter] = useState('all');
@@ -407,7 +411,7 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
     setIsVoiding(true);
     try {
       const reason = voidReason.trim() || 'Voided by SuperAdmin operator';
-      const { error } = await supabase.rpc('saas_admin_void_invoice', {
+      const { error } = await supabase.rpc('saas_admin_void_invoice' as any, {
         p_invoice_id: voidInvoice.id,
         p_reason: reason,
       });
@@ -444,7 +448,7 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
       const comp = companyMap.get(newInvCompanyId);
 
       // Generate sequential invoice number
-      const { data: invNumData, error: seqErr } = await supabase.rpc('generate_saas_invoice_number');
+      const { data: invNumData, error: seqErr } = await supabase.rpc('generate_saas_invoice_number' as any);
       const invoiceNumber = seqErr || !invNumData
         ? `FG-INV-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`
         : String(invNumData);

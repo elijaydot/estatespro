@@ -339,6 +339,7 @@ export default function SuperAdminControlPlane() {
   const [monitorPageSize, setMonitorPageSize] = useState(25);
   const [companySubscriptionsPage, setCompanySubscriptionsPage] = useState(1);
   const [companyAddonsPage, setCompanyAddonsPage] = useState(1);
+  const [companyInvoicesPage, setCompanyInvoicesPage] = useState(1);
   const [companyBillingPageSize, setCompanyBillingPageSize] = useState(10);
   const [company360ListPage, setCompany360ListPage] = useState(1);
   const [company360ListPageSize, setCompany360ListPageSize] = useState(25);
@@ -4113,15 +4114,15 @@ export default function SuperAdminControlPlane() {
                     <TableBody>
                       {(driftChecks.data || []).map((check, idx) => (
                         <TableRow key={check.id || `drift-${idx}`}>
-                          <TableCell className="font-medium">{check.check_name}</TableCell>
-                          <TableCell className="font-mono text-xs">{check.target_resource || '-'}</TableCell>
+                          <TableCell className="font-medium">{check.check_key}</TableCell>
+                          <TableCell className="font-mono text-xs">{`${check.observed_value ?? '-'} / ${check.threshold_value ?? '-'}`}</TableCell>
                           <TableCell>
-                            <Badge variant={check.status === 'clean' ? 'outline' : 'destructive'}>
+                            <Badge variant={check.status === 'ok' ? 'outline' : check.status === 'warning' ? 'secondary' : 'destructive'}>
                               {check.status}
                             </Badge>
                           </TableCell>
-                          <TableCell><SeverityBadge severity={check.severity || 'info'} /></TableCell>
-                          <TableCell>{check.checked_at ? formatDate(check.checked_at) : '-'}</TableCell>
+                          <TableCell><SeverityBadge severity={check.status || 'info'} /></TableCell>
+                          <TableCell>{check.created_at ? formatDate(check.created_at) : '-'}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
