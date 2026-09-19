@@ -1282,6 +1282,17 @@ export default function SuperAdminControlPlane() {
     return (billingCatalog.data?.plans || []).filter((item) => item.product_code === billingProductCode);
   }, [billingCatalog.data?.plans, billingProductCode]);
 
+  const selectedPlanMeta = useMemo(() => {
+    return (plansForSelectedProduct || []).find((item) => item.code === billingPlanCode) as (Record<string, unknown> & {
+      name?: string;
+      code?: string;
+      tier?: string;
+      max_units?: number | null;
+      max_properties?: number | null;
+      tier_rank?: number | string | null;
+    }) | undefined;
+  }, [plansForSelectedProduct, billingPlanCode]);
+
   const revenue = revenueMetrics.data;
   const revenueCurrency = revenue?.currency_code || 'USD';
   const planMix = revenue?.plan_mix || [];
@@ -2439,7 +2450,7 @@ export default function SuperAdminControlPlane() {
                         <div className="flex justify-between"><span className="text-muted-foreground">Code:</span><span className="font-mono">{selectedPlanMeta.code}</span></div>
                         <div className="flex justify-between"><span className="text-muted-foreground">Max units:</span><span>{selectedPlanMeta.max_units ?? 'Unlimited'}</span></div>
                         <div className="flex justify-between"><span className="text-muted-foreground">Max properties:</span><span>{selectedPlanMeta.max_properties ?? 'Unlimited'}</span></div>
-                        <div className="flex justify-between"><span className="text-muted-foreground">Tier rank:</span><span>{selectedPlanMeta.tier_rank ?? '-'}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Tier rank:</span><span>{String(selectedPlanMeta.tier_rank ?? selectedPlanMeta.tier ?? '-')}</span></div>
                       </>
                     ) : (
                       <p className="text-muted-foreground">Select a product and plan to view metadata.</p>
