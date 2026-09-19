@@ -4,7 +4,6 @@ import {
   FileText,
   Download,
   Search,
-  Filter,
   RefreshCw,
   CheckCircle2,
   AlertCircle,
@@ -14,10 +13,9 @@ import {
   List,
   Layers,
   ChevronRight,
-  ExternalLink,
-  ShieldCheck,
   CreditCard,
-  Printer,
+  PlusCircle,
+  Calendar,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,13 +32,14 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { OfficialSubscriptionInvoiceModal, type OfficialInvoiceData } from '@/components/billing/OfficialSubscriptionInvoiceModal';
 import { format } from 'date-fns';
 
-type SuperAdminInvoiceRow = {
+export type SuperAdminInvoiceRow = {
   id: string;
   invoice_number?: string;
   company_id: string;
@@ -83,6 +82,8 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
   const [currencyFilter, setCurrencyFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
+  const [groupedPage, setGroupedPage] = useState(1);
+  const [groupedPageSize, setGroupedPageSize] = useState(10);
 
   // Modals state
   const [activeInvoiceForModal, setActiveInvoiceForModal] = useState<OfficialInvoiceData | null>(null);
@@ -99,8 +100,42 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
   const [voidReason, setVoidReason] = useState('');
   const [isVoiding, setIsVoiding] = useState(false);
 
-  // Fetch all invoices
-  const { data: invoices = [], isLoading, isFetching, refetch } = useQuery({
+  // Custom Invoice Creation Dialog state
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newInvCompanyId, setNewInvCompanyId] = useState('');
+  const [newInvKind, setNewInvKind] = useState('manual_adjustment');
+  const [newInvAmount, setNewInvAmount] = useState('');
+  const [newInvCurrency, setNewInvCurrency] = useState('USD');
+  const [newInvDescription, setNewInvDescription] = useState('');
+  const [newInvDueDate, setNewInvDueDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().split('T')[0];
+  });
+  const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
+
+  // Fetch registered companies for selection dropdown & name resolution fallback
+  const { data: companiesList = [] } = useQuery({
+    queryKey: ['superadmin-companies-directory-min'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('id, name, email, country')
+        .order('name', { ascending: true })
+        .limit(300);
+      if (error) return [];
+      return (data || []) as { id: string; name: string; email?: string; country?: string }[];
+    },
+  });
+
+  const companyMap = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; email?: string; country?: string }>();
+    companiesList.forEach((c) => map.set(c.id, c));
+    return map;
+  }, [companiesList]);
+
+  // Fetch all invoices with robust fallback (resolves company if relation cache misses)
+  const { data: rawInvoices = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['superadmin-global-saas-invoices', selectedCompanyId, statusFilter],
     queryFn: async () => {
       let query = supabase
@@ -121,13 +156,7 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
           metadata,
           created_at,
           paid_at,
-          due_at,
-          companies:company_id (
-            id,
-            name,
-            email,
-            country
-          )
+          due_at
         `)
         .order('created_at', { ascending: false });
 
@@ -139,10 +168,29 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
       }
 
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching invoices:', error);
+        return [];
+      }
       return (data || []) as unknown as SuperAdminInvoiceRow[];
     },
   });
+
+  // Attach company details from memory map
+  const invoices = useMemo(() => {
+    return rawInvoices.map((inv) => {
+      const comp = companyMap.get(inv.company_id);
+      return {
+        ...inv,
+        companies: comp || {
+          id: inv.company_id,
+          name: inv.customer_details?.company_name || 'Customer Entity',
+          email: inv.customer_details?.email,
+          country: inv.customer_details?.country || 'Rwanda',
+        },
+      };
+    });
+  }, [rawInvoices, companyMap]);
 
   // Filtered invoices
   const filteredInvoices = useMemo(() => {
@@ -244,7 +292,7 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
         currencyTotals[curr] = { collectedMinor: 0, openMinor: 0 };
       }
 
-      const gw = (inv.metadata?.gateway || 'paystack').toLowerCase();
+      const gw = (inv.metadata?.gateway || 'wire_transfer').toLowerCase();
       gatewayBreakdown[gw] = (gatewayBreakdown[gw] || 0) + 1;
 
       if (inv.invoice_status === 'paid') {
@@ -344,7 +392,7 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
       setSettleNotes('');
       await refetch();
       void queryClient.invalidateQueries({ queryKey: ['superadmin-global-saas-invoices'] });
-      void queryClient.invalidateQueries({ queryKey: ['revenue-metrics'] });
+      void queryClient.invalidateQueries({ queryKey: ['control-plane-revenue-metrics'] });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to mark invoice as paid';
       toast.error(`Reconciliation failed: ${msg}`);
@@ -371,12 +419,104 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
       setVoidReason('');
       await refetch();
       void queryClient.invalidateQueries({ queryKey: ['superadmin-global-saas-invoices'] });
-      void queryClient.invalidateQueries({ queryKey: ['revenue-metrics'] });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to void invoice';
       toast.error(`Void failed: ${msg}`);
     } finally {
       setIsVoiding(false);
+    }
+  };
+
+  // Create Manual / Custom Invoice
+  const handleCreateCustomInvoice = async () => {
+    if (!newInvCompanyId) {
+      toast.error('Please select a target company');
+      return;
+    }
+    const parsedAmount = parseFloat(newInvAmount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      toast.error('Please enter a valid invoice amount');
+      return;
+    }
+
+    setIsCreatingInvoice(true);
+    try {
+      const comp = companyMap.get(newInvCompanyId);
+
+      // Generate sequential invoice number
+      const { data: invNumData, error: seqErr } = await supabase.rpc('generate_saas_invoice_number');
+      const invoiceNumber = seqErr || !invNumData
+        ? `FG-INV-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`
+        : String(invNumData);
+
+      const amountMinor = Math.round(parsedAmount * 100);
+
+      // Find an active subscription for this company, or use dummy
+      const { data: subData } = await supabase
+        .from('saas_company_plan_subscriptions')
+        .select('id, product_id')
+        .eq('company_id', newInvCompanyId)
+        .limit(1)
+        .maybeSingle();
+
+      const subscriptionId = subData?.id;
+      const productId = subData?.product_id;
+
+      if (!subscriptionId || !productId) {
+        toast.error('Company does not have an active subscription envelope.');
+        setIsCreatingInvoice(false);
+        return;
+      }
+
+      const { data: inserted, error: insertErr } = await supabase
+        .from('saas_subscription_invoices')
+        .insert({
+          company_id: newInvCompanyId,
+          subscription_id: subscriptionId,
+          product_id: productId,
+          invoice_number: invoiceNumber,
+          invoice_kind: newInvKind,
+          invoice_status: 'open',
+          amount_minor: amountMinor,
+          currency_code: newInvCurrency,
+          due_at: new Date(newInvDueDate).toISOString(),
+          customer_details: {
+            company_name: comp?.name || 'Customer Entity',
+            email: comp?.email || '',
+            country: comp?.country || 'Rwanda',
+          },
+          billing_details: {
+            issued_by: 'FishGate Technologies Ltd (SuperAdmin Manual Bill)',
+            legal_tin: '108849204',
+            notes: newInvDescription.trim() || 'Manual custom billing invoice',
+          },
+          metadata: {
+            created_manually: true,
+            description: newInvDescription.trim(),
+            channel: 'offline_wire',
+          },
+        })
+        .select()
+        .single();
+
+      if (insertErr) throw insertErr;
+
+      toast.success(`Custom invoice ${invoiceNumber} successfully issued!`);
+      setIsCreateModalOpen(false);
+      setNewInvAmount('');
+      setNewInvDescription('');
+      await refetch();
+      void queryClient.invalidateQueries({ queryKey: ['superadmin-global-saas-invoices'] });
+
+      // Open PDF modal for the new invoice
+      if (inserted) {
+        handleOpenPdfModal(inserted as unknown as SuperAdminInvoiceRow);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to create invoice';
+      toast.error(`Creation failed: ${msg}`);
+    } finally {
+      setIsCreatingInvoice(false);
     }
   };
 
@@ -404,35 +544,47 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
             </CardDescription>
           </div>
 
-          {/* View Mode Switcher Tabs */}
-          <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-lg border border-border/60">
+          {/* Action Tools: View Switcher & Create Invoice Button */}
+          <div className="flex flex-wrap items-center gap-2">
             <Button
-              variant={activeView === 'table' ? 'default' : 'ghost'}
               size="sm"
-              onClick={() => setActiveView('table')}
-              className="h-8 text-xs gap-1.5"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="h-8 text-xs gap-1.5 shadow-sm"
             >
-              <List className="h-3.5 w-3.5" />
-              Global Ledger
+              <PlusCircle className="h-3.5 w-3.5" />
+              Create Custom Invoice
             </Button>
-            <Button
-              variant={activeView === 'grouped' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setActiveView('grouped')}
-              className="h-8 text-xs gap-1.5"
-            >
-              <Layers className="h-3.5 w-3.5" />
-              Company Grouped
-            </Button>
-            <Button
-              variant={activeView === 'analytics' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setActiveView('analytics')}
-              className="h-8 text-xs gap-1.5"
-            >
-              <PieChart className="h-3.5 w-3.5" />
-              Gateway Analytics
-            </Button>
+
+            {/* View Mode Switcher Tabs */}
+            <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border/60">
+              <Button
+                variant={activeView === 'table' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveView('table')}
+                className="h-8 text-xs gap-1.5"
+              >
+                <List className="h-3.5 w-3.5" />
+                Global Ledger
+              </Button>
+              <Button
+                variant={activeView === 'grouped' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveView('grouped')}
+                className="h-8 text-xs gap-1.5"
+              >
+                <Layers className="h-3.5 w-3.5" />
+                Company Grouped
+              </Button>
+              <Button
+                variant={activeView === 'analytics' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveView('analytics')}
+                className="h-8 text-xs gap-1.5"
+              >
+                <PieChart className="h-3.5 w-3.5" />
+                Gateway Analytics
+              </Button>
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -521,7 +673,9 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
               <div className="p-12 text-center space-y-2 bg-muted/10 rounded-xl border border-dashed border-border">
                 <FileText className="h-8 w-8 text-muted-foreground mx-auto opacity-40" />
                 <p className="text-sm font-semibold text-muted-foreground">No invoices matching the selected filters.</p>
-                <p className="text-xs text-muted-foreground">Adjust filters or search parameters above.</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedCompanyId ? 'No invoices found for the selected company.' : 'Click "Create Custom Invoice" above to generate a new invoice.'}
+                </p>
               </div>
             ) : (
               <>
@@ -643,55 +797,67 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
             {companyGroupedRows.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">No grouped company invoices available.</div>
             ) : (
-              <div className="rounded-xl border border-border/70 overflow-hidden shadow-sm">
-                <Table>
-                  <TableHeader className="bg-muted/40">
-                    <TableRow>
-                      <TableHead className="text-xs font-bold">Company / Customer</TableHead>
-                      <TableHead className="text-xs">Country</TableHead>
-                      <TableHead className="text-xs text-center">Invoices (Total)</TableHead>
-                      <TableHead className="text-xs text-center">Settled / Paid</TableHead>
-                      <TableHead className="text-xs text-center">Open Balance</TableHead>
-                      <TableHead className="text-xs">Currencies</TableHead>
-                      <TableHead className="text-xs">Latest Invoice</TableHead>
-                      <TableHead className="text-xs text-right">Inspect</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {companyGroupedRows.map((row) => (
-                      <TableRow key={row.company_id} className="hover:bg-muted/20">
-                        <TableCell className="text-xs">
-                          <p className="font-bold text-foreground">{row.company_name}</p>
-                          <p className="text-[11px] text-muted-foreground font-mono">{row.email || row.company_id.slice(0, 8)}</p>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{row.country}</TableCell>
-                        <TableCell className="text-xs text-center font-bold">{row.total_invoices}</TableCell>
-                        <TableCell className="text-xs text-center font-semibold text-emerald-600">{row.paid_invoices}</TableCell>
-                        <TableCell className="text-xs text-center font-semibold text-amber-600">{row.open_invoices}</TableCell>
-                        <TableCell className="text-xs font-mono text-muted-foreground">
-                          {Array.from(row.currencies).join(', ')}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {format(new Date(row.latest_invoice_at), 'dd MMM yyyy')}
-                        </TableCell>
-                        <TableCell className="text-xs text-right">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-xs gap-1"
-                            onClick={() => {
-                              onSelectCompany?.(row.company_id);
-                              setActiveView('table');
-                            }}
-                          >
-                            Filter Company <ChevronRight className="h-3 w-3" />
-                          </Button>
-                        </TableCell>
+              <>
+                <div className="rounded-xl border border-border/70 overflow-hidden shadow-sm">
+                  <Table>
+                    <TableHeader className="bg-muted/40">
+                      <TableRow>
+                        <TableHead className="text-xs font-bold">Company / Customer</TableHead>
+                        <TableHead className="text-xs">Country</TableHead>
+                        <TableHead className="text-xs text-center">Invoices (Total)</TableHead>
+                        <TableHead className="text-xs text-center">Settled / Paid</TableHead>
+                        <TableHead className="text-xs text-center">Open Balance</TableHead>
+                        <TableHead className="text-xs">Currencies</TableHead>
+                        <TableHead className="text-xs">Latest Invoice</TableHead>
+                        <TableHead className="text-xs text-right">Inspect</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {companyGroupedRows
+                        .slice((groupedPage - 1) * groupedPageSize, groupedPage * groupedPageSize)
+                        .map((row) => (
+                          <TableRow key={row.company_id} className="hover:bg-muted/20">
+                            <TableCell className="text-xs">
+                              <p className="font-bold text-foreground">{row.company_name}</p>
+                              <p className="text-[11px] text-muted-foreground font-mono">{row.email || row.company_id.slice(0, 8)}</p>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{row.country}</TableCell>
+                            <TableCell className="text-xs text-center font-bold">{row.total_invoices}</TableCell>
+                            <TableCell className="text-xs text-center font-semibold text-emerald-600">{row.paid_invoices}</TableCell>
+                            <TableCell className="text-xs text-center font-semibold text-amber-600">{row.open_invoices}</TableCell>
+                            <TableCell className="text-xs font-mono text-muted-foreground">
+                              {Array.from(row.currencies).join(', ')}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {format(new Date(row.latest_invoice_at), 'dd MMM yyyy')}
+                            </TableCell>
+                            <TableCell className="text-xs text-right">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs gap-1"
+                                onClick={() => {
+                                  onSelectCompany?.(row.company_id);
+                                  setActiveView('table');
+                                }}
+                              >
+                                Filter Company <ChevronRight className="h-3 w-3" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <TablePagination
+                  page={groupedPage}
+                  pageSize={groupedPageSize}
+                  total={companyGroupedRows.length}
+                  onPageChange={setGroupedPage}
+                  onPageSizeChange={(size) => { setGroupedPageSize(size); setGroupedPage(1); }}
+                />
+              </>
             )}
           </div>
         )}
@@ -761,6 +927,121 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
         )}
       </CardContent>
 
+      {/* Create Custom / Manual Invoice Dialog */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="max-w-lg p-6 space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <PlusCircle className="h-5 w-5 text-primary" />
+              Issue Custom / Manual Invoice
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Generate an official FishGate Technologies Ltd B2B billing invoice with sequential numbering.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-xs">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Target Company</Label>
+              <Select value={newInvCompanyId} onValueChange={setNewInvCompanyId}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Select landlord company..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-56">
+                  {companiesList.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} {c.country ? `(${c.country})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Invoice Kind</Label>
+                <Select value={newInvKind} onValueChange={setNewInvKind}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual_adjustment">Manual Adjustment</SelectItem>
+                    <SelectItem value="plan_change_proration">Custom Plan Proration</SelectItem>
+                    <SelectItem value="renewal">Annual / Custom Renewal</SelectItem>
+                    <SelectItem value="addon_renewal">Add-on Custom Service</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Due Date</Label>
+                <Input
+                  type="date"
+                  value={newInvDueDate}
+                  onChange={(e) => setNewInvDueDate(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Amount</Label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 150.00"
+                  step="0.01"
+                  value={newInvAmount}
+                  onChange={(e) => setNewInvAmount(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Currency</Label>
+                <Select value={newInvCurrency} onValueChange={setNewInvCurrency}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD ($)</SelectItem>
+                    <SelectItem value="RWF">RWF (FRw)</SelectItem>
+                    <SelectItem value="EUR">EUR (€)</SelectItem>
+                    <SelectItem value="GBP">GBP (£)</SelectItem>
+                    <SelectItem value="KES">KES (KSh)</SelectItem>
+                    <SelectItem value="NGN">NGN (₦)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Description / Line Items</Label>
+              <Textarea
+                placeholder="e.g. Bespoke Enterprise PM onboarding, custom setup, dedicated API quota"
+                value={newInvDescription}
+                onChange={(e) => setNewInvDescription(e.target.value)}
+                className="text-xs resize-none h-18"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border">
+            <Button variant="outline" size="sm" onClick={() => setIsCreateModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={isCreatingInvoice || !newInvCompanyId || !newInvAmount}
+              onClick={handleCreateCustomInvoice}
+              className="gap-1.5"
+            >
+              {isCreatingInvoice ? 'Generating Invoice...' : 'Generate & Issue Invoice'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Offline Wire Settlement Dialog */}
       <Dialog open={Boolean(settleInvoice)} onOpenChange={(open) => !open && setSettleInvoice(null)}>
         <DialogContent className="max-w-md p-6 space-y-4">
@@ -770,34 +1051,38 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
               Reconcile Wire Settlement (Mark as Paid)
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Verify incoming bank transfer or offline wire from landlord and immediately activate the subscription plan.
+              Confirm bank deposit / wire transfer and record official transaction reference.
             </DialogDescription>
           </DialogHeader>
 
           {settleInvoice && (
             <div className="space-y-3 text-xs">
-              <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1">
+              <div className="rounded-lg bg-muted/40 p-3 space-y-1 border border-border/60">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Invoice Number:</span>
-                  <span className="font-mono font-bold text-foreground">{settleInvoice.invoice_number || settleInvoice.id.slice(0, 8)}</span>
+                  <span className="text-muted-foreground">Invoice #:</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {settleInvoice.invoice_number || settleInvoice.id.slice(0, 8)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Customer Company:</span>
-                  <span className="font-semibold text-foreground">{settleInvoice.customer_details?.company_name || settleInvoice.companies?.name}</span>
+                  <span className="text-muted-foreground">Customer:</span>
+                  <span className="font-semibold text-foreground">
+                    {settleInvoice.customer_details?.company_name || settleInvoice.companies?.name}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Amount:</span>
-                  <span className="font-bold text-emerald-600">
+                  <span className="font-mono font-bold text-emerald-600">
                     {settleInvoice.currency_code} {(settleInvoice.amount_minor / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="wire-ref" className="text-xs">Bank Wire / Transfer Reference</Label>
+                <Label htmlFor="settle-ref" className="text-xs">Bank Wire / Deposit Reference</Label>
                 <Input
-                  id="wire-ref"
-                  placeholder="e.g. BK-TRF-928174 or MTN-CASH-8812"
+                  id="settle-ref"
+                  placeholder="e.g. WIRE-BK-2026-98124"
                   value={settleRef}
                   onChange={(e) => setSettleRef(e.target.value)}
                   className="h-8 text-xs"
@@ -805,10 +1090,10 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="wire-notes" className="text-xs">Internal Audit Notes</Label>
+                <Label htmlFor="settle-notes" className="text-xs">Reconciliation Audit Notes</Label>
                 <Input
-                  id="wire-notes"
-                  placeholder="e.g. Verified against Bank of Kigali statement 18 Sept"
+                  id="settle-notes"
+                  placeholder="e.g. Confirmed via Bank of Kigali corporate statement"
                   value={settleNotes}
                   onChange={(e) => setSettleNotes(e.target.value)}
                   className="h-8 text-xs"
@@ -823,12 +1108,11 @@ export const SuperAdminMonetizationInvoices: React.FC<SuperAdminMonetizationInvo
             </Button>
             <Button
               size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
               disabled={isSettling}
               onClick={handleMarkAsPaid}
             >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              {isSettling ? 'Reconciling...' : 'Confirm Payment & Activate Plan'}
+              {isSettling ? 'Reconciling...' : 'Confirm & Mark as Paid'}
             </Button>
           </DialogFooter>
         </DialogContent>

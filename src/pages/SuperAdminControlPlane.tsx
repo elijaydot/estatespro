@@ -110,6 +110,7 @@ import { AnalyticsOpsTab } from '@/components/control-plane/tabs/AnalyticsOpsTab
 import { OverviewTab } from '@/components/control-plane/tabs/OverviewTab';
 import { OperatorsTab, type OperatorRole } from '@/components/control-plane/tabs/OperatorsTab';
 import { SuperAdminMonetizationInvoices } from '@/components/control-plane/SuperAdminMonetizationInvoices';
+import { ControlPlaneSidebarNav } from '@/components/control-plane/ControlPlaneSidebarNav';
 import {
   buildCompany360Rows,
   buildCorrelationSummary,
@@ -180,39 +181,48 @@ function normalizeTab(value: string | null): ControlPlaneTab {
 
 const CONTROL_PLANE_TAB_GROUPS: Array<{
   title: string;
-  tabs: Array<{ value: ControlPlaneTab; label: string }>;
+  tabs: Array<{ value: ControlPlaneTab; label: string; description?: string }>;
 }> = [
   {
-    title: 'Monitor',
+    title: 'Platform Monetization',
     tabs: [
-      { value: 'overview', label: 'Overview' },
-      { value: 'alerts', label: 'Alerts' },
-      { value: 'incidents', label: 'Incidents' },
+      { value: 'invoices', label: 'Invoices & Ledger', description: 'Multi-company invoice ledger, manual billing, and wire reconciliation' },
+      { value: 'subscriptions', label: 'Subscriptions & Plans', description: 'Manage landlord tiers, grace periods, and plan assignments' },
+      { value: 'addons', label: 'Add-on Management', description: 'Enable or disable bespoke add-on modules and feature packages' },
+      { value: 'revenue_analytics', label: 'Gateway & Revenue Analytics', description: 'Multi-currency revenue reconciliation, MRR, ARR, and payment gateways' },
+      { value: 'monetization', label: 'Monetization Workspace', description: 'Comprehensive subscription and financial operations' },
     ],
   },
   {
-    title: 'Directory',
+    title: 'Governance & Security',
     tabs: [
-      { value: 'directory', label: 'Directory' },
-      { value: 'company360', label: 'Company 360' },
-      { value: 'user360', label: 'User 360' },
+      { value: 'safety', label: 'Safety & Overrides', description: 'Tenant isolation boundaries, principal suspensions, and overrides' },
+      { value: 'events', label: 'Audit Events Log', description: 'Immutable platform action audit logs and actor traces' },
+      { value: 'decisions', label: 'Entitlement Decisions', description: 'Real-time policy evaluation traces and reason codes' },
+      { value: 'operators', label: 'Platform Operators', description: 'Assign or revoke SuperAdmin and Platform Operator roles' },
+      { value: 'impersonation', label: 'Impersonation Sessions', description: 'Audit and track active operator company support impersonations' },
     ],
   },
   {
-    title: 'Governance',
+    title: 'Health & Operations',
     tabs: [
-      { value: 'safety', label: 'Safety' },
-      { value: 'events', label: 'Events' },
-      { value: 'decisions', label: 'Entitlements' },
-      { value: 'operators', label: 'Operators' },
+      { value: 'overview', label: 'Platform Overview', description: 'Fleet vitals, system alerts, and platform metrics' },
+      { value: 'alerts', label: 'Governance Alerts', description: 'Security and system alerts requiring review' },
+      { value: 'incidents', label: 'Incidents & Timelines', description: 'Platform incident history and correlation patterns' },
+      { value: 'drift', label: 'System Drift Checks', description: 'Database schema, RLS drift detection, and health telemetry' },
+      { value: 'usage', label: 'Usage Snapshots', description: 'Resource consumption, property quotas, and tenant envelopes' },
+      { value: 'risk_queue', label: 'Risk Triage Queue', description: 'High-risk automated actions, security alerts, and operator interventions' },
+      { value: 'analytics', label: 'Analytics & Ops Signals', description: 'Consolidated incident timelines, correlation patterns, and signals' },
+      { value: 'analytics_ops', label: 'Analytics & Ops Signals', description: 'Consolidated incident timelines, correlation patterns, and signals' },
     ],
   },
   {
-    title: 'Business',
+    title: '360° Directories',
     tabs: [
-      { value: 'monetization', label: 'Monetization' },
-      { value: 'usage', label: 'Usage' },
-      { value: 'analytics', label: 'Analytics/Ops' },
+      { value: 'company360', label: 'Company 360° Directory', description: 'Inspect full portfolio, billing, members, and quota states per company' },
+      { value: 'user360', label: 'User 360° Directory', description: 'Cross-organization user profile, memberships, and platform roles' },
+      { value: 'publisher_verifications', label: 'Publisher Verifications', description: 'Marketplace publisher verification queue and document moderation' },
+      { value: 'directory', label: 'Global Directory', description: 'Server-side identity, relationship, and entity lookup' },
     ],
   },
 ];
@@ -327,8 +337,11 @@ export default function SuperAdminControlPlane() {
   const [monitorPageSize, setMonitorPageSize] = useState(25);
   const [companySubscriptionsPage, setCompanySubscriptionsPage] = useState(1);
   const [companyAddonsPage, setCompanyAddonsPage] = useState(1);
-  const [companyInvoicesPage, setCompanyInvoicesPage] = useState(1);
   const [companyBillingPageSize, setCompanyBillingPageSize] = useState(10);
+  const [company360ListPage, setCompany360ListPage] = useState(1);
+  const [company360ListPageSize, setCompany360ListPageSize] = useState(25);
+  const [user360ListPage, setUser360ListPage] = useState(1);
+  const [user360ListPageSize, setUser360ListPageSize] = useState(25);
   const [confirmation, setConfirmation] = useState<{
     title: string;
     description: string;
@@ -1780,7 +1793,9 @@ export default function SuperAdminControlPlane() {
   const activeTabGroup = CONTROL_PLANE_TAB_GROUPS.find((group) =>
     group.tabs.some((tab) => tab.value === activeTab)
   ) || CONTROL_PLANE_TAB_GROUPS[0];
-  const activeTabLabel = activeTabGroup.tabs.find((tab) => tab.value === activeTab)?.label || 'Overview';
+  const activeTabMeta = activeTabGroup.tabs.find((tab) => tab.value === activeTab);
+  const activeTabLabel = activeTabMeta?.label || 'Overview';
+  const activeTabDescription = activeTabMeta?.description || 'Monitor platform risk, access decisions, usage, and billing across organizations.';
   const resolveCompanyLabel = (companyId: string | null | undefined) => {
     if (!companyId) return 'Unscoped';
     return companyDirectory.get(companyId)?.name || `Company ${shortReference(companyId)}`;
@@ -1938,27 +1953,23 @@ export default function SuperAdminControlPlane() {
             </BreadcrumbList>
           </Breadcrumb>
 
-          <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg border border-border/70 bg-card p-2 sm:grid-cols-4" aria-label="Control Plane workspaces">
-            {CONTROL_PLANE_TAB_GROUPS.map((group) => (
-              <Button
-                key={group.title}
-                type="button"
-                variant={activeTabGroup.title === group.title ? 'default' : 'ghost'}
-                className="h-auto min-h-10 justify-start px-3"
-                onClick={() => setActiveTab(group.tabs[0].value)}
-              >
-                {group.title}
+          {/* Active View Header Banner */}
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-border/70 bg-card/60 p-4 shadow-sm backdrop-blur-sm">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold tracking-tight text-foreground">{activeTabLabel}</h2>
+                <Badge variant="secondary" className="text-xs font-normal">
+                  {activeTabGroup.title}
+                </Badge>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{activeTabDescription}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={refreshAll} className="gap-1.5 text-xs">
+                <RefreshCw className="h-3.5 w-3.5" /> Sync view
               </Button>
-            ))}
+            </div>
           </div>
-
-          <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 p-1">
-            {activeTabGroup.tabs.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value} className="min-h-9 flex-1 px-3 text-xs sm:flex-none">
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
 
           {isLoading && (
             <Card className="mb-4">
@@ -2187,6 +2198,386 @@ export default function SuperAdminControlPlane() {
                       </Button>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="invoices">
+            <SuperAdminMonetizationInvoices
+              defaultView="ledger"
+              selectedCompanyId={effectiveBillingCompanyId || undefined}
+              onSelectCompany={setBillingCompanyId}
+            />
+          </TabsContent>
+
+          <TabsContent value="revenue_analytics">
+            <div className="space-y-4">
+              <Card className="border-border/70 bg-card/60 backdrop-blur-sm">
+                <CardHeader className="pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 space-y-0">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base">Global Consolidated Portfolio Revenue</CardTitle>
+                      <Badge variant="outline" className="text-xs border-primary/40 text-primary">
+                        Live FX Converted
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Aggregated across all global subscriptions converted to {consolidatedBaseCurrency} · Rates: {fxLastUpdated} {fxIsFallback ? '(Reference matrix)' : '(via Open Exchange Rates)'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground font-medium">Display Currency:</span>
+                    <Select value={consolidatedBaseCurrency} onValueChange={setConsolidatedBaseCurrency}>
+                      <SelectTrigger className="w-32 h-8 text-xs font-semibold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD ($)</SelectItem>
+                        <SelectItem value="NGN">NGN (₦)</SelectItem>
+                        <SelectItem value="GBP">GBP (£)</SelectItem>
+                        <SelectItem value="EUR">EUR (€)</SelectItem>
+                        <SelectItem value="KES">KES (KSh)</SelectItem>
+                        <SelectItem value="GHS">GHS (GH₵)</SelectItem>
+                        <SelectItem value="ZAR">ZAR (R)</SelectItem>
+                        <SelectItem value="CAD">CAD (CA$)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-2">
+                    <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground font-semibold">Consolidated MRR</p>
+                      <p className="text-xl font-bold mt-1 text-primary">{formatMinor(consolidatedRevenue.totalMrr, consolidatedBaseCurrency)}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 p-3 bg-background/50">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Add-on MRR</p>
+                      <p className="text-lg font-semibold mt-1">{formatMinor(consolidatedRevenue.totalAddonMrr, consolidatedBaseCurrency)}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 p-3 bg-background/50">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Consolidated ARR</p>
+                      <p className="text-lg font-semibold mt-1">{formatMinor(consolidatedRevenue.totalArr, consolidatedBaseCurrency)}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 p-3 bg-background/50">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Open Invoices</p>
+                      <p className="text-lg font-semibold mt-1">
+                        {consolidatedRevenue.totalOpenInvoiceCount}{' '}
+                        <span className="text-xs font-normal text-muted-foreground">
+                          ({formatMinor(consolidatedRevenue.totalOpenInvoicesMinor, consolidatedBaseCurrency)})
+                        </span>
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-border/60 p-3 bg-background/50">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Dunning Companies</p>
+                      <p className="text-lg font-semibold mt-1">{consolidatedRevenue.totalDunningCompanies}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 p-3 bg-background/50">
+                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Quota Pressure (7d)</p>
+                      <p className="text-lg font-semibold mt-1">{consolidatedRevenue.totalQuotaPressure}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-foreground">Native Billing Breakdown (Unconverted Source Records)</h4>
+                  <span className="text-xs text-muted-foreground">Exact sums in native billing currency</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {allRevenueMetrics.map((item) => {
+                    const curr = item.currency_code || 'USD';
+                    return (
+                      <Card key={curr} className="border-border/60">
+                        <CardHeader className="py-2.5 px-3.5 bg-muted/30 border-b border-border/40 flex flex-row items-center justify-between space-y-0">
+                          <CardTitle className="text-xs font-bold uppercase tracking-wider text-foreground">
+                            {curr} Native Portfolio
+                          </CardTitle>
+                          <Badge variant="secondary" className="text-xs font-mono">{curr}</Badge>
+                        </CardHeader>
+                        <CardContent className="p-3.5 space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">MRR:</span>
+                            <span className="font-semibold">{formatMinor(item.mrr_minor || 0, curr)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">Addon MRR:</span>
+                            <span className="font-semibold">{formatMinor(item.addon_mrr_minor || 0, curr)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">ARR:</span>
+                            <span className="font-semibold">{formatMinor(item.arr_minor || 0, curr)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs pt-1 border-t border-border/40">
+                            <span className="text-muted-foreground">Open Invoices:</span>
+                            <span className="font-medium">{item.open_invoice_count || 0} ({formatMinor(item.open_invoices_minor || 0, curr)})</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <SuperAdminMonetizationInvoices
+                defaultView="analytics"
+                selectedCompanyId={effectiveBillingCompanyId || undefined}
+                onSelectCompany={setBillingCompanyId}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="subscriptions">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+                <Card className="xl:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="text-base">Company Billing Operations</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2">
+                      <RemoteEntitySelect
+                        entityType="company"
+                        value={billingCompanyId}
+                        onValueChange={setBillingCompanyId}
+                        placeholder="Select company"
+                        className="xl:col-span-2"
+                      />
+                      <Select value={billingProductCode} onValueChange={setBillingProductCode}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Product" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(billingCatalog.data?.products || []).length === 0
+                            ? <SelectItem value="__no_products" disabled>No products available</SelectItem>
+                            : (billingCatalog.data?.products || []).map((product) => (
+                              <SelectItem key={product.code} value={product.code}>{product.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={billingPlanCode} onValueChange={setBillingPlanCode}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Plan" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {plansForSelectedProduct.length === 0
+                            ? <SelectItem value="__no_plans" disabled>No plans available</SelectItem>
+                            : plansForSelectedProduct.map((plan) => (
+                              <SelectItem key={plan.code} value={plan.code}>{plan.name} ({plan.code})</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={billingCurrency} onValueChange={setBillingCurrency}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Currency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="NGN">NGN</SelectItem>
+                          <SelectItem value="KES">KES</SelectItem>
+                          <SelectItem value="GHS">GHS</SelectItem>
+                          <SelectItem value="ZAR">ZAR</SelectItem>
+                          <SelectItem value="CAD">CAD</SelectItem>
+                          <SelectItem value="GBP">GBP</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <Select value={billingGraceMode} onValueChange={(value) => setBillingGraceMode(value as 'extend' | 'set')}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Grace mode" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="extend">Extend current grace</SelectItem>
+                          <SelectItem value="set">Set absolute grace</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={billingGraceDays}
+                        onChange={(e) => setBillingGraceDays(Math.max(1, Math.min(60, Number(e.target.value) || 1)))}
+                        placeholder="Grace days"
+                      />
+                      <Button
+                        variant="outline"
+                        disabled={adminSetCompanySubscriptionGrace.isPending || !effectiveBillingCompanyId || billingReason.trim().length < 8}
+                        onClick={() => requestConfirmation(
+                          'Confirm company grace override',
+                          `${billingGraceMode === 'extend' ? 'Extend' : 'Set'} grace period by ${billingGraceDays} days for all active subscriptions under ${resolveCompanyLabel(effectiveBillingCompanyId)}. Reason: ${billingReason}.`,
+                          'Apply company grace',
+                          handleSetCompanyGrace,
+                        )}
+                      >
+                        {adminSetCompanySubscriptionGrace.isPending ? 'Applying grace...' : 'Apply Company Grace'}
+                      </Button>
+                    </div>
+
+                    <Input
+                      value={billingReason}
+                      onChange={(e) => setBillingReason(e.target.value)}
+                      placeholder="Mandatory reason for manual billing or subscription action (min 8 chars)"
+                    />
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        onClick={() => requestConfirmation(
+                          'Confirm company plan assignment',
+                          `Set plan ${billingPlanCode} (${billingProductCode}) for ${resolveCompanyLabel(effectiveBillingCompanyId)}. Reason: ${billingReason}.`,
+                          'Assign plan',
+                          handleSetCompanyPlan,
+                        )}
+                        disabled={adminSetCompanyPlan.isPending || !effectiveBillingCompanyId || !billingProductCode || !billingPlanCode || billingReason.trim().length < 8}
+                      >
+                        {adminSetCompanyPlan.isPending ? 'Assigning...' : 'Assign Plan'}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        disabled={adminReevaluateCompanyEntitlements.isPending || !effectiveBillingCompanyId}
+                        onClick={() => void handleReevaluateEntitlements()}
+                      >
+                        {adminReevaluateCompanyEntitlements.isPending ? 'Re-evaluating...' : 'Re-evaluate Entitlements'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Target Plan Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-xs">
+                    {selectedPlanMeta ? (
+                      <>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Name:</span><span className="font-semibold">{selectedPlanMeta.name}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Code:</span><span className="font-mono">{selectedPlanMeta.code}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Max units:</span><span>{selectedPlanMeta.max_units ?? 'Unlimited'}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Max properties:</span><span>{selectedPlanMeta.max_properties ?? 'Unlimited'}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Tier rank:</span><span>{selectedPlanMeta.tier_rank ?? '-'}</span></div>
+                      </>
+                    ) : (
+                      <p className="text-muted-foreground">Select a product and plan to view metadata.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Company Subscriptions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {companySubscriptions.length === 0 ? (
+                    <EmptyState title="No subscriptions" description="No subscription rows found for this company." />
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead>Plan</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Payment</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Grace ends</TableHead>
+                          <TableHead className="text-right">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {companySubscriptions.slice((companySubscriptionsPage - 1) * companyBillingPageSize, companySubscriptionsPage * companyBillingPageSize).map((item, index) => (
+                          <TableRow key={`${String(item.id || index)}`}>
+                            <TableCell>{String(item.product_name || item.product_code || '-')}</TableCell>
+                            <TableCell>{String(item.plan_name || item.plan_code || '-')}</TableCell>
+                            <TableCell>{String(item.status || '-')}</TableCell>
+                            <TableCell>{String(item.payment_state || '-')}</TableCell>
+                            <TableCell>{formatMinor(Number(item.amount_minor || 0), String(item.price_currency || 'USD'))}</TableCell>
+                            <TableCell>{item.grace_end_at ? formatDate(String(item.grace_end_at)) : '-'}</TableCell>
+                            <TableCell className="text-right"><Button size="sm" variant="outline" disabled={adminSetCompanySubscriptionGrace.isPending || billingReason.trim().length < 8} onClick={() => requestConfirmation('Confirm scoped company grace', `${billingGraceMode === 'extend' ? 'Extend' : 'Set'} grace by ${billingGraceDays} days for subscription ${String(item.id)} only.`, 'Apply grace', () => handleSetCompanyGrace(String(item.id)))}>Set grace</Button></TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                  <TablePagination page={companySubscriptionsPage} pageSize={companyBillingPageSize} total={companySubscriptions.length} onPageChange={setCompanySubscriptionsPage} onPageSizeChange={(size) => { setCompanyBillingPageSize(size); setCompanySubscriptionsPage(1); setCompanyAddonsPage(1); setCompanyInvoicesPage(1); }} />
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="addons">
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Add-on Management</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-3 rounded-md border p-3">
+                    <div><p className="text-sm font-medium">Saved exception queues</p><p className="text-xs text-muted-foreground">Reuse server-side company, actor, status, and time-window filters.</p></div>
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_9rem_auto]">
+                      <Input value={savedQueueName} onChange={(event) => setSavedQueueName(event.target.value)} placeholder="Queue name" />
+                      <Select value={savedQueueVisibility} onValueChange={(value) => setSavedQueueVisibility(value as 'private' | 'team')}><SelectTrigger aria-label="Saved queue visibility"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="private">Private</SelectItem><SelectItem value="team">Risk team</SelectItem></SelectContent></Select>
+                      <Button variant="outline" disabled={createSavedExceptionQueue.isPending || savedQueueName.trim().length < 3} onClick={() => void handleCreateSavedQueue()}>{createSavedExceptionQueue.isPending ? 'Saving...' : 'Save current filters'}</Button>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Select value={selectedSavedQueueId} onValueChange={applySavedQueue}><SelectTrigger className="min-w-0 flex-1" aria-label="Apply saved exception queue"><SelectValue placeholder="Select a saved queue" /></SelectTrigger><SelectContent>{(savedExceptionQueues.data || []).map((queue) => <SelectItem key={queue.id} value={queue.id}>{queue.name} · {queue.visibility === 'team' ? 'team' : 'private'}</SelectItem>)}</SelectContent></Select>
+                      {selectedSavedQueueId && savedExceptionQueues.data?.find((queue) => queue.id === selectedSavedQueueId)?.is_owner && (
+                        <Button variant="ghost" disabled={deleteSavedExceptionQueue.isPending} onClick={() => requestConfirmation('Delete saved exception queue', 'Delete this queue definition. Triage records are not affected.', 'Delete queue', () => handleDeleteSavedQueue(selectedSavedQueueId), true)}>Delete</Button>
+                      )}
+                    </div>
+                  </div>
+                  <Input
+                    value={addonNotes}
+                    onChange={(e) => setAddonNotes(e.target.value)}
+                    placeholder="Optional change note (recorded in audit metadata)"
+                  />
+                  {companyAddons.length === 0 ? (
+                    <EmptyState title="No add-ons" description="No add-on catalog rows are available for this company." />
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Add-on</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Price</TableHead>
+                          <TableHead>Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {companyAddons.slice((companyAddonsPage - 1) * companyBillingPageSize, companyAddonsPage * companyBillingPageSize).map((item, index) => {
+                          const addonCode = String(item.addon_code || '');
+                          const enabled = Boolean(item.enabled);
+
+                          return (
+                            <TableRow key={`${addonCode || 'addon'}-${index}`}>
+                              <TableCell>{String(item.addon_name || addonCode || '-')}</TableCell>
+                              <TableCell>{String(item.status || (enabled ? 'active' : 'inactive'))}</TableCell>
+                              <TableCell>{formatMinor(Number(item.amount_minor || 0), String(item.currency_code || 'USD'))}</TableCell>
+                              <TableCell>
+                                <Button
+                                  size="sm"
+                                  variant={enabled ? 'outline' : 'default'}
+                                  disabled={adminSetCompanyAddonStatus.isPending || !effectiveBillingCompanyId || !addonCode}
+                                  onClick={() => requestConfirmation(
+                                    `${enabled ? 'Disable' : 'Enable'} add-on`,
+                                    `${enabled ? 'Disable' : 'Enable'} ${String(item.addon_name || addonCode)} for ${resolveCompanyLabel(effectiveBillingCompanyId)}.`,
+                                    `${enabled ? 'Disable' : 'Enable'} add-on`,
+                                    () => handleSetAddonStatus(addonCode, !enabled),
+                                    enabled,
+                                  )}
+                                >
+                                  {enabled ? 'Disable' : 'Enable'}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                  <TablePagination page={companyAddonsPage} pageSize={companyBillingPageSize} total={companyAddons.length} onPageChange={setCompanyAddonsPage} onPageSizeChange={(size) => { setCompanyBillingPageSize(size); setCompanySubscriptionsPage(1); setCompanyAddonsPage(1); setCompanyInvoicesPage(1); }} />
                 </CardContent>
               </Card>
             </div>
@@ -3546,7 +3937,9 @@ export default function SuperAdminControlPlane() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {companyRows.map((row) => (
+                      {companyRows
+                        .slice((company360ListPage - 1) * company360ListPageSize, company360ListPage * company360ListPageSize)
+                        .map((row) => (
                         <TableRow key={row.company_id}>
                           <TableCell title={row.company_id}>
                             <p className="font-medium text-foreground">{resolveCompanyLabel(row.company_id)}</p>
@@ -3576,6 +3969,16 @@ export default function SuperAdminControlPlane() {
                     </TableBody>
                   </Table>
                 )}
+                <TablePagination
+                  page={company360ListPage}
+                  pageSize={company360ListPageSize}
+                  total={companyRows.length}
+                  onPageChange={setCompany360ListPage}
+                  onPageSizeChange={(size) => {
+                    setCompany360ListPageSize(size);
+                    setCompany360ListPage(1);
+                  }}
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -3628,7 +4031,9 @@ export default function SuperAdminControlPlane() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {userRows.map((row) => (
+                      {userRows
+                        .slice((user360ListPage - 1) * user360ListPageSize, user360ListPage * user360ListPageSize)
+                        .map((row) => (
                         <TableRow key={row.user_id}>
                           <TableCell title={row.user_id}>
                             <p className="font-medium text-foreground">{resolveUserLabel(row.user_id)}</p>
@@ -3656,6 +4061,182 @@ export default function SuperAdminControlPlane() {
                     </TableBody>
                   </Table>
                 )}
+                <TablePagination
+                  page={user360ListPage}
+                  pageSize={user360ListPageSize}
+                  total={userRows.length}
+                  onPageChange={setUser360ListPage}
+                  onPageSizeChange={(size) => {
+                    setUser360ListPageSize(size);
+                    setUser360ListPage(1);
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="drift">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+                <div>
+                  <CardTitle className="text-base">System Drift & Fleet Telemetry</CardTitle>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Database schema invariants, RLS coverage, table synchronization, and integrity checks.
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => void handleRunPhase10()} disabled={runPhase10.isPending}>
+                  <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", runPhase10.isPending && "animate-spin")} />
+                  {runPhase10.isPending ? 'Verifying...' : 'Run Diagnostics'}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {(driftChecks.data || []).length === 0 ? (
+                  <EmptyState title="No drift detected" description="All database schemas and RLS invariants match expected baseline." />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Check Name</TableHead>
+                        <TableHead>Target</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Severity</TableHead>
+                        <TableHead>Checked At</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(driftChecks.data || []).map((check, idx) => (
+                        <TableRow key={check.id || `drift-${idx}`}>
+                          <TableCell className="font-medium">{check.check_name}</TableCell>
+                          <TableCell className="font-mono text-xs">{check.target_resource || '-'}</TableCell>
+                          <TableCell>
+                            <Badge variant={check.status === 'clean' ? 'outline' : 'destructive'}>
+                              {check.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell><SeverityBadge severity={check.severity || 'info'} /></TableCell>
+                          <TableCell>{check.checked_at ? formatDate(check.checked_at) : '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="risk_queue">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+                <div>
+                  <CardTitle className="text-base">Governance Risk Queue</CardTitle>
+                  <p className="mt-1 text-xs text-muted-foreground">Unacknowledged security, tenant isolation, and quota alerts.</p>
+                </div>
+                <Button size="sm" onClick={() => void handleSeedEvent()}>Create Test Alert</Button>
+              </CardHeader>
+              <CardContent>
+                {(pagedAlerts.data?.rows || []).length === 0 ? (
+                  <EmptyState title="No open risk alerts" description="All governance alerts have been resolved." />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Severity</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(pagedAlerts.data?.rows || []).map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{formatDate(item.created_at)}</TableCell>
+                          <TableCell><SeverityBadge severity={item.severity} /></TableCell>
+                          <TableCell>{item.alert_type}</TableCell>
+                          <TableCell>{item.title}</TableCell>
+                          <TableCell>{item.status}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" variant="outline" disabled={item.status !== 'open' || updateAlertStatus.isPending} onClick={() => void handleUpdateAlertStatus(item.id, 'acknowledged')}>Acknowledge</Button>
+                              <Button size="sm" disabled={item.status === 'resolved' || updateAlertStatus.isPending} onClick={() => void handleUpdateAlertStatus(item.id, 'resolved')}>Resolve</Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+                <TablePagination page={pagedAlerts.data?.page || alertsPage} pageSize={pagedAlerts.data?.pageSize || monitorPageSize} total={pagedAlerts.data?.totalCount || 0} onPageChange={setAlertsPage} onPageSizeChange={(size) => { setMonitorPageSize(size); setAlertsPage(1); }} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="impersonation">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Operator Impersonation Sessions</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Active and historical support sessions. Operator actions are audited with critical severity.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {activeOperatorImpersonation ? (
+                  <Alert variant="destructive">
+                    <Fingerprint className="h-4 w-4" />
+                    <AlertTitle>Active support impersonation session in progress</AlertTitle>
+                    <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-2">
+                      <span>
+                        Target User: {resolveUserLabel(activeOperatorImpersonation.target_user_id)}. Reason: {activeOperatorImpersonation.reason}. Auto-expires in 30 minutes.
+                      </span>
+                      <Button size="sm" variant="outline" disabled={stopImpersonationSession.isPending} onClick={() => void handleStopImpersonation(activeOperatorImpersonation.id)}>
+                        Stop session
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <EmptyState
+                    title="No active impersonation session"
+                    description="Support operators can initiate timed support sessions with explicit reason codes from Safety Scope."
+                    action={
+                      <Button size="sm" variant="outline" onClick={() => setActiveTab('safety')}>
+                        Open Safety Scope Console
+                      </Button>
+                    }
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="publisher_verifications">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+                <div>
+                  <CardTitle className="text-base">Publisher Verifications Queue</CardTitle>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Marketplace verified publisher reviews, identity documents, and status moderations.
+                  </p>
+                </div>
+                <Button asChild size="sm">
+                  <Link to="/marketplace/reviewer">Open Reviewer Workspace</Link>
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-lg border border-border/60 bg-muted/20 p-6 text-center">
+                  <h4 className="text-sm font-semibold">Marketplace Reviewer Workspace</h4>
+                  <p className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
+                    Manage pending publisher KYC, documents, company profiles, and moderation logs.
+                  </p>
+                  <div className="mt-4 flex justify-center gap-2">
+                    <Button asChild variant="default" size="sm">
+                      <Link to="/marketplace/reviewer">Go to Reviewer Workspace</Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm">
+                      <Link to="/marketplace">View Live Marketplace</Link>
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

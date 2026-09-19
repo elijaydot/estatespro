@@ -4,6 +4,10 @@ export type ControlPlaneTab =
   | 'overview'
   | 'directory'
   | 'monetization'
+  | 'invoices'
+  | 'subscriptions'
+  | 'addons'
+  | 'revenue_analytics'
   | 'safety'
   | 'alerts'
   | 'events'
@@ -13,7 +17,12 @@ export type ControlPlaneTab =
   | 'company360'
   | 'user360'
   | 'analytics'
-  | 'operators';
+  | 'analytics_ops'
+  | 'operators'
+  | 'drift'
+  | 'risk_queue'
+  | 'impersonation'
+  | 'publisher_verifications';
 
 export type SeverityFilter = 'all' | 'info' | 'warning' | 'error' | 'critical';
 export type EventResultFilter = 'all' | 'success' | 'warning' | 'blocked' | 'denied' | 'error';
@@ -33,7 +42,30 @@ export type ControlPlaneUiState = {
   correlationFilter: string;
 };
 
-const VALID_TABS: ControlPlaneTab[] = ['overview', 'directory', 'monetization', 'safety', 'alerts', 'events', 'decisions', 'usage', 'incidents', 'company360', 'user360', 'analytics', 'operators'];
+const VALID_TABS: ControlPlaneTab[] = [
+  'overview',
+  'directory',
+  'monetization',
+  'invoices',
+  'subscriptions',
+  'addons',
+  'revenue_analytics',
+  'safety',
+  'alerts',
+  'events',
+  'decisions',
+  'usage',
+  'incidents',
+  'company360',
+  'user360',
+  'analytics',
+  'analytics_ops',
+  'operators',
+  'drift',
+  'risk_queue',
+  'impersonation',
+  'publisher_verifications',
+];
 const VALID_TIME_RANGES: TimeRange[] = ['24h', '7d', '30d', 'all'];
 const VALID_SEVERITY: SeverityFilter[] = ['all', 'info', 'warning', 'error', 'critical'];
 const VALID_EVENT_RESULTS: EventResultFilter[] = ['all', 'success', 'warning', 'blocked', 'denied', 'error'];

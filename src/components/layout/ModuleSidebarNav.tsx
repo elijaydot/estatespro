@@ -209,11 +209,11 @@ export function ModuleSidebarNav({
   const getWorkspaceInfo = (id: StaffWorkspaceId) => {
     switch (id) {
       case 'property-management':
-        return { label: 'PM Operations', shortLabel: 'PM', icon: Building2, href: '/dashboard', title: 'Property Management' };
+        return { label: 'Property Management', shortLabel: 'PM', icon: Building2, href: '/dashboard', title: 'Property Management' };
       case 'marketplace':
         return { label: 'Marketplace', shortLabel: 'Marketplace', icon: Store, href: '/marketplace/manage', title: 'Marketplace' };
       case 'crm':
-        return { label: 'CRM', shortLabel: 'CRM', icon: Flame, href: '/marketplace/crm', title: 'Marketplace CRM' };
+        return { label: 'Marketplace CRM', shortLabel: 'CRM', icon: Flame, href: '/marketplace/crm', title: 'Marketplace CRM' };
       case 'control-plane':
         return { label: 'Control Plane', shortLabel: 'Control Plane', icon: Radar, href: '/super-admin/control-plane', title: 'Control Plane' };
     }
@@ -556,12 +556,12 @@ export function ModuleSidebarNav({
       ) : (
         /* EXPANDED FOOTER: 2x2 Grid Module Switcher, Utilities, Platform Override, User Profile */
         <div className="border-t border-sidebar-border/70 bg-sidebar-accent/20 p-2.5 space-y-2.5">
-          {/* Switch Module 2x2 Clean Grid */}
-          <div className="space-y-1.5">
+          {/* Switch Module Full-Width Rows (No text truncation) */}
+          <div className="space-y-1">
             <p className="px-1 text-[10px] font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
               Switch Module
             </p>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="flex flex-col gap-1">
               {availableWorkspaces.map((wsId) => {
                 const info = getWorkspaceInfo(wsId);
                 if (!info) return null;
@@ -578,17 +578,29 @@ export function ModuleSidebarNav({
                       onNavigate?.();
                     }}
                     className={cn(
-                      'flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-all text-left group',
+                      'flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left group',
                       isCurrent
-                        ? 'bg-primary/20 text-primary border border-primary/40 font-semibold shadow-sm'
-                        : 'bg-sidebar-accent/40 text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground border border-sidebar-border/40'
+                        ? 'bg-primary/20 text-primary border border-primary/40 font-semibold shadow-xs'
+                        : 'bg-sidebar-accent/30 text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground border border-sidebar-border/30'
                     )}
                     title={info.title}
                   >
-                    <WsIcon className={cn('h-4 w-4 shrink-0', isCurrent ? 'text-primary' : 'text-sidebar-foreground/60 group-hover:text-sidebar-foreground')} />
-                    <span className="truncate leading-tight font-medium">
-                      {info.shortLabel}
-                    </span>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <WsIcon
+                        className={cn(
+                          'h-4 w-4 shrink-0 transition-colors',
+                          isCurrent
+                            ? 'text-primary'
+                            : 'text-sidebar-foreground/60 group-hover:text-sidebar-foreground'
+                        )}
+                      />
+                      <span className="leading-tight font-medium">
+                        {info.label}
+                      </span>
+                    </div>
+                    {isCurrent && (
+                      <span className="flex h-1.5 w-1.5 rounded-full bg-primary shrink-0 ml-1.5" />
+                    )}
                   </button>
                 );
               })}

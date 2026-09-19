@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -29,6 +29,7 @@ import type { SaasEntitlementKey } from '@/hooks/useSaasAccess';
 import type { StaffWorkspaceId } from '@/lib/workspaceNavigation';
 import { CRM_NAV_GROUPS } from '@/components/marketplace-crm/crmNavigation';
 import { ReportsSidebarNav } from '@/components/marketplace-crm/ReportsSidebarNav';
+import { ControlPlaneSidebarNav } from '@/components/control-plane/ControlPlaneSidebarNav';
 import { ModuleSidebarNav } from '@/components/layout/ModuleSidebarNav';
 import { useWorkspaceNavigation } from '@/hooks/useWorkspaceNavigation';
 import { useOpenOperationalAlertCount } from '@/hooks/useOperationalAlerts';
@@ -176,8 +177,35 @@ export function AppSidebar({
   const { data: unreadNotificationCount = 0 } = useUnreadNotificationsCount();
   const collapsedView = !mobile && collapsed;
 
+  const navigate = useNavigate();
   const isReportsRoute =
     location.pathname.startsWith('/marketplace/crm/reports') || location.pathname === '/reports';
+  const isControlPlaneRoute =
+    location.pathname.startsWith('/super-admin/control-plane');
+
+  if (isControlPlaneRoute && !collapsedView) {
+    return (
+      <aside
+        className={cn(
+          mobile
+            ? 'h-full w-full bg-sidebar text-sidebar-foreground'
+            : 'hidden lg:block fixed left-0 top-0 z-40 h-screen bg-sidebar text-sidebar-foreground transition-all duration-300 w-64'
+        )}
+      >
+        <ControlPlaneSidebarNav
+          activeView={new URLSearchParams(location.search).get('cp_tab') || 'overview'}
+          onSelectView={(viewId) => {
+            const params = new URLSearchParams(location.search);
+            params.set('cp_tab', viewId);
+            navigate(`/super-admin/control-plane?${params.toString()}`);
+            onNavigate?.();
+          }}
+          openAlertsCount={openAlertCount}
+          collapsed={collapsed}
+        />
+      </aside>
+    );
+  }
 
   if (isReportsRoute && !collapsedView) {
     return (
