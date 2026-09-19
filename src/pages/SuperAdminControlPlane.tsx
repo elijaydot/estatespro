@@ -2364,85 +2364,67 @@ export default function SuperAdminControlPlane() {
                           {plansForSelectedProduct.length === 0
                             ? <SelectItem value="__no_plans" disabled>No plans available</SelectItem>
                             : plansForSelectedProduct.map((plan) => (
-                              <SelectItem key={plan.code} value={plan.code}>{plan.name} ({plan.code})</SelectItem>
+                              <SelectItem key={plan.code} value={plan.code}>
+                                {plan.name} ({plan.tier})
+                              </SelectItem>
                             ))}
                         </SelectContent>
                       </Select>
-                      <Select value={billingCurrency} onValueChange={setBillingCurrency}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Currency" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="USD">USD</SelectItem>
-                          <SelectItem value="NGN">NGN</SelectItem>
-                          <SelectItem value="KES">KES</SelectItem>
-                          <SelectItem value="GHS">GHS</SelectItem>
-                          <SelectItem value="ZAR">ZAR</SelectItem>
-                          <SelectItem value="CAD">CAD</SelectItem>
-                          <SelectItem value="GBP">GBP</SelectItem>
-                          <SelectItem value="EUR">EUR</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <Select value={billingGraceMode} onValueChange={(value) => setBillingGraceMode(value as 'extend' | 'set')}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Grace mode" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="extend">Extend current grace</SelectItem>
-                          <SelectItem value="set">Set absolute grace</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={60}
-                        value={billingGraceDays}
-                        onChange={(e) => setBillingGraceDays(Math.max(1, Math.min(60, Number(e.target.value) || 1)))}
-                        placeholder="Grace days"
-                      />
                       <Button
-                        variant="outline"
-                        disabled={adminSetCompanySubscriptionGrace.isPending || !effectiveBillingCompanyId || billingReason.trim().length < 8}
                         onClick={() => requestConfirmation(
-                          'Confirm company grace override',
-                          `${billingGraceMode === 'extend' ? 'Extend' : 'Set'} grace period by ${billingGraceDays} days for all active subscriptions under ${resolveCompanyLabel(effectiveBillingCompanyId)}. Reason: ${billingReason}.`,
-                          'Apply company grace',
-                          handleSetCompanyGrace,
+                          'Confirm company plan change',
+                          `Change ${resolveCompanyLabel(effectiveBillingCompanyId)} to plan ${billingPlanCode}. Reason: ${billingReason || 'No reason provided'}.`,
+                          'Apply plan change',
+                          handleAdminPlanChange,
                         )}
+                        disabled={adminChangeCompanyPlan.isPending || !effectiveBillingCompanyId || !billingPlanCode}
                       >
-                        {adminSetCompanySubscriptionGrace.isPending ? 'Applying grace...' : 'Apply Company Grace'}
+                        {adminChangeCompanyPlan.isPending ? 'Applying...' : 'Apply Plan'}
                       </Button>
                     </div>
 
                     <Input
                       value={billingReason}
                       onChange={(e) => setBillingReason(e.target.value)}
-                      placeholder="Mandatory reason for manual billing or subscription action (min 8 chars)"
+                      placeholder="Reason for change (required)"
                     />
-
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        onClick={() => requestConfirmation(
-                          'Confirm company plan assignment',
-                          `Set plan ${billingPlanCode} (${billingProductCode}) for ${resolveCompanyLabel(effectiveBillingCompanyId)}. Reason: ${billingReason}.`,
-                          'Assign plan',
-                          handleSetCompanyPlan,
-                        )}
-                        disabled={adminSetCompanyPlan.isPending || !effectiveBillingCompanyId || !billingProductCode || !billingPlanCode || billingReason.trim().length < 8}
-                      >
-                        {adminSetCompanyPlan.isPending ? 'Assigning...' : 'Assign Plan'}
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        disabled={adminReevaluateCompanyEntitlements.isPending || !effectiveBillingCompanyId}
-                        onClick={() => void handleReevaluateEntitlements()}
-                      >
-                        {adminReevaluateCompanyEntitlements.isPending ? 'Re-evaluating...' : 'Re-evaluate Entitlements'}
-                      </Button>
+                    <div className="grid gap-2 rounded-md border border-border/60 p-3 sm:grid-cols-[10rem_10rem_1fr] sm:items-end">
+                      <div>
+                        <p className="mb-2 text-xs text-muted-foreground">Grace operation</p>
+                        <Select value={billingGraceMode} onValueChange={(value) => setBillingGraceMode(value as 'from_now' | 'extend')}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent><SelectItem value="from_now">Set from now</SelectItem><SelectItem value="extend">Extend existing</SelectItem></SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <p className="mb-2 text-xs text-muted-foreground">Days</p>
+                        <Input type="number" min="1" max="90" value={billingGraceDays} onChange={(event) => setBillingGraceDays(Number(event.target.value))} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Apply from the exact subscription row below. Changes are scoped, locked, and audited.</p>
                     </div>
+
+                    {companyAdminSnapshot.data ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
+                        <div className="rounded-md border border-border/60 p-3">
+                          <p className="text-xs text-muted-foreground">Properties</p>
+                          <p className="text-lg font-semibold mt-1">{companyAdminSnapshot.data.portfolio.property_count}</p>
+                        </div>
+                        <div className="rounded-md border border-border/60 p-3">
+                          <p className="text-xs text-muted-foreground">Units</p>
+                          <p className="text-lg font-semibold mt-1">{companyAdminSnapshot.data.portfolio.unit_count}</p>
+                        </div>
+                        <div className="rounded-md border border-border/60 p-3">
+                          <p className="text-xs text-muted-foreground">Tenants</p>
+                          <p className="text-lg font-semibold mt-1">{companyAdminSnapshot.data.portfolio.tenant_count}</p>
+                        </div>
+                        <div className="rounded-md border border-border/60 p-3">
+                          <p className="text-xs text-muted-foreground">Open Alerts</p>
+                          <p className="text-lg font-semibold mt-1">{companyAdminSnapshot.data.operations.open_alert_count}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Enter a valid company reference ID to load billing details.</p>
+                    )}
                   </CardContent>
                 </Card>
 
