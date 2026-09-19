@@ -100,6 +100,7 @@ import { downloadCsv, downloadJson, getTimeRangeStartIso, isInTimeRange, matches
 import {
   parseControlPlaneUiState,
   toControlPlaneSearchParams,
+  VALID_TABS,
   type AlertStatusFilter,
   type ControlPlaneTab,
   type DecisionFilter,
@@ -538,6 +539,18 @@ export default function SuperAdminControlPlane() {
   }, [effectiveSafetyCompanyId, companyFilter, userFilter, timeRange, triageStatusFilter, revocationPrincipalType]);
 
   useEffect(() => {
+    const urlTab = searchParams.get('cp_tab') as ControlPlaneTab | null;
+    if (urlTab && urlTab !== activeTab && VALID_TABS.includes(urlTab)) {
+      setActiveTab(urlTab);
+    }
+  }, [searchParams, activeTab]);
+
+  useEffect(() => {
+    const currentUrlTab = searchParams.get('cp_tab') as ControlPlaneTab | null;
+    if (currentUrlTab && currentUrlTab !== activeTab && VALID_TABS.includes(currentUrlTab)) {
+      return;
+    }
+
     const next = toControlPlaneSearchParams({
       tab: activeTab,
       timeRange,

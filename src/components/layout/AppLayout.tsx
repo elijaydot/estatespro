@@ -11,6 +11,7 @@ import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useUserRole } from '@/hooks/useUserRole';
 import { MfaReminderBanner } from '@/components/security/MfaReminderBanner';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -114,7 +115,9 @@ export function AppLayout({ children }: AppLayoutProps) {
         <main className="flex-1 p-4 lg:p-6">
           <MfaReminderBanner />
           <div className="animate-fade-in">
-            {children}
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
           </div>
         </main>
       </div>

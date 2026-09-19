@@ -42,7 +42,7 @@ export type ControlPlaneUiState = {
   correlationFilter: string;
 };
 
-const VALID_TABS: ControlPlaneTab[] = [
+export const VALID_TABS: ControlPlaneTab[] = [
   'overview',
   'directory',
   'monetization',
