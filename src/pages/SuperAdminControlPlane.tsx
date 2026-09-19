@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Shield, Siren, Activity, Fingerprint, RefreshCw, Sparkles, Download, ChevronLeft, ChevronRight, Building2, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
