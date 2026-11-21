@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Eye, EyeOff, Home, Sparkles, Mail, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { LanguageToggle } from '@/components/shared/LanguageToggle';
+import { useI18n } from '@/contexts/useI18n';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function TenantLogin() {
@@ -17,6 +19,7 @@ export default function TenantLogin() {
   const [isResending, setIsResending] = useState(false);
   const [isEmailUnconfirmed, setIsEmailUnconfirmed] = useState(false);
   const { login } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   const handleResendConfirmation = async () => {
@@ -82,35 +85,44 @@ export default function TenantLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-success/10 flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-gradient-to-br from-primary/10 via-background to-success/10 flex items-center justify-center p-4">
+      <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
+        <LanguageToggle />
+      </div>
       <div className="w-full max-w-md animate-scale-in">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden border border-border/80 shadow-lg bg-[#060b18]">
-            <img src="/fishgate-mark.png" alt="FishGate" className="h-full w-full object-cover" />
+        <div className="flex flex-col items-center justify-center gap-2 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden border border-border/80 shadow-lg bg-[#060b18]">
+              <img src="/fishgate-mark.png" alt="FishGate" className="h-full w-full object-cover" />
+            </div>
+            <div>
+              <span className="font-bold text-2xl text-foreground leading-none block">FishGate</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80 font-semibold">{t('tenant_portal')}</span>
+            </div>
           </div>
-          <div>
-            <span className="font-bold text-2xl text-foreground leading-none block">FishGate</span>
-            <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80 font-semibold">Tenant Portal</span>
+          <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-medium text-emerald-400">
+            <span>🇷🇼</span>
+            <span>{t('rra_compliance')}</span>
           </div>
         </div>
         <div className="mb-6 flex justify-center">
           <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-display text-primary">
-            <Sparkles className="mr-1 h-3.5 w-3.5" /> Secure Tenant Access
+            <Sparkles className="mr-1 h-3.5 w-3.5" /> {t('secure_tenant_access')}
           </span>
         </div>
 
         <Card className="card-shadow-lg border-0">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
+            <CardTitle className="text-2xl font-bold">{t('welcome_back')}</CardTitle>
             <CardDescription>
-              Sign in to access your tenant portal
+              {t('sign_in_subtitle')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t('email_label')}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -123,12 +135,12 @@ export default function TenantLogin() {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t('password_label')}</Label>
                   <Link
                     to="/tenant/forgot-password"
                     className="text-sm text-accent hover:underline"
                   >
-                    Forgot password?
+                    {t('forgot_password')}
                   </Link>
                 </div>
                 <div className="relative">
@@ -186,18 +198,18 @@ export default function TenantLogin() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
+                    {t('signing_in')}
                   </>
                 ) : (
-                  'Sign in to Portal'
+                  t('sign_in_button')
                 )}
               </Button>
             </form>
 
             <div className="mt-6 text-center text-sm text-muted-foreground">
-              Are you a property manager?{' '}
+              {t('staff_login')} &rarr;{' '}
               <Link to="/login" className="text-primary font-medium hover:underline">
-                Sign in here
+                {t('sign_in_button')}
               </Link>
             </div>
           </CardContent>

@@ -20,7 +20,15 @@ import {
   Home,
   User,
   Calendar,
+  ShieldCheck,
+  Phone,
+  MessageCircle,
+  MessageSquare,
 } from 'lucide-react';
+import { RraFiscalReceiptModal } from '@/components/finance/RraFiscalReceiptModal';
+import { generateEbmVsdcReceipt, type RraEbmFiscalReceipt } from '@/lib/rraEbmVsdc';
+import { initiateMobilePayment } from '@/lib/eastAfricaPayments';
+import { sendTransactionalSms, smsTemplates } from '@/lib/smsGateway';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -152,6 +160,141 @@ export default function Invoices() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceWithRelations | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [rraModalOpen, setRraModalOpen] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<RraEbmFiscalReceipt | null>(null);
+
+  const handleViewRraReceipt = (invoice: InvoiceWithRelations) => {
+    const receipt = generateEbmVsdcReceipt({
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoice_number,
+      companyName: (invoice.properties as any)?.companies?.name || invoice.properties?.name || 'FishGate Real Estate Rwanda Ltd',
+      companyTin: '100234567',
+      tenantName: invoice.tenants?.name || invoice.guest_name || 'Valued Client',
+      amount: invoice.amount,
+      currency: 'RWF',
+      paymentMethod: 'Bank Transfer / MTN MoMo (*182#)',
+      certifiedAt: new Date(invoice.created_at || Date.now()),
+    });
+    setSelectedReceipt(receipt);
+    setRraModalOpen(true);
+  };
+
+  const [momoModalOpen, setMomoModalOpen] = useState(false);
+  const [momoTargetInvoice, setMomoTargetInvoice] = useState<InvoiceWithRelations | null>(null);
+  const [momoTargetPhone, setMomoTargetPhone] = useState('');
+  const [momoPushing, setMomoPushing] = useState(false);
+
+  const handleOpenMoMoCollect = (invoice: InvoiceWithRelations) => {
+    setMomoTargetInvoice(invoice);
+    setMomoTargetPhone(invoice.tenants?.phone || '');
+    setMomoModalOpen(true);
+  };
+
+  const handleSendMoMoPrompt = async () => {
+    if (!momoTargetInvoice || !momoTargetPhone) {
+      toast({ title: 'Validation', description: 'Enter tenant phone number', variant: 'destructive' });
+      return;
+    }
+    setMomoPushing(true);
+    try {
+      const remainingBalance = momoTargetInvoice.amount - momoTargetInvoice.paid_amount;
+      const res = await initiateMobilePayment({
+        phone: momoTargetPhone,
+        amount: remainingBalance,
+        currency: 'RWF',
+        invoiceId: momoTargetInvoice.id,
+        invoiceNumber: momoTargetInvoice.invoice_number,
+        tenantName: momoTargetInvoice.tenants?.name,
+        propertyName: momoTargetInvoice.properties?.name,
+      });
+
+      if (res.success) {
+        toast({ title: '📲 MoMo Prompt Dispatched', description: res.ussdPromptMessage });
+        
+        await sendTransactionalSms({
+          to: momoTargetPhone,
+          message: smsTemplates.rentInvoiceIssued(
+            momoTargetInvoice.tenants?.name || 'Tenant',
+            momoTargetInvoice.units?.unit_number || 'Unit',
+            remainingBalance,
+            momoTargetInvoice.due_date,
+            'RWF'
+          ),
+        });
+
+        setMomoModalOpen(false);
+      } else {
+        toast({ title: 'Prompt Failed', description: res.ussdPromptMessage, variant: 'destructive' });
+      }
+    } finally {
+      setMomoPushing(false);
+    }
+  };
+
+  const handleShareWhatsApp = (invoice: InvoiceWithRelations) => {
+    const tenantPhone = (invoice.tenants?.phone || '').replace(/[^0-9]/g, '');
+    const tenantName = invoice.tenants?.name || invoice.guest_name || 'Client';
+    const unitStr = invoice.units?.unit_number ? `Unit ${invoice.units.unit_number}` : '';
+    const propStr = invoice.properties?.name || '';
+    const balance = invoice.amount - invoice.paid_amount;
+    const dueDateStr = invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '';
+
+    const message = `Muraho ${tenantName},\n` +
+      `Inyemezabwishyu y'ubukode (${invoice.invoice_number}) ya ${propStr} ${unitStr}:\n` +
+      `• Amafaranga: RWF ${balance.toLocaleString()}\n` +
+      `• Itariki yo kwishyura: ${dueDateStr}\n` +
+      `• Koresha MTN MoMo (*182#) cyangwa Airtel Money (*175#).\n` +
+      `Murakoze cyane!`;
+
+    const url = tenantPhone
+      ? `https://wa.me/${tenantPhone}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleDirectSms = async (invoice: InvoiceWithRelations) => {
+    const phone = invoice.tenants?.phone;
+    if (!phone) {
+      toast({
+        title: 'Phone required',
+        description: 'Tenant does not have a phone number on record.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const tenantName = invoice.tenants?.name || invoice.guest_name || 'Client';
+    const unitStr = invoice.units?.unit_number || 'Unit';
+    const balance = invoice.amount - invoice.paid_amount;
+    const dueDateStr = invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '';
+
+    try {
+      const res = await sendTransactionalSms({
+        to: phone,
+        message: smsTemplates.rentInvoiceIssued(
+          tenantName,
+          unitStr,
+          balance,
+          dueDateStr,
+          'RWF'
+        ),
+      });
+
+      if (res.success) {
+        toast({
+          title: 'SMS Sent',
+          description: `Dispatched invoice notification to ${res.recipient} via ${res.provider}.`,
+        });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to send SMS';
+      toast({
+        title: 'SMS Failed',
+        description: msg,
+        variant: 'destructive',
+      });
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('estatepro-view-invoices', view);
@@ -492,6 +635,18 @@ export default function Invoices() {
                           <DropdownMenuItem onClick={() => openEdit(invoice)}>
                             <Edit className="h-4 w-4 mr-2" /> Edit Invoice
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleViewRraReceipt(invoice)}>
+                            <ShieldCheck className="h-4 w-4 mr-2 text-emerald-400" /> RRA EBM v2 Receipt
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleOpenMoMoCollect(invoice)}>
+                            <Phone className="h-4 w-4 mr-2 text-warning" /> Collect via MoMo (*182#)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleShareWhatsApp(invoice)}>
+                            <MessageCircle className="h-4 w-4 mr-2 text-emerald-500" /> Share via WhatsApp
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDirectSms(invoice)}>
+                            <MessageSquare className="h-4 w-4 mr-2 text-primary" /> Send SMS (Africa's Talking)
+                          </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => toast({ title: 'Sent', description: 'Invoice sent to tenant.' })}>
                             <Send className="h-4 w-4 mr-2" /> Send to Tenant
                           </DropdownMenuItem>
@@ -571,6 +726,18 @@ export default function Invoices() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => openEdit(invoice)}>
                             <Edit className="h-4 w-4 mr-2" /> Edit Invoice
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleViewRraReceipt(invoice)}>
+                            <ShieldCheck className="h-4 w-4 mr-2 text-emerald-400" /> RRA EBM v2 Receipt
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleOpenMoMoCollect(invoice)}>
+                            <Phone className="h-4 w-4 mr-2 text-warning" /> Collect via MoMo (*182#)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleShareWhatsApp(invoice)}>
+                            <MessageCircle className="h-4 w-4 mr-2 text-emerald-500" /> Share via WhatsApp
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDirectSms(invoice)}>
+                            <MessageSquare className="h-4 w-4 mr-2 text-primary" /> Send SMS (Africa's Talking)
                           </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => toast({ title: 'Sent', description: 'Invoice sent to tenant.' })}>
                             <Send className="h-4 w-4 mr-2" /> Send to Tenant
@@ -663,6 +830,18 @@ export default function Invoices() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => openEdit(invoice)}>
                             <Edit className="h-4 w-4 mr-2" /> Edit Invoice
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleViewRraReceipt(invoice)}>
+                            <ShieldCheck className="h-4 w-4 mr-2 text-emerald-400" /> RRA EBM v2 Receipt
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleOpenMoMoCollect(invoice)}>
+                            <Phone className="h-4 w-4 mr-2 text-warning" /> Collect via MoMo (*182#)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleShareWhatsApp(invoice)}>
+                            <MessageCircle className="h-4 w-4 mr-2 text-emerald-500" /> Share via WhatsApp
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDirectSms(invoice)}>
+                            <MessageSquare className="h-4 w-4 mr-2 text-primary" /> Send SMS (Africa's Talking)
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={() => handleDownloadPdf(invoice.id)}
@@ -832,6 +1011,76 @@ export default function Invoices() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MoMo Instant USSD Collection Prompt Dialog */}
+      <Dialog open={momoModalOpen} onOpenChange={setMomoModalOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-warning font-semibold">
+              <Phone className="h-5 w-5" />
+              <DialogTitle>Push MoMo USSD Prompt (*182#)</DialogTitle>
+            </div>
+            <DialogDescription>
+              Dispatches an immediate USSD payment authorization prompt directly to the tenant's handset.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3 text-sm">
+            <div className="p-3 rounded-lg bg-secondary/50 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Invoice:</span>
+                <span className="font-semibold">{momoTargetInvoice?.invoice_number}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Tenant:</span>
+                <span className="font-semibold">{momoTargetInvoice?.tenants?.name || 'Client'}</span>
+              </div>
+              <div className="flex justify-between text-emerald-400 font-bold text-sm pt-1 border-t border-border/60">
+                <span>Amount Due:</span>
+                <span>
+                  RWF {momoTargetInvoice ? (momoTargetInvoice.amount - momoTargetInvoice.paid_amount).toLocaleString() : '0'}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="momoTargetPhoneInput" className="text-xs">MTN MoMo or Airtel Money Number</Label>
+              <Input
+                id="momoTargetPhoneInput"
+                value={momoTargetPhone}
+                onChange={(e) => setMomoTargetPhone(e.target.value)}
+                placeholder="e.g. 0788123456"
+                className="font-mono text-xs"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Supported: MTN Rwanda (078, 079) & Airtel Money (072, 073)
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setMomoModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5"
+              onClick={handleSendMoMoPrompt}
+              disabled={momoPushing || !momoTargetPhone}
+            >
+              {momoPushing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Phone className="h-3.5 w-3.5" />}
+              {momoPushing ? 'Pushing USSD...' : 'Send USSD Prompt'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* RRA EBM v2 Certified Fiscal Tax Receipt Modal */}
+      <RraFiscalReceiptModal
+        open={rraModalOpen}
+        onOpenChange={setRraModalOpen}
+        receipt={selectedReceipt}
+      />
     </div>
   );
 }

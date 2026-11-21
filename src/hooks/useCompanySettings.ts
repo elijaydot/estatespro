@@ -11,6 +11,12 @@ export interface CompanySettings {
   company_phone: string | null;
   company_address: string | null;
   logo_url: string | null;
+  tin?: string | null;
+  rdb_company_code?: string | null;
+  legal_structure?: string | null;
+  kyb_status?: string | null;
+  rwareb_license_number?: string | null;
+  is_verified?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -41,7 +47,7 @@ export function useCompanySettings(companyId?: string | null) {
 
       const { data: companyRow, error: companyError } = await supabase
         .from('companies')
-        .select('id, name, email, phone, address, logo_url, created_at, updated_at')
+        .select('*')
         .eq('id', companyId)
         .maybeSingle();
 
@@ -57,6 +63,12 @@ export function useCompanySettings(companyId?: string | null) {
           company_phone: companyRow.phone ?? null,
           company_address: companyRow.address ?? null,
           logo_url: companyRow.logo_url ?? null,
+          tin: companyRow.tin ?? null,
+          rdb_company_code: companyRow.rdb_company_code ?? null,
+          legal_structure: companyRow.legal_structure ?? null,
+          kyb_status: companyRow.kyb_status ?? null,
+          rwareb_license_number: companyRow.rwareb_license_number ?? null,
+          is_verified: companyRow.is_verified ?? false,
           created_at: companyRow.created_at,
           updated_at: companyRow.updated_at,
         } as CompanySettings;

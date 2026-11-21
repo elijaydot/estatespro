@@ -6,6 +6,7 @@ import {
   Calendar,
   AlertCircle,
   CheckCircle,
+  CheckCircle2,
   Clock,
   ArrowRight,
   Home,
@@ -15,7 +16,10 @@ import {
   MessageSquare,
   Wallet,
   LogOut,
+  ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
+import { useI18n } from '@/contexts/useI18n';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +55,7 @@ type MaintenanceRequestRow = {
 export default function TenantDashboard() {
   const { data: portalData, isLoading } = useTenantPortalData();
   const { formatCurrency } = useSettings();
+  const { t } = useI18n();
 
   if (isLoading) {
     return (
@@ -100,13 +105,107 @@ export default function TenantDashboard() {
   return (
     <div className="space-y-6 animate-fade-in">
       <section className="border-b border-border pb-5">
-        <p className="text-xs font-medium uppercase text-muted-foreground">Tenant Overview</p>
-        <h1 className="mt-1 text-3xl font-bold text-foreground">Welcome back, {tenant.name.split(' ')[0]}</h1>
-        <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-          <Home className="h-4 w-4" />
-          {unit ? `Unit ${unit.unit_number}` : 'No unit assigned'} · {property?.name || 'No property'}
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium uppercase text-muted-foreground">{t('tenant_portal')}</p>
+            <h1 className="mt-1 text-3xl font-bold text-foreground">{t('welcome_tenant')}, {tenant.name.split(' ')[0]}</h1>
+            <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+              <Home className="h-4 w-4" />
+              {unit ? `Unit ${unit.unit_number}` : 'No unit assigned'} · {property?.name || 'No property'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-400 font-medium">
+            <span>🇷🇼</span>
+            <span>{t('rra_compliance')}</span>
+          </div>
+        </div>
       </section>
+
+      {/* Tenant Onboarding & Move-In Checklist */}
+      <Card className="border-emerald-500/30 bg-gradient-to-r from-emerald-500/5 via-background to-primary/5 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-emerald-400" />
+              <CardTitle className="text-base font-semibold text-foreground">
+                {t('checklist_title')}
+              </CardTitle>
+            </div>
+            <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 text-[10px]">
+              Rwanda RHA Verified
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-3">
+            {/* Step 1: Lease */}
+            <div className="rounded-lg border border-border/80 bg-card/60 p-3 flex flex-col justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground">{t('step1_title')}</span>
+                  {currentLease?.status === 'active' ? (
+                    <span className="text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Signed
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-amber-400">Action Required</span>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  {t('step1_desc')}
+                </p>
+              </div>
+              <div className="pt-2">
+                <Button size="sm" variant="outline" className="w-full h-7 text-xs" asChild>
+                  <Link to="/tenant/lease">View Contract</Link>
+                </Button>
+              </div>
+            </div>
+
+            {/* Step 2: Deposit & Rent */}
+            <div className="rounded-lg border border-border/80 bg-card/60 p-3 flex flex-col justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground">{t('step2_title')}</span>
+                  {stats.balance <= 0 ? (
+                    <span className="text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Settled
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-rose-400">Due: {formatCurrency(stats.balance)}</span>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  {t('step2_desc')}
+                </p>
+              </div>
+              <div className="pt-2">
+                <Button size="sm" className="w-full h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white" asChild>
+                  <Link to="/tenant/payments">Pay with MoMo / Bank</Link>
+                </Button>
+              </div>
+            </div>
+
+            {/* Step 3: Move-in Inspection */}
+            <div className="rounded-lg border border-border/80 bg-card/60 p-3 flex flex-col justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground">{t('step3_title')}</span>
+                  <span className="text-[10px] font-semibold text-cyan-400">Inspection</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  {t('step3_desc')}
+                </p>
+              </div>
+              <div className="pt-2">
+                <Button size="sm" variant="outline" className="w-full h-7 text-xs" asChild>
+                  <Link to={`/tenant-inventory-baseline/${tenant.id}`}>Start Move-In Baseline</Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <MetricCard title="Monthly Due" value={formatCurrency(stats.totalMonthlyDue)} subtitle="Rent and recurring charges" icon={Receipt} accent="primary" />

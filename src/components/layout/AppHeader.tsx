@@ -29,6 +29,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useWorkspaceNavigation } from '@/hooks/useWorkspaceNavigation';
 import type { StaffWorkspaceId } from '@/lib/workspaceNavigation';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { LanguageToggle } from '@/components/shared/LanguageToggle';
 
 type QuickAddType = 'property' | 'unit' | 'tenant' | 'lease' | 'invoice';
 
@@ -392,6 +393,7 @@ export function AppHeader() {
           </Popover>
         )}
 
+        <LanguageToggle />
         <ThemeToggle />
 
         {/* Quick Add */}

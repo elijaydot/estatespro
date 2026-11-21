@@ -12,12 +12,14 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { MfaReminderBanner } from '@/components/security/MfaReminderBanner';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { useInboundSlaAlert } from '@/hooks/useInboundSlaAlert';
 
 interface AppLayoutProps {
   children: ReactNode;
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
+  useInboundSlaAlert();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navigate = useNavigate();

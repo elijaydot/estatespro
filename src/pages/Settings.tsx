@@ -1,7 +1,31 @@
-import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Globe, Building2, Palette, FileText, Bell, ClipboardCheck, User, CreditCard, Shield } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import {
+  Settings as SettingsIcon,
+  Globe,
+  Building2,
+  Palette,
+  FileText,
+  Bell,
+  ClipboardCheck,
+  User,
+  CreditCard,
+  Shield,
+  BellRing,
+  Search,
+  X,
+  ShieldCheck,
+  Sparkles,
+  ArrowRight,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useActiveCompany } from "@/contexts/useActiveCompany";
+import { useSettings } from "@/contexts/useSettings";
+import { useSaasAccess } from "@/hooks/useSaasAccess";
+
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { GeneralSettings } from "@/components/settings/GeneralSettings";
 import { CompanySettings } from "@/components/settings/CompanySettings";
@@ -14,30 +38,132 @@ import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { BillingPlansSettings } from "@/components/settings/BillingPlansSettings";
 import { AlertSettings } from "@/components/settings/AlertSettings";
 
-const tabs = [
-  { id: "profile", label: "Profile", icon: User, description: "Account details" },
-  { id: "security", label: "Security", icon: Shield, description: "MFA and account protection" },
-  { id: "general", label: "General", icon: Globe, description: "Regional & currency" },
-  { id: "company", label: "Company", icon: Building2, description: "Company details" },
-  { id: "appearance", label: "Appearance", icon: Palette, description: "Colors & theme" },
-  { id: "lease", label: "Lease Documents", icon: FileText, description: "PDF styling" },
-  { id: "payments", label: "Payments", icon: CreditCard, description: "Gateway & manual" },
-  { id: "billing", label: "Billing & Plans", icon: CreditCard, description: "Pricing, access, upgrades" },
-  { id: "notifications", label: "Notifications", icon: Bell, description: "Alerts & emails" },
-  { id: "alerts", label: "Operational Alerts", icon: Bell, description: "Detection thresholds" },
-  { id: "inspections", label: "Inspections", icon: ClipboardCheck, description: "Checklists" },
+export interface SettingsTabItem {
+  id: string;
+  label: string;
+  pillar: "Account" | "Organization" | "Operations" | "System";
+  icon: React.ElementType;
+  description: string;
+  keywords: string[];
+}
+
+const tabs: SettingsTabItem[] = [
+  {
+    id: "profile",
+    label: "Profile",
+    pillar: "Account",
+    icon: User,
+    description: "Account details & avatar",
+    keywords: ["name", "email", "phone", "avatar", "profile", "contact", "identity"],
+  },
+  {
+    id: "security",
+    label: "Security",
+    pillar: "Account",
+    icon: Shield,
+    description: "MFA & account protection",
+    keywords: ["mfa", "2fa", "authenticator", "password", "security", "recovery codes", "devices"],
+  },
+  {
+    id: "appearance",
+    label: "Appearance",
+    pillar: "Account",
+    icon: Palette,
+    description: "Colors & theme",
+    keywords: ["theme", "dark mode", "light mode", "color", "accent", "appearance"],
+  },
+  {
+    id: "general",
+    label: "General",
+    pillar: "Organization",
+    icon: Globe,
+    description: "Regional & currency",
+    keywords: ["currency", "rwf", "usd", "kes", "timezone", "kigali", "region", "date format", "country"],
+  },
+  {
+    id: "company",
+    label: "Company",
+    pillar: "Organization",
+    icon: Building2,
+    description: "Company details & RDB compliance",
+    keywords: ["company", "tin", "rdb", "rra", "kyb", "registration", "license", "director", "address"],
+  },
+  {
+    id: "lease",
+    label: "Lease Documents",
+    pillar: "Operations",
+    icon: FileText,
+    description: "PDF styling & branding",
+    keywords: ["lease", "pdf", "contract", "bilingual", "kinyarwanda", "english", "styling", "font"],
+  },
+  {
+    id: "payments",
+    label: "Payments",
+    pillar: "Operations",
+    icon: CreditCard,
+    description: "Gateway & manual",
+    keywords: ["payment", "momo", "mtn", "airtel", "mobile money", "rra", "ebm", "vsdc", "paystack", "stripe", "bank"],
+  },
+  {
+    id: "inspections",
+    label: "Inspections",
+    pillar: "Operations",
+    icon: ClipboardCheck,
+    description: "Checklists & inventory",
+    keywords: ["inspection", "checklist", "exit", "move in", "move out", "inventory", "condition"],
+  },
+  {
+    id: "notifications",
+    label: "Notifications",
+    pillar: "System",
+    icon: Bell,
+    description: "Alerts & emails",
+    keywords: ["notification", "email", "sms", "alert", "reminders", "messages", "in-app"],
+  },
+  {
+    id: "alerts",
+    label: "Operational Alerts",
+    pillar: "System",
+    icon: BellRing,
+    description: "Detection thresholds",
+    keywords: ["alerts", "threshold", "vacant", "overdue", "arrears", "lease expiry", "vendor insurance"],
+  },
+  {
+    id: "billing",
+    label: "Billing & Plans",
+    pillar: "System",
+    icon: CreditCard,
+    description: "Pricing, access, upgrades",
+    keywords: ["billing", "plan", "subscription", "pricing", "upgrade", "quota", "invoice", "license"],
+  },
 ];
 
 const tabGroups = [
   { title: "Account", tabIds: ["profile", "security", "appearance"] },
   { title: "Organization", tabIds: ["general", "company"] },
-  { title: "Operations", tabIds: ["lease", "payments", "notifications", "alerts", "inspections"] },
-  { title: "Subscription", tabIds: ["billing"] },
+  { title: "Operations", tabIds: ["lease", "payments", "inspections"] },
+  { title: "Subscription", tabIds: ["notifications", "alerts", "billing"] },
+];
+
+const PILLARS = [
+  { id: "all", label: "All Settings" },
+  { id: "Account", label: "Account" },
+  { id: "Organization", label: "Organization" },
+  { id: "Operations", label: "Operations" },
+  { id: "Subscription", label: "Subscription" },
 ];
 
 export default function Settings() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("profile");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPillar, setSelectedPillar] = useState<string>("all");
+
+  const { activeCompanyId } = useActiveCompany();
+  const { data: companyData } = useCompanySettings(activeCompanyId);
+  const { settings: generalSettings } = useSettings();
+  const saasAccess = useSaasAccess();
+  const planName = saasAccess.data?.activePlanName || "Professional";
 
   useEffect(() => {
     const requestedTab = searchParams.get("tab");
@@ -49,79 +175,370 @@ export default function Settings() {
     }
   }, [searchParams]);
 
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    setSearchParams({ tab: tabId }, { replace: true });
+  };
+
+  const matchingTabs = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return [];
+    return tabs.filter(
+      (tab) =>
+        tab.label.toLowerCase().includes(q) ||
+        tab.description.toLowerCase().includes(q) ||
+        tab.pillar.toLowerCase().includes(q) ||
+        tab.keywords.some((k) => k.toLowerCase().includes(q))
+    );
+  }, [searchQuery]);
+
+  const currentTab = tabs.find((t) => t.id === activeTab) || tabs[0];
+  const CurrentIcon = currentTab.icon;
+
+  const mobileTabs = useMemo(() => {
+    if (selectedPillar === "all") return tabs;
+    if (selectedPillar === "Subscription") {
+      return tabs.filter((t) => ["notifications", "alerts", "billing"].includes(t.id));
+    }
+    return tabs.filter((t) => t.pillar === selectedPillar);
+  }, [selectedPillar]);
+
   return (
-    <div className="animate-fade-in">
-      <div className="mb-6">
+    <div className="animate-fade-in max-w-7xl mx-auto space-y-6 pb-12">
+      {/* Settings Top Command Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-border/60">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <SettingsIcon className="h-5 w-5 text-primary" />
+          <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-sm">
+            <SettingsIcon className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-            <p className="text-sm text-muted-foreground">Manage your application preferences</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">Settings</h1>
+              <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                Control Center
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              Personal preferences, Rwandan RDB / RRA compliance, mobile money rails & automation
+            </p>
           </div>
         </div>
-      </div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
-        <nav className="lg:w-64 shrink-0">
-          <div className="grid grid-cols-2 gap-x-2 gap-y-4 sm:grid-cols-4 lg:sticky lg:top-4 lg:grid-cols-1">
-            {tabGroups.map((group) => (
-              <div key={group.title}>
-                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/75">
-                  {group.title}
+        {/* Global Quick Search Input */}
+        <div className="relative w-full md:w-80">
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              type="text"
+              placeholder="Search settings (MFA, TIN, MoMo, Currency)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-8 h-10 bg-card border-border/80 rounded-xl text-xs sm:text-sm focus-visible:ring-primary/40 shadow-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-muted"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Instant Search Results Dropdown */}
+          {searchQuery.trim() && (
+            <div className="absolute z-30 left-0 right-0 mt-2 p-2 bg-card/95 backdrop-blur-md border border-border/80 rounded-xl shadow-xl space-y-1 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground px-2 py-1">
+                <span>Matching Settings ({matchingTabs.length})</span>
+                <span>Select to open</span>
+              </div>
+              {matchingTabs.length === 0 ? (
+                <p className="text-xs text-muted-foreground p-3 text-center">
+                  No settings found matching "{searchQuery}".
                 </p>
-                <div className="space-y-1">
-                  {group.tabIds.map((tabId) => {
-                    const tab = tabs.find((candidate) => candidate.id === tabId);
-                    if (!tab) return null;
-
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.id;
+              ) : (
+                <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                  {matchingTabs.map((tab) => {
+                    const TabIcon = tab.icon;
                     return (
                       <button
                         key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={cn(
-                          "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
-                          isActive
-                            ? "bg-primary text-primary-foreground"
-                            : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                        )}
+                        onClick={() => {
+                          handleTabChange(tab.id);
+                          setSearchQuery("");
+                        }}
+                        className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-primary/10 hover:text-primary text-left text-xs transition-colors group border border-transparent hover:border-primary/20"
                       >
-                        <Icon className="h-4 w-4 shrink-0" />
-                        <div className="min-w-0">
-                          <p className={cn("text-sm font-medium break-words", isActive && "text-primary-foreground")}>
-                            {tab.label}
-                          </p>
-                          <p className={cn(
-                            "text-xs hidden lg:block",
-                            isActive ? "text-primary-foreground/70" : "text-muted-foreground"
-                          )}>
-                            {tab.description}
-                          </p>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="p-1.5 rounded-md bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary">
+                            <TabIcon className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground group-hover:text-primary truncate">
+                              {tab.label}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {tab.description}
+                            </p>
+                          </div>
                         </div>
+                        <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-primary shrink-0 ml-2" />
                       </button>
                     );
                   })}
                 </div>
-              </div>
-            ))}
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile Screen Category Selector (< lg) */}
+      <div className="lg:hidden space-y-3">
+        {/* Category Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          {PILLARS.map((p) => {
+            const isSelected = selectedPillar === p.id;
+            return (
+              <button
+                key={p.id}
+                onClick={() => setSelectedPillar(p.id)}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all border",
+                  isSelected
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm font-semibold"
+                    : "bg-card text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                )}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Mobile Tab Grid */}
+        <div className="grid grid-cols-2 gap-2">
+          {mobileTabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={cn(
+                  "flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all",
+                  isActive
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-card border-border/70 hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <div
+                  className={cn(
+                    "p-1.5 rounded-lg shrink-0",
+                    isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className={cn("text-xs font-semibold truncate", isActive && "text-primary-foreground")}>
+                    {tab.label}
+                  </p>
+                  <p
+                    className={cn(
+                      "text-[10px] truncate",
+                      isActive ? "text-primary-foreground/80" : "text-muted-foreground"
+                    )}
+                  >
+                    {tab.description}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Main Settings Body */}
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
+        {/* Desktop Sidebar Navigation (lg:block) */}
+        <nav className="hidden lg:block lg:w-64 shrink-0">
+          <div className="sticky top-6 space-y-6 bg-card/60 backdrop-blur-sm p-3 rounded-2xl border border-border/70 shadow-sm">
+            {tabGroups.map((group) => {
+              const groupTabs = tabs.filter((t) => group.tabIds.includes(t.id));
+              if (groupTabs.length === 0) return null;
+
+              return (
+                <div key={group.title} className="space-y-1">
+                  <div className="flex items-center justify-between px-3 py-1">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/80">
+                      {group.title}
+                    </p>
+                    <span className="text-[10px] font-mono text-muted-foreground/60">
+                      {groupTabs.length}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {groupTabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => handleTabChange(tab.id)}
+                          className={cn(
+                            "w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-all group",
+                            isActive
+                              ? "bg-primary text-primary-foreground shadow-sm font-semibold"
+                              : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div
+                              className={cn(
+                                "p-1.5 rounded-lg transition-colors shrink-0",
+                                isActive
+                                  ? "bg-primary-foreground/20 text-primary-foreground"
+                                  : "bg-muted text-muted-foreground group-hover:text-foreground"
+                              )}
+                            >
+                              <Icon className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className={cn("text-xs font-semibold truncate", isActive && "text-primary-foreground")}>
+                                {tab.label}
+                              </p>
+                              <p
+                                className={cn(
+                                  "text-[10px] truncate",
+                                  isActive ? "text-primary-foreground/80" : "text-muted-foreground"
+                                )}
+                              >
+                                {tab.description}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Quick Live Status Indicators */}
+                          {tab.id === "company" && (
+                            <span
+                              className={cn(
+                                "text-[9px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0",
+                                isActive
+                                  ? "bg-primary-foreground/20 text-primary-foreground"
+                                  : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                              )}
+                            >
+                              RDB
+                            </span>
+                          )}
+                          {tab.id === "payments" && (
+                            <span
+                              className={cn(
+                                "text-[9px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0",
+                                isActive
+                                  ? "bg-primary-foreground/20 text-primary-foreground"
+                                  : "bg-blue-500/15 text-blue-400 border border-blue-500/30"
+                              )}
+                            >
+                              MoMo
+                            </span>
+                          )}
+                          {tab.id === "general" && (
+                            <span
+                              className={cn(
+                                "text-[9px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0",
+                                isActive
+                                  ? "bg-primary-foreground/20 text-primary-foreground"
+                                  : "bg-muted text-muted-foreground border border-border/60"
+                              )}
+                            >
+                              {generalSettings.currencyCode}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </nav>
 
-        <div className="flex-1 min-w-0">
-          {activeTab === "profile" && <ProfileSettings />}
-          {activeTab === "security" && <SecuritySettingsWrapper />}
-          {activeTab === "general" && <GeneralSettings />}
-          {activeTab === "company" && <CompanySettingsWrapper />}
-          {activeTab === "appearance" && <AppearanceSettings />}
-          {activeTab === "lease" && <LeaseDocumentSettings />}
-          {activeTab === "payments" && <PaymentSettingsWrapper />}
-          {activeTab === "billing" && <BillingPlansSettingsWrapper />}
-          {activeTab === "notifications" && <NotificationSettings />}
-          {activeTab === "alerts" && <AlertSettings />}
-          {activeTab === "inspections" && <InspectionChecklistWrapper />}
+        {/* Content Panel Area */}
+        <div className="flex-1 min-w-0 w-full space-y-6">
+          {/* Active Tab Context Header Card */}
+          <div className="p-4 rounded-2xl border border-border/70 bg-gradient-to-r from-card via-card to-muted/20 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20 shrink-0">
+                <CurrentIcon className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-0.5 rounded-full bg-muted border border-border/60">
+                    {currentTab.pillar}
+                  </span>
+                  <h2 className="text-base sm:text-lg font-bold text-foreground">
+                    {currentTab.label}
+                  </h2>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {currentTab.description}
+                </p>
+              </div>
+            </div>
+
+            {/* Context Badge */}
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              {activeTab === "company" && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                  RDB Compliant
+                </span>
+              )}
+              {activeTab === "general" && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                  <Globe className="h-3.5 w-3.5" />
+                  {generalSettings.currencyCode} • Africa/Kigali
+                </span>
+              )}
+              {activeTab === "billing" && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                  {planName}
+                </span>
+              )}
+              {activeTab === "payments" && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/30">
+                  <CreditCard className="h-3.5 w-3.5 text-blue-400" />
+                  MTN MoMo & EBM v2
+                </span>
+              )}
+              {activeTab === "security" && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                  <Shield className="h-3.5 w-3.5 text-indigo-400" />
+                  MFA Guard
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Active Settings Panel */}
+          <div className="transition-all duration-200">
+            {activeTab === "profile" && <ProfileSettings />}
+            {activeTab === "security" && <SecuritySettingsWrapper />}
+            {activeTab === "general" && <GeneralSettings />}
+            {activeTab === "company" && <CompanySettingsWrapper />}
+            {activeTab === "appearance" && <AppearanceSettings />}
+            {activeTab === "lease" && <LeaseDocumentSettings />}
+            {activeTab === "payments" && <PaymentSettingsWrapper />}
+            {activeTab === "billing" && <BillingPlansSettingsWrapper />}
+            {activeTab === "notifications" && <NotificationSettings />}
+            {activeTab === "alerts" && <AlertSettings />}
+            {activeTab === "inspections" && <InspectionChecklistWrapper />}
+          </div>
         </div>
       </div>
     </div>
@@ -131,10 +548,6 @@ export default function Settings() {
 function CompanySettingsWrapper() {
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-foreground">Company</h2>
-        <p className="text-sm text-muted-foreground">Your company details shown on tenant invites and portal</p>
-      </div>
       <CompanySettings />
     </div>
   );
@@ -143,10 +556,6 @@ function CompanySettingsWrapper() {
 function PaymentSettingsWrapper() {
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-foreground">Payment Settings</h2>
-        <p className="text-sm text-muted-foreground">Configure payment gateways and manual payment details</p>
-      </div>
       <PaymentSettings />
     </div>
   );
@@ -155,10 +564,6 @@ function PaymentSettingsWrapper() {
 function InspectionChecklistWrapper() {
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-foreground">Inspection Checklists</h2>
-        <p className="text-sm text-muted-foreground">Manage default items for tenant exit inspections</p>
-      </div>
       <InspectionChecklistSettings />
     </div>
   );
@@ -167,10 +572,6 @@ function InspectionChecklistWrapper() {
 function SecuritySettingsWrapper() {
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-foreground">Security</h2>
-        <p className="text-sm text-muted-foreground">Set up and manage multi-factor authentication for your account.</p>
-      </div>
       <SecuritySettings />
     </div>
   );
@@ -179,10 +580,6 @@ function SecuritySettingsWrapper() {
 function BillingPlansSettingsWrapper() {
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-foreground">Billing & Plans</h2>
-        <p className="text-sm text-muted-foreground">See pricing, active access, and upgrade your company subscription.</p>
-      </div>
       <BillingPlansSettings />
     </div>
   );

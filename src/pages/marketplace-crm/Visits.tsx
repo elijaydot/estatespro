@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
-import { useCrmAssignableUsers } from '@/hooks/useMarketplace';
+import { useCrmAssignableUsers, useCrmLeads } from '@/hooks/useMarketplace';
 import { useCreateCrmVisit, useCrmDeals, useCrmVisits, useUpdateCrmVisit } from '@/hooks/useMarketplaceCrm';
 import { useSignedUrl } from '@/hooks/useSignedUrl';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,6 +25,7 @@ export default function MarketplaceCrmVisitsPage() {
   const { activeCompanyId } = useActiveCompany();
   const visitsQuery = useCrmVisits(activeCompanyId);
   const dealsQuery = useCrmDeals(activeCompanyId);
+  const leadsQuery = useCrmLeads(activeCompanyId);
   const assignableUsersQuery = useCrmAssignableUsers(activeCompanyId);
   const createVisit = useCreateCrmVisit(activeCompanyId);
   const updateVisit = useUpdateCrmVisit(activeCompanyId);
@@ -39,6 +40,8 @@ export default function MarketplaceCrmVisitsPage() {
   const [locality, setLocality] = useState('');
   const [address, setAddress] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
+  const [relatedType, setRelatedType] = useState<'lead' | 'deal'>('lead');
+  const [relatedLeadId, setRelatedLeadId] = useState('');
   const [relatedDealId, setRelatedDealId] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [visitNotes, setVisitNotes] = useState('');
@@ -74,8 +77,8 @@ export default function MarketplaceCrmVisitsPage() {
   const create = () => {
     if (!locality.trim() || !scheduledAt) return;
     createVisit.mutate({
-      related_type: 'deal',
-      related_id: relatedDealId || null,
+      related_type: relatedType,
+      related_id: relatedType === 'lead' ? (relatedLeadId || null) : (relatedDealId || null),
       locality: locality.trim(),
       address_text: address.trim() || null,
       scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
@@ -90,7 +93,7 @@ export default function MarketplaceCrmVisitsPage() {
       notes: visitNotes.trim() || null,
       created_by: null,
     }, { onSuccess: () => {
-      setLocality(''); setAddress(''); setScheduledAt(''); setRelatedDealId(''); setAssignedTo(''); setVisitNotes(''); setCreateOpen(false);
+      setLocality(''); setAddress(''); setScheduledAt(''); setRelatedLeadId(''); setRelatedDealId(''); setAssignedTo(''); setVisitNotes(''); setCreateOpen(false);
     } });
   };
 
@@ -220,8 +223,65 @@ export default function MarketplaceCrmVisitsPage() {
             <label className="space-y-1.5 text-sm"><span>Locality</span><input className="h-10 w-full rounded-md border border-input px-3 text-sm" placeholder="e.g. Lekki Phase 1" value={locality} onChange={(event) => setLocality(event.target.value)} /></label>
             <label className="space-y-1.5 text-sm"><span>Scheduled time</span><input className="h-10 w-full rounded-md border border-input px-3 text-sm" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} /></label>
             <label className="space-y-1.5 text-sm sm:col-span-2"><span>Full address</span><input className="h-10 w-full rounded-md border border-input px-3 text-sm" placeholder="Street, building, unit, and landmark" value={address} onChange={(event) => setAddress(event.target.value)} /></label>
-            <label className="space-y-1.5 text-sm"><span>Related deal</span><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={relatedDealId} onChange={(event) => setRelatedDealId(event.target.value)}><option value="">No linked deal</option>{(dealsQuery.data || []).map((deal) => <option key={deal.id} value={deal.id}>{deal.deal_name}</option>)}</select></label>
-            <label className="space-y-1.5 text-sm"><span>Assigned teammate</span><AssigneePicker users={assignableUsersQuery.data || []} value={assignedTo || null} onChange={(next) => setAssignedTo(next || '')} placeholder="Unassigned" className="h-10" /></label>
+            <div className="space-y-1.5 text-sm sm:col-span-2">
+              <span className="font-medium text-foreground">Relate visit to</span>
+              <div className="flex gap-4 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-xs">
+                  <input
+                    type="radio"
+                    name="visitRelatedType"
+                    checked={relatedType === 'lead'}
+                    onChange={() => setRelatedType('lead')}
+                  />
+                  <span>Sales Pipeline Lead</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-xs">
+                  <input
+                    type="radio"
+                    name="visitRelatedType"
+                    checked={relatedType === 'deal'}
+                    onChange={() => setRelatedType('deal')}
+                  />
+                  <span>Commercial Deal</span>
+                </label>
+              </div>
+            </div>
+
+            {relatedType === 'lead' ? (
+              <label className="space-y-1.5 text-sm sm:col-span-2">
+                <span>Select Lead (Auto-advances to Site Visit)</span>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={relatedLeadId}
+                  onChange={(event) => setRelatedLeadId(event.target.value)}
+                >
+                  <option value="">No linked lead</option>
+                  {(leadsQuery.data || []).map((lead) => (
+                    <option key={lead.id} value={lead.id}>
+                      {lead.contact_name || lead.listing_title || lead.id} · ({lead.stage})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label className="space-y-1.5 text-sm sm:col-span-2">
+                <span>Select Deal</span>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={relatedDealId}
+                  onChange={(event) => setRelatedDealId(event.target.value)}
+                >
+                  <option value="">No linked deal</option>
+                  {(dealsQuery.data || []).map((deal) => (
+                    <option key={deal.id} value={deal.id}>
+                      {deal.deal_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <label className="space-y-1.5 text-sm sm:col-span-2"><span>Assigned teammate</span><AssigneePicker users={assignableUsersQuery.data || []} value={assignedTo || null} onChange={(next) => setAssignedTo(next || '')} placeholder="Unassigned" className="h-10" /></label>
             <label className="space-y-1.5 text-sm sm:col-span-2"><span>Access instructions and notes</span><textarea className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Contact person, access code, meeting point, preparation, or safety notes" value={visitNotes} onChange={(event) => setVisitNotes(event.target.value)} /></label>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button onClick={create} disabled={!locality.trim() || !scheduledAt || createVisit.isPending}>Schedule visit</Button></DialogFooter>

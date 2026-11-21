@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/useAuth";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { ActiveCompanyProvider } from "@/contexts/ActiveCompanyContext";
+import { I18nProvider } from "@/contexts/I18nContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { TenantPortalLayout } from "@/pages/tenant-portal/TenantPortalLayout";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -617,23 +618,25 @@ function AppRoutes() {
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="fishgate-theme">
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          <SettingsProvider>
-            <ActiveCompanyProvider>
-              <ConfirmActionProvider>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
-                  <AppRoutes />
-                </BrowserRouter>
-              </ConfirmActionProvider>
-            </ActiveCompanyProvider>
-          </SettingsProvider>
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <I18nProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProvider>
+            <SettingsProvider>
+              <ActiveCompanyProvider>
+                <ConfirmActionProvider>
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <AppRoutes />
+                  </BrowserRouter>
+                </ConfirmActionProvider>
+              </ActiveCompanyProvider>
+            </SettingsProvider>
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </I18nProvider>
   </ThemeProvider>
 );
 

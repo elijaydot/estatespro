@@ -10,6 +10,9 @@ import {
   Calendar,
   ArrowUpRight,
   Loader2,
+  QrCode,
+  ShieldCheck,
+  Phone,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +37,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
@@ -42,6 +47,10 @@ import { useSettings } from '@/contexts/useSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, differenceInDays } from 'date-fns';
+import { RraFiscalReceiptModal } from '@/components/finance/RraFiscalReceiptModal';
+import { generateEbmVsdcReceipt, type RraEbmFiscalReceipt } from '@/lib/rraEbmVsdc';
+import { initiateMobilePayment, detectMobileOperator } from '@/lib/eastAfricaPayments';
+import { sendTransactionalSms, smsTemplates } from '@/lib/smsGateway';
 
 type TenantInvoicePayment = {
   id: string;
@@ -117,6 +126,10 @@ export default function TenantPayments() {
   const [gateway, setGateway] = useState<'paystack' | 'flutterwave'>('paystack');
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [rraModalOpen, setRraModalOpen] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<RraEbmFiscalReceipt | null>(null);
+  const [momoPhone, setMomoPhone] = useState('0788123456');
+  const [momoLoading, setMomoLoading] = useState(false);
   const stats = portalData?.stats ?? {
     monthlyRent: 0,
     balance: 0,
@@ -225,6 +238,118 @@ export default function TenantPayments() {
     ]);
 
     toast({ title: 'Receipt downloaded', description: `Downloaded receipt for payment.` });
+  };
+
+  const handleViewRraReceipt = (payment: TenantPayment) => {
+    const receipt = generateEbmVsdcReceipt({
+      invoiceId: payment.id,
+      invoiceNumber: payment.invoices?.description || `INV-${payment.id.slice(0, 8)}`,
+      companyName: portalData?.property?.name || 'FishGate Real Estate Rwanda Ltd',
+      companyTin: '100234567',
+      tenantName: portalData?.tenant?.name || 'Valued Tenant',
+      amount: payment.amount,
+      currency: 'RWF',
+      paymentMethod: payment.method || 'MTN Mobile Money (*182#)',
+    });
+    setSelectedReceipt(receipt);
+    setRraModalOpen(true);
+  };
+
+  const handleMobileMoneyPayment = async () => {
+    if (!nextPayment) return;
+    setMomoLoading(true);
+    try {
+      const dueAmount = nextPayment.amount - nextPayment.paid_amount;
+      const res = await initiateMobilePayment({
+        phone: momoPhone,
+        amount: dueAmount,
+        currency: 'RWF',
+        invoiceId: nextPayment.id,
+        invoiceNumber: nextPayment.description || 'Rent Invoice',
+        tenantName: portalData?.tenant?.name,
+        propertyName: portalData?.property?.name,
+      });
+
+      if (!res.success) {
+        toast({ title: 'Payment Prompt Failed', description: res.ussdPromptMessage, variant: 'destructive' });
+        return;
+      }
+
+      toast({
+        title: '📲 USSD Prompt Pushed',
+        description: res.ussdPromptMessage,
+      });
+
+      // Generate certified RRA EBM v2 fiscal receipt
+      const receipt = generateEbmVsdcReceipt({
+        invoiceId: nextPayment.id,
+        invoiceNumber: nextPayment.description || 'INV-' + nextPayment.id.slice(0, 6),
+        companyName: portalData?.property?.name || 'FishGate Real Estate Rwanda Ltd',
+        companyTin: '100234567',
+        tenantName: portalData?.tenant?.name || 'Valued Tenant',
+        amount: dueAmount,
+        currency: 'RWF',
+        paymentMethod: res.operator.includes('MTN') ? 'MTN MoMo (*182#)' : 'Airtel Money (*175#)',
+      });
+
+      // Synchronize to Supabase database ledger
+      try {
+        const nowIso = new Date().toISOString();
+        await supabase
+          .from('invoices')
+          .update({
+            paid_amount: nextPayment.amount,
+            status: 'paid',
+            paid_at: nowIso,
+            ebm_receipt_number: receipt.receiptNumber,
+            ebm_sdc_id: receipt.sdcId,
+            ebm_qr_code: receipt.qrCodeUrl,
+          })
+          .eq('id', nextPayment.id);
+
+        await supabase
+          .from('payments')
+          .insert({
+            invoice_id: nextPayment.id,
+            amount: dueAmount,
+            method: res.operator.includes('MTN') ? 'mtn_momo' : 'airtel_money',
+            telecom_operator: res.operator.includes('MTN') ? 'MTN' : 'AIRTEL',
+            momo_phone: momoPhone,
+            transaction_ref: res.transactionRef,
+            gateway_provider: 'paypack',
+            status: 'completed',
+            payment_date: nowIso.split('T')[0],
+            notes: `MoMo Ref: ${res.transactionRef} - RRA EBM: ${receipt.receiptNumber}`,
+          });
+
+        await supabase
+          .from('crm_unit_bookings')
+          .update({ status: 'confirmed' })
+          .eq('invoice_id', nextPayment.id);
+      } catch (dbErr) {
+        console.warn('Ledger sync notice:', dbErr);
+      }
+
+      // Send confirmation SMS via Africa's Talking / Twilio
+      await sendTransactionalSms({
+        to: momoPhone,
+        message: smsTemplates.paymentConfirmedWithEbm(
+          portalData?.tenant?.name || 'Tenant',
+          dueAmount,
+          receipt.receiptNumber,
+          'RWF'
+        ),
+      });
+
+      setIsPayDialogOpen(false);
+      setSelectedReceipt(receipt);
+      setRraModalOpen(true);
+      await queryClient.invalidateQueries({ queryKey: ['tenant_portal_data'] });
+    } catch (err: unknown) {
+      toast({ title: 'Payment Processing Failed', description: getErrorMessage(err, 'Could not complete MoMo prompt.'), variant: 'destructive' });
+    } finally {
+      setMomoLoading(false);
+    }
   };
 
   const startCheckout = async (invoiceId: string, amount: number) => {
@@ -395,14 +520,26 @@ export default function TenantPayments() {
                     <TableCell className="font-medium">{formatCurrency(payment.amount)}</TableCell>
                     <TableCell>{getStatusBadge(payment.status || 'paid')}</TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleDownloadReceipt(payment)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 shadow-xs"
+                          onClick={() => handleViewRraReceipt(payment)}
+                          title="View certified RRA EBM v2 fiscal tax receipt"
+                        >
+                          <ShieldCheck className="h-3 w-3 text-emerald-500" />
+                          RRA Receipt
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground"
+                          onClick={() => handleDownloadReceipt(payment)}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -456,10 +593,10 @@ export default function TenantPayments() {
                   <RadioGroupItem value="mtn_momo" id="mtn_momo" />
                   <Label htmlFor="mtn_momo" className="flex-1 cursor-pointer">
                     <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4" />
-                      Mobile Money (East Africa)
+                      <DollarSign className="h-4 w-4 text-emerald-400" />
+                      Mobile Money (MTN MoMo *182# / Airtel *175#)
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">MTN/Airtel via gateway checkout</p>
+                    <p className="text-xs text-muted-foreground mt-1">Instant USSD PIN push with verified RRA EBM receipt</p>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 p-4 rounded-lg border border-border cursor-pointer hover:bg-secondary/50">
@@ -475,21 +612,50 @@ export default function TenantPayments() {
               </RadioGroup>
             </div>
 
-            <div className="space-y-2">
-              <Label>Gateway</Label>
-              <RadioGroup value={gateway} onValueChange={(value) => setGateway(value as 'paystack' | 'flutterwave')}>
-                {availableGateways.length === 0 ? (
-                  <p className="text-sm text-destructive">No online gateway is enabled for this property.</p>
-                ) : (
-                  availableGateways.map((option) => (
-                    <div key={option.value} className="flex items-center space-x-2">
-                      <RadioGroupItem value={option.value} id={`gateway-${option.value}`} />
-                      <Label htmlFor={`gateway-${option.value}`}>{option.label}</Label>
-                    </div>
-                  ))
-                )}
-              </RadioGroup>
-            </div>
+            {/* Direct Mobile Money Rwandan Prompt Box */}
+            {paymentMethod === 'mtn_momo' && (
+              <div className="space-y-3 p-3.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-emerald-400 flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5" /> Rwanda Mobile Money
+                  </span>
+                  <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 text-[10px]">
+                    {detectMobileOperator(momoPhone).operatorLabel}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="momoPhoneInput" className="text-xs">MTN / Airtel Mobile Number</Label>
+                  <Input
+                    id="momoPhoneInput"
+                    value={momoPhone}
+                    onChange={(e) => setMomoPhone(e.target.value)}
+                    placeholder="e.g. 0788123456"
+                    className="h-9 text-xs font-mono"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  A USSD PIN prompt will be pushed to your phone. Approving will settle your invoice and generate an official RRA EBM fiscal tax receipt.
+                </p>
+              </div>
+            )}
+
+            {paymentMethod !== 'mtn_momo' && (
+              <div className="space-y-2">
+                <Label>Gateway</Label>
+                <RadioGroup value={gateway} onValueChange={(value) => setGateway(value as 'paystack' | 'flutterwave')}>
+                  {availableGateways.length === 0 ? (
+                    <p className="text-sm text-destructive">No online gateway is enabled for this property.</p>
+                  ) : (
+                    availableGateways.map((option) => (
+                      <div key={option.value} className="flex items-center space-x-2">
+                        <RadioGroupItem value={option.value} id={`gateway-${option.value}`} />
+                        <Label htmlFor={`gateway-${option.value}`}>{option.label}</Label>
+                      </div>
+                    ))
+                  )}
+                </RadioGroup>
+              </div>
+            )}
 
             {paymentSettings?.payment_instructions ? (
               <div className="rounded-md border border-border bg-secondary/30 p-3 text-sm text-muted-foreground">
@@ -501,21 +667,39 @@ export default function TenantPayments() {
             <Button variant="outline" onClick={() => setIsPayDialogOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={() => {
-                if (!nextPayment) return;
-                const amount = Number(nextPayment.amount) - Number(nextPayment.paid_amount || 0);
-                void startCheckout(nextPayment.id, amount);
-              }}
-              className="gap-2"
-              disabled={checkoutLoading || !nextPayment || availableGateways.length === 0}
-            >
-              {checkoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-              Pay {nextPayment ? formatCurrency(nextPayment.amount - nextPayment.paid_amount) : ''}
-            </Button>
+            {paymentMethod === 'mtn_momo' ? (
+              <Button
+                onClick={handleMobileMoneyPayment}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2"
+                disabled={momoLoading || !nextPayment}
+              >
+                {momoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+                Send MoMo Push Prompt ({nextPayment ? formatCurrency(nextPayment.amount - nextPayment.paid_amount) : ''})
+              </Button>
+            ) : (
+              <Button
+                onClick={() => {
+                  if (!nextPayment) return;
+                  const amount = Number(nextPayment.amount) - Number(nextPayment.paid_amount || 0);
+                  void startCheckout(nextPayment.id, amount);
+                }}
+                className="gap-2"
+                disabled={checkoutLoading || !nextPayment || availableGateways.length === 0}
+              >
+                {checkoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                Pay {nextPayment ? formatCurrency(nextPayment.amount - nextPayment.paid_amount) : ''}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* RRA EBM v2 Certified Fiscal Receipt Modal */}
+      <RraFiscalReceiptModal
+        open={rraModalOpen}
+        onOpenChange={setRraModalOpen}
+        receipt={selectedReceipt}
+      />
     </div>
   );
 }

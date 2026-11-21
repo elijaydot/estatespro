@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, Eye, EyeOff, Mail, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { LanguageToggle } from '@/components/shared/LanguageToggle';
+import { useI18n } from '@/contexts/useI18n';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Login() {
@@ -18,6 +20,7 @@ export default function Login() {
   const [isResending, setIsResending] = useState(false);
   const [isEmailUnconfirmed, setIsEmailUnconfirmed] = useState(false);
   const { login } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   const handleResendConfirmation = async () => {
@@ -84,30 +87,39 @@ export default function Login() {
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center p-4">
-      <ThemeToggle className="absolute right-4 top-4 sm:right-6 sm:top-6" />
+      <div className="absolute right-4 top-4 sm:right-6 sm:top-6 flex items-center gap-2">
+        <LanguageToggle />
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md animate-scale-in">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden border border-border/80 shadow-lg bg-[#060b18]">
-            <img src="/fishgate-mark.png" alt="FishGate" className="h-full w-full object-cover" />
+        <div className="flex flex-col items-center justify-center gap-2 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden border border-border/80 shadow-lg bg-[#060b18]">
+              <img src="/fishgate-mark.png" alt="FishGate" className="h-full w-full object-cover" />
+            </div>
+            <div>
+              <span className="font-bold text-2xl text-foreground leading-none block">FishGate</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80 font-semibold">Property OS</span>
+            </div>
           </div>
-          <div>
-            <span className="font-bold text-2xl text-foreground leading-none block">FishGate</span>
-            <span className="text-[11px] uppercase tracking-[0.14em] text-primary/80 font-semibold">Property OS</span>
+          <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-medium text-emerald-400">
+            <span>🇷🇼</span>
+            <span>{t('rra_compliance')}</span>
           </div>
         </div>
 
         <Card className="card-shadow-lg border-0">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+            <CardTitle className="text-2xl font-bold">{t('welcome_back')}</CardTitle>
             <CardDescription>
-              Enter your credentials to access your account
+              {t('sign_in_subtitle')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t('email_label')}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -120,12 +132,12 @@ export default function Login() {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t('password_label')}</Label>
                   <Link
                     to="/forgot-password"
                     className="text-sm text-primary hover:underline"
                   >
-                    Forgot password?
+                    {t('forgot_password')}
                   </Link>
                 </div>
                 <div className="relative">
@@ -183,24 +195,24 @@ export default function Login() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
+                    {t('signing_in')}
                   </>
                 ) : (
-                  'Sign in'
+                  t('sign_in_button')
                 )}
               </Button>
             </form>
 
             <div className="mt-6 text-center text-sm text-muted-foreground">
-              Don't have an account?{' '}
+              {t('need_account')}{' '}
               <Link to="/signup" className="text-primary font-medium hover:underline">
-                Sign up
+                {t('register_here')}
               </Link>
             </div>
 
             <div className="mt-4 pt-4 border-t text-center">
               <Link to="/tenant/login" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                Are you a tenant? <span className="font-medium text-primary">Access Tenant Portal -&gt;</span>
+                {t('tenant_portal')} &rarr; <span className="font-medium text-primary">{t('secure_tenant_access')}</span>
               </Link>
             </div>
           </CardContent>

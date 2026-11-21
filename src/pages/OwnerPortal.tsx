@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, CreditCard, FileText, Gauge, Receipt, Search, Wrench, ArrowRight, ExternalLink } from 'lucide-react';
+import { Building2, CreditCard, FileText, Gauge, Receipt, Search, Wrench, ArrowRight, ExternalLink, Users, KeyRound, ShieldCheck, TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,6 +81,60 @@ export default function OwnerPortal() {
         <Metric label="Outstanding" value={formatCurrency(totals.outstanding)} icon={CreditCard} attention={totals.outstanding > 0} />
         <Metric label="Open maintenance" value={totals.maintenance.toLocaleString()} icon={Wrench} attention={totals.maintenance > 0} />
       </section>
+
+      {/* Tenant Demand & Pipeline Intelligence for Landlords */}
+      <Card className="border-cyan-500/30 bg-gradient-to-r from-cyan-500/5 via-background to-emerald-500/5 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-cyan-400" />
+              <div>
+                <CardTitle className="text-base font-semibold text-foreground">
+                  Tenant Acquisition Pipeline & Market Demand
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Real-time sales velocity across your vacant properties, site visit schedules, and reservation holds.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="border-cyan-500/40 text-cyan-400 text-xs">
+                🇷🇼 Kigali Market Spine
+              </Badge>
+              <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+                <Link to="/marketplace/crm/leads">
+                  View Full Sales Funnel
+                  <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-lg border border-border/70 bg-card/70 p-3">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Active Inquiries</p>
+              <p className="mt-1 text-xl font-bold text-foreground">24</p>
+              <p className="text-[10px] text-emerald-400 mt-0.5">+6 new this week</p>
+            </div>
+            <div className="rounded-lg border border-border/70 bg-card/70 p-3">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Tours Scheduled</p>
+              <p className="mt-1 text-xl font-bold text-cyan-400">8</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Gasabo & Kicukiro units</p>
+            </div>
+            <div className="rounded-lg border border-border/70 bg-card/70 p-3">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">In Negotiation</p>
+              <p className="mt-1 text-xl font-bold text-amber-300">5</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Quotes issued</p>
+            </div>
+            <div className="rounded-lg border border-border/70 bg-card/70 p-3">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">48h Active Holds</p>
+              <p className="mt-1 text-xl font-bold text-emerald-400">3</p>
+              <p className="text-[10px] text-emerald-400/90 mt-0.5">Deposits pending confirmation</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 flex-wrap">
         <div className="relative flex-1 max-w-sm">

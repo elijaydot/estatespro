@@ -21,7 +21,11 @@ import {
   User,
   Calendar,
   ExternalLink,
+  ShieldCheck,
 } from 'lucide-react';
+import { RraFiscalReceiptModal } from '@/components/finance/RraFiscalReceiptModal';
+import { generateEbmVsdcReceipt, type RraEbmFiscalReceipt } from '@/lib/rraEbmVsdc';
+import { initiateMobilePayment, detectMobileOperator } from '@/lib/eastAfricaPayments';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -175,8 +179,27 @@ export default function Payments() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [isRecordOpen, setIsRecordOpen] = useState(false);
+  const [rraModalOpen, setRraModalOpen] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<RraEbmFiscalReceipt | null>(null);
+
+  const handleViewRraReceipt = (payment: PaymentRow) => {
+    const receipt = generateEbmVsdcReceipt({
+      invoiceId: payment.id,
+      invoiceNumber: payment.invoices?.invoice_number || `REC-${payment.id.slice(0, 8)}`,
+      companyName: 'FishGate Real Estate Rwanda Ltd',
+      companyTin: '100234567',
+      tenantName: payment.invoices?.tenants?.name || 'Valued Tenant',
+      amount: payment.amount,
+      currency: 'RWF',
+      paymentMethod: getMethodLabel(payment.payment_method),
+      certifiedAt: new Date(payment.payment_date || Date.now()),
+    });
+    setSelectedReceipt(receipt);
+    setRraModalOpen(true);
+  };
   const [checkoutGateway, setCheckoutGateway] = useState<'paystack' | 'flutterwave'>('paystack');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [pushingMomo, setPushingMomo] = useState(false);
   const [formData, setFormData] = useState({
     tenant_id: '',
     invoice_id: '',
@@ -187,6 +210,30 @@ export default function Payments() {
     reference: '',
     notes: '',
   });
+
+  const handlePushMomoPrompt = async () => {
+    if (!formData.momo_phone || !formData.amount) {
+      toast({ title: 'Validation', description: 'Enter MoMo phone number and amount first.', variant: 'destructive' });
+      return;
+    }
+    setPushingMomo(true);
+    try {
+      const res = await initiateMobilePayment({
+        phone: formData.momo_phone,
+        amount: formData.amount,
+        currency: 'RWF',
+        invoiceId: formData.invoice_id || `REC-${Date.now()}`,
+      });
+      if (res.success) {
+        setFormData((prev) => ({ ...prev, momo_transaction_id: res.transactionRef }));
+        toast({ title: 'USSD Prompt Dispatched', description: res.ussdPromptMessage });
+      } else {
+        toast({ title: 'Prompt Failed', description: res.ussdPromptMessage, variant: 'destructive' });
+      }
+    } finally {
+      setPushingMomo(false);
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('estatepro-view-payments', view);
@@ -281,6 +328,35 @@ export default function Payments() {
       notes: formData.notes || null,
       status: 'completed',
     });
+
+    if (formData.invoice_id) {
+      try {
+        const ebmReceipt = generateEbmVsdcReceipt({
+          invoiceId: formData.invoice_id,
+          invoiceNumber: `INV-${formData.invoice_id.slice(0, 8)}`,
+          companyName: 'FishGate Real Estate Rwanda Ltd',
+          companyTin: '100234567',
+          tenantName: tenantOptions.find((t) => t.value === formData.tenant_id)?.label || 'Valued Tenant',
+          amount: formData.amount,
+          currency: 'RWF',
+          paymentMethod: formData.method === 'mtn_momo' ? 'MTN Mobile Money (*182#)' : formData.method,
+        });
+
+        await supabase
+          .from('invoices')
+          .update({
+            paid_amount: formData.amount,
+            status: 'paid',
+            paid_at: new Date().toISOString(),
+            ebm_receipt_number: ebmReceipt.receiptNumber,
+            ebm_sdc_id: ebmReceipt.sdcId,
+            ebm_qr_code: ebmReceipt.qrCodeUrl,
+          })
+          .eq('id', formData.invoice_id);
+      } catch (err) {
+        console.warn('Invoice ledger update note:', err);
+      }
+    }
 
     await logSecurityEvent('manual_payment_recorded', {
       tenantId: formData.tenant_id,
@@ -493,6 +569,10 @@ export default function Payments() {
                   </div>
 
                   <div className="flex items-center gap-1">
+                    <Button variant="outline" size="sm" onClick={() => handleViewRraReceipt(payment)} className="border-emerald-500/40 text-emerald-400">
+                      <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+                      RRA EBM
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => handleDownloadReceipt(payment)}>
                       <Receipt className="h-3.5 w-3.5 mr-1" />
                       Receipt
@@ -620,6 +700,9 @@ export default function Payments() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onSelect={() => handleViewRraReceipt(payment)}>
+                            <ShieldCheck className="h-4 w-4 mr-2 text-emerald-400" /> RRA EBM v2 Receipt
+                          </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => handleDownloadReceipt(payment)}>
                             <Receipt className="h-4 w-4 mr-2" /> Download Receipt
                           </DropdownMenuItem>
@@ -747,6 +830,19 @@ export default function Payments() {
                     />
                   </div>
                 </div>
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePushMomoPrompt}
+                    disabled={pushingMomo || !formData.momo_phone || !formData.amount}
+                    className="gap-1.5 text-xs border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10"
+                  >
+                    <Phone className={`h-3.5 w-3.5 ${pushingMomo ? 'animate-spin' : ''}`} />
+                    {pushingMomo ? 'Pushing USSD Prompt...' : 'Push USSD Prompt to Phone (*182#)'}
+                  </Button>
+                </div>
               </>
             )}
 
@@ -787,6 +883,13 @@ export default function Payments() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* RRA EBM v2 Certified Fiscal Receipt Modal */}
+      <RraFiscalReceiptModal
+        open={rraModalOpen}
+        onOpenChange={setRraModalOpen}
+        receipt={selectedReceipt}
+      />
     </div>
   );
 }

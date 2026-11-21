@@ -15,6 +15,7 @@ import {
   applyVerificationDocumentDecision,
 } from '@/lib/reviewerDecisions';
 import { mapManagedListingsWithInquiryCount } from '@/lib/marketplaceManagedListings';
+import { crmService, type BookUnitAtomicParams, type CrmInventoryUnit } from '@/lib/crmService';
 
 export interface CrmLead {
   id: string;
@@ -35,6 +36,12 @@ export interface CrmLead {
   contact_name?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
+  interested_unit_id?: string | null;
+  interested_property_id?: string | null;
+  budget_min?: number;
+  budget_max?: number;
+  preferred_unit_type?: string | null;
+  next_followup_at?: string | null;
 }
 
 export interface CrmLeadActivity {
@@ -247,6 +254,12 @@ type LeadRow = {
   last_activity_at: string | null;
   converted_at: string | null;
   lost_reason: string | null;
+  interested_unit_id?: string | null;
+  interested_property_id?: string | null;
+  budget_min?: number;
+  budget_max?: number;
+  preferred_unit_type?: string | null;
+  next_followup_at?: string | null;
   marketplace_listings: { title: string | null; slug: string | null } | null;
   lead_contacts:
     | Array<{ full_name: string | null; email: string | null; phone_e164: string | null }>
@@ -487,49 +500,8 @@ export function useUpdateCrmLeadStage(companyId?: string | null) {
 
   return useMutation({
     mutationFn: async ({ leadId, stage }: { leadId: string; stage: string }) => {
-      const payload: LeadStageUpdatePayload = {
-        stage,
-        last_activity_at: new Date().toISOString(),
-      };
-
-      if (stage === 'converted') {
-        payload.status = 'won';
-        payload.converted_at = new Date().toISOString();
-        payload.lost_reason = null;
-      }
-
-      if (stage === 'lost') {
-        payload.status = 'lost';
-        payload.converted_at = null;
-      }
-
-      if (stage !== 'converted' && stage !== 'lost') {
-        payload.status = 'open';
-        payload.converted_at = null;
-        payload.lost_reason = null;
-      }
-
-      const { data, error } = await supabase
-        .from('leads')
-        .update(payload)
-        .eq('id', leadId)
-        .select()
-        .single();
-
-      if (error) throw error;
-
       const { data: { user } } = await supabase.auth.getUser();
-      const { error: activityError } = await supabase.from('lead_activities').insert({
-        lead_id: leadId,
-        activity_type: 'status_change',
-        channel: 'internal',
-        actor_user_id: user?.id || null,
-        payload_json: { stage },
-        occurred_at: new Date().toISOString(),
-      } as never);
-      if (activityError) throw activityError;
-
-      return data;
+      return crmService.updateLeadStage(leadId, stage, user?.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
@@ -824,29 +796,248 @@ export function useConvertCrmLead(companyId?: string | null) {
 
   return useMutation({
     mutationFn: async ({ leadId }: { leadId: string }) => {
-      const now = new Date().toISOString();
-      const { data, error } = await supabase
-        .from('leads')
-        .update({
-          stage: 'converted',
-          status: 'won',
-          converted_at: now,
-          last_activity_at: now,
-        })
-        .eq('id', leadId)
-        .select('id, stage, status, converted_at')
-        .single();
-
-      if (error) throw error;
-      return data;
+      return crmService.updateLeadStage(leadId, 'booked');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-lead-activities'] });
-      toast({ title: 'Lead Converted', description: 'Lead marked as converted and won.' });
+      toast({ title: 'Lead Converted', description: 'Lead marked as booked and won.' });
     },
     onError: (error: Error) => {
       toast({ title: 'Convert Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useCrmAvailableUnits(companyId?: string | null) {
+  return useQuery({
+    queryKey: ['marketplace', 'crm-available-units', companyId],
+    queryFn: async () => {
+      if (!companyId) return [] as CrmInventoryUnit[];
+      return crmService.getAvailableUnits(companyId);
+    },
+    enabled: !!companyId,
+    staleTime: 60_000,
+  });
+}
+
+export function useBookUnitAtomic(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: BookUnitAtomicParams) => {
+      const result = await crmService.bookUnitAtomic(params);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to complete atomic unit booking.');
+      }
+      return result;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-lead-activities'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-available-units', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['units'] });
+      toast({
+        title: 'Unit Booked Atomically!',
+        description: data.message || `Unit ${data.unit_number || ''} has been reserved.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Booking Collision / Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useScheduleLeadFollowup(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      leadId,
+      nextFollowupAt,
+      note,
+    }: {
+      leadId: string;
+      nextFollowupAt: string;
+      note?: string;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      await crmService.scheduleLeadFollowup({
+        leadId,
+        nextFollowupAt,
+        note,
+        actorUserId: user?.id,
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-lead-record', companyId, variables.leadId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-lead-activities'] });
+      toast({
+        title: 'Follow-up Scheduled',
+        description: 'Lead follow-up date and reminder note recorded.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Schedule Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useSimulateConcurrencyCollision(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      unitId,
+      leadId1,
+      leadId2,
+      amount,
+    }: {
+      unitId: string;
+      leadId1: string;
+      leadId2: string;
+      amount?: number;
+    }) => {
+      if (!companyId) throw new Error('Company ID is required for simulation');
+      return crmService.simulateConcurrencyCollision(companyId, unitId, leadId1, leadId2, amount);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-available-units', companyId] });
+    },
+  });
+}
+
+export function useAutoRouteLead(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ leadId }: { leadId: string }) => {
+      if (!companyId) throw new Error('Company ID required');
+      return crmService.autoRouteLead(leadId, companyId);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-lead-activities'] });
+      toast({
+        title: 'Lead Auto-Routed',
+        description: `Lead dispatched to sales agent with 2-hour outreach SLA task.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Auto-Routing Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useRecordLeadActivityAutoAdvance(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      leadId,
+      activityType,
+      payload,
+    }: {
+      leadId: string;
+      activityType: 'call' | 'email' | 'sms' | 'whatsapp' | 'viewing' | 'site_visit' | 'unit_selected' | 'proposal_sent' | 'negotiation_started' | 'unit_booked_atomic';
+      payload?: Record<string, unknown>;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return crmService.recordActivityAndAutoAdvance(leadId, activityType, payload, user?.id);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-lead-activities', variables.leadId] });
+      toast({
+        title: 'Activity Logged & Stage Auto-Advanced',
+        description: `Triggered automated pipeline transition for activity: ${variables.activityType}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Activity Log Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useEscalateStaleLeads(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!companyId) throw new Error('Company ID required');
+      return crmService.escalateStaleLeads(companyId);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
+      toast({
+        title: 'SLA Escalation Engine Completed',
+        description: `Checked pipeline: ${data.escalated_sla_count} SLA breaches flagged, ${data.auto_lost_count} cold leads auto-closed.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Escalation Check Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useSweepExpiredHolds(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      return crmService.sweepExpiredHolds();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-available-units', companyId] });
+      toast({
+        title: 'Inventory Sweep Completed',
+        description: `Checked 48-hour reservation holds: ${data.releasedCount} expired hold(s) returned to available inventory.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Sweep Check Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useSimulateSelfServiceWorkflow(companyId?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ leadId, unitId }: { leadId: string; unitId: string }) => {
+      if (!companyId) throw new Error('Company ID required');
+      return crmService.simulateSelfServiceLifecycle(companyId, leadId, unitId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-leads', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'crm-available-units', companyId] });
     },
   });
 }

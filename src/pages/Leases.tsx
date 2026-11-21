@@ -63,6 +63,8 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 import { Pagination } from '@/components/shared/Pagination';
 import { calculateRraLeaseFilingDeadline } from '@/lib/rraCompliance';
+import { BilingualLeaseModal } from '@/components/leases/BilingualLeaseModal';
+import type { BilingualLeaseInput } from '@/lib/bilingualLeaseAgreement';
 
 const formatDateSafe = (dateString?: string | null, formatPattern: string = 'MMM d, yyyy') => {
   if (!dateString) return 'N/A';
@@ -200,24 +202,66 @@ export default function Leases() {
   const [activeTab, setActiveTab] = useState('all');
   const [uploadedSignatureFile, setUploadedSignatureFile] = useState<File | null>(null);
   const signaturePadRef = useRef<SignaturePadRef>(null);
+  const [bilingualModalOpen, setBilingualModalOpen] = useState(false);
+  const [selectedBilingualData, setSelectedBilingualData] = useState<BilingualLeaseInput | null>(null);
+
+  const handleOpenBilingual = (lease: LeaseRow) => {
+    const landlordName = lease.properties?.companies?.name || 'FishGate Real Estate Rwanda Ltd';
+    const tenantName = lease.tenants?.name || 'Valued Tenant';
+    const propertyName = lease.properties?.name || 'Kigali Prime Estate';
+    const unitNumber = lease.units?.unit_number || '1';
+
+    setSelectedBilingualData({
+      leaseNumber: lease.lease_number,
+      landlordName,
+      landlordTin: '100234567',
+      tenantName,
+      tenantNationalId: '1199580012345678',
+      tenantPhone: lease.tenants?.email || '+250 788 123 456',
+      propertyName,
+      propertyUpi: '1/03/05/02/1234',
+      district: 'Gasabo',
+      sector: 'Remera',
+      unitNumber,
+      monthlyRentRwf: lease.monthly_rent || 350000,
+      securityDepositRwf: lease.security_deposit || 350000,
+      startDate: lease.start_date || '2026-01-01',
+      endDate: lease.end_date || '2026-12-31',
+    });
+    setBilingualModalOpen(true);
+  };
 
   useEffect(() => {
     localStorage.setItem('estatepro-view-leases', view);
   }, [view]);
-
-  useEffect(() => {
-    if (searchParams.get('add') === 'true') {
-      handleOpenDialog();
-      searchParams.delete('add');
-      setSearchParams(searchParams, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
 
   const { data: leases = [], isLoading } = useLeases();
   const { data: properties = [] } = useProperties();
   const { data: units = [] } = useUnits();
   const { data: tenants = [] } = useTenants();
   const typedLeases = leases as LeaseRow[];
+
+  useEffect(() => {
+    if (searchParams.get('add') === 'true') {
+      const paramUnitId = searchParams.get('unitId');
+      handleOpenDialog();
+      if (paramUnitId && units.length > 0) {
+        const targetUnit = units.find(u => u.id === paramUnitId);
+        if (targetUnit) {
+          setFormData(prev => ({
+            ...prev,
+            property_id: targetUnit.property_id,
+            unit_id: targetUnit.id,
+            monthly_rent: targetUnit.rent_amount || prev.monthly_rent,
+            security_deposit: targetUnit.deposit_amount || targetUnit.rent_amount || prev.security_deposit,
+          }));
+        }
+      }
+      searchParams.delete('add');
+      searchParams.delete('unitId');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, units]);
 
   const createLease = useCreateLease();
   const updateLease = useUpdateLease();
@@ -596,6 +640,9 @@ export default function Leases() {
                         <DropdownMenuItem onClick={() => { setViewingLease(lease); setIsViewDialogOpen(true); }}>
                           <Eye className="h-4 w-4 mr-2" />View Details
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenBilingual(lease)}>
+                          <ShieldCheck className="h-4 w-4 mr-2 text-emerald-400" />Bilingual Contract (RW / EN)
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDownloadPdf(lease.id)}>
                           <Download className="h-4 w-4 mr-2" />Download PDF
                         </DropdownMenuItem>
@@ -748,6 +795,9 @@ export default function Leases() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => { setViewingLease(lease); setIsViewDialogOpen(true); }}>
                             <Eye className="h-4 w-4 mr-2" />View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleOpenBilingual(lease)}>
+                            <ShieldCheck className="h-4 w-4 mr-2 text-emerald-400" />Bilingual Contract (RW / EN)
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDownloadPdf(lease.id)}>
                             <Download className="h-4 w-4 mr-2" />Download PDF
@@ -1150,6 +1200,13 @@ export default function Leases() {
         tenants: l.tenants ? { name: l.tenants.name } : null,
         properties: l.properties ? { name: l.properties.name } : null,
       }))} />
+
+      {/* Bilingual Statutory Lease Modal (Ikinyarwanda / English) */}
+      <BilingualLeaseModal
+        open={bilingualModalOpen}
+        onOpenChange={setBilingualModalOpen}
+        leaseData={selectedBilingualData}
+      />
     </div>
   );
 }

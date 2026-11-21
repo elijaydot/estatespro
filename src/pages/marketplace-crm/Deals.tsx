@@ -12,7 +12,7 @@ import { useSettings } from '@/contexts/useSettings';
 import { useCrmAssignableUsers, useCrmLeads } from '@/hooks/useMarketplace';
 import { useCompleteCrmDealHandoff, useCreateCrmDeal, useCrmAccounts, useCrmContacts, useCrmDealHandoffs, useCrmDeals, useStartCrmDealHandoff, useTransitionCrmDealStage } from '@/hooks/useMarketplaceCrm';
 
-const LEAD_STAGES = ['new', 'attempted_contact', 'contacted', 'qualified', 'viewing_scheduled', 'offer_made', 'lease_in_progress', 'converted', 'lost'];
+const DEAL_STAGES = ['new', 'attempted_contact', 'contacted', 'qualified', 'viewing_scheduled', 'offer_made', 'lease_in_progress', 'converted', 'lost'];
 function stageVariant(stage: string) {
   if (stage === 'converted') return 'success' as const;
   if (stage === 'lost') return 'destructive' as const;
@@ -56,7 +56,7 @@ export default function MarketplaceCrmDealsPage() {
           {rows.map((deal) => { const handoff = handoffMap.get(deal.id), editing = editingId === deal.id; return <tr key={deal.id} className="border-t border-border/60 align-top hover:bg-muted/20">
             <td className="px-3 py-3 font-medium">{deal.deal_name}<p className="mt-1 text-xs font-normal capitalize text-muted-foreground">{deal.pipeline_kind}</p></td>
             <td className="px-3 py-3">{editing ? <input aria-label="Deal amount" className="h-8 w-24 rounded-md border px-2" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} /> : deal.amount == null ? '-' : `${symbol} ${Number(deal.amount).toLocaleString()}`}</td>
-            <td className="px-3 py-3">{editing ? <select aria-label="Deal stage" className="h-8 rounded-md border bg-background px-2" value={editStage} onChange={(e) => setEditStage(e.target.value)}>{LEAD_STAGES.map((stage) => <option key={stage} value={stage}>{stage.replace(/_/g, ' ')}</option>)}</select> : <StatusPill variant={stageVariant(deal.stage)}>{deal.stage.replace(/_/g, ' ')}</StatusPill>}</td>
+            <td className="px-3 py-3">{editing ? <select aria-label="Deal stage" className="h-8 rounded-md border bg-background px-2" value={editStage} onChange={(e) => setEditStage(e.target.value)}>{DEAL_STAGES.map((stage) => <option key={stage} value={stage}>{stage.replace(/_/g, ' ')}</option>)}</select> : <StatusPill variant={stageVariant(deal.stage)}>{deal.stage.replace(/_/g, ' ')}</StatusPill>}</td>
             <td className="px-3 py-3">{editing ? <input aria-label="Deal probability" className="h-8 w-16 rounded-md border px-2" value={editProbability} onChange={(e) => setEditProbability(e.target.value)} /> : `${deal.probability}%`}</td>
             <td className="px-3 py-3">{editing ? <input aria-label="Expected close date" className="h-8 rounded-md border px-2" type="date" value={editClose} onChange={(e) => setEditClose(e.target.value)} /> : deal.expected_close_date ? new Date(deal.expected_close_date).toLocaleDateString() : '-'}</td>
             <td className="px-3 py-3">{editing ? <AssigneePicker users={users.data || []} value={editOwner || null} onChange={(next) => setEditOwner(next || '')} className="h-8 min-w-40" /> : deal.owner_user_id ? owners.get(deal.owner_user_id) || 'Assigned user' : 'Unassigned'}</td>
