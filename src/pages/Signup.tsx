@@ -26,7 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { EmailConfirmationPending } from '@/components/auth/EmailConfirmationPending';
 import { LanguageToggle } from '@/components/shared/LanguageToggle';
-import { ThemeToggle } from '@/components/shared/ThemeToggle';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useI18n } from '@/contexts/useI18n';
 import {
   lookupRdbCompany,
