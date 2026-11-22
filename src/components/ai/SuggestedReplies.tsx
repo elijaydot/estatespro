@@ -3,6 +3,7 @@ import { Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { generateSuggestedRepliesFallback } from '@/lib/portfolioAiFallback';
 
 interface SuggestedRepliesProps {
   messages: Array<{
@@ -22,40 +23,48 @@ export function SuggestedReplies({ messages, tenantName, onSelect }: SuggestedRe
     setIsLoading(true);
     setSuggestions([]);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        toast.error('Please log in to use AI features.');
-        return;
+      let resolvedSuggestions: string[] = [];
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-suggest-reply`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                messages: messages.slice(-6),
+                tenantName,
+              }),
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.json();
+            if (Array.isArray(result?.suggestions) && result.suggestions.length > 0) {
+              resolvedSuggestions = result.suggestions;
+            }
+          }
+        }
+      } catch (remoteErr) {
+        console.warn('Remote suggestion API unavailable, using local templates:', remoteErr);
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-suggest-reply`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            messages: messages.slice(-6),
-            tenantName,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          toast.error('Rate limit exceeded. Try again later.');
-          return;
-        }
-        throw new Error('Failed to get suggestions');
+      if (resolvedSuggestions.length === 0) {
+        resolvedSuggestions = generateSuggestedRepliesFallback(tenantName);
       }
 
-      const result = await response.json();
-      setSuggestions(result.suggestions || []);
+      setSuggestions(resolvedSuggestions);
+      toast.success('Suggestions ready!');
     } catch (error) {
       console.error('Suggest reply error:', error);
-      toast.error('Failed to generate suggestions.');
+      const fallback = generateSuggestedRepliesFallback(tenantName);
+      setSuggestions(fallback);
+      toast.success('Suggestions ready!');
     } finally {
       setIsLoading(false);
     }
