@@ -52,14 +52,18 @@ export class AiGatewayError extends Error {
  * Priority: GEMINI_API_KEY -> OPENAI_API_KEY -> LOVABLE_API_KEY.
  */
 export function getAiConfig() {
-  const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+  const geminiApiKey =
+    Deno.env.get("GEMINI_API_KEY") ||
+    Deno.env.get("GOOGLE_API_KEY") ||
+    Deno.env.get("GOOGLE_GEMINI_API_KEY") ||
+    Deno.env.get("GEMINI_KEY");
   const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
   const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
   const explicitProvider = Deno.env.get("AI_PROVIDER")?.toLowerCase();
 
   if (explicitProvider === "gemini" || geminiApiKey) {
     if (!geminiApiKey) {
-      throw new Error("GEMINI_API_KEY is not configured");
+      throw new Error("GEMINI_API_KEY (or GOOGLE_API_KEY) is not configured in Supabase Secrets");
     }
     return {
       provider: "gemini",
@@ -68,13 +72,13 @@ export function getAiConfig() {
         Authorization: `Bearer ${geminiApiKey}`,
         "Content-Type": "application/json",
       },
-      defaultModel: Deno.env.get("AI_MODEL") ?? "gemini-2.5-flash",
+      defaultModel: Deno.env.get("AI_MODEL") ?? "gemini-1.5-flash",
     };
   }
 
   if (explicitProvider === "openai" || openaiApiKey) {
     if (!openaiApiKey) {
-      throw new Error("OPENAI_API_KEY is not configured");
+      throw new Error("OPENAI_API_KEY is not configured in Supabase Secrets");
     }
     return {
       provider: "openai",
@@ -95,11 +99,11 @@ export function getAiConfig() {
         Authorization: `Bearer ${lovableApiKey}`,
         "Content-Type": "application/json",
       },
-      defaultModel: Deno.env.get("AI_MODEL") ?? "google/gemini-3-flash-preview",
+      defaultModel: Deno.env.get("AI_MODEL") ?? "google/gemini-2.0-flash",
     };
   }
 
-  throw new Error("No AI API key found. Please configure GEMINI_API_KEY or OPENAI_API_KEY.");
+  throw new Error("No AI API key found. Please configure GEMINI_API_KEY (or GOOGLE_API_KEY) in Supabase Secrets.");
 }
 
 /**
@@ -131,6 +135,11 @@ export async function executeAiChat(options: AiRequestOptions): Promise<Response
     headers: config.headers,
     body: JSON.stringify(body),
   });
+
+  if (!response.ok) {
+    const errorText = await response.clone().text().catch(() => "");
+    console.error(`AI Provider (${config.provider}) error status ${response.status}:`, errorText);
+  }
 
   return response;
 }
