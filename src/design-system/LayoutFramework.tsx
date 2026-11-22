@@ -113,23 +113,45 @@ export function PageActions({
  * Replaces heavy card clusters with clean whitespace and crisp 8pt alignment.
  */
 export interface MetricItem {
-  id: string;
+  id?: string;
   label: string;
   value: React.ReactNode;
   subtext?: React.ReactNode;
   trend?: 'up' | 'down' | 'neutral';
-  tone?: 'default' | 'success' | 'warning' | 'danger';
+  tone?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+  status?: string;
 }
 
 export interface PageInsightsProps {
-  metrics: MetricItem[];
+  metrics?: MetricItem[];
+  items?: MetricItem[];
   className?: string;
 }
 
-export function PageInsights({ metrics, className }: PageInsightsProps) {
+export function PageInsights({ metrics, items, className }: PageInsightsProps) {
+  const rawList = metrics || items || [];
+  const normalized = rawList.map((m, idx) => {
+    let resolvedTone: 'default' | 'success' | 'warning' | 'danger' = 'default';
+    const t = m.tone || m.status;
+    if (t === 'success' || t === 'info') resolvedTone = 'success';
+    else if (t === 'warning') resolvedTone = 'warning';
+    else if (t === 'danger' || t === 'critical' || t === 'error') resolvedTone = 'danger';
+
+    return {
+      id: m.id || `insight-${idx}-${m.label}`,
+      label: m.label,
+      value: m.value,
+      subtext: m.subtext,
+      tone: resolvedTone,
+      trend: m.trend,
+    };
+  });
+
+  if (normalized.length === 0) return null;
+
   return (
     <section aria-label="Page key metrics" className={cn('grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-4', className)}>
-      {metrics.map((m) => (
+      {normalized.map((m) => (
         <div
           key={m.id}
           className="rounded-xl border border-slate-200/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 transition-colors"

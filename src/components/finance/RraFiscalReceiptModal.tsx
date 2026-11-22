@@ -59,113 +59,115 @@ export function RraFiscalReceiptModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-card text-foreground p-0 overflow-hidden border border-border/80 shadow-2xl">
+      <DialogContent className="sm:max-w-xl md:max-w-2xl max-w-[95vw] w-full bg-card text-foreground p-0 overflow-hidden border border-border/80 shadow-2xl">
         <DialogHeader className="bg-emerald-600/10 border-b border-emerald-500/20 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-emerald-500" />
+              <ShieldCheck className="h-5 w-5 text-emerald-500 shrink-0" />
               <DialogTitle className="text-base font-bold text-foreground">
                 Official RRA EBM v2 Fiscal Receipt
               </DialogTitle>
             </div>
-            <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px]">
+            <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold uppercase tracking-wider">
               VSDC Certified
             </Badge>
           </div>
-          <DialogDescription className="text-xs text-muted-foreground">
+          <DialogDescription className="text-xs text-muted-foreground mt-1">
             Rwanda Revenue Authority Electronic Billing Machine (VSDC) Verification
           </DialogDescription>
         </DialogHeader>
 
         {/* Paper receipt presentation */}
-        <div className="p-6 font-mono text-xs space-y-4 bg-background/50 border-b border-border/60">
+        <div className="p-6 sm:p-8 font-mono text-xs space-y-5 bg-background/50 border-b border-border/60 max-h-[75vh] overflow-y-auto">
           <div className="text-center space-y-1">
-            <p className="font-bold text-sm tracking-wide">REPUBLIKA Y'U RWANDA</p>
-            <p className="text-[11px] text-muted-foreground">RWANDA REVENUE AUTHORITY</p>
-            <p className="font-semibold text-xs pt-1">{receipt.companyName}</p>
-            <p className="text-[11px] text-muted-foreground">TIN: {receipt.companyTin}</p>
-            <p className="text-[10px] text-muted-foreground">MRC: {receipt.mrc} · SDC: {receipt.sdcId}</p>
+            <p className="font-bold text-base tracking-wider text-foreground">REPUBLIKA Y'U RWANDA</p>
+            <p className="text-xs text-muted-foreground font-medium">RWANDA REVENUE AUTHORITY</p>
+            <p className="font-semibold text-sm pt-1 text-foreground">{receipt.companyName}</p>
+            <p className="text-xs text-muted-foreground">TIN: <span className="font-bold text-foreground">{receipt.companyTin}</span></p>
+            <p className="text-[11px] text-muted-foreground">MRC: {receipt.mrc} · SDC: {receipt.sdcId}</p>
           </div>
 
-          <div className="border-t border-b border-dashed border-border/80 py-2 space-y-1 text-[11px]">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">RECEIPT NUMBER:</span>
-              <span className="font-bold">{receipt.receiptNumber}</span>
+          <div className="border-t border-b border-dashed border-border/80 py-3 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground shrink-0">RECEIPT NUMBER:</span>
+              <span className="font-bold text-right break-all text-foreground">{receipt.receiptNumber}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">CERTIFIED DATE:</span>
-              <span>{new Date(receipt.certifiedAt).toLocaleString()}</span>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground shrink-0">CERTIFIED DATE:</span>
+              <span className="text-right text-foreground">{new Date(receipt.certifiedAt).toLocaleString()}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">PARCEL UPI:</span>
-              <span className="font-bold">{receipt.propertyUpi}</span>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground shrink-0">PARCEL UPI:</span>
+              <span className="font-bold text-right font-mono text-foreground">{receipt.propertyUpi}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">TENANT TIN / ID:</span>
-              <span>{receipt.tenantTin}</span>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground shrink-0">TENANT TIN / ID:</span>
+              <span className="text-right text-foreground">{receipt.tenantTin}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">TENANT NAME:</span>
-              <span>{receipt.tenantName}</span>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground shrink-0">TENANT NAME:</span>
+              <span className="text-right font-medium text-foreground">{receipt.tenantName}</span>
             </div>
           </div>
 
-          <div className="space-y-1 text-[11px]">
-            <div className="flex justify-between font-semibold">
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between font-bold border-b border-border/40 pb-1 text-foreground">
               <span>DESCRIPTION</span>
-              <span>TOTAL ({receipt.currency})</span>
+              <span className="text-right">TOTAL ({receipt.currency})</span>
             </div>
-            <div className="flex justify-between text-muted-foreground">
+            <div className="flex justify-between text-muted-foreground pt-1">
               <span>Rent & Property Fee</span>
-              <span>{receipt.grossAmount.toLocaleString()}</span>
+              <span className="text-right font-mono text-foreground font-medium">{receipt.grossAmount.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-muted-foreground">
               <span>Statutory Rental Tax ({receipt.taxRatePercent}%)</span>
-              <span>{receipt.taxAmount.toLocaleString()}</span>
+              <span className="text-right font-mono text-foreground font-medium">{receipt.taxAmount.toLocaleString()}</span>
             </div>
-            <div className="border-t border-dashed border-border/80 pt-1 flex justify-between font-bold text-sm">
-              <span>TOTAL PAID</span>
-              <span>{receipt.currency} {receipt.grossAmount.toLocaleString()}</span>
+            <div className="border-t border-dashed border-border/80 pt-2 flex items-center justify-between font-bold">
+              <span className="text-sm text-foreground">TOTAL PAID</span>
+              <span className="text-base text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                {receipt.currency} {receipt.grossAmount.toLocaleString()}
+              </span>
             </div>
-            <div className="flex justify-between text-[10px] text-muted-foreground">
+            <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
               <span>PAYMENT METHOD:</span>
-              <span className="uppercase">{receipt.paymentMethod}</span>
+              <span className="uppercase font-semibold text-foreground">{receipt.paymentMethod}</span>
             </div>
           </div>
 
           {/* Verification QR Code Visual & Internal Signature */}
-          <div className="text-center pt-2 space-y-2 border-t border-dashed border-border/80">
-            <div className="flex flex-col items-center justify-center gap-1.5 py-1">
-              <div className="p-2 bg-white rounded-lg shadow-sm border border-border/80 inline-block">
+          <div className="text-center pt-3 space-y-2.5 border-t border-dashed border-border/80">
+            <div className="flex flex-col items-center justify-center gap-2 py-1">
+              <div className="p-2.5 bg-white rounded-lg shadow-sm border border-border/80 inline-block">
                 <img
                   src={qrImageSrc}
                   alt="RRA EBM QR Code"
-                  className="w-24 h-24 object-contain"
+                  className="w-28 h-28 object-contain"
                   onError={(e) => {
                     // Fallback if offline
                     (e.target as HTMLElement).style.display = 'none';
                   }}
                 />
               </div>
-              <span className="text-[10px] text-muted-foreground">Scan with RRA EBM Checker or Smartphone Camera</span>
+              <span className="text-[11px] text-muted-foreground font-medium">Scan with RRA EBM Checker or Smartphone Camera</span>
             </div>
 
-            <div className="flex items-center justify-center gap-1.5 text-[10px] text-emerald-400 font-medium">
-              <CheckCircle2 className="h-3.5 w-3.5" />
+            <div className="flex items-center justify-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+              <CheckCircle2 className="h-4 w-4" />
               <span>DIGITALLY SIGNED BY RRA VSDC</span>
             </div>
-            <p className="text-[9px] text-muted-foreground break-all">
+            <p className="text-[10px] text-muted-foreground break-all max-w-lg mx-auto">
               INTERNAL SIGNATURE: {receipt.internalDataHash}
             </p>
             {verificationResult && (
-              <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-400">
+              <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                 {verificationResult}
               </div>
             )}
           </div>
         </div>
 
-        <DialogFooter className="p-4 bg-card flex items-center justify-between gap-2">
+        <DialogFooter className="p-4 bg-card flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             Close
           </Button>

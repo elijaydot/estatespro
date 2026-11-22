@@ -203,7 +203,7 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
     id: 'relationships',
     name: 'Relationships',
     icon: Users2,
-    description: 'CRM deal pipeline, prospective tenant inquiries, communications, and contacts',
+    description: 'CRM deal pipeline, tenant communications, broadcasts, and contacts',
     items: [
       {
         id: 'crm',
@@ -227,6 +227,14 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
         href: '/messages',
         icon: MessageSquare,
         description: 'Direct messaging channel between management and residents',
+      },
+      {
+        id: 'broadcasts',
+        label: 'Broadcasts',
+        href: '/broadcasts',
+        icon: Send,
+        roles: ['super_admin', 'landlord', 'property_manager'],
+        description: 'Broadcast SMS, emails, and announcements to all tenants or individuals',
       },
       {
         id: 'contacts',
@@ -279,7 +287,7 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
     id: 'automation',
     name: 'Automation',
     icon: Zap,
-    description: 'Scheduled workflows, real-time alert triggers, and omnichannel broadcasts',
+    description: 'Scheduled workflows, real-time alert triggers, and operational notifications',
     items: [
       {
         id: 'workflows',
@@ -303,28 +311,20 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
         icon: Radio,
         description: 'Notification queue, delivery status, and user dispatch logs',
       },
-      {
-        id: 'broadcasts',
-        label: 'Broadcasts',
-        href: '/broadcasts',
-        icon: Send,
-        roles: ['super_admin', 'landlord', 'property_manager'],
-        description: 'Portfolio-wide emergency SMS and announcement emails',
-      },
     ],
   },
   {
     id: 'administration',
     name: 'Administration',
     icon: Settings,
-    description: 'Organization settings, team access permissions, subscription billing, and security',
+    description: 'Organization settings, team access permissions, and subscription billing',
     items: [
       {
         id: 'settings',
         label: 'Settings',
         href: '/settings',
         icon: Settings,
-        description: 'Organization profile, currency formats, and default lease templates',
+        description: 'Organization profile, currency formats, security, and default lease templates',
       },
       {
         id: 'users',
@@ -349,13 +349,6 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
         icon: CreditCard,
         roles: ['super_admin', 'landlord'],
         description: 'SaaS plan tiers, quota dimensions, usage metering, and invoice receipts',
-      },
-      {
-        id: 'security',
-        label: 'Security',
-        href: '/settings?tab=security',
-        icon: Shield,
-        description: 'MFA configuration, recovery codes, trusted devices, and audit event logs',
       },
     ],
   },

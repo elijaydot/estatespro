@@ -42,7 +42,7 @@ import { AlertSettings } from "@/components/settings/AlertSettings";
 export interface SettingsTabItem {
   id: string;
   label: string;
-  pillar: "Account" | "Organization" | "Operations" | "System";
+  pillar: "Account" | "Organization" | "Operations" | "Subscriptions";
   icon: React.ElementType;
   description: string;
   keywords: string[];
@@ -70,7 +70,7 @@ const tabs: SettingsTabItem[] = [
     label: "Appearance",
     pillar: "Account",
     icon: Palette,
-    description: "Colors & theme",
+    description: "Theme & accent colors",
     keywords: ["theme", "dark mode", "light mode", "color", "accent", "appearance"],
   },
   {
@@ -94,7 +94,7 @@ const tabs: SettingsTabItem[] = [
     label: "Lease Documents",
     pillar: "Operations",
     icon: FileText,
-    description: "PDF styling & branding",
+    description: "PDF styling & bilingual branding",
     keywords: ["lease", "pdf", "contract", "bilingual", "kinyarwanda", "english", "styling", "font"],
   },
   {
@@ -102,7 +102,7 @@ const tabs: SettingsTabItem[] = [
     label: "Payments",
     pillar: "Operations",
     icon: CreditCard,
-    description: "Gateway & manual",
+    description: "Gateway, MoMo & EBM v2",
     keywords: ["payment", "momo", "mtn", "airtel", "mobile money", "rra", "ebm", "vsdc", "paystack", "stripe", "bank"],
   },
   {
@@ -110,40 +110,40 @@ const tabs: SettingsTabItem[] = [
     label: "Inspections",
     pillar: "Operations",
     icon: ClipboardCheck,
-    description: "Checklists & inventory",
+    description: "Checklists & room audits",
     keywords: ["inspection", "checklist", "exit", "move in", "move out", "inventory", "condition"],
-  },
-  {
-    id: "notifications",
-    label: "Notifications",
-    pillar: "System",
-    icon: Bell,
-    description: "Alerts & emails",
-    keywords: ["notification", "email", "sms", "alert", "reminders", "messages", "in-app"],
-  },
-  {
-    id: "alerts",
-    label: "Operational Alerts",
-    pillar: "System",
-    icon: BellRing,
-    description: "Detection thresholds",
-    keywords: ["alerts", "threshold", "vacant", "overdue", "arrears", "lease expiry", "vendor insurance"],
   },
   {
     id: "billing",
     label: "Billing & Plans",
-    pillar: "System",
+    pillar: "Subscriptions",
     icon: CreditCard,
-    description: "Pricing, access, upgrades",
+    description: "Pricing, access & usage quotas",
     keywords: ["billing", "plan", "subscription", "pricing", "upgrade", "quota", "invoice", "license"],
+  },
+  {
+    id: "alerts",
+    label: "Operational Alerts",
+    pillar: "Subscriptions",
+    icon: BellRing,
+    description: "Detection thresholds & alarms",
+    keywords: ["alerts", "threshold", "vacant", "overdue", "arrears", "lease expiry", "vendor insurance"],
+  },
+  {
+    id: "notifications",
+    label: "Notifications",
+    pillar: "Subscriptions",
+    icon: Bell,
+    description: "Email & SMS channel dispatch",
+    keywords: ["notification", "email", "sms", "alert", "reminders", "messages", "in-app"],
   },
 ];
 
 const tabGroups = [
-  { title: "Account", tabIds: ["profile", "security", "appearance"] },
-  { title: "Organization", tabIds: ["general", "company"] },
-  { title: "Operations", tabIds: ["lease", "payments", "inspections"] },
-  { title: "Subscription", tabIds: ["notifications", "alerts", "billing"] },
+  { title: "Account", description: "Personal credentials & visual preferences", tabIds: ["profile", "security", "appearance"] },
+  { title: "Organization", description: "Company registration & regional format", tabIds: ["general", "company"] },
+  { title: "Operations", description: "Lease workflows, payment rails & checklists", tabIds: ["lease", "payments", "inspections"] },
+  { title: "Subscriptions", description: "SaaS plan, quota limits & operational alarms", tabIds: ["billing", "alerts", "notifications"] },
 ];
 
 const PILLARS = [
@@ -151,7 +151,7 @@ const PILLARS = [
   { id: "Account", label: "Account" },
   { id: "Organization", label: "Organization" },
   { id: "Operations", label: "Operations" },
-  { id: "Subscription", label: "Subscription" },
+  { id: "Subscriptions", label: "Subscriptions" },
 ];
 
 export default function Settings() {
@@ -198,9 +198,6 @@ export default function Settings() {
 
   const mobileTabs = useMemo(() => {
     if (selectedPillar === "all") return tabs;
-    if (selectedPillar === "Subscription") {
-      return tabs.filter((t) => ["notifications", "alerts", "billing"].includes(t.id));
-    }
     return tabs.filter((t) => t.pillar === selectedPillar);
   }, [selectedPillar]);
 
@@ -511,6 +508,36 @@ export default function Settings() {
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
                   <Shield className="h-3.5 w-3.5 text-indigo-400" />
                   MFA Guard
+                </span>
+              )}
+              {activeTab === "appearance" && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-400 border border-violet-500/30">
+                  <Palette className="h-3.5 w-3.5 text-violet-400" />
+                  Visual Theme & Contrast
+                </span>
+              )}
+              {activeTab === "lease" && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                  <FileText className="h-3.5 w-3.5 text-emerald-500" />
+                  Bilingual PDF Templates
+                </span>
+              )}
+              {activeTab === "inspections" && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-400 border border-teal-500/30">
+                  <ClipboardCheck className="h-3.5 w-3.5 text-teal-400" />
+                  Property Audits & Inventories
+                </span>
+              )}
+              {activeTab === "alerts" && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                  <BellRing className="h-3.5 w-3.5 text-rose-400" />
+                  Operational SLA Alarms
+                </span>
+              )}
+              {activeTab === "notifications" && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/30">
+                  <Bell className="h-3.5 w-3.5 text-sky-400" />
+                  Omnichannel Dispatch
                 </span>
               )}
             </div>

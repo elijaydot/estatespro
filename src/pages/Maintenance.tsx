@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Wrench,
   Plus,
@@ -15,10 +15,14 @@ import {
   Building2,
   Home,
   DollarSign,
+  ClipboardList,
+  CheckSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { InspectionChecklistSettings } from '@/components/settings/InspectionChecklistSettings';
 import {
   Table,
   TableBody,
@@ -187,6 +191,14 @@ const getPriorityBadge = (priority: string) => {
 
 export default function Maintenance() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get('tab') || 'requests';
+  const currentTab = ['requests', 'work-orders', 'inspections'].includes(rawTab) ? rawTab : 'requests';
+
+  const handleTabChange = (val: string) => {
+    setSearchParams(val === 'requests' ? {} : { tab: val }, { replace: true });
+  };
+
   const { formatCurrency } = useSettings();
   const { t } = useI18n();
   const { isSuperAdmin } = useUserRole();
@@ -295,11 +307,22 @@ export default function Maintenance() {
     );
   });
 
+  const workOrdersCount = useMemo(() => {
+    return typedRequests.filter((r) => r.vendor_id || r.assigned_to || r.status === 'in_progress').length;
+  }, [typedRequests]);
+
+  const displayedRequests = useMemo(() => {
+    if (currentTab === 'work-orders') {
+      return filteredRequests.filter((r) => r.vendor_id || r.assigned_to || r.status === 'in_progress');
+    }
+    return filteredRequests;
+  }, [currentTab, filteredRequests]);
+
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, selectedOrgFilter, pageSize]);
+  }, [searchQuery, selectedOrgFilter, pageSize, currentTab]);
 
-  const paginatedRequests = filteredRequests.slice((page - 1) * pageSize, page * pageSize);
+  const paginatedRequests = displayedRequests.slice((page - 1) * pageSize, page * pageSize);
 
   const handleCreate = async () => {
     if (!formData.title || !formData.description) {
@@ -436,7 +459,29 @@ export default function Maintenance() {
       />
 
       {/* Filters & View Toggle */}
-      <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
+        <TabsList className="bg-muted/60 p-1 border border-border/60">
+          <TabsTrigger value="requests" className="gap-2">
+            <Wrench className="h-4 w-4" />
+            Maintenance Tickets ({typedRequests.length})
+          </TabsTrigger>
+          <TabsTrigger value="work-orders" className="gap-2">
+            <CheckSquare className="h-4 w-4" />
+            Work Orders ({workOrdersCount})
+          </TabsTrigger>
+          <TabsTrigger value="inspections" className="gap-2">
+            <ClipboardList className="h-4 w-4" />
+            Inspections & Checklists
+          </TabsTrigger>
+        </TabsList>
+
+        {currentTab === 'inspections' ? (
+          <div className="pt-2">
+            <InspectionChecklistSettings />
+          </div>
+        ) : (
+          <>
+            <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -707,7 +752,7 @@ export default function Maintenance() {
           <Pagination
             page={page}
             pageSize={pageSize}
-            total={filteredRequests.length}
+            total={displayedRequests.length}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
           />
@@ -715,14 +760,17 @@ export default function Maintenance() {
       )}
 
       {/* Empty State */}
-      {!isLoading && filteredRequests.length === 0 && (
+      {!isLoading && displayedRequests.length === 0 && (
         <EmptyState
           icon={Wrench}
-          title={t('empty_no_records', 'No maintenance requests found')}
-          description={t('empty_search_prompt', 'Try adjusting your search query or create a request.')}
+          title={currentTab === 'work-orders' ? 'No work orders found' : t('empty_no_records', 'No maintenance requests found')}
+          description={currentTab === 'work-orders' ? 'No assigned work orders or vendor dispatches match your filter.' : t('empty_search_prompt', 'Try adjusting your search query or create a request.')}
           action={<Button size="sm" onClick={() => setIsCreateOpen(true)}><Plus className="h-4 w-4" />{t('action_new_request', 'New Request')}</Button>}
         />
       )}
+          </>
+        )}
+      </Tabs>
 
       {/* Create Request Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
