@@ -2,55 +2,17 @@ import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import {
-  BarChart3,
-  LineChart,
-  PieChart,
-  TrendingUp,
-  TrendingDown,
   Download,
   Calendar,
-  DollarSign,
-  Home,
-  Users,
-  Wrench,
-  FileText,
-  Building2,
-  ChevronDown,
-  Loader2,
   Printer,
-  Sparkles,
-  BrainCircuit,
 } from 'lucide-react';
 import {
   PageContainer,
   PageHeader,
   PageActions,
-  PageInsights,
 } from '@/design-system/LayoutFramework';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { FinancialIntelligence } from '@/components/dashboard/FinancialIntelligence';
-import { PredictiveAnalytics } from '@/components/ai/PredictiveAnalytics';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart as RechartsLineChart,
-  Line,
-  PieChart as RechartsPieChart,
-  Pie,
-  Cell,
-  Legend,
-  Area,
-  AreaChart,
-} from 'recharts';
 import { useSettings } from '@/contexts/useSettings';
 import { useI18n } from '@/contexts/useI18n';
 import { useProperties } from '@/hooks/useProperties';
@@ -70,67 +32,90 @@ import {
   computeRentRollRows,
   rowsToCsv,
 } from '@/lib/pmReports';
-import { useCompanyExecutiveReport, type CompanyExecutiveReportRow } from '@/hooks/useCompanyExecutiveReport';
+import { useCompanyExecutiveReport } from '@/hooks/useCompanyExecutiveReport';
 import { computeRraRentalTaxReport, generateRraTaxExportCsv } from '@/lib/rraCompliance';
 
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--info))'];
+import {
+  ReportDomainId,
+  REPORT_DOMAINS,
+  resolveDomainAndReport,
+} from '@/components/reports/types';
+import {
+  Level1DomainTabs,
+  Level2ContextSidebar,
+  MobileReportSelector,
+} from '@/components/reports/ReportsNavigation';
+import { ExecutiveOverview } from '@/components/reports/ExecutiveOverview';
+import { FinancialReports } from '@/components/reports/FinancialReports';
+import { OperationsReports } from '@/components/reports/OperationsReports';
+import { PortfolioReports } from '@/components/reports/PortfolioReports';
+import { ForecastingReports } from '@/components/reports/ForecastingReports';
+import { AiInsightsReports } from '@/components/reports/AiInsightsReports';
 
-const escapeHtml = (value: unknown) => String(value ?? '')
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;')
-  .replace(/'/g, '&#039;');
+const COLORS = ['hsl(var(--primary))', '#10B981', '#F59E0B', '#EF4444', '#3B82F6'];
 
-function ExecutiveCompanyDrilldown({
-  row,
-  formatCurrency,
-}: {
-  row: CompanyExecutiveReportRow;
-  formatCurrency: (amount: number) => string;
-}) {
-  return (
-    <div className="border-t pt-5">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="font-semibold">{row.company_name}</h3>
-          <p className="text-sm text-muted-foreground">{[row.company_address, row.company_phone, row.company_email].filter(Boolean).join(' · ') || 'No contact details recorded'}</p>
-        </div>
-      </div>
-      <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div><p className="text-xs text-muted-foreground">Portfolio</p><p className="font-medium">{row.property_count} properties, {row.unit_count} units</p></div>
-        <div><p className="text-xs text-muted-foreground">Occupancy</p><p className="font-medium">{row.occupied_unit_count} occupied ({row.occupancy_rate}%)</p></div>
-        <div><p className="text-xs text-muted-foreground">Active tenants</p><p className="font-medium">{row.active_tenant_count}</p></div>
-        <div><p className="text-xs text-muted-foreground">Approved team</p><p className="font-medium">{row.team_member_count}</p></div>
-        <div><p className="text-xs text-muted-foreground">Collected</p><p className="font-medium">{formatCurrency(Number(row.total_collected))}</p></div>
-        <div><p className="text-xs text-muted-foreground">Outstanding</p><p className="font-medium">{formatCurrency(Number(row.outstanding_balance))}</p></div>
-        <div><p className="text-xs text-muted-foreground">Open maintenance</p><p className="font-medium">{row.open_maintenance_count}</p></div>
-        <div><p className="text-xs text-muted-foreground">AI credits this month</p><p className="font-medium">{row.ai_credits_used ?? 'Restricted'}</p></div>
-      </div>
-    </div>
-  );
-}
+const escapeHtml = (value: unknown) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 
 export default function Reports() {
   const { formatCurrency, settings } = useSettings();
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedTab = searchParams.get('tab');
+
+  const domainParam = searchParams.get('domain');
+  const reportParam = searchParams.get('report');
+  const legacyTabParam = searchParams.get('tab');
+
+  const { domainId: initialDomain, reportId: initialReport } = useMemo(
+    () => resolveDomainAndReport(domainParam, reportParam, legacyTabParam),
+    [domainParam, reportParam, legacyTabParam]
+  );
+
+  const [currentDomainId, setCurrentDomainId] = useState<ReportDomainId>(initialDomain);
+  const [currentReportId, setCurrentReportId] = useState<string>(initialReport);
   const [dateRange, setDateRange] = useState('6m');
-  const [activeReport, setActiveReport] = useState(() => requestedTab || 'revenue');
-  const [selectedExecutiveCompanyId, setSelectedExecutiveCompanyId] = useState<string | null>(null);
 
+  // Keep state synchronized with URL search params
   useEffect(() => {
-    if (requestedTab) {
-      setActiveReport(requestedTab);
-    }
-  }, [requestedTab]);
+    const { domainId, reportId } = resolveDomainAndReport(domainParam, reportParam, legacyTabParam);
+    setCurrentDomainId(domainId);
+    setCurrentReportId(reportId);
+  }, [domainParam, reportParam, legacyTabParam]);
 
-  const handleReportChange = (val: string) => {
-    setActiveReport(val);
-    setSearchParams(val === 'revenue' ? {} : { tab: val }, { replace: true });
+  const handleSelectDomain = (domainId: ReportDomainId) => {
+    setCurrentDomainId(domainId);
+    if (domainId === 'overview') {
+      setCurrentReportId('');
+      setSearchParams({}, { replace: true });
+    } else {
+      const domain = REPORT_DOMAINS.find((d) => d.id === domainId);
+      const defaultRep = domain?.defaultReportId || domain?.reports[0]?.id || '';
+      setCurrentReportId(defaultRep);
+      setSearchParams({ domain: domainId, report: defaultRep }, { replace: true });
+    }
   };
 
+  const handleSelectReport = (reportId: string) => {
+    setCurrentReportId(reportId);
+    setSearchParams({ domain: currentDomainId, report: reportId }, { replace: true });
+  };
+
+  const handleDirectNavigate = (domainId: ReportDomainId, reportId: string) => {
+    setCurrentDomainId(domainId);
+    setCurrentReportId(reportId);
+    if (domainId === 'overview') {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ domain: domainId, report: reportId }, { replace: true });
+    }
+  };
+
+  // Live Data Hooks
   const { data: properties = [] } = useProperties();
   const { data: units = [] } = useUnits();
   const { data: tenants = [] } = useTenants();
@@ -142,70 +127,88 @@ export default function Reports() {
   const { data: vendorPayments = [] } = useVendorPayments();
   const { data: dashboardStats } = useDashboardStats();
   const { data: executiveRows = [], isLoading: executiveLoading } = useCompanyExecutiveReport();
-  const selectedExecutiveCompany = executiveRows.find((row) => row.company_id === selectedExecutiveCompanyId) ?? null;
 
-  // Calculate statistics
-  const totalRevenue = payments
-    .filter(p => p.status === 'completed')
-    .reduce((sum, p) => sum + p.amount, 0);
+  // Statistics
+  const totalRevenue = useMemo(() => {
+    return payments
+      .filter((p) => p.status === 'completed')
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  }, [payments]);
 
-  const outstandingBalance = invoices
-    .filter(i => i.status !== 'paid')
-    .reduce((sum, i) => sum + (i.amount - i.paid_amount), 0);
+  const outstandingBalance = useMemo(() => {
+    return invoices
+      .filter((i) => i.status !== 'paid')
+      .reduce((sum, i) => sum + ((Number(i.amount) || 0) - (Number(i.paid_amount) || 0)), 0);
+  }, [invoices]);
 
-  const occupiedUnits = units.filter(u => u.status === 'occupied').length;
+  const occupiedUnits = units.filter((u) => u.status === 'occupied').length;
   const occupancyRate = units.length > 0 ? (occupiedUnits / units.length) * 100 : 0;
+  const activeTenants = tenants.filter((t) => t.status === 'active').length;
 
-  const activeTenants = tenants.filter(t => t.status === 'active').length;
+  // Monthly Revenue Inflow & Invoiced Data
+  const reportMonths = dateRange === '12m' ? 12 : dateRange === '6m' ? 6 : 3;
 
-  // Generate monthly revenue data
-  const generateMonthlyData = () => {
-    const months = dateRange === '12m' ? 12 : dateRange === '6m' ? 6 : 3;
+  const revenueData = useMemo(() => {
     const data = [];
-    
-    for (let i = months - 1; i >= 0; i--) {
+    for (let i = reportMonths - 1; i >= 0; i--) {
       const date = subMonths(new Date(), i);
       const monthStart = startOfMonth(date);
       const monthEnd = endOfMonth(date);
-      
-      const monthPayments = payments.filter(p => {
+
+      const monthPayments = payments.filter((p) => {
         const paymentDate = new Date(p.created_at);
         return paymentDate >= monthStart && paymentDate <= monthEnd && p.status === 'completed';
       });
-      
-      const monthInvoices = invoices.filter(i => {
-        const invoiceDate = new Date(i.due_date);
+
+      const monthInvoices = invoices.filter((inv) => {
+        const invoiceDate = new Date(inv.due_date);
         return invoiceDate >= monthStart && invoiceDate <= monthEnd;
       });
-      
+
       data.push({
         month: format(date, 'MMM yyyy'),
-        revenue: monthPayments.reduce((sum, p) => sum + p.amount, 0),
-        invoiced: monthInvoices.reduce((sum, i) => sum + i.amount, 0),
+        revenue: monthPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+        invoiced: monthInvoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0),
       });
     }
-    
     return data;
-  };
+  }, [reportMonths, payments, invoices]);
 
-  const revenueData = generateMonthlyData();
-  const reportMonths = dateRange === '12m' ? 12 : dateRange === '6m' ? 6 : 3;
-  const rentRollRows = computeRentRollRows(leases);
-  const agingRows = computeAgingRows(invoices);
-  const occupancyTrendRows = computeOccupancyTrend(leases, units.length, reportMonths);
-  const maintenanceCostRows = computeMaintenanceCostRows(maintenanceRequests);
-  const vendorById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
-  const vendorPaymentRows = vendorPayments
-    .filter((payment) => new Date(payment.paid_at ?? payment.created_at) >= subMonths(new Date(), reportMonths))
-    .map((payment) => ({ ...payment, vendorName: vendorById.get(payment.vendor_id) ?? 'Unknown vendor' }));
-  const vendorPaymentTotals = summarizeVendorPayments(vendorPaymentRows);
+  const rentRollRows = useMemo(() => computeRentRollRows(leases), [leases]);
+  const agingRows = useMemo(() => computeAgingRows(invoices), [invoices]);
+  const occupancyTrendRows = useMemo(
+    () => computeOccupancyTrend(leases, units.length, reportMonths),
+    [leases, units.length, reportMonths]
+  );
+  const maintenanceCostRows = useMemo(
+    () => computeMaintenanceCostRows(maintenanceRequests),
+    [maintenanceRequests]
+  );
 
-  // Rwanda Revenue Authority (RRA) Rental Tax Declaration
+  const vendorById = useMemo(() => new Map(vendors.map((v) => [v.id, v.name])), [vendors]);
+
+  const vendorPaymentRows = useMemo(() => {
+    return vendorPayments
+      .filter((p) => new Date(p.paid_at ?? p.created_at) >= subMonths(new Date(), reportMonths))
+      .map((payment) => ({
+        ...payment,
+        vendorName: vendorById.get(payment.vendor_id) ?? 'Unknown vendor',
+      }));
+  }, [vendorPayments, reportMonths, vendorById]);
+
+  const vendorPaymentTotals = useMemo(
+    () => summarizeVendorPayments(vendorPaymentRows),
+    [vendorPaymentRows]
+  );
+
+  // RRA Rental Income Tax Declaration
   const rraRecords = useMemo(() => {
-    return leases.map(lease => {
-      const leaseInvoices = invoices.filter(i => i.lease_id === lease.id);
-      const leaseInvoiceIds = new Set(leaseInvoices.map(i => i.id));
-      const leasePayments = payments.filter(p => p.status === 'completed' && p.invoice_id && leaseInvoiceIds.has(p.invoice_id));
+    return leases.map((lease) => {
+      const leaseInvoices = invoices.filter((i) => i.lease_id === lease.id);
+      const leaseInvoiceIds = new Set(leaseInvoices.map((i) => i.id));
+      const leasePayments = payments.filter(
+        (p) => p.status === 'completed' && p.invoice_id && leaseInvoiceIds.has(p.invoice_id)
+      );
       const grossCollected = leasePayments.reduce((sum, p) => sum + p.amount, 0);
 
       return {
@@ -215,101 +218,111 @@ export default function Reports() {
         unitNumber: lease.units?.unit_number || 'Unit',
         tenantName: lease.tenants?.name || 'Tenant',
         tenantTin: (lease.tenants as unknown as { tin?: string })?.tin || '',
-        grossRentCollected: grossCollected > 0 ? grossCollected : (lease.monthly_rent * 12),
+        grossRentCollected: grossCollected > 0 ? grossCollected : lease.monthly_rent * 12,
         currency: settings.currencyCode || 'RWF',
       };
     });
-  }, [leases, invoices, payments]);
+  }, [leases, invoices, payments, settings.currencyCode]);
 
   const rraTaxSummary = useMemo(() => {
     return computeRraRentalTaxReport(rraRecords, new Date().getFullYear());
   }, [rraRecords]);
 
-  // Occupancy by property
-  const occupancyByProperty = properties.map(p => ({
-    name: p.name,
-    occupied: p.occupied_units,
-    vacant: p.total_units - p.occupied_units,
-    rate: p.total_units > 0 ? Math.round((p.occupied_units / p.total_units) * 100) : 0,
-  }));
+  // Occupancy by Property
+  const occupancyByProperty = useMemo(() => {
+    return properties.map((p) => ({
+      name: p.name,
+      occupied: p.occupied_units,
+      vacant: p.total_units - p.occupied_units,
+      rate: p.total_units > 0 ? Math.round((p.occupied_units / p.total_units) * 100) : 0,
+    }));
+  }, [properties]);
 
-  // Payment status distribution
-  const paymentStatusData = [
-    { name: 'Paid', value: invoices.filter(i => i.status === 'paid').length, color: COLORS[1] },
-    { name: 'Pending', value: invoices.filter(i => i.status === 'pending').length, color: COLORS[2] },
-    { name: 'Overdue', value: invoices.filter(i => i.status === 'overdue').length, color: COLORS[3] },
-  ].filter(d => d.value > 0);
+  // Payment Status Distribution
+  const paymentStatusData = useMemo(() => {
+    return [
+      { name: 'Paid', value: invoices.filter((i) => i.status === 'paid').length, color: '#10B981' },
+      { name: 'Pending', value: invoices.filter((i) => i.status === 'pending').length, color: '#F59E0B' },
+      { name: 'Overdue', value: invoices.filter((i) => i.status === 'overdue').length, color: '#EF4444' },
+    ].filter((d) => d.value > 0);
+  }, [invoices]);
 
-  // Maintenance by status
-  const maintenanceStatusData = [
-    { name: 'Submitted', value: maintenanceRequests.filter(m => m.status === 'submitted').length, color: COLORS[2] },
-    { name: 'In Progress', value: maintenanceRequests.filter(m => m.status === 'in_progress').length, color: COLORS[4] },
-    { name: 'Completed', value: maintenanceRequests.filter(m => m.status === 'completed').length, color: COLORS[1] },
-  ].filter(d => d.value > 0);
-
-  // Unit status distribution
-  const unitStatusData = [
-    { name: 'Occupied', value: units.filter(u => u.status === 'occupied').length, color: COLORS[1] },
-    { name: 'Vacant', value: units.filter(u => u.status === 'vacant').length, color: COLORS[2] },
-    { name: 'Maintenance', value: units.filter(u => u.status === 'maintenance').length, color: COLORS[3] },
-  ].filter(d => d.value > 0);
-
+  // Global CSV Export Handler
   const handleExportReport = () => {
     let fileName = 'portfolio-summary';
-    let csvContent = rowsToCsv(['Metric', 'Value'], [
-      ['Total Revenue', formatCurrency(totalRevenue)],
-      ['Outstanding Balance', formatCurrency(outstandingBalance)],
-      ['Total Properties', properties.length.toString()],
-      ['Total Units', units.length.toString()],
-      ['Occupied Units', occupiedUnits.toString()],
-      ['Occupancy Rate', `${occupancyRate.toFixed(1)}%`],
-      ['Active Tenants', activeTenants.toString()],
-      ['Open Maintenance Requests', maintenanceRequests.filter(m => m.status !== 'completed').length.toString()],
-      ['Vendor Payments Paid', formatCurrency(vendorPaymentTotals.paid)],
-      ['Vendor Payments Pending', formatCurrency(vendorPaymentTotals.pending)],
-      ['Shortlet Conversion Rate', `${dashboardStats?.shortletConversionRate ?? 0}%`],
-      ['Shortlet Acceptance Rate', `${dashboardStats?.shortletAcceptanceRate ?? 0}%`],
-      ['Shortlet Avg Time To Pay (hours)', `${dashboardStats?.shortletAvgTimeToPayHours ?? 0}`],
-    ]);
+    let csvContent = rowsToCsv(
+      ['Metric', 'Value'],
+      [
+        ['Total Revenue', formatCurrency(totalRevenue)],
+        ['Outstanding Balance', formatCurrency(outstandingBalance)],
+        ['Total Properties', properties.length.toString()],
+        ['Total Units', units.length.toString()],
+        ['Occupied Units', occupiedUnits.toString()],
+        ['Occupancy Rate', `${occupancyRate.toFixed(1)}%`],
+        ['Active Tenants', activeTenants.toString()],
+        ['Open Maintenance Requests', maintenanceRequests.filter((m) => m.status !== 'completed').length.toString()],
+        ['Vendor Payments Paid', formatCurrency(vendorPaymentTotals.paid)],
+        ['Vendor Payments Pending', formatCurrency(vendorPaymentTotals.pending)],
+        ['Shortlet Conversion Rate', `${dashboardStats?.shortletConversionRate ?? 0}%`],
+        ['Shortlet Acceptance Rate', `${dashboardStats?.shortletAcceptanceRate ?? 0}%`],
+        ['Shortlet Avg Time To Pay (hours)', `${dashboardStats?.shortletAvgTimeToPayHours ?? 0}`],
+      ]
+    );
 
-    if (activeReport === 'executive') {
+    if (currentReportId === 'executive') {
       fileName = 'all-companies-executive-report';
       csvContent = rowsToCsv(
         ['Company', 'Access', 'Email', 'Phone', 'Address', 'Properties', 'Units', 'Occupied Units', 'Occupancy Rate', 'Active Tenants', 'Team Members', 'Collected', 'Outstanding', 'Open Maintenance', 'AI Credits Used'],
-        executiveRows.map((row) => [row.company_name, row.access_role, row.company_email ?? '', row.company_phone ?? '', row.company_address ?? '', row.property_count, row.unit_count, row.occupied_unit_count, `${row.occupancy_rate}%`, row.active_tenant_count, row.team_member_count, row.total_collected, row.outstanding_balance, row.open_maintenance_count, row.ai_credits_used ?? 'Restricted']),
+        executiveRows.map((row) => [
+          row.company_name,
+          row.access_role,
+          row.company_email ?? '',
+          row.company_phone ?? '',
+          row.company_address ?? '',
+          row.property_count,
+          row.unit_count,
+          row.occupied_unit_count,
+          `${row.occupancy_rate}%`,
+          row.active_tenant_count,
+          row.team_member_count,
+          row.total_collected,
+          row.outstanding_balance,
+          row.open_maintenance_count,
+          row.ai_credits_used ?? 'Restricted',
+        ])
       );
-    } else if (activeReport === 'rra-tax') {
+    } else if (currentReportId === 'rra-tax') {
       fileName = `rra-rental-income-tax-declaration-${rraTaxSummary.taxYear}`;
       csvContent = generateRraTaxExportCsv(rraTaxSummary);
-    } else if (activeReport === 'rent-roll') {
+    } else if (currentReportId === 'rent-roll') {
       fileName = 'rent-roll';
       csvContent = rowsToCsv(
         ['Property', 'Unit', 'Tenant', 'Lease', 'Start', 'End', 'Monthly Rent', 'Status'],
-        rentRollRows.map((row) => [row.property, row.unit, row.tenant, row.leaseNumber, row.startDate, row.endDate, row.monthlyRent, row.status]),
+        rentRollRows.map((row) => [row.property, row.unit, row.tenant, row.leaseNumber, row.startDate, row.endDate, row.monthlyRent, row.status])
       );
-    } else if (activeReport === 'aging') {
+    } else if (currentReportId === 'aging') {
       fileName = 'aging-collections';
       csvContent = rowsToCsv(
         ['Invoice', 'Tenant', 'Due Date', 'Days Overdue', 'Bucket', 'Balance', 'Status'],
-        agingRows.map((row) => [row.invoiceNumber, row.tenant, row.dueDate, row.daysOverdue, row.bucket, row.balance, row.status]),
+        agingRows.map((row) => [row.invoiceNumber, row.tenant, row.dueDate, row.daysOverdue, row.bucket, row.balance, row.status])
       );
-    } else if (activeReport === 'occupancy-trend') {
+    } else if (currentReportId === 'occupancy-trend') {
       fileName = 'occupancy-trend';
       csvContent = rowsToCsv(
         ['Month', 'Occupied', 'Vacant', 'Occupancy Rate'],
-        occupancyTrendRows.map((row) => [row.month, row.occupied, row.vacant, `${row.occupancyRate}%`]),
+        occupancyTrendRows.map((row) => [row.month, row.occupied, row.vacant, `${row.occupancyRate}%`])
       );
-    } else if (activeReport === 'maintenance-cost') {
+    } else if (currentReportId === 'maintenance-cost') {
       fileName = 'maintenance-cost';
       csvContent = rowsToCsv(
         ['Property', 'Request', 'Priority', 'Status', 'Estimated Cost', 'Actual Cost', 'Variance'],
-        maintenanceCostRows.map((row) => [row.property, row.request, row.priority, row.status, row.estimatedCost, row.actualCost, row.variance]),
+        maintenanceCostRows.map((row) => [row.property, row.request, row.priority, row.status, row.estimatedCost, row.actualCost, row.variance])
       );
-    } else if (activeReport === 'vendor-payments') {
+    } else if (currentReportId === 'vendor-payments') {
       fileName = 'vendor-payments';
       csvContent = rowsToCsv(
         ['Vendor', 'Date', 'Amount', 'Currency', 'Status', 'Payment Method', 'Reference', 'Work Order ID'],
-        vendorPaymentRows.map((payment) => [payment.vendorName, payment.paid_at ?? payment.created_at, payment.amount, payment.currency, payment.status, payment.payment_method ?? '', payment.reference_number ?? '', payment.maintenance_request_id ?? '']),
+        vendorPaymentRows.map((p) => [p.vendorName, p.paid_at ?? p.created_at, p.amount, p.currency, p.status, p.payment_method ?? '', p.reference_number ?? '', p.maintenance_request_id ?? ''])
       );
     }
 
@@ -325,8 +338,15 @@ export default function Reports() {
   const handleExecutivePdf = () => {
     const printWindow = window.open('', '_blank', 'noopener,noreferrer');
     if (!printWindow) return;
-    const rows = executiveRows.map((row) => `<tr><td>${escapeHtml(row.company_name)}</td><td>${escapeHtml(row.access_role)}</td><td>${row.property_count}</td><td>${row.unit_count}</td><td>${row.occupancy_rate}%</td><td>${row.active_tenant_count}</td><td>${escapeHtml(formatCurrency(row.total_collected))}</td><td>${escapeHtml(formatCurrency(row.outstanding_balance))}</td><td>${row.open_maintenance_count}</td><td>${escapeHtml(row.ai_credits_used ?? 'Restricted')}</td></tr>`).join('');
-    printWindow.document.write(`<!doctype html><html><head><title>All Companies Executive Report</title><style>body{font-family:Arial,sans-serif;color:#17202a;padding:28px}h1{font-size:24px;margin:0 0 6px}p{color:#5d6d7e;margin:0 0 24px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #d5d8dc;padding:7px;text-align:left}th{background:#eef2f3}@media print{@page{size:landscape;margin:12mm}}</style></head><body><h1>All Companies Executive Report</h1><p>Generated ${escapeHtml(format(new Date(), 'PPP'))}</p><table><thead><tr><th>Company</th><th>Access</th><th>Properties</th><th>Units</th><th>Occupancy</th><th>Active tenants</th><th>Collected</th><th>Outstanding</th><th>Open maintenance</th><th>AI credits</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close()}</script></body></html>`);
+    const rows = executiveRows
+      .map(
+        (row) =>
+          `<tr><td>${escapeHtml(row.company_name)}</td><td>${escapeHtml(row.access_role)}</td><td>${row.property_count}</td><td>${row.unit_count}</td><td>${row.occupancy_rate}%</td><td>${row.active_tenant_count}</td><td>${escapeHtml(formatCurrency(row.total_collected))}</td><td>${escapeHtml(formatCurrency(row.outstanding_balance))}</td><td>${row.open_maintenance_count}</td><td>${escapeHtml(row.ai_credits_used ?? 'Restricted')}</td></tr>`
+      )
+      .join('');
+    printWindow.document.write(
+      `<!doctype html><html><head><title>All Companies Executive Report</title><style>body{font-family:Inter,sans-serif;color:#0f172a;padding:28px}h1{font-size:22px;margin:0 0 6px}p{color:#64748b;margin:0 0 24px;font-size:12px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #cbd5e1;padding:8px;text-align:left}th{background:#f1f5f9}@media print{@page{size:landscape;margin:12mm}}</style></head><body><h1>All Companies Executive Report</h1><p>Generated ${escapeHtml(format(new Date(), 'PPP'))}</p><table><thead><tr><th>Company</th><th>Access</th><th>Properties</th><th>Units</th><th>Occupancy</th><th>Active tenants</th><th>Collected</th><th>Outstanding</th><th>Open maintenance</th><th>AI credits</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close()}</script></body></html>`
+    );
     printWindow.document.close();
   };
 
@@ -334,8 +354,8 @@ export default function Reports() {
     <PageContainer maxWidth="7xl">
       {/* 1. Header & Primary Action Area */}
       <PageHeader
-        title={t('reports', 'Reports & Intelligence')}
-        description={t('page_reports_subtitle', 'Audited portfolio rent roll, revenue realization, aging accounts, and RRA rental income tax filings.')}
+        title={t('reports', 'Executive Reports')}
+        description={t('page_reports_subtitle', 'Portfolio intelligence, forward revenue forecasts, operational triage, and audited tax compliance.')}
         actions={
           <PageActions>
             <Select value={dateRange} onValueChange={setDateRange}>
@@ -349,770 +369,133 @@ export default function Reports() {
                 <SelectItem value="12m">Last 12 months</SelectItem>
               </SelectContent>
             </Select>
+
             <Button onClick={handleExportReport} variant="outline" size="sm" className="gap-1.5 h-9 text-xs">
               <Download className="h-3.5 w-3.5" />
-              {t('action_export_csv', 'Export CSV')}
+              <span>Export CSV</span>
             </Button>
-            {activeReport === 'executive' && (
+
+            {currentReportId === 'executive' && (
               <Button onClick={handleExecutivePdf} variant="outline" size="sm" className="gap-1.5 h-9 text-xs" disabled={executiveRows.length === 0}>
                 <Printer className="h-3.5 w-3.5" />
-                PDF
+                <span>PDF</span>
               </Button>
             )}
           </PageActions>
         }
       />
 
-      {/* 2. Page Insights (Clean metric strip, not heavy cards) */}
-      <PageInsights
-        metrics={[
-          {
-            id: 'report-total-revenue',
-            label: 'Total Realized Revenue',
-            value: formatCurrency(totalRevenue),
-            tone: 'success',
-            subtext: 'Completed rental receipts',
-          },
-          {
-            id: 'report-outstanding',
-            label: 'Outstanding In Arrears',
-            value: formatCurrency(outstandingBalance),
-            tone: outstandingBalance > 0 ? 'danger' : 'default',
-            subtext: outstandingBalance > 0 ? 'Action required: aging invoices' : 'Fully collected',
-          },
-          {
-            id: 'report-occupancy',
-            label: 'Portfolio Occupancy',
-            value: `${occupancyRate.toFixed(1)}%`,
-            tone: 'default',
-            subtext: `${occupiedUnits} of ${units.length} total units occupied`,
-          },
-          {
-            id: 'report-active-tenants',
-            label: 'Active Resident Base',
-            value: activeTenants,
-            tone: 'default',
-            subtext: `${tenants.length} registered profiles`,
-          },
-        ]}
-      />
+      {/* 2. LEVEL 1: DOMAIN NAVIGATION TABS (Strict Max 6 Domains) */}
+      <div className="space-y-6">
+        <Level1DomainTabs
+          currentDomainId={currentDomainId}
+          onSelectDomain={handleSelectDomain}
+        />
 
-      {/* Shortlet KPI Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Shortlet Conversion Rate</p>
-                <p className="text-2xl font-bold">{dashboardStats?.shortletConversionRate ?? 0}%</p>
-                <p className="text-xs text-muted-foreground mt-1">Bookings converted to paid</p>
-              </div>
-              <div className="p-3 rounded-xl bg-success/10">
-                <TrendingUp className="h-6 w-6 text-success" />
+        {/* 3. WORKSPACE: OVERVIEW OR DOMAIN SPLIT LAYOUT */}
+        {currentDomainId === 'overview' ? (
+          <div className="pt-2">
+            <ExecutiveOverview
+              properties={properties}
+              units={units}
+              tenants={tenants}
+              invoices={invoices}
+              payments={payments}
+              maintenanceRequests={maintenanceRequests}
+              leases={leases}
+              revenueData={revenueData}
+              occupancyTrendRows={occupancyTrendRows}
+              paymentStatusData={paymentStatusData}
+              formatCurrency={formatCurrency}
+              onNavigate={handleDirectNavigate}
+            />
+          </div>
+        ) : (
+          <div className="pt-2">
+            {/* Mobile / Tablet Domain & Report Selector Drawer */}
+            <MobileReportSelector
+              currentDomainId={currentDomainId}
+              currentReportId={currentReportId}
+              onSelectDomain={handleSelectDomain}
+              onSelectReport={handleSelectReport}
+            />
+
+            {/* Desktop Split Layout (240px Sidebar + Flexible Content Canvas) */}
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
+              <Level2ContextSidebar
+                currentDomainId={currentDomainId}
+                currentReportId={currentReportId}
+                onSelectReport={handleSelectReport}
+              />
+
+              <div className="flex-1 min-w-0 w-full space-y-6">
+                {currentDomainId === 'financial' && (
+                  <FinancialReports
+                    reportId={currentReportId}
+                    revenueData={revenueData}
+                    paymentStatusData={paymentStatusData}
+                    rentRollRows={rentRollRows}
+                    agingRows={agingRows}
+                    vendorPaymentRows={vendorPaymentRows}
+                    vendorPaymentTotals={vendorPaymentTotals}
+                    rraTaxSummary={rraTaxSummary}
+                    payments={payments}
+                    invoices={invoices}
+                    formatCurrency={formatCurrency}
+                    onExport={handleExportReport}
+                  />
+                )}
+
+                {currentDomainId === 'operations' && (
+                  <OperationsReports
+                    reportId={currentReportId}
+                    maintenanceRequests={maintenanceRequests}
+                    maintenanceCostRows={maintenanceCostRows}
+                    formatCurrency={formatCurrency}
+                    onExport={handleExportReport}
+                  />
+                )}
+
+                {currentDomainId === 'portfolio' && (
+                  <PortfolioReports
+                    reportId={currentReportId}
+                    properties={properties}
+                    units={units}
+                    leases={leases}
+                    occupancyByProperty={occupancyByProperty}
+                    occupancyTrendRows={occupancyTrendRows}
+                    executiveRows={executiveRows}
+                    executiveLoading={executiveLoading}
+                    formatCurrency={formatCurrency}
+                    onExport={handleExportReport}
+                    onExecutivePdf={handleExecutivePdf}
+                  />
+                )}
+
+                {currentDomainId === 'forecasting' && (
+                  <ForecastingReports
+                    reportId={currentReportId}
+                    totalRevenue={totalRevenue}
+                    units={units}
+                    leases={leases}
+                    formatCurrency={formatCurrency}
+                  />
+                )}
+
+                {currentDomainId === 'ai' && (
+                  <AiInsightsReports
+                    reportId={currentReportId}
+                    totalRevenue={totalRevenue}
+                    outstandingBalance={outstandingBalance}
+                    occupancyRate={occupancyRate}
+                    formatCurrency={formatCurrency}
+                  />
+                )}
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Shortlet Acceptance Rate</p>
-                <p className="text-2xl font-bold">{dashboardStats?.shortletAcceptanceRate ?? 0}%</p>
-                <p className="text-xs text-muted-foreground mt-1">Guest acceptances</p>
-              </div>
-              <div className="p-3 rounded-xl bg-info/10">
-                <Users className="h-6 w-6 text-info" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Avg Time To Pay</p>
-                <p className="text-2xl font-bold">{dashboardStats?.shortletAvgTimeToPayHours ?? 0}h</p>
-                <p className="text-xs text-muted-foreground mt-1">From booking to first payment</p>
-              </div>
-              <div className="p-3 rounded-xl bg-warning/10">
-                <DollarSign className="h-6 w-6 text-warning" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        )}
       </div>
-
-      {/* Charts */}
-      <Tabs value={activeReport} onValueChange={handleReportChange} className="space-y-4">
-        <TabsList className="h-auto flex flex-wrap justify-start">
-          <TabsTrigger value="revenue" className="gap-2">
-            <LineChart className="h-4 w-4" />
-            Revenue
-          </TabsTrigger>
-          <TabsTrigger value="forecasts" className="gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Forecasts
-          </TabsTrigger>
-          <TabsTrigger value="portfolio" className="gap-2">
-            <Building2 className="h-4 w-4" />
-            Portfolio Analytics
-          </TabsTrigger>
-          <TabsTrigger value="ai" className="gap-2">
-            <Sparkles className="h-4 w-4" />
-            AI Insights
-          </TabsTrigger>
-          <TabsTrigger value="occupancy" className="gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Occupancy
-          </TabsTrigger>
-          <TabsTrigger value="payments" className="gap-2">
-            <PieChart className="h-4 w-4" />
-            Payments
-          </TabsTrigger>
-          <TabsTrigger value="maintenance" className="gap-2">
-            <Wrench className="h-4 w-4" />
-            Maintenance
-          </TabsTrigger>
-          <TabsTrigger value="rent-roll">Rent Roll</TabsTrigger>
-          <TabsTrigger value="aging">Aging</TabsTrigger>
-          <TabsTrigger value="occupancy-trend">Occupancy Trend</TabsTrigger>
-          <TabsTrigger value="maintenance-cost">Maintenance Cost</TabsTrigger>
-          <TabsTrigger value="vendor-payments">Vendor Payments</TabsTrigger>
-          <TabsTrigger value="rra-tax" className="gap-2 font-medium">🇷🇼 RRA Rental Tax</TabsTrigger>
-          <TabsTrigger value="executive" className="gap-2"><Building2 className="h-4 w-4" />All Companies</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="executive">
-          <Card className="card-shadow-md">
-            <CardHeader>
-              <CardTitle>All Companies Executive Report</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {executiveLoading ? (
-                <div className="flex min-h-48 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-              ) : executiveRows.length === 0 ? (
-                <p className="py-12 text-center text-sm text-muted-foreground">No accessible companies found.</p>
-              ) : (
-                <>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="border-l-2 border-primary pl-4"><p className="text-xs text-muted-foreground">Companies</p><p className="text-2xl font-semibold">{executiveRows.length}</p></div>
-                    <div className="border-l-2 border-success pl-4"><p className="text-xs text-muted-foreground">Properties</p><p className="text-2xl font-semibold">{executiveRows.reduce((sum, row) => sum + Number(row.property_count), 0)}</p></div>
-                    <div className="border-l-2 border-info pl-4"><p className="text-xs text-muted-foreground">Collected</p><p className="text-xl font-semibold">{formatCurrency(executiveRows.reduce((sum, row) => sum + Number(row.total_collected), 0))}</p></div>
-                    <div className="border-l-2 border-warning pl-4"><p className="text-xs text-muted-foreground">Outstanding</p><p className="text-xl font-semibold">{formatCurrency(executiveRows.reduce((sum, row) => sum + Number(row.outstanding_balance), 0))}</p></div>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3">Company</th><th>Access</th><th className="text-right">Properties</th><th className="text-right">Units</th><th className="text-right">Occupancy</th><th className="text-right">Collected</th><th className="text-right">Outstanding</th><th><span className="sr-only">Details</span></th></tr></thead>
-                      <tbody>{executiveRows.map((row) => <tr key={row.company_id} className="border-b last:border-0"><td className="py-3"><div className="font-medium">{row.company_name}</div><div className="text-xs text-muted-foreground">{row.company_email || 'No email'}</div></td><td><Badge variant="outline">{row.access_role.replace('_', ' ')}</Badge></td><td className="text-right">{row.property_count}</td><td className="text-right">{row.unit_count}</td><td className="text-right">{row.occupancy_rate}%</td><td className="text-right">{formatCurrency(row.total_collected)}</td><td className="text-right">{formatCurrency(row.outstanding_balance)}</td><td className="text-right"><Button variant="ghost" size="icon" title={`View ${row.company_name} details`} onClick={() => setSelectedExecutiveCompanyId(selectedExecutiveCompanyId === row.company_id ? null : row.company_id)}><ChevronDown className={`h-4 w-4 transition-transform ${selectedExecutiveCompanyId === row.company_id ? 'rotate-180' : ''}`} /></Button></td></tr>)}</tbody>
-                    </table>
-                  </div>
-                  {selectedExecutiveCompany && <ExecutiveCompanyDrilldown row={selectedExecutiveCompany} formatCurrency={formatCurrency} />}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="revenue">
-          <Card className="card-shadow-md">
-            <CardHeader>
-              <CardTitle>Revenue Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={revenueData}>
-                    <defs>
-                      <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        background: 'hsl(var(--card))', 
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                      formatter={(value: number) => [formatCurrency(value), '']}
-                    />
-                    <Legend />
-                    <Area 
-                      type="monotone" 
-                      dataKey="revenue" 
-                      name="Collected"
-                      stroke="hsl(var(--primary))" 
-                      fill="url(#revenueGradient)" 
-                      strokeWidth={2}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="invoiced" 
-                      name="Invoiced"
-                      stroke="hsl(var(--muted-foreground))" 
-                      strokeDasharray="5 5"
-                      dot={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="occupancy">
-          <Card className="card-shadow-md">
-            <CardHeader>
-              <CardTitle>Occupancy by Property</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={occupancyByProperty} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={120} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        background: 'hsl(var(--card))', 
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
-                    <Legend />
-                    <Bar dataKey="occupied" name="Occupied" fill="hsl(var(--success))" stackId="a" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="vacant" name="Vacant" fill="hsl(var(--muted))" stackId="a" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="payments">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="card-shadow-md">
-              <CardHeader>
-                <CardTitle>Invoice Status Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <Pie
-                        data={paymentStatusData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {paymentStatusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="card-shadow-md">
-              <CardHeader>
-                <CardTitle>Unit Status Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <Pie
-                        data={unitStatusData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {unitStatusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="maintenance">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="card-shadow-md">
-              <CardHeader>
-                <CardTitle>Maintenance Requests by Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <Pie
-                        data={maintenanceStatusData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {maintenanceStatusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="card-shadow-md">
-              <CardHeader>
-                <CardTitle>Maintenance Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 rounded-lg bg-warning/10">
-                  <div className="flex items-center gap-3">
-                    <Wrench className="h-5 w-5 text-warning" />
-                    <span className="font-medium">Open Requests</span>
-                  </div>
-                  <Badge className="bg-warning/20 text-warning border-warning/30">
-                    {maintenanceRequests.filter(m => m.status === 'submitted').length}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between p-4 rounded-lg bg-info/10">
-                  <div className="flex items-center gap-3">
-                    <Wrench className="h-5 w-5 text-info" />
-                    <span className="font-medium">In Progress</span>
-                  </div>
-                  <Badge className="bg-info/20 text-info border-info/30">
-                    {maintenanceRequests.filter(m => m.status === 'in_progress').length}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between p-4 rounded-lg bg-success/10">
-                  <div className="flex items-center gap-3">
-                    <Wrench className="h-5 w-5 text-success" />
-                    <span className="font-medium">Completed</span>
-                  </div>
-                  <Badge className="bg-success/20 text-success border-success/30">
-                    {maintenanceRequests.filter(m => m.status === 'completed').length}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between p-4 rounded-lg bg-destructive/10">
-                  <div className="flex items-center gap-3">
-                    <Wrench className="h-5 w-5 text-destructive" />
-                    <span className="font-medium">High Priority</span>
-                  </div>
-                  <Badge className="bg-destructive/20 text-destructive border-destructive/30">
-                    {maintenanceRequests.filter(m => m.priority === 'high' || m.priority === 'urgent').length}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="rent-roll">
-          <Card className="card-shadow-md">
-            <CardHeader><CardTitle>Rent Roll</CardTitle></CardHeader>
-            <CardContent className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3">Property / Unit</th><th>Tenant</th><th>Lease</th><th>Term</th><th className="text-right">Monthly Rent</th><th>Status</th></tr></thead>
-                <tbody>{rentRollRows.map((row) => <tr key={row.leaseNumber} className="border-b last:border-0"><td className="py-3">{row.property} / {row.unit}</td><td>{row.tenant}</td><td>{row.leaseNumber}</td><td>{row.startDate} to {row.endDate}</td><td className="text-right">{formatCurrency(row.monthlyRent)}</td><td><Badge variant="outline">{row.status}</Badge></td></tr>)}</tbody>
-              </table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="aging">
-          <Card className="card-shadow-md">
-            <CardHeader><CardTitle>Aging & Collections</CardTitle></CardHeader>
-            <CardContent className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3">Invoice</th><th>Tenant</th><th>Due</th><th>Age</th><th>Bucket</th><th className="text-right">Balance</th></tr></thead>
-                <tbody>{agingRows.map((row) => <tr key={row.invoiceNumber} className="border-b last:border-0"><td className="py-3">{row.invoiceNumber}</td><td>{row.tenant}</td><td>{row.dueDate}</td><td>{row.daysOverdue} days</td><td><Badge variant="outline">{row.bucket}</Badge></td><td className="text-right">{formatCurrency(row.balance)}</td></tr>)}</tbody>
-              </table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="occupancy-trend">
-          <Card className="card-shadow-md">
-            <CardHeader><CardTitle>Occupancy Trend</CardTitle></CardHeader>
-            <CardContent>
-              <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsLineChart data={occupancyTrendRows}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <Tooltip formatter={(value: number) => [`${value}%`, 'Occupancy']} />
-                    <Line type="monotone" dataKey="occupancyRate" stroke="hsl(var(--primary))" strokeWidth={2} />
-                  </RechartsLineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="maintenance-cost">
-          <Card className="card-shadow-md">
-            <CardHeader><CardTitle>Maintenance Cost</CardTitle></CardHeader>
-            <CardContent className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3">Property</th><th>Request</th><th>Priority</th><th>Status</th><th className="text-right">Estimated</th><th className="text-right">Actual</th><th className="text-right">Variance</th></tr></thead>
-                <tbody>{maintenanceCostRows.map((row, index) => <tr key={`${row.request}-${index}`} className="border-b last:border-0"><td className="py-3">{row.property}</td><td>{row.request}</td><td>{row.priority}</td><td>{row.status}</td><td className="text-right">{formatCurrency(row.estimatedCost)}</td><td className="text-right">{formatCurrency(row.actualCost)}</td><td className="text-right">{formatCurrency(row.variance)}</td></tr>)}</tbody>
-              </table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="rra-tax">
-          <Card className="card-shadow-md">
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">🇷🇼</span>
-                  <CardTitle className="text-lg font-bold">Rwanda Revenue Authority (RRA) — Annual Rental Income Tax Declaration</CardTitle>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Compliant with Law N° 016/2018 on Direct Taxes on Income (Article 49). Annual returns due by <strong>January 31st</strong>.
-                </p>
-              </div>
-              <Button 
-                onClick={handleExportReport} 
-                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-xs shrink-0"
-              >
-                <Download className="h-4 w-4" />
-                Export RRA E-Tax CSV
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-6 pt-6">
-              {/* Statutory Metrics Grid */}
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="p-4 rounded-xl border border-border bg-card">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">1. Gross Rental Income</p>
-                  <p className="text-2xl font-extrabold text-foreground mt-1">
-                    {rraTaxSummary.totalGrossRent.toLocaleString()} <span className="text-xs font-semibold text-muted-foreground">RWF</span>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">Total rent collected across all properties</p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-wider text-emerald-700 dark:text-emerald-400 font-medium">2. Statutory 50% Allowance</p>
-                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-[10px] font-bold">Article 49</Badge>
-                  </div>
-                  <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
-                    - {rraTaxSummary.totalStatutoryDeductions.toLocaleString()} <span className="text-xs font-semibold text-muted-foreground">RWF</span>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">Automatic flat deduction for maintenance & depreciation</p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
-                  <p className="text-xs uppercase tracking-wider text-blue-700 dark:text-blue-400 font-medium">3. Net Taxable Income</p>
-                  <p className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
-                    {rraTaxSummary.totalTaxableRent.toLocaleString()} <span className="text-xs font-semibold text-muted-foreground">RWF</span>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">Gross income less statutory allowance</p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 font-medium">4. Est. Tax Payable</p>
-                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-[10px] font-bold">Progressive</Badge>
-                  </div>
-                  <p className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">
-                    {rraTaxSummary.estimatedTaxPayable.toLocaleString()} <span className="text-xs font-semibold text-muted-foreground">RWF</span>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">Progressive rate (0%, 20%, 30%)</p>
-                </div>
-              </div>
-
-              {/* RRA Tax Brackets Reference */}
-              <div className="rounded-lg bg-muted/40 p-4 border border-border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs">
-                <div className="space-y-1">
-                  <span className="font-semibold text-foreground">Rwanda Individual Rental Income Progressive Brackets (RWF):</span>
-                  <div className="flex flex-wrap gap-3 text-muted-foreground pt-1">
-                    <span>• 0 to 180,000 RWF: <strong>0%</strong> (Exempt)</span>
-                    <span>• 180,001 to 1,000,000 RWF: <strong>20%</strong></span>
-                    <span>• Above 1,000,000 RWF: <strong>30%</strong></span>
-                  </div>
-                </div>
-                <div className="shrink-0">
-                  <Badge variant="secondary" className="text-xs">Tax Year: {rraTaxSummary.taxYear}</Badge>
-                </div>
-              </div>
-
-              {/* Property / Unit Detailed Schedule */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-foreground">Property & Lease Schedule for Declaration ({rraTaxSummary.records.length} Units)</h4>
-                <div className="overflow-x-auto rounded-lg border border-border">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/50 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        <th className="py-3 px-4">Property</th>
-                        <th className="py-3 px-4">Unit</th>
-                        <th className="py-3 px-4">Tenant</th>
-                        <th className="py-3 px-4">Tenant TIN</th>
-                        <th className="py-3 px-4 text-right">Gross Rent</th>
-                        <th className="py-3 px-4 text-right">50% Deduction</th>
-                        <th className="py-3 px-4 text-right">Net Taxable</th>
-                        <th className="py-3 px-4 text-right">Est. Tax</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {rraTaxSummary.records.map((rec, i) => (
-                        <tr key={`${rec.propertyId}-${rec.unitId || i}`} className="hover:bg-muted/30 transition-colors">
-                          <td className="py-3 px-4 font-medium text-foreground">{rec.propertyName}</td>
-                          <td className="py-3 px-4 text-muted-foreground">{rec.unitNumber || '-'}</td>
-                          <td className="py-3 px-4 text-foreground">{rec.tenantName || 'N/A'}</td>
-                          <td className="py-3 px-4 text-muted-foreground font-mono text-xs">{rec.tenantTin || '-'}</td>
-                          <td className="py-3 px-4 text-right font-medium">{rec.grossRentCollected.toLocaleString()} RWF</td>
-                          <td className="py-3 px-4 text-right text-emerald-600 dark:text-emerald-400 font-medium">
-                            - {rec.statutoryDeduction.toLocaleString()} RWF
-                          </td>
-                          <td className="py-3 px-4 text-right font-semibold text-foreground">
-                            {rec.netTaxableRent.toLocaleString()} RWF
-                          </td>
-                          <td className="py-3 px-4 text-right font-semibold text-amber-600 dark:text-amber-400">
-                            {rec.estimatedTax.toLocaleString()} RWF
-                          </td>
-                        </tr>
-                      ))}
-                      {rraTaxSummary.records.length === 0 && (
-                        <tr>
-                          <td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
-                            No active lease records available for the {rraTaxSummary.taxYear} tax year.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                    <tfoot className="border-t-2 border-border bg-muted/40 font-semibold text-xs">
-                      <tr>
-                        <td colSpan={4} className="py-3 px-4 uppercase tracking-wider text-foreground">Totals</td>
-                        <td className="py-3 px-4 text-right font-bold text-foreground">{rraTaxSummary.totalGrossRent.toLocaleString()} RWF</td>
-                        <td className="py-3 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">- {rraTaxSummary.totalStatutoryDeductions.toLocaleString()} RWF</td>
-                        <td className="py-3 px-4 text-right font-bold text-blue-600 dark:text-blue-400">{rraTaxSummary.totalTaxableRent.toLocaleString()} RWF</td>
-                        <td className="py-3 px-4 text-right font-bold text-amber-600 dark:text-amber-400">{rraTaxSummary.estimatedTaxPayable.toLocaleString()} RWF</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="vendor-payments">
-          <Card className="card-shadow-md">
-            <CardHeader><CardTitle>Vendor Payments</CardTitle></CardHeader>
-            <CardContent>
-              <div className="mb-5 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Paid</p><p className="mt-1 text-xl font-bold text-success">{formatCurrency(vendorPaymentTotals.paid)}</p></div>
-                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Pending</p><p className="mt-1 text-xl font-bold text-warning">{formatCurrency(vendorPaymentTotals.pending)}</p></div>
-                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Ledger entries</p><p className="mt-1 text-xl font-bold">{vendorPaymentRows.length}</p></div>
-              </div>
-              <div className="overflow-x-auto"><table className="w-full min-w-[820px] text-sm"><thead><tr className="border-b text-left text-muted-foreground"><th className="py-3">Vendor</th><th>Date</th><th>Method / Reference</th><th>Work order</th><th>Status</th><th className="text-right">Amount</th></tr></thead><tbody>{vendorPaymentRows.map((payment) => <tr key={payment.id} className="border-b last:border-0"><td className="py-3 font-medium">{payment.vendorName}</td><td>{format(new Date(payment.paid_at ?? payment.created_at), 'MMM d, yyyy')}</td><td>{payment.payment_method || '-'}{payment.reference_number ? ` / ${payment.reference_number}` : ''}</td><td>{payment.maintenance_request_id || '-'}</td><td><Badge variant="outline">{payment.status}</Badge></td><td className="text-right">{formatCurrency(payment.amount)}</td></tr>)}</tbody></table></div>
-              {vendorPaymentRows.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No vendor payments in this reporting period.</p>}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="forecasts" className="space-y-6">
-          <Card className="card-shadow-md">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-bold flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    Forward Cashflow & Revenue Trajectory Model
-                  </CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground mt-1">
-                    Multi-scenario revenue forecast based on active leases, expiration schedule, and historical collection velocity.
-                  </CardDescription>
-                </div>
-                <Badge variant="outline" className="font-mono text-xs">
-                  {leases.length} Active Leases Modeled
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-3 mb-6">
-                <div className="p-4 rounded-xl border border-border/80 bg-muted/30">
-                  <p className="text-xs font-medium text-muted-foreground">30-Day Expected Inflow</p>
-                  <p className="text-xl font-bold text-foreground mt-1 font-mono">
-                    {formatCurrency(totalRevenue * 1.05)}
-                  </p>
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1 font-medium">
-                    <TrendingUp className="h-3 w-3" /> +5.2% vs trailing average
-                  </p>
-                </div>
-                <div className="p-4 rounded-xl border border-border/80 bg-muted/30">
-                  <p className="text-xs font-medium text-muted-foreground">90-Day Projected Revenue</p>
-                  <p className="text-xl font-bold text-foreground mt-1 font-mono">
-                    {formatCurrency(totalRevenue * 3.1)}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Confidence interval: 94.8%
-                  </p>
-                </div>
-                <div className="p-4 rounded-xl border border-border/80 bg-muted/30">
-                  <p className="text-xs font-medium text-muted-foreground">Vacancy Risk Exposure</p>
-                  <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1 font-mono">
-                    {formatCurrency((units.length - occupiedUnits) * (totalRevenue / Math.max(occupiedUnits, 1)))}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    {units.length - occupiedUnits} unoccupied units
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <PredictiveAnalytics embedded />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="portfolio" className="space-y-6">
-          <Card className="card-shadow-md">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-bold flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-primary" />
-                    Portfolio Yield & Property Performance
-                  </CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground mt-1">
-                    Asset-level occupancy distribution, unit yield efficiency, and turnover rate across estates.
-                  </CardDescription>
-                </div>
-                <Badge variant="outline" className="font-mono text-xs">
-                  {properties.length} Estates
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-4 mb-6">
-                <div className="p-4 rounded-xl border border-border/80 bg-muted/30">
-                  <p className="text-xs font-medium text-muted-foreground">Portfolio Estates</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{properties.length}</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">Managed assets</p>
-                </div>
-                <div className="p-4 rounded-xl border border-border/80 bg-muted/30">
-                  <p className="text-xs font-medium text-muted-foreground">Rentable Capacity</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{units.length} Units</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">{occupiedUnits} occupied ({occupancyRate.toFixed(1)}%)</p>
-                </div>
-                <div className="p-4 rounded-xl border border-border/80 bg-muted/30">
-                  <p className="text-xs font-medium text-muted-foreground">Average Unit Rate</p>
-                  <p className="text-2xl font-bold text-foreground mt-1 font-mono">
-                    {formatCurrency(totalRevenue / Math.max(occupiedUnits, 1))}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">Monthly realization</p>
-                </div>
-                <div className="p-4 rounded-xl border border-border/80 bg-muted/30">
-                  <p className="text-xs font-medium text-muted-foreground">Annual Gross Potential</p>
-                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1 font-mono">
-                    {formatCurrency(totalRevenue * 12)}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">Based on current roll</p>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/40 text-left text-muted-foreground text-xs">
-                      <th className="py-3 px-4">Estate Property</th>
-                      <th className="py-3 px-4">Total Units</th>
-                      <th className="py-3 px-4">Occupancy</th>
-                      <th className="py-3 px-4">Active Leases</th>
-                      <th className="py-3 px-4 text-right">Yield Efficiency</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {properties.map((prop) => {
-                      const propUnits = units.filter((u) => u.property_id === prop.id);
-                      const propOccupied = propUnits.filter((u) => u.status === 'occupied').length;
-                      const propRate = propUnits.length > 0 ? (propOccupied / propUnits.length) * 100 : 0;
-                      return (
-                        <tr key={prop.id} className="border-b last:border-0 hover:bg-muted/30">
-                          <td className="py-3 px-4 font-semibold text-foreground flex items-center gap-2">
-                            <Building2 className="h-4 w-4 text-primary" />
-                            {prop.name}
-                          </td>
-                          <td className="py-3 px-4">{propUnits.length}</td>
-                          <td className="py-3 px-4">
-                            <span className="font-medium">{propRate.toFixed(1)}%</span>
-                            <span className="text-xs text-muted-foreground ml-1.5">({propOccupied}/{propUnits.length})</span>
-                          </td>
-                          <td className="py-3 px-4">
-                            {leases.filter((l) => l.unit_id && propUnits.some((u) => u.id === l.unit_id)).length}
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <Badge variant={propRate >= 80 ? 'default' : propRate >= 50 ? 'outline' : 'secondary'}>
-                              {propRate >= 80 ? 'Prime' : propRate >= 50 ? 'Steady' : 'Action Req'}
-                            </Badge>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="ai" className="space-y-6">
-          <Card className="card-shadow-md">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-bold flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-primary" />
-                    AI Insights & Financial Intelligence
-                  </CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground mt-1">
-                    Continuous automated telemetry on rental payments, arrears risk, anomaly detection, and lease expirations.
-                  </CardDescription>
-                </div>
-                <Badge className="bg-primary/10 text-primary border border-primary/20 text-xs">
-                  Autonomous Engine Active
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-8">
-              <FinancialIntelligence embedded />
-              <div className="border-t border-border/60 pt-6">
-                <PredictiveAnalytics embedded />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
     </PageContainer>
   );
 }
