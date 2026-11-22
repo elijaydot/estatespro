@@ -374,10 +374,6 @@ export function ModuleSidebarNav({
                         : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
                     )}
                   >
-                        ? 'bg-primary text-primary-foreground shadow-md ring-2 ring-primary/40 font-semibold'
-                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-                    )}
-                  >
                     <ItemIcon className="h-4 w-4 shrink-0" />
                     {item.id === 'pm-alerts' && openAlertCount > 0 && (
                       <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
