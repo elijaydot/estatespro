@@ -50,6 +50,7 @@ import { useRecurringBills, useCreateRecurringBill, useUpdateRecurringBill, useD
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { Pagination } from '@/components/shared/Pagination';
 import {
   PageContainer,
   PageHeader,

@@ -77,6 +77,7 @@ import { StatusPill } from '@/components/shared/StatusPill';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { DataTable } from '@/components/shared/DataTable';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { Pagination } from '@/components/shared/Pagination';
 import {
   PageContainer,
   PageHeader,

@@ -74,6 +74,7 @@ import { FilterBar } from '@/components/shared/FilterBar';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Badge } from '@/components/ui/badge';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { Pagination } from '@/components/shared/Pagination';
 import {
   PageContainer,
   PageHeader,

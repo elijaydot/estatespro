@@ -61,6 +61,7 @@ import { FilterBar } from '@/components/shared/FilterBar';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { Pagination } from '@/components/shared/Pagination';
 import {
   PageContainer,
   PageHeader,

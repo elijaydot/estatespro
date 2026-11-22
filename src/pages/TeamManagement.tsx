@@ -24,6 +24,7 @@ import {
   PageInsights,
 } from '@/design-system/LayoutFramework';
 import { StandardTable } from '@/design-system/components/StandardTable';
+import { Pagination } from '@/components/shared/Pagination';
 import {
   useMyCompanies,
   useCompanyMembers,

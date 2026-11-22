@@ -14,6 +14,7 @@ import { useI18n } from '@/contexts/useI18n';
 import { useMyCompanies } from '@/hooks/useCompanies';
 import { useCreateVendor, useVendors, type VendorInput, type Vendor } from '@/hooks/useVendors';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
+import { Pagination } from '@/components/shared/Pagination';
 import {
   PageContainer,
   PageHeader,
