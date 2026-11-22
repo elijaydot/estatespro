@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Building2,
   Users,
@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   Activity,
   Layers,
+  LayoutDashboard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,7 @@ import { StandardTable } from '@/design-system/components/StandardTable';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { OccupancyChart } from '@/components/dashboard/OccupancyChart';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
+import { ActivityCenterView } from '@/components/dashboard/ActivityCenterView';
 import { DashboardAIInsightsPanel } from '@/components/dashboard/DashboardAIInsightsPanel';
 import { SmartSearchInsights } from '@/components/ai/SmartSearchInsights';
 import { FinancialIntelligence } from '@/components/dashboard/FinancialIntelligence';
@@ -55,6 +57,8 @@ import { useI18n } from '@/contexts/useI18n';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentView = searchParams.get('view') === 'activity' ? 'activity' : 'command';
   const { role, isSuperAdmin } = useUserRole();
   const { data: stats, isLoading } = useDashboardStats();
   const { entitlements, isTrialing, isTrialExpired, trialDaysRemaining, isLoading: saasLoading } = useSaasAccess();
@@ -179,19 +183,41 @@ export default function Dashboard() {
     <PageContainer maxWidth="7xl">
       {/* Page Header */}
       <PageHeader
-        title={isSuperAdmin ? 'Platform Command Center' : `${t('greeting_good_day', 'Good day')}, ${displayName}`}
-        description={`${dateLabel} • ${activeCompanyName}. Real-time operational picture across portfolio assets, collections, and work orders.`}
+        title={
+          currentView === 'activity'
+            ? 'Portfolio Activity Center'
+            : isSuperAdmin
+            ? 'Platform Command Center'
+            : `${t('greeting_good_day', 'Good day')}, ${displayName}`
+        }
+        description={
+          currentView === 'activity'
+            ? 'Real-time chronological timeline of rental collections, lease events, maintenance updates, and operational audit events across your portfolio.'
+            : `${dateLabel} • ${activeCompanyName}. Real-time operational picture across portfolio assets, collections, and work orders.`
+        }
         actions={
           <PageActions>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/reports')}
-              className="gap-1.5 text-xs h-9 rounded-lg"
-            >
-              <FileText className="h-3.5 w-3.5 text-slate-500" />
-              Financial Reports
-            </Button>
+            {currentView === 'activity' ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSearchParams({}, { replace: true })}
+                className="gap-1.5 text-xs h-9 rounded-lg"
+              >
+                <LayoutDashboard className="h-3.5 w-3.5 text-slate-500" />
+                Command Center
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/reports')}
+                className="gap-1.5 text-xs h-9 rounded-lg"
+              >
+                <FileText className="h-3.5 w-3.5 text-slate-500" />
+                Financial Reports
+              </Button>
+            )}
             <Button
               size="sm"
               onClick={() => navigate('/invoices?add=true')}
@@ -204,12 +230,38 @@ export default function Dashboard() {
         }
       />
 
-      {/* SECTION 1: ATTENTION CENTER (Always first. Dominates attention.) */}
-      <AttentionCenter
-        items={attentionItems}
-        title="Attention Center"
-        subtitle="Exceptions and action items requiring immediate executive decision"
-      />
+      {/* Top View Selector: Command Center vs Activity Center */}
+      <div className="flex items-center gap-1.5 border-b border-border/60 pb-3 mb-6 overflow-x-auto no-scrollbar">
+        <Button
+          variant={currentView === 'command' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setSearchParams({}, { replace: true })}
+          className="gap-2 text-xs h-9 rounded-lg font-medium"
+        >
+          <LayoutDashboard className="h-4 w-4" />
+          <span>Command Center</span>
+        </Button>
+        <Button
+          variant={currentView === 'activity' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setSearchParams({ view: 'activity' }, { replace: true })}
+          className="gap-2 text-xs h-9 rounded-lg font-medium"
+        >
+          <Activity className="h-4 w-4" />
+          <span>Activity Center</span>
+        </Button>
+      </div>
+
+      {currentView === 'activity' ? (
+        <ActivityCenterView />
+      ) : (
+        <>
+          {/* SECTION 1: ATTENTION CENTER (Always first. Dominates attention.) */}
+          <AttentionCenter
+            items={attentionItems}
+            title="Attention Center"
+            subtitle="Exceptions and action items requiring immediate executive decision"
+          />
 
       {/* SECTION 2: BUSINESS HEALTH (Simple, Executive, Highly Scannable) */}
       <PageSection
@@ -309,7 +361,7 @@ export default function Dashboard() {
                 Forecast Models →
               </Button>
             </div>
-            <RevenueChart />
+            <RevenueChart embedded />
           </StandardCard>
 
           <StandardCard className="p-5 flex flex-col justify-between">
@@ -322,7 +374,7 @@ export default function Dashboard() {
                   Physical unit occupancy yield
                 </p>
               </div>
-              <OccupancyChart />
+              <OccupancyChart embedded />
             </div>
 
             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
@@ -561,6 +613,8 @@ export default function Dashboard() {
             />
           </StandardCard>
         </PageSection>
+      )}
+        </>
       )}
     </PageContainer>
   );
