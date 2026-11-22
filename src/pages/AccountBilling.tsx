@@ -21,7 +21,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useI18n } from '@/contexts/useI18n';
-import { GoogleStyleBillingOverview } from '@/components/billing/GoogleStyleBillingOverview';
+import {
+  PageContainer,
+  PageHeader,
+  PageActions,
+} from '@/design-system/LayoutFramework';
+import { StandardTable } from '@/design-system/components/StandardTable';
 
 type Company = { id: string; name: string };
 type BillingGroup = { id: string; name: string; status: string; created_at: string };
@@ -184,14 +189,64 @@ export default function AccountBilling() {
   if (billing.error) return <div className="p-4 md:p-6"><Alert variant="destructive"><AlertTitle>Account billing unavailable</AlertTitle><AlertDescription>{billing.error.message}</AlertDescription></Alert></div>;
 
   return (
-    <div className="space-y-8 p-4 md:p-6 max-w-[1500px] mx-auto">
-      {/* Google One / Google Workspace Style Subscription & Usage Hub */}
-      <GoogleStyleBillingOverview />
-
-      <header className="flex flex-wrap items-start justify-between gap-4 pt-6 border-t border-border">
-        <div><div className="flex items-center gap-2"><CreditCard className="h-5 w-5" /><h1 className="text-2xl font-semibold">{t('billing', 'Account Billing & Group Operations')}</h1></div><p className="mt-1 text-sm text-muted-foreground">{t('page_billing_subtitle', 'Manage standalone companies and optional pooled subscriptions from one place.')}</p></div>
-        <div className="flex gap-2"><Button variant="outline" size="icon" onClick={() => refresh()} title="Refresh billing data"><RefreshCw className="h-4 w-4" /></Button><Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogTrigger asChild><Button disabled={(data?.companies.length || 0) < 2}><Plus className="mr-2 h-4 w-4" />Create billing group</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>Create pooled billing group</DialogTitle><DialogDescription>Select at least two companies you own. Their standalone subscriptions will be paused and preserved.</DialogDescription></DialogHeader><div className="space-y-4"><div className="space-y-2"><Label htmlFor="group-name">Group name</Label><Input id="group-name" value={groupName} onChange={(event) => setGroupName(event.target.value)} /></div><div className="space-y-2"><Label>Unified plan</Label><Select value={createPlanId} onValueChange={setCreatePlanId}><SelectTrigger><SelectValue placeholder="Select a plan" /></SelectTrigger><SelectContent>{data?.plans.map((plan) => <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Companies</Label><div className="max-h-44 space-y-2 overflow-auto rounded-md border p-3">{data?.companies.map((company) => <label key={company.id} className="flex items-center gap-3 text-sm"><Checkbox checked={selectedCompanyIds.includes(company.id)} onCheckedChange={(checked) => setSelectedCompanyIds((current) => checked ? [...current, company.id] : current.filter((id) => id !== company.id))} />{company.name}</label>)}</div></div><div className="space-y-2"><Label htmlFor="create-reason">Reason</Label><Input id="create-reason" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Why are these companies pooling billing?" /></div></div><DialogFooter><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button onClick={createGroup} disabled={rpcMutation.isPending || selectedCompanyIds.length < 2}>Create group</Button></DialogFooter></DialogContent></Dialog></div>
-      </header>
+    <PageContainer maxWidth="7xl">
+      <PageHeader
+        title={t('billing', 'Billing & SaaS Subscriptions')}
+        description={t('page_billing_subtitle', 'Manage standalone enterprise subscriptions, pooled quota tiers, invoice settlements, and usage limits.')}
+        actions={
+          <PageActions>
+            <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => refresh()} title="Refresh billing data">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium h-9 text-xs" disabled={(data?.companies.length || 0) < 2}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Create Billing Group
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create pooled billing group</DialogTitle>
+                  <DialogDescription>Select at least two companies you own. Their standalone subscriptions will be paused and preserved.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="group-name">Group name</Label>
+                    <Input id="group-name" value={groupName} onChange={(event) => setGroupName(event.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Unified plan</Label>
+                    <Select value={createPlanId} onValueChange={setCreatePlanId}>
+                      <SelectTrigger><SelectValue placeholder="Select a plan" /></SelectTrigger>
+                      <SelectContent>{data?.plans.map((plan) => <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Companies</Label>
+                    <div className="max-h-44 space-y-2 overflow-auto rounded-md border p-3">
+                      {data?.companies.map((company) => (
+                        <label key={company.id} className="flex items-center gap-3 text-sm">
+                          <Checkbox checked={selectedCompanyIds.includes(company.id)} onCheckedChange={(checked) => setSelectedCompanyIds((current) => checked ? [...current, company.id] : current.filter((id) => id !== company.id))} />
+                          {company.name}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="create-reason">Reason</Label>
+                    <Input id="create-reason" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Why are these companies pooling billing?" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+                  <Button onClick={createGroup} disabled={rpcMutation.isPending || selectedCompanyIds.length < 2}>Create group</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </PageActions>
+        }
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Owned companies</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{data?.companies.length || 0}</CardContent></Card><Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Billing groups</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{data?.groups.length || 0}</CardContent></Card><Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Grouped companies</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{data?.members.length || 0}</CardContent></Card><Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Outstanding</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{formatMoney(data?.invoices.filter((invoice) => ['open', 'uncollectible'].includes(invoice.invoice_status)).reduce((sum, invoice) => sum + invoice.amount_minor, 0) || 0)}</CardContent></Card></div>
 
@@ -212,6 +267,6 @@ export default function AccountBilling() {
       </>}
 
       <section><div className="mb-3 flex items-center gap-2"><Building2 className="h-4 w-4" /><h2 className="font-semibold">Company billing mode</h2></div><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{data?.companies.map((company) => { const member = data.members.find((item) => item.company_id === company.id); const group = data.groups.find((item) => item.id === member?.group_id); return <div key={company.id} className="flex items-center justify-between border-b py-3"><div><p className="font-medium">{company.name}</p><p className="text-xs text-muted-foreground">{group ? group.name : 'Independent subscription'}</p></div><Badge variant={group ? 'default' : 'outline'}>{group ? 'Pooled' : 'Per-company'}</Badge></div>; })}</div></section>
-    </div>
+    </PageContainer>
   );
 }

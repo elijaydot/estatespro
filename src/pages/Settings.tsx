@@ -25,6 +25,7 @@ import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useActiveCompany } from "@/contexts/useActiveCompany";
 import { useSettings } from "@/contexts/useSettings";
 import { useSaasAccess } from "@/hooks/useSaasAccess";
+import { PageContainer, PageHeader, PageActions } from "@/design-system/LayoutFramework";
 
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { GeneralSettings } from "@/components/settings/GeneralSettings";
@@ -204,95 +205,85 @@ export default function Settings() {
   }, [selectedPillar]);
 
   return (
-    <div className="animate-fade-in max-w-7xl mx-auto space-y-6 pb-12">
-      {/* Settings Top Command Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-border/60">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-sm">
-            <SettingsIcon className="h-6 w-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">Settings</h1>
-              <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                Control Center
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Personal preferences, Rwandan RDB / RRA compliance, mobile money rails & automation
-            </p>
-          </div>
-        </div>
-
-        {/* Global Quick Search Input */}
-        <div className="relative w-full md:w-80">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <Input
-              type="text"
-              placeholder="Search settings (MFA, TIN, MoMo, Currency)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-8 h-10 bg-card border-border/80 rounded-xl text-xs sm:text-sm focus-visible:ring-primary/40 shadow-sm"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-muted"
-                aria-label="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Instant Search Results Dropdown */}
-          {searchQuery.trim() && (
-            <div className="absolute z-30 left-0 right-0 mt-2 p-2 bg-card/95 backdrop-blur-md border border-border/80 rounded-xl shadow-xl space-y-1 animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground px-2 py-1">
-                <span>Matching Settings ({matchingTabs.length})</span>
-                <span>Select to open</span>
-              </div>
-              {matchingTabs.length === 0 ? (
-                <p className="text-xs text-muted-foreground p-3 text-center">
-                  No settings found matching "{searchQuery}".
-                </p>
-              ) : (
-                <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
-                  {matchingTabs.map((tab) => {
-                    const TabIcon = tab.icon;
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => {
-                          handleTabChange(tab.id);
-                          setSearchQuery("");
-                        }}
-                        className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-primary/10 hover:text-primary text-left text-xs transition-colors group border border-transparent hover:border-primary/20"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="p-1.5 rounded-md bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary">
-                            <TabIcon className="h-3.5 w-3.5" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-foreground group-hover:text-primary truncate">
-                              {tab.label}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground truncate">
-                              {tab.description}
-                            </p>
-                          </div>
-                        </div>
-                        <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-primary shrink-0 ml-2" />
-                      </button>
-                    );
-                  })}
-                </div>
+    <PageContainer maxWidth="7xl" className="space-y-6 pb-12">
+      <PageHeader
+        title="Settings & System Configuration"
+        description="Personal preferences, Rwandan RDB / RRA compliance, mobile money rails & automation"
+        badge={
+          <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+            Control Center
+          </span>
+        }
+        actions={
+          <div className="relative w-full md:w-80">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                type="text"
+                placeholder="Search settings (MFA, TIN, MoMo, Currency)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-8 h-10 bg-card border-border rounded-lg text-xs sm:text-sm focus-visible:ring-primary/40 shadow-xs"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-muted"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               )}
             </div>
-          )}
-        </div>
-      </div>
+
+            {/* Instant Search Results Dropdown */}
+            {searchQuery.trim() && (
+              <div className="absolute z-30 left-0 right-0 mt-2 p-2 bg-card border border-border rounded-lg shadow-lg space-y-1 animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground px-2 py-1">
+                  <span>Matching Settings ({matchingTabs.length})</span>
+                  <span>Select to open</span>
+                </div>
+                {matchingTabs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground p-3 text-center">
+                    No settings found matching "{searchQuery}".
+                  </p>
+                ) : (
+                  <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                    {matchingTabs.map((tab) => {
+                      const TabIcon = tab.icon;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => {
+                            handleTabChange(tab.id);
+                            setSearchQuery("");
+                          }}
+                          className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-primary/10 hover:text-primary text-left text-xs transition-colors group border border-transparent hover:border-primary/20"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="p-1.5 rounded-md bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary">
+                              <TabIcon className="h-3.5 w-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-foreground group-hover:text-primary truncate">
+                                {tab.label}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground truncate">
+                                {tab.description}
+                              </p>
+                            </div>
+                          </div>
+                          <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-primary shrink-0 ml-2" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        }
+      />
 
       {/* Mobile Screen Category Selector (< lg) */}
       <div className="lg:hidden space-y-3">
@@ -541,7 +532,7 @@ export default function Settings() {
           </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 

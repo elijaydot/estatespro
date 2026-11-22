@@ -29,6 +29,7 @@ import { useBroadcastAnnouncements } from '@/hooks/useBroadcasts';
 import { Input } from '@/components/ui/input';
 import { TablePagination } from '@/components/marketplace-crm/TablePagination';
 import { Pagination } from '@/components/shared/Pagination';
+import { PageContainer, PageHeader, PageActions, PageInsights } from '@/design-system/LayoutFramework';
 
 const formatDateSafe = (dateString?: string | null, formatPattern = 'MMM d, yyyy · h:mm a') => {
   if (!dateString) return 'N/A';
@@ -157,15 +158,46 @@ export default function Notifications() {
   );
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Go back">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div><h1 className="text-2xl font-semibold text-foreground">{t('notifications', 'Notifications')}</h1><p className="mt-1 text-sm text-muted-foreground">{t('page_notifications_subtitle', 'Announcements and operational alerts, organized for quick review.')}</p></div>
-      </div>
+    <PageContainer maxWidth="7xl" className="space-y-6">
+      <PageHeader
+        title={t('notifications', 'Notifications & Announcements')}
+        description={t('page_notifications_subtitle', 'Broadcasts and operational alerts, organized for quick review.')}
+        badge={
+          unreadCount > 0 ? (
+            <Badge variant="destructive" className="text-xs font-mono">
+              {unreadCount} Unread
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs font-mono">
+              All Caught Up
+            </Badge>
+          )
+        }
+        actions={
+          <PageActions>
+            {unreadCount > 0 && (
+              <Button variant="outline" size="sm" onClick={() => markAllAsRead.mutate()} disabled={markAllAsRead.isPending} className="gap-2">
+                <CheckCheck className="h-4 w-4" />
+                Mark All Read
+              </Button>
+            )}
+            {notifications.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setClearDialogOpen(true)} className="gap-2 text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+                Clear All
+              </Button>
+            )}
+          </PageActions>
+        }
+      />
 
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-border/70 py-3 text-sm"><span><strong className="font-semibold">{announcements.length}</strong> announcements</span><span><strong className="font-semibold">{notifications.length}</strong> notifications</span><span className={unreadCount ? 'text-primary' : 'text-muted-foreground'}><strong className="font-semibold">{unreadCount}</strong> unread</span></div>
+      <PageInsights
+        items={[
+          { label: 'Unread Alerts', value: unreadCount, status: unreadCount > 0 ? 'warning' : 'neutral' },
+          { label: 'Total Notifications', value: notifications.length, status: 'neutral' },
+          { label: 'Announcements', value: announcements.length, status: 'info' },
+        ]}
+      />
 
       <Tabs defaultValue="announcements" className="space-y-4">
         <TabsList className="grid h-10 w-full grid-cols-2 sm:w-[380px]">
@@ -317,6 +349,6 @@ export default function Notifications() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageContainer>
   );
 }

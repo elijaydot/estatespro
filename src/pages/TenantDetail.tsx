@@ -73,6 +73,7 @@ import { PortalStatusBadge } from '@/components/tenants/PortalStatusBadge';
 import { useSendMessage } from '@/hooks/useMessages';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useConfirmAction } from '@/components/ui/use-confirm-action';
+import { PageContainer, PageHeader, PageActions, PageInsights } from '@/design-system/LayoutFramework';
 
 type TenantRow = Tenant & {
   units?: {
@@ -388,109 +389,97 @@ export default function TenantDetail() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/tenants')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <Avatar className="h-16 w-16">
-            <AvatarFallback className="bg-primary/10 text-primary text-xl">{getInitials(tenant.name)}</AvatarFallback>
-          </Avatar>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-foreground">{tenant.name}</h1>
-              {getLeaseStatusBadge(tenant.lease_end_date)}
-            </div>
-            <div className="flex items-center gap-4 text-muted-foreground mt-1">
-              <span className="flex items-center gap-1">
-                <Home className="h-4 w-4" />
-                {tenant.units ? `Unit ${tenant.units.unit_number}` : 'No unit'} - {tenant.properties?.name || 'No property'}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={openMessage}>
-            <Mail className="h-4 w-4" />
-            Send Message
-          </Button>
-          <Button variant="outline" className="gap-2" onClick={openEdit}>
-            <Edit className="h-4 w-4" />
-            Edit
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  navigate('/leases?add=true');
-                }}
-              >
-                <Calendar className="h-4 w-4 mr-2" /> Create Lease
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  navigate(`/tenant-inventory-baseline/${tenant.id}`);
-                }}
-              >
-                <FileText className="h-4 w-4 mr-2" /> Move-in Baseline Inventory
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {tenant.status === 'active' && (
+    <PageContainer maxWidth="7xl" className="space-y-6">
+      <PageHeader
+        title={tenant.name}
+        description={tenant.units ? `Unit ${tenant.units.unit_number} · ${tenant.properties?.name || 'No property'}` : 'Tenant profile and leasing records'}
+        badge={getLeaseStatusBadge(tenant.lease_end_date)}
+        actions={
+          <PageActions>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/tenants')} className="gap-1.5">
+              <ArrowLeft className="h-4 w-4" />
+              Tenants
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={openMessage}>
+              <Mail className="h-4 w-4" />
+              Message
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={openEdit}>
+              <Edit className="h-4 w-4" />
+              Edit
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
                 <DropdownMenuItem
                   onSelect={(e) => {
                     e.preventDefault();
-                    setExitDialogOpen(true);
+                    navigate('/leases?add=true');
                   }}
-                  className="text-warning"
                 >
-                  <LogOut className="h-4 w-4 mr-2" /> Initiate Tenant Exit
+                  <Calendar className="h-4 w-4 mr-2" /> Create Lease
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              {tenant.status === 'active' ? (
                 <DropdownMenuItem
-                  onSelect={async (e) => {
+                  onSelect={(e) => {
                     e.preventDefault();
-                    await updateTenant.mutateAsync({ id: id!, status: 'inactive' });
-                    toast({ title: 'Tenant Deactivated', description: `${tenant.name} has been marked as inactive.` });
+                    navigate(`/tenant-inventory-baseline/${tenant.id}`);
                   }}
                 >
-                  <UserX className="h-4 w-4 mr-2" /> Mark Inactive
+                  <FileText className="h-4 w-4 mr-2" /> Move-in Baseline Inventory
                 </DropdownMenuItem>
-              ) : (
+                <DropdownMenuSeparator />
+                {tenant.status === 'active' && (
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setExitDialogOpen(true);
+                    }}
+                    className="text-warning"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" /> Initiate Tenant Exit
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                {tenant.status === 'active' ? (
+                  <DropdownMenuItem
+                    onSelect={async (e) => {
+                      e.preventDefault();
+                      await updateTenant.mutateAsync({ id: id!, status: 'inactive' });
+                      toast({ title: 'Tenant Deactivated', description: `${tenant.name} has been marked as inactive.` });
+                    }}
+                  >
+                    <UserX className="h-4 w-4 mr-2" /> Mark Inactive
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onSelect={async (e) => {
+                      e.preventDefault();
+                      await updateTenant.mutateAsync({ id: id!, status: 'active' });
+                      toast({ title: 'Tenant Activated', description: `${tenant.name} has been marked as active.` });
+                    }}
+                  >
+                    <UserCheck className="h-4 w-4 mr-2" /> Mark Active
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onSelect={async (e) => {
+                  className="text-destructive"
+                  onSelect={(e) => {
                     e.preventDefault();
-                    await updateTenant.mutateAsync({ id: id!, status: 'active' });
-                    toast({ title: 'Tenant Activated', description: `${tenant.name} has been marked as active.` });
+                    handleDelete();
                   }}
                 >
-                  <UserCheck className="h-4 w-4 mr-2" /> Mark Active
+                  <Trash2 className="h-4 w-4 mr-2" /> Remove Tenant
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive"
-                onSelect={(e) => {
-                  e.preventDefault();
-                  handleDelete();
-                }}
-              >
-                <Trash2 className="h-4 w-4 mr-2" /> Remove Tenant
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </PageActions>
+        }
+      />
 
       {/* Portal Status Card - Show invite actions if not linked */}
       {!tenant.tenant_user_id && (
@@ -562,69 +551,14 @@ export default function TenantDetail() {
         </Card>
       )}
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Monthly Rent</p>
-                <p className="text-2xl font-bold text-foreground">{formatCurrency(tenant.monthly_rent)}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-primary/10">
-                <DollarSign className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Current Balance</p>
-                <p className={`text-2xl font-bold ${tenant.balance > 0 ? 'text-destructive' : 'text-success'}`}>
-                  {formatCurrency(tenant.balance)}
-                </p>
-              </div>
-              <div className={`p-3 rounded-xl ${tenant.balance > 0 ? 'bg-destructive/10' : 'bg-success/10'}`}>
-                {tenant.balance > 0 ? (
-                  <AlertCircle className="h-6 w-6 text-destructive" />
-                ) : (
-                  <CheckCircle className="h-6 w-6 text-success" />
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Lease Ends</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {tenant.lease_end_date ? format(new Date(tenant.lease_end_date), 'MMM dd, yyyy') : '-'}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-info/10">
-                <Calendar className="h-6 w-6 text-info" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Security Deposit</p>
-                <p className="text-2xl font-bold text-foreground">{formatCurrency(tenant.security_deposit)}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-warning/10">
-                <FileText className="h-6 w-6 text-warning" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <PageInsights
+        items={[
+          { label: 'Monthly Rent', value: formatCurrency(tenant.monthly_rent), status: 'neutral' },
+          { label: 'Current Balance', value: formatCurrency(tenant.balance), status: tenant.balance > 0 ? 'danger' : 'success' },
+          { label: 'Lease Ends', value: tenant.lease_end_date ? format(new Date(tenant.lease_end_date), 'MMM dd, yyyy') : 'No Lease', status: 'neutral' },
+          { label: 'Security Deposit', value: formatCurrency(tenant.security_deposit), status: 'neutral' },
+        ]}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Contact Information */}
@@ -1078,7 +1012,7 @@ export default function TenantDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }
 

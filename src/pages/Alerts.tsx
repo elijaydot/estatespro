@@ -26,6 +26,7 @@ import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 import { Pagination } from '@/components/shared/Pagination';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { PageContainer, PageHeader, PageActions, PageInsights } from '@/design-system/LayoutFramework';
 
 const filters: Array<{ label: string; value: OperationalAlertStatus | 'active' | undefined }> = [
   { label: 'All', value: undefined },
@@ -115,26 +116,32 @@ export default function Alerts() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{t('alerts', 'Operational Alerts')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('page_alerts_subtitle', 'Lease, vacancy, payment, and vendor compliance exceptions.')}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline"><Link to="/settings?tab=alerts"><Settings2 className="mr-2 h-4 w-4" /> Thresholds</Link></Button>
-          <Button onClick={() => evaluate.mutate()} disabled={evaluate.isPending}>
-            <RefreshCw className={cn('mr-2 h-4 w-4', evaluate.isPending && 'animate-spin')} />
-            Refresh alerts
-          </Button>
-        </div>
-      </div>
+    <PageContainer maxWidth="7xl" className="space-y-6">
+      <PageHeader
+        title={t('alerts', 'Operational Alerts & Triggers')}
+        description={t('page_alerts_subtitle', 'Real-time lease, vacancy, payment, and vendor compliance exceptions.')}
+        badge={<Badge variant="outline" className="text-xs font-mono">{filteredAlerts.length} Tracked</Badge>}
+        actions={
+          <PageActions>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/settings?tab=alerts"><Settings2 className="mr-2 h-4 w-4" /> Thresholds</Link>
+            </Button>
+            <Button size="sm" onClick={() => evaluate.mutate()} disabled={evaluate.isPending}>
+              <RefreshCw className={cn('mr-2 h-4 w-4', evaluate.isPending && 'animate-spin')} />
+              Refresh alerts
+            </Button>
+          </PageActions>
+        }
+      />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Open</p><p className="mt-1 text-2xl font-bold">{openCount}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Acknowledged</p><p className="mt-1 text-2xl font-bold text-info">{acknowledgedCount}</p></CardContent></Card>
-        <Card className={cn(criticalCount > 0 && 'border-destructive/40')}><CardContent className="p-4"><p className="text-xs text-muted-foreground">Critical active</p><p className="mt-1 text-2xl font-bold text-destructive">{criticalCount}</p></CardContent></Card>
-      </div>
+      <PageInsights
+        items={[
+          { label: 'Open Alerts', value: openCount, status: openCount > 0 ? 'warning' : 'neutral' },
+          { label: 'Acknowledged', value: acknowledgedCount, status: 'info' },
+          { label: 'Critical Active', value: criticalCount, status: criticalCount > 0 ? 'danger' : 'neutral' },
+          { label: 'Total Tracked', value: alerts.length, status: 'neutral' },
+        ]}
+      />
 
       <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Filter alerts">
         {filters.map((filter) => (
@@ -390,6 +397,6 @@ export default function Alerts() {
           />
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

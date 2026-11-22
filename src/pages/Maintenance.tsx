@@ -62,7 +62,13 @@ import { StatusPill } from '@/components/shared/StatusPill';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
-import { Pagination } from '@/components/shared/Pagination';
+import {
+  PageContainer,
+  PageHeader,
+  PageActions,
+  PageInsights,
+} from '@/design-system/LayoutFramework';
+import { StandardTable } from '@/design-system/components/StandardTable';
 
 type MaintenanceRequestRow = {
   id: string;
@@ -376,74 +382,57 @@ export default function Maintenance() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('maintenance', 'Maintenance')}</h1>
-          <p className="text-muted-foreground">{t('page_maintenance_subtitle', 'Manage and track maintenance requests')}</p>
-        </div>
-        <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
-          <Plus className="h-4 w-4" />
-          {t('action_new_request', 'New Request')}
-        </Button>
-      </div>
+    <PageContainer maxWidth="7xl">
+      {/* 1. Header & Primary Action Area */}
+      <PageHeader
+        title={t('maintenance', 'Maintenance & Work Orders')}
+        description={t('page_maintenance_subtitle', 'Triage resident service tickets, dispatch technicians, track repair costs, and log vendor allocations.')}
+        actions={
+          <PageActions>
+            <Button
+              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium h-9 text-xs"
+              onClick={() => setIsCreateOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('action_new_request', 'New Work Order')}
+            </Button>
+          </PageActions>
+        }
+      />
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-1">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Submitted</p>
-                <p className="text-2xl font-bold text-warning">{stats.submitted}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-warning/10">
-                <AlertCircle className="h-6 w-6 text-warning" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-2">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">In Progress</p>
-                <p className="text-2xl font-bold text-info">{stats.inProgress}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-info/10">
-                <Clock className="h-6 w-6 text-info" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-3">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Completed</p>
-                <p className="text-2xl font-bold text-success">{stats.completed}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-success/10">
-                <CheckCircle className="h-6 w-6 text-success" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md border-border/60 hover:shadow-lg transition-shadow animate-enter stagger-4">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Urgent Issues</p>
-                <p className="text-2xl font-bold text-destructive">{stats.urgent}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-destructive/10">
-                <AlertTriangle className="h-6 w-6 text-destructive" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* 2. Page Insights (Clean metric strip, not wall of cards) */}
+      <PageInsights
+        metrics={[
+          {
+            id: 'urgent-issues',
+            label: 'Urgent / Emergency',
+            value: stats.urgent,
+            tone: stats.urgent > 0 ? 'danger' : 'default',
+            subtext: stats.urgent > 0 ? 'Immediate technician response required' : 'Zero active emergency tickets',
+          },
+          {
+            id: 'in-progress',
+            label: 'In Progress with Vendors',
+            value: stats.inProgress,
+            tone: 'warning',
+            subtext: 'Technicians actively dispatched',
+          },
+          {
+            id: 'submitted',
+            label: 'New Submitted Tickets',
+            value: stats.submitted,
+            tone: 'default',
+            subtext: 'Pending manager review & triage',
+          },
+          {
+            id: 'completed-tickets',
+            label: 'Resolved & Signed Off',
+            value: stats.completed,
+            tone: 'success',
+            subtext: 'Work orders closed this period',
+          },
+        ]}
+      />
 
       {/* Filters & View Toggle */}
       <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -950,6 +939,6 @@ export default function Maintenance() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

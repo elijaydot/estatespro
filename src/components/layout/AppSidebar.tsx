@@ -1,39 +1,21 @@
-import { useLocation, useNavigate } from 'react-router-dom';
-import { cn } from '@/lib/utils';
+import { useState, useMemo } from 'react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Building2,
-  Users,
-  FileText,
-  CreditCard,
-  Wrench,
-  Bell,
-  MessageSquare,
-  Megaphone,
+  ChevronLeft,
+  ChevronRight,
   Settings,
   CircleHelp,
-  BriefcaseBusiness,
-  Home,
-  Receipt,
-  RefreshCw,
-  BarChart3,
-  CalendarCheck,
-  Link2,
-  Store,
-  ShieldCheck,
-  Radar,
-  LayoutGrid,
-  UserCog,
+  Lock,
 } from 'lucide-react';
-import type { SaasEntitlementKey } from '@/hooks/useSaasAccess';
-import type { StaffWorkspaceId } from '@/lib/workspaceNavigation';
-import { CRM_NAV_GROUPS } from '@/components/marketplace-crm/crmNavigation';
-import { ReportsSidebarNav } from '@/components/marketplace-crm/ReportsSidebarNav';
-import { ControlPlaneSidebarNav } from '@/components/control-plane/ControlPlaneSidebarNav';
-import { ModuleSidebarNav } from '@/components/layout/ModuleSidebarNav';
-import { useWorkspaceNavigation } from '@/hooks/useWorkspaceNavigation';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { FISHGATE_IA_GROUPS, type IANavGroup, type IANavItem } from '@/design-system/information-architecture';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useSaasAccess } from '@/hooks/useSaasAccess';
 import { useOpenOperationalAlertCount } from '@/hooks/useOperationalAlerts';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
+import { useI18n } from '@/contexts/useI18n';
 
 interface AppSidebarProps {
   mobile?: boolean;
@@ -42,129 +24,6 @@ interface AppSidebarProps {
   onCollapsedChange?: (collapsed: boolean) => void;
 }
 
-export type NavItem = {
-  icon: typeof LayoutDashboard;
-  label: string;
-  href: string;
-  entitlementKey?: SaasEntitlementKey;
-  reviewerOnly?: boolean;
-};
-
-export type NavSection = {
-  title: string;
-  icon: typeof LayoutDashboard;
-  workspaceId: StaffWorkspaceId;
-  items: NavItem[];
-};
-
-export const sharedSections: NavSection[] = [
-  {
-    title: 'Home',
-    icon: LayoutDashboard,
-    workspaceId: 'property-management',
-    items: [
-      { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-    ],
-  },
-  {
-    title: 'Portfolio',
-    icon: Building2,
-    workspaceId: 'property-management',
-    items: [
-      { icon: Building2, label: 'Properties', href: '/properties' },
-      { icon: Home, label: 'Units', href: '/units' },
-      { icon: Users, label: 'Tenants', href: '/tenants' },
-      { icon: FileText, label: 'Leases', href: '/leases' },
-      { icon: Wrench, label: 'Maintenance', href: '/maintenance' },
-    ],
-  },
-  {
-    title: 'Operations',
-    icon: Wrench,
-    workspaceId: 'property-management',
-    items: [
-      { icon: Bell, label: 'Alerts', href: '/alerts' },
-      { icon: BriefcaseBusiness, label: 'Vendors', href: '/vendors' },
-    ],
-  },
-  {
-    title: 'Finance',
-    icon: CreditCard,
-    workspaceId: 'property-management',
-    items: [
-      { icon: Receipt, label: 'Invoices', href: '/invoices' },
-      { icon: CreditCard, label: 'Payments', href: '/payments' },
-      { icon: RefreshCw, label: 'Recurring Bills', href: '/recurring-bills' },
-      { icon: BarChart3, label: 'Reports', href: '/reports' },
-    ],
-  },
-  {
-    title: 'Guest Operations',
-    icon: CalendarCheck,
-    workspaceId: 'property-management',
-    items: [
-      { icon: CalendarCheck, label: 'Bookings', href: '/bookings' },
-      { icon: Link2, label: 'Booking Links', href: '/guest-booking-portal' },
-    ],
-  },
-  {
-    title: 'Marketplace',
-    icon: Store,
-    workspaceId: 'marketplace',
-    items: [
-      { icon: Store, label: 'Listings', href: '/marketplace/manage', entitlementKey: 'marketplace.listings.manage' },
-      { icon: ShieldCheck, label: 'Verification', href: '/marketplace/verification', entitlementKey: 'marketplace.verification.manage' },
-      { icon: ShieldCheck, label: 'Reviewer Console', href: '/marketplace/reviewer', entitlementKey: 'marketplace.moderation.view', reviewerOnly: true },
-    ],
-  },
-];
-
-export const managerCommunicationItem: NavItem = { icon: Megaphone, label: 'Broadcasts', href: '/broadcasts' };
-
-export const globalCommunicationItems: NavItem[] = [
-  { icon: MessageSquare, label: 'Messages', href: '/messages' },
-  { icon: Bell, label: 'Notifications', href: '/notifications' },
-];
-
-export const getCommunicationItemsForRole = (role?: string) =>
-  role === 'landlord' || role === 'property_manager' || role === 'super_admin'
-    ? [globalCommunicationItems[0], managerCommunicationItem, globalCommunicationItems[1]]
-    : globalCommunicationItems;
-
-export const crmSections: NavSection[] = CRM_NAV_GROUPS.map((group) => ({
-  title: group.title,
-  icon: group.items[0].icon,
-  workspaceId: 'crm',
-  items: group.items,
-}));
-
-export const landlordOnlySection: NavSection = {
-  title: 'Organization',
-  icon: UserCog,
-  workspaceId: 'property-management',
-  items: [
-    { icon: BriefcaseBusiness, label: 'Owner Portfolio', href: '/owner-portal', entitlementKey: 'portal.owner.enabled' },
-    { icon: UserCog, label: 'Team', href: '/team' },
-    { icon: CreditCard, label: 'Account Billing', href: '/account/billing' },
-  ],
-};
-
-export const superAdminSection: NavSection = {
-  title: 'Platform',
-  icon: Radar,
-  workspaceId: 'control-plane',
-  items: [
-    { icon: Radar, label: 'Control Plane', href: '/super-admin/control-plane' },
-    { icon: LayoutGrid, label: 'Catalog Management', href: '/super-admin/catalog' },
-    { icon: Users, label: 'Billing Groups', href: '/super-admin/billing-groups' },
-  ],
-};
-
-export const bottomNavItems = [
-  { icon: CircleHelp, label: 'Support', href: '/support' },
-  { icon: Settings, label: 'Settings', href: '/settings' },
-];
-
 export function AppSidebar({
   mobile = false,
   onNavigate,
@@ -172,78 +31,219 @@ export function AppSidebar({
   onCollapsedChange,
 }: AppSidebarProps) {
   const location = useLocation();
-  const { availableWorkspaceIds, currentWorkspaceId } = useWorkspaceNavigation();
+  const navigate = useNavigate();
+  const { role, isSuperAdmin } = useUserRole();
+  const { entitlements, isTrialExpired } = useSaasAccess();
   const { data: openAlertCount = 0 } = useOpenOperationalAlertCount();
   const { data: unreadNotificationCount = 0 } = useUnreadNotificationsCount();
-  const collapsedView = !mobile && collapsed;
+  const { t } = useI18n();
 
-  const navigate = useNavigate();
-  const isReportsRoute =
-    location.pathname.startsWith('/marketplace/crm/reports') || location.pathname === '/reports';
-  const isControlPlaneRoute =
-    location.pathname.startsWith('/super-admin/control-plane');
+  const isCollapsed = !mobile && collapsed;
 
-  if (isControlPlaneRoute && !collapsedView) {
-    return (
-      <aside
-        className={cn(
-          mobile
-            ? 'h-full w-full bg-sidebar text-sidebar-foreground'
-            : 'hidden lg:block fixed left-0 top-0 z-40 h-screen bg-sidebar text-sidebar-foreground transition-all duration-300 w-64'
-        )}
-      >
-        <ControlPlaneSidebarNav
-          activeView={new URLSearchParams(location.search).get('cp_tab') || 'overview'}
-          onSelectView={(viewId) => {
-            const params = new URLSearchParams(location.search);
-            params.set('cp_tab', viewId);
-            navigate(`/super-admin/control-plane?${params.toString()}`);
-            onNavigate?.();
-          }}
-          openAlertsCount={openAlertCount}
-          collapsed={collapsed}
-        />
-      </aside>
-    );
-  }
+  // Filter groups and items based on role permissions
+  const visibleGroups = useMemo(() => {
+    return FISHGATE_IA_GROUPS.map((group) => {
+      const filteredItems = group.items.filter((item) => {
+        // Role check
+        if (item.roles && !item.roles.includes(role as any)) {
+          return false;
+        }
+        return true;
+      });
 
-  if (isReportsRoute && !collapsedView) {
-    return (
-      <aside
-        className={cn(
-          mobile
-            ? 'h-full w-full bg-sidebar text-sidebar-foreground'
-            : 'hidden lg:block fixed left-0 top-0 z-40 h-screen bg-sidebar text-sidebar-foreground transition-all duration-300 w-64'
-        )}
-      >
-        <ReportsSidebarNav
-          onBackToMainMenu={() => {}}
-          onNavigateReport={() => onNavigate?.()}
-          collapsed={collapsed}
-        />
-      </aside>
-    );
-  }
+      return {
+        ...group,
+        items: filteredItems,
+      };
+    }).filter((group) => group.items.length > 0);
+  }, [role]);
 
-  const handleToggleCollapse = () => onCollapsedChange?.(!collapsed);
+  const isItemActive = (href: string) => {
+    const url = new URL(href, 'http://localhost');
+    const pathname = url.pathname;
+    const viewParam = url.searchParams.get('view');
+    const tabParam = url.searchParams.get('tab');
+
+    if (pathname === '/dashboard') {
+      if (viewParam === 'activity') {
+        return location.pathname === '/dashboard' && location.search.includes('view=activity');
+      }
+      return location.pathname === '/dashboard' && !location.search.includes('view=activity');
+    }
+
+    if (pathname === '/payments') {
+      if (viewParam === 'collections') {
+        return location.pathname === '/payments' && location.search.includes('view=collections');
+      }
+      return location.pathname === '/payments' && !location.search.includes('view=collections');
+    }
+
+    if (tabParam) {
+      return location.pathname === pathname && location.search.includes(`tab=${tabParam}`);
+    }
+
+    return location.pathname === pathname;
+  };
+
+  const getItemBadge = (item: IANavItem) => {
+    if (item.id === 'triggers' && openAlertCount > 0) {
+      return openAlertCount;
+    }
+    if (item.id === 'notifications' && unreadNotificationCount > 0) {
+      return unreadNotificationCount;
+    }
+    return null;
+  };
+
+  const isLocked = (item: IANavItem) => {
+    if (isSuperAdmin) return false;
+    if (item.entitlementKey && entitlements && !entitlements[item.entitlementKey]) {
+      return true;
+    }
+    return false;
+  };
 
   return (
-    <aside
-      className={cn(
-        mobile
-          ? 'h-full w-full bg-sidebar text-sidebar-foreground'
-          : 'hidden lg:block fixed left-0 top-0 z-40 h-screen bg-sidebar text-sidebar-foreground transition-all duration-300',
-        !mobile && (collapsedView ? 'w-20' : 'w-64')
-      )}
-    >
-      <ModuleSidebarNav
-        workspaceId={currentWorkspaceId || 'property-management'}
-        availableWorkspaces={availableWorkspaceIds}
-        onNavigate={() => onNavigate?.()}
-        collapsed={collapsedView}
-        onCollapsedChange={onCollapsedChange ? (val) => onCollapsedChange(val) : handleToggleCollapse}
-        mobile={mobile}
-      />
-    </aside>
+    <TooltipProvider delayDuration={200}>
+      <div className="flex h-full flex-col justify-between bg-slate-900 text-slate-200 select-none border-r border-slate-800">
+        {/* Brand Header */}
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800/80">
+          <Link
+            to="/dashboard"
+            onClick={onNavigate}
+            className="flex items-center gap-2.5 font-bold text-white tracking-tight text-lg"
+          >
+            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-base shadow-xs shrink-0">
+              FG
+            </div>
+            {!isCollapsed && (
+              <span className="text-[16px] font-semibold tracking-tight text-white">
+                FishGate
+              </span>
+            )}
+          </Link>
+
+          {!mobile && onCollapsedChange && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onCollapsedChange(!collapsed)}
+              className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800"
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </Button>
+          )}
+        </div>
+
+        {/* Navigation Groups (Max 2 Levels: Group Header -> Nav Items) */}
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 scrollbar-thin">
+          {visibleGroups.map((group) => (
+            <div key={group.id} className="space-y-1">
+              {!isCollapsed ? (
+                <div className="px-2.5 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  {group.name}
+                </div>
+              ) : (
+                <div className="h-2" />
+              )}
+
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const active = isItemActive(item.href);
+                  const Icon = item.icon;
+                  const badge = getItemBadge(item);
+                  const locked = isLocked(item);
+
+                  const linkContent = (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        navigate(item.href);
+                        onNavigate?.();
+                      }}
+                      className={cn(
+                        'w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors text-left relative',
+                        active
+                          ? 'bg-blue-600 text-white font-semibold shadow-2xs'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+                        isCollapsed && 'justify-center px-0'
+                      )}
+                    >
+                      <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-white' : 'text-slate-400')} />
+
+                      {!isCollapsed && (
+                        <div className="flex-1 flex items-center justify-between min-w-0">
+                          <span className="truncate">{item.label}</span>
+                          <div className="flex items-center gap-1.5 ml-2">
+                            {locked && (
+                              <Lock className="h-3 w-3 text-amber-400 shrink-0" />
+                            )}
+                            {badge !== null && badge > 0 && (
+                              <span className="inline-flex items-center justify-center px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500 text-white">
+                                {badge > 99 ? '99+' : badge}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  );
+
+                  if (isCollapsed) {
+                    return (
+                      <Tooltip key={item.id}>
+                        <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                        <TooltipContent side="right" className="bg-slate-800 text-white border-slate-700 text-xs font-medium">
+                          <p>{item.label}</p>
+                          {locked && <p className="text-[10px] text-amber-400">Upgrade Required</p>}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  }
+
+                  return linkContent;
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom Utility Bar */}
+        <div className="p-3 border-t border-slate-800 space-y-1">
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/settings');
+              onNavigate?.();
+            }}
+            className={cn(
+              'w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors',
+              location.pathname === '/settings' && 'bg-slate-800 text-white font-semibold',
+              isCollapsed && 'justify-center px-0'
+            )}
+          >
+            <Settings className="h-4 w-4 text-slate-400" />
+            {!isCollapsed && <span>{t('nav_settings', 'Settings')}</span>}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/support');
+              onNavigate?.();
+            }}
+            className={cn(
+              'w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors',
+              location.pathname === '/support' && 'bg-slate-800 text-white font-semibold',
+              isCollapsed && 'justify-center px-0'
+            )}
+          >
+            <CircleHelp className="h-4 w-4 text-slate-400" />
+            {!isCollapsed && <span>{t('nav_support', 'Support & Help')}</span>}
+          </button>
+        </div>
+      </div>
+    </TooltipProvider>
   );
 }

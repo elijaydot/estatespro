@@ -17,7 +17,13 @@ import { toast } from '@/components/ui/use-toast';
 import { useI18n } from '@/contexts/useI18n';
 import { useUserRole } from '@/hooks/useUserRole';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
-import { Pagination } from '@/components/shared/Pagination';
+import {
+  PageContainer,
+  PageHeader,
+  PageActions,
+  PageInsights,
+} from '@/design-system/LayoutFramework';
+import { StandardTable } from '@/design-system/components/StandardTable';
 import {
   useMyCompanies,
   useCompanyMembers,
@@ -284,61 +290,96 @@ export default function TeamManagement() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">{t('team', 'Team Management')}</h1>
-          <p className="text-muted-foreground mt-1">{t('page_team_subtitle', 'Manage property managers and property assignments')}</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full md:w-auto">
-          <Dialog open={companyDialogOpen} onOpenChange={setCompanyDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2 w-full md:w-auto">
-                <Building2 className="h-4 w-4" />
-                Add Company
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Company</DialogTitle>
-                <DialogDescription>Add another company or portfolio to manage</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Company Name</Label>
-                  <Input value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} placeholder="Company name..." />
-                </div>
-                <Button onClick={handleCreateCompany} disabled={!newCompanyName.trim()} className="w-full">Create Company</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-          <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 w-full md:w-auto">
-                <UserPlus className="h-4 w-4" />
-                {t('action_invite_member', 'Invite Manager')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Invite Property Manager</DialogTitle>
-                <DialogDescription>Send an invite link to a property manager to join your company</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Email Address</Label>
-                  <Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="manager@email.com" />
-                </div>
-                <Button onClick={handleInvite} disabled={!inviteEmail || createInvite.isPending} className="w-full gap-2">
-                  {createInvite.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
-                  Generate & Copy Invite Link
+    <PageContainer maxWidth="7xl">
+      {/* 1. Header & Primary Action Area */}
+      <PageHeader
+        title={t('team', 'Team & Governance')}
+        description={t('page_team_subtitle', 'Manage property managers, multi-company operating subsidiaries, role delegations, and estate assignments.')}
+        actions={
+          <PageActions>
+            <Dialog open={companyDialogOpen} onOpenChange={setCompanyDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 h-9 text-xs">
+                  <Building2 className="h-3.5 w-3.5" />
+                  Add Company
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Company</DialogTitle>
+                  <DialogDescription>Add another operating subsidiary or property portfolio entity</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Company Name</Label>
+                    <Input value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} placeholder="Company name..." />
+                  </div>
+                  <Button onClick={handleCreateCompany} disabled={!newCompanyName.trim()} className="w-full">Create Company</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium h-9 text-xs">
+                  <UserPlus className="h-3.5 w-3.5" />
+                  {t('action_invite_member', 'Invite Manager')}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Invite Property Manager</DialogTitle>
+                  <DialogDescription>Send an onboarding invitation link to a property manager</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Email Address</Label>
+                    <Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="manager@email.com" />
+                  </div>
+                  <Button onClick={handleInvite} disabled={!inviteEmail || createInvite.isPending} className="w-full gap-2">
+                    {createInvite.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                    Generate & Copy Invite Link
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </PageActions>
+        }
+      />
+
+      {/* 2. Page Insights */}
+      <PageInsights
+        metrics={[
+          {
+            id: 'approved-members',
+            label: 'Approved Managers',
+            value: approvedMembers.length,
+            tone: 'success',
+            subtext: 'Active property managers on roster',
+          },
+          {
+            id: 'pending-invites',
+            label: 'Pending Invitations',
+            value: pendingMembers.length + (invites?.length || 0),
+            tone: (pendingMembers.length + (invites?.length || 0)) > 0 ? 'warning' : 'default',
+            subtext: 'Awaiting candidate onboarding acceptance',
+          },
+          {
+            id: 'active-companies',
+            label: 'Operating Companies',
+            value: companies?.length || 1,
+            tone: 'default',
+            subtext: 'Configured corporate entities',
+          },
+          {
+            id: 'property-assignments',
+            label: 'Estate Assignments',
+            value: assignments?.length || 0,
+            tone: 'default',
+            subtext: 'Active PM property links',
+          },
+        ]}
+      />
 
       {/* Company Selector */}
       {companies && companies.length > 1 && (
@@ -989,7 +1030,7 @@ export default function TeamManagement() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }
 

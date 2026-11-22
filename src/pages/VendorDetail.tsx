@@ -26,6 +26,7 @@ import {
   type VendorInput,
 } from '@/hooks/useVendors';
 import { summarizeVendorPayments, useCreateVendorPayment, useUpdateVendorPayment, useVendorPayments, type VendorPayment } from '@/hooks/useVendorPayments';
+import { PageContainer, PageHeader, PageActions, PageInsights } from '@/design-system/LayoutFramework';
 
 const emptyVendorForm: VendorInput = {
   name: '', vendor_type: '', contact_name: '', phone: '', email: '', address: '', status: 'active', notes: '', rating: null,
@@ -186,20 +187,30 @@ export default function VendorDetail() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <Button asChild variant="ghost" className="mb-3 -ml-3"><Link to="/vendors"><ArrowLeft className="mr-2 h-4 w-4" /> Vendors</Link></Button>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div><h1 className="text-2xl font-bold sm:text-3xl">{vendor.name}</h1><p className="mt-1 text-muted-foreground">{vendor.vendor_type || 'General contractor'}{vendor.contact_name ? ` · ${vendor.contact_name}` : ''}</p></div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={openVendorEditor}><Pencil className="mr-2 h-4 w-4" /> Edit vendor</Button>
+    <PageContainer maxWidth="7xl" className="space-y-6">
+      <PageHeader
+        title={vendor.name}
+        description={`${vendor.vendor_type || 'General contractor'}${vendor.contact_name ? ` · Contact: ${vendor.contact_name}` : ''}`}
+        badge={<Badge variant="outline" className="capitalize text-xs font-mono">{vendor.status}</Badge>}
+        actions={
+          <PageActions>
+            <Button asChild variant="ghost" size="sm" className="gap-1.5">
+              <Link to="/vendors">
+                <ArrowLeft className="h-4 w-4" />
+                Vendors
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" onClick={openVendorEditor}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit vendor
+            </Button>
             <Select value={vendor.status} onValueChange={(status) => updateVendor.mutate({ id, status: status as typeof vendor.status })}>
-              <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem><SelectItem value="suspended">Suspended</SelectItem></SelectContent>
             </Select>
-          </div>
-        </div>
-      </div>
+          </PageActions>
+        }
+      />
 
       <Card>
         <CardContent className="grid gap-3 p-5 text-sm sm:grid-cols-2 xl:grid-cols-4">
@@ -211,11 +222,14 @@ export default function VendorDetail() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">Assigned work</p><p className="mt-1 text-2xl font-bold">{workOrders.length}</p></CardContent></Card>
-        <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">Paid</p><p className="mt-1 text-2xl font-bold text-success">{formatCurrency(totals.paid)}</p></CardContent></Card>
-        <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">Pending</p><p className="mt-1 text-2xl font-bold text-warning">{formatCurrency(totals.pending)}</p></CardContent></Card>
-      </div>
+      <PageInsights
+        items={[
+          { label: 'Assigned Work Orders', value: workOrders.length, status: 'neutral' },
+          { label: 'Total Paid Out', value: formatCurrency(totals.paid), status: 'success' },
+          { label: 'Pending Invoices', value: formatCurrency(totals.pending), status: totals.pending > 0 ? 'warning' : 'neutral' },
+          { label: 'Compliance Files', value: documents.length, status: documents.length > 0 ? 'neutral' : 'warning' },
+        ]}
+      />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
@@ -290,6 +304,6 @@ export default function VendorDetail() {
           <DialogFooter><Button variant="outline" onClick={() => setPaymentOpen(false)}>Cancel</Button><Button onClick={() => void savePayment()} disabled={!Number(paymentForm.amount) || createPayment.isPending || updatePayment.isPending}>{editingPayment ? 'Update payment' : 'Record payment'}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

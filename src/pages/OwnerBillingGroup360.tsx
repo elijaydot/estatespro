@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { PageContainer, PageHeader, PageActions } from '@/design-system/LayoutFramework';
 
 type Group = {
   id: string;
@@ -361,17 +362,12 @@ export default function OwnerBillingGroup360() {
     );
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <header>
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5" />
-          <h1 className="text-2xl font-semibold">Billing Groups</h1>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Platform oversight for pooled owner subscriptions, billing health, and
-          audited exceptions.
-        </p>
-      </header>
+    <PageContainer maxWidth="7xl" className="space-y-6">
+      <PageHeader
+        title="Owner Billing Groups 360"
+        description="Platform oversight for pooled owner subscriptions, billing health, and audited exceptions."
+        badge={<Badge variant="outline" className="text-xs font-mono">Portfolio Pooling</Badge>}
+      />
       <div className="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
         <aside className="space-y-3 border-b pb-4 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4">
           <div className="relative">
@@ -978,6 +974,6 @@ export default function OwnerBillingGroup360() {
           </main>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

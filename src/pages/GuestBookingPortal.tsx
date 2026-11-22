@@ -19,6 +19,7 @@ import { toast } from '@/components/ui/use-toast';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 import { Pagination } from '@/components/shared/Pagination';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { PageContainer, PageHeader, PageActions, PageInsights } from '@/design-system/LayoutFramework';
 
 export default function GuestBookingPortal() {
   const { isSuperAdmin } = useUserRole();
@@ -88,18 +89,23 @@ export default function GuestBookingPortal() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Guest Booking Portals</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Generate, customize, and share public booking links for short-let and Airbnb-ready properties.
-          </p>
-        </div>
-      </div>
+    <PageContainer maxWidth="7xl" className="space-y-6 pb-8">
+      <PageHeader
+        title="Guest Booking Portals"
+        description="Generate, customize, and share public booking links for short-let and Airbnb-ready properties."
+        badge={<Badge variant="outline" className="text-xs font-mono">{filteredProperties.length} Portals</Badge>}
+      />
+
+      <PageInsights
+        items={[
+          { label: 'Available Portals', value: shortLetProperties.length, status: 'info' },
+          { label: 'Matching Search', value: filteredProperties.length, status: 'neutral' },
+          { label: 'Active Link Selection', value: selectedProperty?.name || 'None Selected', status: selectedProperty ? 'success' : 'neutral' },
+        ]}
+      />
 
       {/* Quick Generator Box */}
-      <Card className="card-shadow-md border-primary/20 bg-gradient-to-br from-card to-primary/[0.02]">
+      <Card className="border border-border bg-card shadow-xs">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Share2 className="h-5 w-5 text-primary" />
@@ -384,6 +390,6 @@ export default function GuestBookingPortal() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

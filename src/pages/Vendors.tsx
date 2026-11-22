@@ -14,7 +14,13 @@ import { useI18n } from '@/contexts/useI18n';
 import { useMyCompanies } from '@/hooks/useCompanies';
 import { useCreateVendor, useVendors, type VendorInput, type Vendor } from '@/hooks/useVendors';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
-import { Pagination } from '@/components/shared/Pagination';
+import {
+  PageContainer,
+  PageHeader,
+  PageActions,
+  PageInsights,
+} from '@/design-system/LayoutFramework';
+import { StandardTable } from '@/design-system/components/StandardTable';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { MetricCard } from '@/components/shared/MetricCard';
 import { StatusPill } from '@/components/shared/StatusPill';
@@ -92,38 +98,57 @@ export default function Vendors() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{t('vendors', 'Vendors')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('page_vendors_subtitle', 'Contractors, compliance documents, work orders, and payments.')}</p>
-        </div>
-        <Button onClick={() => setIsCreateOpen(true)}><Plus className="mr-2 h-4 w-4" /> {t('action_new_vendor', 'Add vendor')}</Button>
-      </div>
+    <PageContainer maxWidth="7xl">
+      {/* 1. Header & Primary Action Area */}
+      <PageHeader
+        title={t('vendors', 'Vendors & Contractors')}
+        description={t('page_vendors_subtitle', 'Certified service contractors, compliance credentials, trade work orders, and trade disbursements.')}
+        actions={
+          <PageActions>
+            <Button
+              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium h-9 text-xs"
+              onClick={() => setIsCreateOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('action_new_vendor', 'Add Vendor')}
+            </Button>
+          </PageActions>
+        }
+      />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <MetricCard
-          title="All vendors"
-          value={vendors.length}
-          icon={UsersRound}
-          accent="primary"
-          subtitle="Registered suppliers"
-        />
-        <MetricCard
-          title="Active vendors"
-          value={vendors.filter((vendor) => vendor.status === 'active').length}
-          icon={Building2}
-          accent="success"
-          subtitle="Available for work orders"
-        />
-        <MetricCard
-          title="Needs review"
-          value={vendors.filter((vendor) => vendor.status === 'suspended').length}
-          icon={ShieldAlert}
-          accent="warning"
-          subtitle="Suspended accounts"
-        />
-      </div>
+      {/* 2. Page Insights */}
+      <PageInsights
+        metrics={[
+          {
+            id: 'all-vendors',
+            label: 'Registered Suppliers',
+            value: vendors.length,
+            tone: 'default',
+            subtext: 'Plumbers, electricians, security, HVAC',
+          },
+          {
+            id: 'active-vendors',
+            label: 'Active for Dispatch',
+            value: vendors.filter((v) => v.status === 'active').length,
+            tone: 'success',
+            subtext: 'Available for work order assignments',
+          },
+          {
+            id: 'suspended-vendors',
+            label: 'Needs Compliance Review',
+            value: vendors.filter((v) => v.status === 'suspended').length,
+            tone: vendors.filter((v) => v.status === 'suspended').length > 0 ? 'warning' : 'default',
+            subtext: 'Suspended or insurance expired accounts',
+          },
+          {
+            id: 'service-categories',
+            label: 'Contractor Trades',
+            value: new Set(vendors.map(v => v.vendor_type)).size,
+            tone: 'default',
+            subtext: 'Distinct service specializations',
+          },
+        ]}
+      />
 
       <FilterBar className="flex flex-col gap-3 lg:flex-row lg:items-center justify-between">
         <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -314,6 +339,6 @@ export default function Vendors() {
           <DialogFooter><Button variant="outline" onClick={closeCreateDialog}>Cancel</Button><Button onClick={() => void submit()} disabled={!form.name.trim() || ratingInvalid || createVendor.isPending}>Create vendor</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

@@ -19,7 +19,12 @@ import { CreateListingFlow } from '@/components/marketplace-crm/CreateListingFlo
 import { MarketplaceListingCard } from '@/components/marketplace-crm/MarketplaceListingCard';
 import { QueryErrorState } from '@/components/marketplace-crm/CrmWidgets';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { PageHeader } from '@/components/shared/PageHeader';
+import {
+  PageContainer,
+  PageHeader,
+  PageActions,
+  PageInsights,
+} from '@/design-system/LayoutFramework';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -95,12 +100,21 @@ export default function MarketplaceManage() {
   const verificationState = verification?.state || 'unverified';
 
   return (
-    <div className="space-y-6 pb-8">
+    <PageContainer maxWidth="7xl">
       <PageHeader
-        eyebrow={t('workspace_marketplace', 'Marketplace Operations')}
-        title={t('nav_marketplace_listings', 'Listings')}
-        description={`Create, publish, and monitor marketplace inventory for ${companyName}.`}
-        action={<Button onClick={() => setIsCreateOpen(true)}><Plus className="mr-1.5 h-4 w-4" />{t('create_new', 'Add listing')}</Button>}
+        title={t('nav_marketplace_listings', 'Marketplace Listings')}
+        description={`Author, verify, and publish public real estate listings for ${companyName}.`}
+        actions={
+          <PageActions>
+            <Button
+              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium h-9 text-xs"
+              onClick={() => setIsCreateOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('create_new', 'Add Listing')}
+            </Button>
+          </PageActions>
+        }
       />
 
       {!verificationQuery.isLoading && verificationState !== 'verified' && (
@@ -200,7 +214,7 @@ export default function MarketplaceManage() {
       )}
 
       <CreateListingFlow companyId={activeCompanyId} open={isCreateOpen} onOpenChange={setIsCreateOpen} />
-    </div>
+    </PageContainer>
   );
 }
 

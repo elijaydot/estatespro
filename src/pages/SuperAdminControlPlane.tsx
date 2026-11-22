@@ -113,6 +113,7 @@ import { OverviewTab } from '@/components/control-plane/tabs/OverviewTab';
 import { OperatorsTab, type OperatorRole } from '@/components/control-plane/tabs/OperatorsTab';
 import { SuperAdminMonetizationInvoices } from '@/components/control-plane/SuperAdminMonetizationInvoices';
 import { ControlPlaneSidebarNav } from '@/components/control-plane/ControlPlaneSidebarNav';
+import { PageContainer, PageHeader, PageActions } from '@/design-system/LayoutFramework';
 import {
   buildCompany360Rows,
   buildCorrelationSummary,
@@ -1834,32 +1835,32 @@ export default function SuperAdminControlPlane() {
   const activeOperatorImpersonation = currentOperatorImpersonation.data;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase text-muted-foreground">Platform Administration</p>
-          <h1 className="mt-1 text-3xl font-bold text-foreground">Control Plane</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Monitor platform risk, access decisions, usage, and billing across organizations.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {canOverride && (
-            <div className="hidden sm:flex items-center gap-2 rounded-lg border border-border/70 px-3 py-2">
-              <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Platform Override</span>
-              <Switch checked={overrideEnabled} onCheckedChange={setOverrideEnabled} />
-            </div>
-          )}
-          <Button variant="outline" className="gap-2" onClick={handleExportCsv}>
-            <Download className="h-4 w-4" /> CSV
-          </Button>
-          <Button variant="outline" className="gap-2" onClick={handleExportJson}>
-            <Download className="h-4 w-4" /> JSON
-          </Button>
-          <Button variant="outline" className="gap-2" onClick={refreshAll}>
-            <RefreshCw className="h-4 w-4" /> Refresh
-          </Button>
-        </div>
-      </div>
+    <PageContainer maxWidth="7xl" className="space-y-6">
+      <PageHeader
+        title="Platform Governance & Control Plane"
+        description="Monitor platform risk, access decisions, usage, and billing across organizations."
+        badge={<Badge variant="outline" className="text-xs font-mono">Multi-Tenant Root</Badge>}
+        actions={
+          <PageActions>
+            {canOverride && (
+              <div className="hidden sm:flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 bg-card">
+                <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Override</span>
+                <Switch checked={overrideEnabled} onCheckedChange={setOverrideEnabled} />
+              </div>
+            )}
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleExportCsv}>
+              <Download className="h-4 w-4" /> CSV
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleExportJson}>
+              <Download className="h-4 w-4" /> JSON
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={refreshAll}>
+              <RefreshCw className="h-4 w-4" /> Refresh
+            </Button>
+          </PageActions>
+        }
+      />
 
       {activeOperatorImpersonation && (
         <Alert variant="destructive">
@@ -4320,6 +4321,6 @@ export default function SuperAdminControlPlane() {
             </AlertDialogContent>
           </AlertDialog>
         </Tabs>
-    </div>
+    </PageContainer>
   );
 }

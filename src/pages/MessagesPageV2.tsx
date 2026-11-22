@@ -63,6 +63,7 @@ import { SuggestedReplies } from '@/components/ai/SuggestedReplies';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
+import { PageContainer, PageHeader, PageActions } from '@/design-system/LayoutFramework';
 
 type TenantWithRelations = Tenant & {
   tenant_user_id: string | null;
@@ -692,28 +693,39 @@ export default function MessagesPageV2() {
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Messages</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Tenant conversations, files, and follow-up in one inbox.</p>
-          <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground"><span>{threads.length} conversations</span><span aria-hidden="true">·</span><span className={unreadCount ? 'font-medium text-primary' : ''}>{unreadCount} unread</span><span aria-hidden="true">·</span><span>{allMessages.length} messages</span></div>
-        </div>
-        <div className="flex w-full gap-2 sm:w-auto">
-          <Button
-            variant={showUnreadOnly ? 'default' : 'outline'}
-            onClick={() => setShowUnreadOnly((current) => !current)}
-            className="flex-1 gap-2 sm:flex-none"
-          >
-            <Mail className="h-4 w-4" />
-            {showUnreadOnly ? 'Unread Only' : 'All Threads'}
-          </Button>
-          <Button onClick={() => setIsComposeOpen(true)} className="flex-1 gap-2 sm:flex-none">
-            <Plus className="h-4 w-4" />
-            New Message
-          </Button>
-        </div>
-      </div>
+    <PageContainer maxWidth="7xl" className="space-y-6">
+      <PageHeader
+        title="Conversations & Tenant Inbox"
+        description="Direct tenant communications, maintenance updates, and file attachments in one inbox."
+        badge={
+          unreadCount > 0 ? (
+            <Badge variant="destructive" className="text-xs font-mono">
+              {unreadCount} Unread
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs font-mono">
+              {threads.length} Threads
+            </Badge>
+          )
+        }
+        actions={
+          <PageActions>
+            <Button
+              variant={showUnreadOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowUnreadOnly((current) => !current)}
+              className="gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              {showUnreadOnly ? 'Unread Only' : 'All Threads'}
+            </Button>
+            <Button size="sm" onClick={() => setIsComposeOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              New Message
+            </Button>
+          </PageActions>
+        }
+      />
 
       {isError && (
         <Card className="card-shadow-md border-destructive/20">
@@ -1177,6 +1189,6 @@ export default function MessagesPageV2() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageContainer>
   );
 }

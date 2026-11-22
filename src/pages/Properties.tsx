@@ -57,7 +57,12 @@ import { FilterBar } from '@/components/shared/FilterBar';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
-import { Pagination } from '@/components/shared/Pagination';
+import {
+  PageContainer,
+  PageHeader,
+  PageActions,
+} from '@/design-system/LayoutFramework';
+import { StandardTable } from '@/design-system/components/StandardTable';
 
 const propertyTypeOptions = [
   { value: 'apartment', label: 'Apartment', description: 'Multi-unit residential building' },
@@ -196,20 +201,23 @@ export default function Properties() {
   };
 
   return (
-    <div className="space-y-6">
+    <PageContainer maxWidth="7xl">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('properties', 'Properties')}</h1>
-          <p className="text-muted-foreground">
-            {t('page_properties_subtitle', 'Manage your estates and properties')}
-          </p>
-        </div>
-        <Button className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
-          <Plus className="h-4 w-4" />
-          {t('action_add_property', 'Add Property')}
-        </Button>
-      </div>
+      <PageHeader
+        title={t('properties', 'Properties')}
+        description={t('page_properties_subtitle', 'Manage your physical estate portfolio, buildings, and community assets.')}
+        actions={
+          <PageActions>
+            <Button
+              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium h-9 text-xs"
+              onClick={() => setIsAddDialogOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('action_add_property', 'Add Property')}
+            </Button>
+          </PageActions>
+        }
+      />
 
       {/* Filters & View Switcher */}
       <FilterBar className="animate-fade-in flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -703,6 +711,6 @@ export default function Properties() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

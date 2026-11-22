@@ -74,7 +74,13 @@ import { FilterBar } from '@/components/shared/FilterBar';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Badge } from '@/components/ui/badge';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
-import { Pagination } from '@/components/shared/Pagination';
+import {
+  PageContainer,
+  PageHeader,
+  PageActions,
+  PageInsights,
+} from '@/design-system/LayoutFramework';
+import { StandardTable } from '@/design-system/components/StandardTable';
 
 type InvoiceWithRelations = Invoice & {
   company_id?: string;
@@ -484,42 +490,66 @@ export default function Invoices() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('invoices', 'Invoices')}</h1>
-          <p className="text-muted-foreground">{t('page_invoices_subtitle', 'Manage and track tenant invoices')}</p>
-        </div>
-        <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
-          <Plus className="h-4 w-4" />
-          {t('action_create_invoice', 'Create Invoice')}
-        </Button>
-      </div>
+    <PageContainer maxWidth="7xl">
+      {/* 1. Header & Primary Action Area */}
+      <PageHeader
+        title={t('invoices', 'Transactions & Invoices')}
+        description={t('page_invoices_subtitle', 'Generate statements, track open accounts receivable, and dispatch multi-channel payment links.')}
+        actions={
+          <PageActions>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              className="gap-1.5 h-9 text-xs"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export CSV
+            </Button>
+            <Button
+              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium h-9 text-xs"
+              onClick={() => setIsCreateOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('action_create_invoice', 'Create Invoice')}
+            </Button>
+          </PageActions>
+        }
+      />
 
-      {/* Overview Card */}
-      <Card className="border-border/70 bg-gradient-to-r from-primary/5 via-card to-card">
-        <CardContent className="p-4 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-primary">Invoicing Operations</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Track outstanding balances, collection efficiency, and multi-channel tenant communications.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="rounded-full px-3 py-1 border-warning/30 text-warning">Pending {stats.pendingCount}</Badge>
-            <Badge variant="outline" className="rounded-full px-3 py-1 border-destructive/30 text-destructive">
-              Overdue {formatCurrency(stats.overdueAmount)}
-            </Badge>
-            <Badge variant="outline" className="rounded-full px-3 py-1 border-success/30 text-success">
-              Collected {formatCurrency(stats.totalPaid)}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
+      {/* 2. Page Insights (Clean metric strip, not decorative card) */}
+      <PageInsights
+        metrics={[
+          {
+            id: 'pending-invoices',
+            label: 'Pending Invoices',
+            value: stats.pendingCount,
+            tone: stats.pendingCount > 0 ? 'warning' : 'default',
+            subtext: 'Awaiting resident payment',
+          },
+          {
+            id: 'overdue-invoices',
+            label: 'Overdue Arrears',
+            value: formatCurrency(stats.overdueAmount),
+            tone: stats.overdueAmount > 0 ? 'danger' : 'default',
+            subtext: `${stats.overdueCount} invoices past due date`,
+          },
+          {
+            id: 'collected-invoices',
+            label: 'Total Collected',
+            value: formatCurrency(stats.totalPaid),
+            tone: 'success',
+            subtext: 'Settled to date',
+          },
+          {
+            id: 'total-billed',
+            label: 'Total Invoiced Volume',
+            value: formatCurrency(stats.totalAmount),
+            tone: 'default',
+            subtext: `${invoiceRows.length} total issued invoices`,
+          },
+        ]}
+      />
 
       {/* Filters & View Toggle */}
       <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -1083,6 +1113,6 @@ export default function Invoices() {
         onOpenChange={setRraModalOpen}
         receipt={selectedReceipt}
       />
-    </div>
+    </PageContainer>
   );
 }

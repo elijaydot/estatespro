@@ -9,8 +9,19 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
+import { PageContainer, PageHeader, PageActions } from '@/design-system/LayoutFramework';
 
-export function CrmWorkspace({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+export function CrmWorkspace({
+  title,
+  subtitle,
+  actions,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
   const { t } = useI18n();
 
   // Map common English CRM titles to their localized keys if applicable
@@ -33,22 +44,36 @@ export function CrmWorkspace({ title, subtitle, children }: { title: string; sub
   })();
 
   return (
-    <div className="space-y-4">
-      <section className="border-b border-border pb-4">
-        <Breadcrumb className="mb-3 overflow-x-auto pb-1">
-          <BreadcrumbList className="w-max flex-nowrap">
-            <BreadcrumbItem><BreadcrumbLink asChild><Link to="/marketplace/manage">{t('workspace_marketplace', 'Marketplace')}</Link></BreadcrumbLink></BreadcrumbItem>
+    <PageContainer maxWidth="7xl" className="space-y-6">
+      <div className="space-y-3">
+        <Breadcrumb className="overflow-x-auto pb-0.5">
+          <BreadcrumbList className="w-max flex-nowrap text-xs">
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/marketplace/manage">{t('workspace_marketplace', 'Marketplace')}</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
             <BreadcrumbSeparator />
-            <BreadcrumbItem><BreadcrumbLink asChild><Link to="/marketplace/crm">{t('workspace_crm', 'CRM')}</Link></BreadcrumbLink></BreadcrumbItem>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/marketplace/crm">{t('workspace_crm', 'CRM')}</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
             <BreadcrumbSeparator />
-            <BreadcrumbItem><BreadcrumbPage>{localizedTitle}</BreadcrumbPage></BreadcrumbItem>
+            <BreadcrumbItem>
+              <BreadcrumbPage>{localizedTitle}</BreadcrumbPage>
+            </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <h1 className="mt-1 text-2xl font-semibold">{localizedTitle}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
-      </section>
 
-      <section className="space-y-4">{children}</section>
-    </div>
+        <PageHeader
+          title={localizedTitle}
+          description={subtitle}
+          actions={actions ? <PageActions>{actions}</PageActions> : undefined}
+        />
+      </div>
+
+      <section className="space-y-6">{children}</section>
+    </PageContainer>
   );
 }

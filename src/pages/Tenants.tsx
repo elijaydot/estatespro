@@ -77,7 +77,12 @@ import { StatusPill } from '@/components/shared/StatusPill';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { DataTable } from '@/components/shared/DataTable';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
-import { Pagination } from '@/components/shared/Pagination';
+import {
+  PageContainer,
+  PageHeader,
+  PageActions,
+} from '@/design-system/LayoutFramework';
+import { StandardTable } from '@/design-system/components/StandardTable';
 
 type TenantRow = Tenant & {
   company_id?: string;
@@ -371,20 +376,23 @@ export default function Tenants() {
   };
 
   return (
-    <div className="space-y-6">
+    <PageContainer maxWidth="7xl">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('tenants', 'Tenants')}</h1>
-          <p className="text-muted-foreground">
-            {t('page_tenants_subtitle', 'Manage tenant profiles and portal invitations')}
-          </p>
-        </div>
-        <Button className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
-          <Plus className="h-4 w-4" />
-          {t('action_add_tenant', 'Add Tenant')}
-        </Button>
-      </div>
+      <PageHeader
+        title={t('tenants', 'Tenants')}
+        description={t('page_tenants_subtitle', 'Manage resident profiles, lease assignments, portal access, and onboarding invitations.')}
+        actions={
+          <PageActions>
+            <Button
+              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium h-9 text-xs"
+              onClick={() => setIsAddDialogOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('action_add_tenant', 'Add Tenant')}
+            </Button>
+          </PageActions>
+        }
+      />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="animate-fade-in">
@@ -1092,6 +1100,6 @@ export default function Tenants() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

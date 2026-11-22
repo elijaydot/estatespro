@@ -14,6 +14,7 @@ import { useI18n } from '@/contexts/useI18n';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 import { Pagination } from '@/components/shared/Pagination';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { PageContainer, PageHeader, PageActions, PageInsights } from '@/design-system/LayoutFramework';
 
 const TablePagination = Pagination;
 
@@ -58,34 +59,40 @@ export default function OwnerPortal() {
   }
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-6 pb-8 animate-fade-in">
-      <header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase text-muted-foreground">{t('owner_portal_kicker', 'Owner / Investor Portal')}</p>
-          <h1 className="mt-1 text-2xl font-bold text-foreground sm:text-3xl">{t('owner_portal_title', 'Portfolio command view')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('owner_portal_subtitle', 'Financial performance, occupancy, and operating metrics across portfolio companies.')}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline"><Link to="/reports"><FileText className="mr-2 h-4 w-4" />{t('owner_btn_reports', 'Reports')}</Link></Button>
-          <Button asChild variant="outline"><Link to="/account/billing"><CreditCard className="mr-2 h-4 w-4" />{t('owner_btn_account_billing', 'Account billing')}</Link></Button>
-        </div>
-      </header>
+    <PageContainer maxWidth="7xl" className="space-y-6 pb-8">
+      <PageHeader
+        title={t('owner_portal_title', 'Portfolio Command View')}
+        description={t('owner_portal_subtitle', 'Financial performance, occupancy, and operating metrics across portfolio companies.')}
+        badge={<Badge variant="outline" className="text-xs font-mono">{totals.properties} Properties</Badge>}
+        actions={
+          <PageActions>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/reports"><FileText className="mr-2 h-4 w-4" />{t('owner_btn_reports', 'Reports')}</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/account/billing"><CreditCard className="mr-2 h-4 w-4" />{t('owner_btn_account_billing', 'Account billing')}</Link>
+            </Button>
+          </PageActions>
+        }
+      />
 
       {report.isError ? (
         <Card className="border-destructive/40"><CardContent className="py-8"><p className="font-medium">{t('owner_error_loading', 'Portfolio data could not be loaded.')}</p><p className="mt-1 text-sm text-muted-foreground">{t('owner_error_hint', 'Refresh the page or contact support if the problem persists.')}</p></CardContent></Card>
       ) : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6" aria-label="Portfolio totals">
-        <Metric label={t('owner_metric_properties', 'Properties')} value={totals.properties.toLocaleString()} icon={Building2} />
-        <Metric label={t('owner_metric_units', 'Units')} value={totals.units.toLocaleString()} icon={Building2} />
-        <Metric label={t('owner_metric_occupancy', 'Occupancy')} value={`${occupancy}%`} icon={Gauge} />
-        <Metric label={t('owner_metric_collected', 'Collected')} value={formatCurrency(totals.collected)} icon={Receipt} />
-        <Metric label={t('owner_metric_outstanding', 'Outstanding')} value={formatCurrency(totals.outstanding)} icon={CreditCard} attention={totals.outstanding > 0} />
-        <Metric label={t('owner_metric_open_maintenance', 'Open maintenance')} value={totals.maintenance.toLocaleString()} icon={Wrench} attention={totals.maintenance > 0} />
-      </section>
+      <PageInsights
+        items={[
+          { label: t('owner_metric_properties', 'Properties'), value: totals.properties.toLocaleString(), status: 'neutral' },
+          { label: t('owner_metric_units', 'Units'), value: totals.units.toLocaleString(), status: 'neutral' },
+          { label: t('owner_metric_occupancy', 'Occupancy'), value: `${occupancy}%`, status: occupancy >= 85 ? 'success' : 'warning' },
+          { label: t('owner_metric_collected', 'Collected'), value: formatCurrency(totals.collected), status: 'success' },
+          { label: t('owner_metric_outstanding', 'Outstanding'), value: formatCurrency(totals.outstanding), status: totals.outstanding > 0 ? 'danger' : 'neutral' },
+          { label: t('owner_metric_open_maintenance', 'Open maintenance'), value: totals.maintenance.toLocaleString(), status: totals.maintenance > 0 ? 'warning' : 'neutral' },
+        ]}
+      />
 
       {/* Tenant Demand & Pipeline Intelligence for Landlords */}
-      <Card className="border-cyan-500/30 bg-gradient-to-r from-cyan-500/5 via-background to-emerald-500/5 shadow-sm">
+      <Card className="border border-border bg-card shadow-xs">
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -326,7 +333,7 @@ export default function OwnerPortal() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
 

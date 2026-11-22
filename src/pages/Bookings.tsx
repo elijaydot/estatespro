@@ -80,6 +80,7 @@ import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 import { Pagination } from '@/components/shared/Pagination';
 import { StatusPill } from '@/components/shared/StatusPill';
+import { PageContainer, PageHeader, PageActions, PageInsights } from '@/design-system/LayoutFramework';
 
 type EmailType = 'status_update' | 'payment_request' | 'reminder' | 'check_in_details' | 'cancellation_notice';
 
@@ -445,74 +446,29 @@ export default function Bookings() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">{t('bookings', 'Short-Let Bookings')}</h1>
-          <p className="text-muted-foreground mt-1">{t('page_bookings_subtitle', 'Manage guest reservations, calendar availability, and guest communications')}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={() => { resetForm(); setIsCreateOpen(true); }} className="gap-2">
-            <Plus className="h-4 w-4" />
-            {t('action_create_booking', 'New Booking')}
-          </Button>
-        </div>
-      </div>
+    <PageContainer maxWidth="7xl" className="space-y-6">
+      <PageHeader
+        title={t('bookings', 'Short-Let Bookings & Reservations')}
+        description={t('page_bookings_subtitle', 'Manage guest reservations, calendar availability, and guest communications.')}
+        badge={<Badge variant="outline" className="text-xs font-mono">{stats.total} Bookings</Badge>}
+        actions={
+          <PageActions>
+            <Button onClick={() => { resetForm(); setIsCreateOpen(true); }} size="sm" className="gap-2">
+              <Plus className="h-4 w-4" />
+              {t('action_create_booking', 'New Booking')}
+            </Button>
+          </PageActions>
+        }
+      />
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-4">
-        <Card className="card-shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-primary/10">
-                <CalendarIcon className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Active</p>
-                <p className="text-2xl font-bold">{stats.active}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-warning/10">
-                <Clock className="h-6 w-6 text-warning" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Upcoming</p>
-                <p className="text-2xl font-bold">{stats.upcoming}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-success/10">
-                <DollarSign className="h-6 w-6 text-success" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Revenue</p>
-                <p className="text-2xl font-bold">{formatCurrency(stats.revenue)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-secondary">
-                <Home className="h-6 w-6 text-secondary-foreground" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Bookings</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <PageInsights
+        items={[
+          { label: 'Active Stays', value: stats.active, status: stats.active > 0 ? 'success' : 'neutral' },
+          { label: 'Upcoming', value: stats.upcoming, status: 'info' },
+          { label: 'Realized Revenue', value: formatCurrency(stats.revenue), status: 'success' },
+          { label: 'Total Reservations', value: stats.total, status: 'neutral' },
+        ]}
+      />
 
       <Tabs defaultValue="list">
         <TabsList>
@@ -878,6 +834,6 @@ export default function Bookings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageContainer>
   );
 }

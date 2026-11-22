@@ -52,6 +52,7 @@ import { useTenants, type Tenant } from '@/hooks/useTenants';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { GenerateDescriptionButton } from '@/components/ai/GenerateDescriptionButton';
 import { useConfirmAction } from '@/components/ui/use-confirm-action';
+import { PageContainer, PageHeader, PageActions, PageInsights } from '@/design-system/LayoutFramework';
 
 type UnitWithRelations = Unit & {
   properties?: {
@@ -215,99 +216,61 @@ export default function UnitDetail() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/units')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="p-3 rounded-xl bg-primary/10">
-            <Home className="h-8 w-8 text-primary" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-foreground">Unit {unit.unit_number}</h1>
-              {getStatusBadge(unit.status)}
-            </div>
-            <Link to={`/properties/${unit.property_id}`} className="text-muted-foreground hover:text-primary transition-colors">
-              {unit.properties?.name || 'No property'}
-            </Link>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={openEdit}>
-            <Edit className="h-4 w-4" />
-            Edit
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  navigate('/maintenance?add=true');
-                }}
-              >
-                <Wrench className="h-4 w-4 mr-2" /> Create Maintenance Request
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive"
-                onSelect={(e) => {
-                  e.preventDefault();
-                  handleDelete();
-                }}
-              >
-                <Trash2 className="h-4 w-4 mr-2" /> Delete Unit
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+    <PageContainer maxWidth="7xl" className="space-y-6">
+      <PageHeader
+        title={`Unit ${unit.unit_number}`}
+        description={unit.properties?.name ? `Located in ${unit.properties.name}` : 'Unit workspace and tenancy records'}
+        badge={getStatusBadge(unit.status)}
+        actions={
+          <PageActions>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/units')} className="gap-1.5">
+              <ArrowLeft className="h-4 w-4" />
+              Units
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={openEdit}>
+              <Edit className="h-4 w-4" />
+              Edit
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    navigate('/maintenance?add=true');
+                  }}
+                >
+                  <Wrench className="h-4 w-4 mr-2" /> Create Maintenance Request
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    handleDelete();
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" /> Delete Unit
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </PageActions>
+        }
+      />
 
-      {/* Quick Info Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4">
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6 text-center">
-            <Bed className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-            <p className="text-2xl font-bold text-foreground">{unit.bedrooms}</p>
-            <p className="text-sm text-muted-foreground">Bedrooms</p>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6 text-center">
-            <Bath className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-            <p className="text-2xl font-bold text-foreground">{unit.bathrooms}</p>
-            <p className="text-sm text-muted-foreground">Bathrooms</p>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6 text-center">
-            <Square className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-            <p className="text-2xl font-bold text-foreground">{unit.sqft?.toLocaleString() || 0}</p>
-            <p className="text-sm text-muted-foreground">Sq. Ft.</p>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6 text-center">
-            <Home className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-            <p className="text-2xl font-bold text-foreground">{unit.floor}</p>
-            <p className="text-sm text-muted-foreground">Floor</p>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md sm:col-span-2 lg:col-span-1">
-          <CardContent className="pt-6 text-center">
-            <DollarSign className="h-6 w-6 text-accent mx-auto mb-2" />
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(unit.rent_amount)}</p>
-            <p className="text-sm text-muted-foreground">Monthly Rent</p>
-          </CardContent>
-        </Card>
-      </div>
+      <PageInsights
+        items={[
+          { label: 'Bedrooms', value: unit.bedrooms, status: 'neutral' },
+          { label: 'Bathrooms', value: unit.bathrooms, status: 'neutral' },
+          { label: `Size (${settings.areaUnit})`, value: unit.sqft?.toLocaleString() || '—', status: 'neutral' },
+          { label: 'Floor Level', value: unit.floor, status: 'neutral' },
+          { label: 'Monthly Rent', value: formatCurrency(unit.rent_amount), status: 'success' },
+        ]}
+      />
 
       {/* Photo Gallery */}
       {((unitData.image_urls?.length ?? 0) > 0 || unitData.image_url) && (
@@ -606,6 +569,6 @@ export default function UnitDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

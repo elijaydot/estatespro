@@ -18,7 +18,12 @@ import {
   Loader2,
   Printer,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import {
+  PageContainer,
+  PageHeader,
+  PageActions,
+  PageInsights,
+} from '@/design-system/LayoutFramework';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -307,107 +312,71 @@ export default function Reports() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">{t('reports', 'Reports & Analytics')}</h1>
-          <p className="text-muted-foreground mt-1">{t('page_reports_subtitle', 'Comprehensive insights into your property portfolio')}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-[150px]">
-              <Calendar className="h-4 w-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="3m">Last 3 months</SelectItem>
-              <SelectItem value="6m">Last 6 months</SelectItem>
-              <SelectItem value="12m">Last 12 months</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={handleExportReport} variant="outline" className="gap-2">
-            <Download className="h-4 w-4" />
-            {t('action_export_csv', 'Export CSV')}
-          </Button>
-          {activeReport === 'executive' && (
-            <Button onClick={handleExecutivePdf} variant="outline" className="gap-2" disabled={executiveRows.length === 0}>
-              <Printer className="h-4 w-4" />
-              PDF
+    <PageContainer maxWidth="7xl">
+      {/* 1. Header & Primary Action Area */}
+      <PageHeader
+        title={t('reports', 'Reports & Intelligence')}
+        description={t('page_reports_subtitle', 'Audited portfolio rent roll, revenue realization, aging accounts, and RRA rental income tax filings.')}
+        actions={
+          <PageActions>
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger className="w-[140px] h-9 text-xs">
+                <Calendar className="h-3.5 w-3.5 mr-1.5" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3m">Last 3 months</SelectItem>
+                <SelectItem value="6m">Last 6 months</SelectItem>
+                <SelectItem value="12m">Last 12 months</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={handleExportReport} variant="outline" size="sm" className="gap-1.5 h-9 text-xs">
+              <Download className="h-3.5 w-3.5" />
+              {t('action_export_csv', 'Export CSV')}
             </Button>
-          )}
-        </div>
-      </div>
+            {activeReport === 'executive' && (
+              <Button onClick={handleExecutivePdf} variant="outline" size="sm" className="gap-1.5 h-9 text-xs" disabled={executiveRows.length === 0}>
+                <Printer className="h-3.5 w-3.5" />
+                PDF
+              </Button>
+            )}
+          </PageActions>
+        }
+      />
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('status_revenue', 'Total Revenue')}</p>
-                <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Completed payments recorded</p>
-              </div>
-              <div className="p-3 rounded-xl bg-success/10">
-                <DollarSign className="h-6 w-6 text-success" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('owner_metric_outstanding', 'Outstanding')}</p>
-                <p className="text-2xl font-bold">{formatCurrency(outstandingBalance)}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <TrendingDown className="h-4 w-4 text-destructive" />
-                  <span className="text-xs text-destructive">Needs attention</span>
-                </div>
-              </div>
-              <div className="p-3 rounded-xl bg-destructive/10">
-                <FileText className="h-6 w-6 text-destructive" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('occupancy_rate', 'Occupancy Rate')}</p>
-                <p className="text-2xl font-bold">{occupancyRate.toFixed(1)}%</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {occupiedUnits} of {units.length} {t('unit_plural', 'units')}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-primary/10">
-                <Home className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Active Tenants</p>
-                <p className="text-2xl font-bold">{activeTenants}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {tenants.length} total tenants
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-info/10">
-                <Users className="h-6 w-6 text-info" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* 2. Page Insights (Clean metric strip, not heavy cards) */}
+      <PageInsights
+        metrics={[
+          {
+            id: 'report-total-revenue',
+            label: 'Total Realized Revenue',
+            value: formatCurrency(totalRevenue),
+            tone: 'success',
+            subtext: 'Completed rental receipts',
+          },
+          {
+            id: 'report-outstanding',
+            label: 'Outstanding In Arrears',
+            value: formatCurrency(outstandingBalance),
+            tone: outstandingBalance > 0 ? 'danger' : 'default',
+            subtext: outstandingBalance > 0 ? 'Action required: aging invoices' : 'Fully collected',
+          },
+          {
+            id: 'report-occupancy',
+            label: 'Portfolio Occupancy',
+            value: `${occupancyRate.toFixed(1)}%`,
+            tone: 'default',
+            subtext: `${occupiedUnits} of ${units.length} total units occupied`,
+          },
+          {
+            id: 'report-active-tenants',
+            label: 'Active Resident Base',
+            value: activeTenants,
+            tone: 'default',
+            subtext: `${tenants.length} registered profiles`,
+          },
+        ]}
+      />
 
       {/* Shortlet KPI Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
@@ -940,6 +909,6 @@ export default function Reports() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+    </PageContainer>
   );
 }

@@ -54,6 +54,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { ApiAccessManagement } from '@/components/control-plane/ApiAccessManagement';
+import { PageContainer, PageHeader, PageActions } from '@/design-system/LayoutFramework';
 
 type DraftChange = {
   entity: 'quota' | 'price' | 'entitlement' | 'plan';
@@ -462,38 +463,34 @@ export default function CatalogManagement() {
   const expectedEntitlementAssignments = (catalog.data?.length || 0) * (registry.data?.keys.length || 0);
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <LayoutGrid className="h-5 w-5" />
-            <h1 className="text-2xl font-semibold">Catalog Management</h1>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Unified plans, pricing, capacity, entitlements, and release
-            controls.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Badge variant={changes.length ? 'default' : 'secondary'}>
-            {changes.length} draft changes
+    <PageContainer maxWidth="7xl" className="space-y-6">
+      <PageHeader
+        title="SaaS Catalog & Tier Governance"
+        description="Unified plans, pricing, capacity, entitlements, and release controls."
+        badge={
+          <Badge variant={changes.length ? 'default' : 'secondary'} className="text-xs font-mono">
+            {changes.length} Draft Changes
           </Badge>
-          <Button
-            variant="outline"
-            disabled={!changes.length || saveDraft.isPending}
-            onClick={() => saveDraft.mutate()}
-          >
-            <Save className="mr-2 h-4 w-4" />
-            Save draft
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button disabled={!changes.length}>
-                <Send className="mr-2 h-4 w-4" />
-                Publish changes
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
+        }
+        actions={
+          <PageActions>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!changes.length || saveDraft.isPending}
+              onClick={() => saveDraft.mutate()}
+            >
+              <Save className="mr-2 h-4 w-4" />
+              Save draft
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" disabled={!changes.length}>
+                  <Send className="mr-2 h-4 w-4" />
+                  Publish changes
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>
                   Publish {changes.length} catalog changes?
@@ -1050,7 +1047,7 @@ export default function CatalogManagement() {
           <DialogFooter><Button variant="outline" onClick={() => setEffect((current) => ({ ...current, open: false }))}>Cancel</Button><Button disabled={!effectForm.definitionCode || (effect.kind !== 'plan-quota' && effectForm.value === '') || catalogEffect.isPending} onClick={() => catalogEffect.mutate()}>Apply</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }
 

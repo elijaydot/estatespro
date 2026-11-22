@@ -62,7 +62,13 @@ import { StatusPill } from '@/components/shared/StatusPill';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
-import { Pagination } from '@/components/shared/Pagination';
+import {
+  PageContainer,
+  PageHeader,
+  PageActions,
+  PageInsights,
+} from '@/design-system/LayoutFramework';
+import { StandardTable } from '@/design-system/components/StandardTable';
 import { calculateRraLeaseFilingDeadline } from '@/lib/rraCompliance';
 import { BilingualLeaseModal } from '@/components/leases/BilingualLeaseModal';
 import type { BilingualLeaseInput } from '@/lib/bilingualLeaseAgreement';
@@ -501,72 +507,57 @@ export default function Leases() {
   const stats = getLeaseStats();
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">{t('leases', 'Leases')}</h1>
-          <p className="text-muted-foreground mt-1">{t('page_leases_subtitle', 'Manage lease agreements, signatures, and renewals')}</p>
-        </div>
-        <Button onClick={() => handleOpenDialog()} className="gap-2">
-          <Plus className="h-4 w-4" />
-          {t('action_create_lease', 'Create Lease')}
-        </Button>
-      </div>
+    <PageContainer maxWidth="7xl">
+      {/* 1. Header & Primary Action Area */}
+      <PageHeader
+        title={t('leases', 'Lease Agreements')}
+        description={t('page_leases_subtitle', 'Manage digital lease contracts, bilateral signatures, automated renewal notices, and RRA tax filings.')}
+        actions={
+          <PageActions>
+            <Button
+              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium h-9 text-xs"
+              onClick={() => handleOpenDialog()}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('action_create_lease', 'Create Lease')}
+            </Button>
+          </PageActions>
+        }
+      />
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-4">
-        <Card className="card-shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-primary/10">
-                <FileText className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{t('status_total', 'Total')} {t('leases', 'Leases')}</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-success/10">
-                <CheckCircle className="h-6 w-6 text-success" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{t('status_active', 'Active')}</p>
-                <p className="text-2xl font-bold">{stats.active}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-warning/10">
-                <Clock className="h-6 w-6 text-warning" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{t('pending_signature', 'Pending Signature')}</p>
-                <p className="text-2xl font-bold">{stats.pending}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-destructive/10">
-                <RefreshCw className="h-6 w-6 text-destructive" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{t('expiring_soon', 'Expiring Soon')}</p>
-                <p className="text-2xl font-bold">{stats.expiringSoon}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* 2. Page Insights (Clean metric strip, not wall of cards) */}
+      <PageInsights
+        metrics={[
+          {
+            id: 'active-leases',
+            label: 'Active Tenancies',
+            value: stats.active,
+            tone: 'success',
+            subtext: `${Math.round((stats.active / Math.max(1, stats.total)) * 100)}% portfolio lease coverage`,
+          },
+          {
+            id: 'pending-signature',
+            label: 'Pending Signature',
+            value: stats.pending,
+            tone: stats.pending > 0 ? 'warning' : 'default',
+            subtext: 'Awaiting landlord or tenant digital sign-off',
+          },
+          {
+            id: 'expiring-soon',
+            label: 'Expiring in 30 Days',
+            value: stats.expiringSoon,
+            tone: stats.expiringSoon > 0 ? 'danger' : 'default',
+            subtext: stats.expiringSoon > 0 ? 'Action required: offer renewal or exit' : 'Zero immediate expirations',
+          },
+          {
+            id: 'total-portfolio-leases',
+            label: 'Total Agreements',
+            value: stats.total,
+            tone: 'default',
+            subtext: 'Active, draft, and historical records',
+          },
+        ]}
+      />
 
       <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1209,6 +1200,6 @@ export default function Leases() {
         onOpenChange={setBilingualModalOpen}
         leaseData={selectedBilingualData}
       />
-    </div>
+    </PageContainer>
   );
 }

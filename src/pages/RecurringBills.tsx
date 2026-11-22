@@ -50,7 +50,13 @@ import { useRecurringBills, useCreateRecurringBill, useUpdateRecurringBill, useD
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
-import { Pagination } from '@/components/shared/Pagination';
+import {
+  PageContainer,
+  PageHeader,
+  PageActions,
+  PageInsights,
+} from '@/design-system/LayoutFramework';
+import { StandardTable } from '@/design-system/components/StandardTable';
 
 type RecurringBillRow = RecurringBill & {
   properties?: {
@@ -250,43 +256,57 @@ export default function RecurringBills() {
   const activeBills = bills.filter(b => b.is_active).length;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">{t('recurring_bills', 'Recurring Bills')}</h1>
-          <p className="text-muted-foreground mt-1">{t('page_recurring_subtitle', 'Manage automated recurring charges for utilities, security, and services')}</p>
-        </div>
-        <Button onClick={() => handleOpenDialog()} className="gap-2">
-          <Plus className="h-4 w-4" />
-          {t('action_new_bill', 'Add Recurring Bill')}
-        </Button>
-      </div>
+    <PageContainer maxWidth="7xl">
+      {/* 1. Header & Primary Action Area */}
+      <PageHeader
+        title={t('recurring_bills', 'Operating Expenses & Bills')}
+        description={t('page_recurring_subtitle', 'Manage recurring service contracts, automated utility billings, security fees, and property operational expenses.')}
+        actions={
+          <PageActions>
+            <Button
+              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium h-9 text-xs"
+              onClick={() => handleOpenDialog()}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('action_new_bill', 'Add Recurring Bill')}
+            </Button>
+          </PageActions>
+        }
+      />
 
-      {/* Metrics */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <MetricCard
-          title="Total Active Bills"
-          value={activeBills}
-          icon={RefreshCw}
-          accent="primary"
-          subtitle={`${bills.length - activeBills} inactive`}
-        />
-        <MetricCard
-          title="Est. Monthly Total"
-          value={formatCurrency(totalMonthlyAmount)}
-          icon={Zap}
-          accent="success"
-          subtitle="Across all properties"
-        />
-        <MetricCard
-          title="Total Bill Types"
-          value={new Set(bills.map(b => b.bill_type)).size}
-          icon={Shield}
-          accent="info"
-          subtitle="Configured categories"
-        />
-      </div>
+      {/* 2. Page Insights (Clean metric strip, not wall of cards) */}
+      <PageInsights
+        metrics={[
+          {
+            id: 'active-bills',
+            label: 'Active Scheduled Bills',
+            value: activeBills,
+            tone: 'default',
+            subtext: `${bills.length - activeBills} paused or inactive schedules`,
+          },
+          {
+            id: 'monthly-total',
+            label: 'Estimated Monthly Total',
+            value: formatCurrency(totalMonthlyAmount),
+            tone: 'warning',
+            subtext: 'Across all properties & utility meters',
+          },
+          {
+            id: 'annual-run-rate',
+            label: 'Annualized Run Rate',
+            value: formatCurrency(totalMonthlyAmount * 12),
+            tone: 'default',
+            subtext: 'Projected 12-month operating expense load',
+          },
+          {
+            id: 'categories-count',
+            label: 'Service Categories',
+            value: new Set(bills.map(b => b.bill_type)).size,
+            tone: 'default',
+            subtext: 'Utilities, security, waste, and internet',
+          },
+        ]}
+      />
 
       {/* Filters & View Toggle */}
       <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -729,6 +749,6 @@ export default function RecurringBills() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageContainer>
   );
 }

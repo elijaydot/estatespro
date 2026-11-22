@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,8 +6,8 @@
 
 @layer base {
   :root {
-    /* Estate Management Professional Theme */
-    --background: 220 25% 98%;
+    /* Enterprise Slate Theme (Microsoft / Stripe / Linear / Google standard) */
+    --background: 210 40% 98%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -16,98 +16,100 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Clear action blue */
-    --primary: 217 91% 45%;
+    /* Primary: #2563EB (Blue 600) */
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
 
-    /* Warm Gray Secondary */
-    --secondary: 220 14% 96%;
+    /* Slate Neutral Secondary */
+    --secondary: 210 40% 96%;
     --secondary-foreground: 222 47% 11%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
 
-    /* Warm Amber Accent */
-    --accent: 38 92% 50%;
-    --accent-foreground: 0 0% 100%;
+    /* Status Accents (Restrained, Semantic) */
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 78% 56%;
+    /* Danger: #EF4444 (Red 500) */
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 16% 93%;
-    --input: 220 16% 93%;
-    --ring: 217 91% 45%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
 
-    --radius: 0.875rem;
-    --shadow-card: 0 1px 2px 0 hsl(220 20% 10% / 0.04), 0 1px 3px 0 hsl(220 20% 10% / 0.06);
+    --radius: 0.625rem;
+    --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.05);
 
-    /* Status Colors */
-    --success: 142 71% 42%;
+    /* Success: #10B981, Warning: #F59E0B */
+    --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    --info: 199 89% 48%;
+    --info: 221 83% 53%;
     --info-foreground: 0 0% 100%;
-    --pill-success-bg: 142 71% 94%;
-    --pill-warning-bg: 38 92% 94%;
-    --pill-destructive-bg: 0 78% 95%;
-    --pill-info-bg: 199 89% 94%;
-    --pill-neutral-bg: 220 14% 94%;
+
+    --pill-success-bg: 160 84% 95%;
+    --pill-warning-bg: 38 92% 95%;
+    --pill-destructive-bg: 0 84% 96%;
+    --pill-info-bg: 221 83% 96%;
+    --pill-neutral-bg: 210 40% 95%;
 
     /* Sidebar */
-    --sidebar-background: 213 58% 15%;
-    --sidebar-foreground: 220 20% 90%;
-    --sidebar-primary: 38 92% 50%;
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 221 83% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 213 50% 22%;
+    --sidebar-accent: 217 33% 18%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 213 40% 28%;
-    --sidebar-ring: 38 92% 50%;
+    --sidebar-border: 217 33% 20%;
+    --sidebar-ring: 221 83% 53%;
 
     /* Property Status Colors */
-    --status-vacant: 142 71% 45%;
-    --status-occupied: 199 89% 48%;
+    --status-vacant: 160 84% 39%;
+    --status-occupied: 221 83% 53%;
     --status-maintenance: 38 92% 50%;
     --status-overdue: 0 84% 60%;
   }
 
   .dark {
-    --background: 222 47% 8%;
-    --foreground: 220 20% 97%;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 220 20% 97%;
+    --card: 217 33% 15%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 220 20% 97%;
+    --popover: 217 33% 15%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 38 92% 50%;
-    --primary-foreground: 222 47% 11%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 30% 18%;
-    --secondary-foreground: 220 20% 97%;
+    --secondary: 217 33% 20%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 222 30% 18%;
-    --muted-foreground: 220 9% 65%;
+    --muted: 217 33% 20%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 38 92% 50%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 217 33% 20%;
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 62% 50%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 30% 22%;
-    --input: 222 30% 22%;
-    --ring: 38 92% 50%;
+    --border: 217 33% 22%;
+    --input: 217 33% 22%;
+    --ring: 217 91% 60%;
 
-    --sidebar-background: 222 47% 8%;
-    --sidebar-foreground: 220 20% 85%;
-    --sidebar-primary: 38 92% 50%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 222 30% 18%;
+    --sidebar-background: 224 71% 7%;
+    --sidebar-foreground: 210 40% 90%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 16%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 222 30% 18%;
-    --sidebar-ring: 38 92% 50%;
+    --sidebar-border: 217 33% 16%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
@@ -201,37 +203,7 @@
   }
 
   .app-shell-gradient {
-    background-image:
-      radial-gradient(1300px circle at 0% -10%, hsl(var(--accent) / 0.14), transparent 38%),
-      radial-gradient(1100px circle at 100% 10%, hsl(var(--primary) / 0.14), transparent 42%),
-      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background)) 100%);
-  }
-
-  .app-shell-orb {
-    position: fixed;
-    z-index: 0;
-    border-radius: 9999px;
-    filter: blur(70px);
-    opacity: 0.26;
-    pointer-events: none;
-    animation: floatDrift 14s ease-in-out infinite;
-  }
-
-  .app-shell-orb-a {
-    top: -8rem;
-    left: -4rem;
-    width: 16rem;
-    height: 16rem;
-    background: hsl(var(--accent) / 0.9);
-  }
-
-  .app-shell-orb-b {
-    top: 5rem;
-    right: -6rem;
-    width: 18rem;
-    height: 18rem;
-    background: hsl(var(--primary) / 0.8);
-    animation-delay: 1.8s;
+    background-color: hsl(var(--background));
   }
 }
 

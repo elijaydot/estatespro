@@ -48,6 +48,7 @@ import { useSettings } from '@/contexts/useSettings';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { GenerateDescriptionButton } from '@/components/ai/GenerateDescriptionButton';
 import { useConfirmAction } from '@/components/ui/use-confirm-action';
+import { PageContainer, PageHeader, PageActions, PageInsights } from '@/design-system/LayoutFramework';
 
 type PropertyWithImages = Property & {
   image_urls?: string[] | null;
@@ -212,117 +213,60 @@ export default function PropertyDetail() {
     .reduce((sum, u) => sum + (u.rent_amount || 0), 0);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Breadcrumb & Actions */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/properties')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-foreground">{property.name}</h1>
-              <Badge className={getPropertyTypeBadge(property.type)}>{property.type}</Badge>
-            </div>
-            <div className="flex items-center gap-1 text-muted-foreground mt-1">
-              <MapPin className="h-4 w-4" />
-              <span>
-                {property.address}, {property.city}, {property.state} {property.zip_code}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={openEdit}>
-            <Edit className="h-4 w-4" />
-            Edit
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  navigate('/units?add=true');
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" /> Add Unit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive"
-                onSelect={(e) => {
-                  e.preventDefault();
-                  handleDelete();
-                }}
-              >
-                <Trash2 className="h-4 w-4 mr-2" /> Delete Property
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+    <PageContainer maxWidth="7xl" className="space-y-6">
+      <PageHeader
+        title={property.name}
+        description={`${property.address}, ${property.city}, ${property.state} ${property.zip_code}`}
+        badge={<Badge className={getPropertyTypeBadge(property.type)}>{property.type}</Badge>}
+        actions={
+          <PageActions>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/properties')} className="gap-1.5">
+              <ArrowLeft className="h-4 w-4" />
+              Properties
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={openEdit}>
+              <Edit className="h-4 w-4" />
+              Edit
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    navigate('/units?add=true');
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Add Unit
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    handleDelete();
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" /> Delete Property
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </PageActions>
+        }
+      />
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Units</p>
-                <p className="text-2xl font-bold text-foreground">{property.total_units}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-primary/10">
-                <Home className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Occupancy Rate</p>
-                <p className="text-2xl font-bold text-foreground">{occupancyRate}%</p>
-              </div>
-              <div className="p-3 rounded-xl bg-success/10">
-                <Users className="h-6 w-6 text-success" />
-              </div>
-            </div>
-            <Progress value={occupancyRate} className="mt-3 h-2" />
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Vacant Units</p>
-                <p className="text-2xl font-bold text-foreground">{vacantUnits}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-warning/10">
-                <Building2 className="h-6 w-6 text-warning" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Monthly Revenue</p>
-                <p className="text-2xl font-bold text-foreground">{formatCurrency(monthlyRevenue)}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-accent/10">
-                <DollarSign className="h-6 w-6 text-accent" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <PageInsights
+        items={[
+          { label: 'Total Units', value: property.total_units, status: 'neutral' },
+          { label: 'Occupancy Rate', value: `${occupancyRate}%`, status: occupancyRate >= 80 ? 'success' : 'warning' },
+          { label: 'Vacant Units', value: vacantUnits, status: vacantUnits > 0 ? 'warning' : 'neutral' },
+          { label: 'Monthly Revenue', value: formatCurrency(monthlyRevenue), status: 'success' },
+        ]}
+      />
 
       {/* Photo Gallery */}
       {((propertyWithImages?.image_urls?.length ?? 0) > 0 || property.image_url) && (
@@ -559,6 +503,6 @@ export default function PropertyDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

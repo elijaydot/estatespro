@@ -25,6 +25,7 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { useAuth } from '@/contexts/useAuth';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 import { Pagination } from '@/components/shared/Pagination';
+import { PageContainer, PageHeader, PageActions, PageInsights } from '@/design-system/LayoutFramework';
 
 const audienceLabel: Record<string, string> = {
   all: 'All users',
@@ -194,22 +195,28 @@ export default function Broadcasts() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{t('broadcasts', 'Broadcasts')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('page_broadcasts_subtitle', 'Send targeted announcements and review delivery history across organizations.')}</p>
-        </div>
-        <Button onClick={() => setComposerOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" />{t('action_create_broadcast', 'New broadcast')}
-        </Button>
-      </div>
+    <PageContainer maxWidth="7xl" className="space-y-6">
+      <PageHeader
+        title={t('broadcasts', 'Omnichannel Broadcasts')}
+        description={t('page_broadcasts_subtitle', 'Send targeted announcements and review delivery history across organizations.')}
+        badge={<Badge variant="outline" className="text-xs font-mono">{filteredBroadcasts.length} Messages</Badge>}
+        actions={
+          <PageActions>
+            <Button onClick={() => setComposerOpen(true)} size="sm" className="gap-2">
+              <Plus className="h-4 w-4" />{t('action_create_broadcast', 'New broadcast')}
+            </Button>
+          </PageActions>
+        }
+      />
 
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-y border-border/70 py-3">
-        <div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /><div><p className="text-[11px] text-muted-foreground">Active Scope</p><p className="text-sm font-medium">{activeCompanyName}</p></div></div>
-        <div className="flex items-center gap-2"><Megaphone className="h-4 w-4 text-muted-foreground" /><div><p className="text-[11px] text-muted-foreground">Total Broadcasts</p><p className="text-sm font-medium">{broadcasts.length}</p></div></div>
-        <div className="flex items-center gap-2"><Users className="h-4 w-4 text-muted-foreground" /><div><p className="text-[11px] text-muted-foreground">Default Reach</p><p className="text-sm font-medium">All users</p></div></div>
-      </div>
+      <PageInsights
+        items={[
+          { label: 'Active Scope', value: activeCompanyName, status: 'info' },
+          { label: 'Total Broadcasts', value: broadcasts.length, status: 'neutral' },
+          { label: 'Filtered', value: filteredBroadcasts.length, status: 'neutral' },
+          { label: 'Default Reach', value: 'All Users', status: 'success' },
+        ]}
+      />
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 flex-wrap">
         <div className="flex flex-1 items-center gap-3 min-w-[240px] max-w-lg">
@@ -427,6 +434,6 @@ export default function Broadcasts() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
