@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { AlertTriangle, Bell, CalendarClock, Store, Wrench, Home } from 'lucide-react';
+import { useI18n } from '@/contexts/useI18n';
 
 export type DashboardKpiData = {
   overdueAmount: number;
@@ -28,43 +29,44 @@ type KpiTile = {
 };
 
 export function DashboardKpiStrip({ data, formatCurrency }: DashboardKpiStripProps) {
+  const { t } = useI18n();
   const occupancy = data.totalUnits > 0 ? Math.round((data.occupiedUnits / data.totalUnits) * 100) : 0;
   const tiles: KpiTile[] = [
     {
-      label: 'Overdue',
+      label: t('kpi_overdue', 'Overdue'),
       value: formatCurrency(data.overdueAmount),
       context: `${data.overdueCount} invoice${data.overdueCount === 1 ? '' : 's'}`,
       icon: AlertTriangle,
       tone: data.overdueAmount > 0 ? 'critical' : undefined,
     },
     {
-      label: 'Occupancy',
+      label: t('kpi_occupancy', 'Occupancy'),
       value: `${occupancy}%`,
       context: `${data.occupiedUnits} of ${data.totalUnits} units`,
       icon: Home,
     },
     {
-      label: 'Maintenance',
+      label: t('kpi_maintenance', 'Maintenance'),
       value: String(data.maintenanceOpen),
       context: `${data.maintenanceInProgress} in progress`,
       icon: Wrench,
       tone: data.maintenanceOpen > 0 ? 'warning' : undefined,
     },
     {
-      label: 'Renewals (30d)',
+      label: t('kpi_renewals', 'Renewals (30d)'),
       value: String(data.renewals30d),
       context: 'leases expiring',
       icon: CalendarClock,
       tone: data.renewals30d > 0 ? 'warning' : undefined,
     },
     {
-      label: 'Active vendors',
+      label: t('kpi_active_vendors', 'Active vendors'),
       value: String(data.activeVendors),
       context: `${formatCurrency(data.pendingPayables)} pending`,
       icon: Store,
     },
     {
-      label: 'Alerts',
+      label: t('kpi_alerts', 'Alerts'),
       value: String(data.alerts),
       context: 'needs attention',
       icon: Bell,

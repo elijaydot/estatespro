@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Globe, DollarSign, Calendar, Save } from 'lucide-react';
+import { Globe, DollarSign, Calendar, Save, Check, Languages } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/use-toast';
 import { useSettings } from '@/contexts/useSettings';
+import { useI18n } from '@/contexts/useI18n';
+import { type SupportedLanguage } from '@/lib/i18n';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { cn } from '@/lib/utils';
 
 import { SUPPORTED_CURRENCIES, CURRENCY_SYMBOLS } from '@/lib/exchangeRates';
 
@@ -105,6 +108,7 @@ const dateFormatOptions = [
 
 export function GeneralSettings() {
   const { settings, updateSettings, isLoading } = useSettings();
+  const { language, setLanguage, languages, t } = useI18n();
   const [formData, setFormData] = useState({
     currencyCode: 'RWF',
     currencySymbol: 'RWF',
@@ -148,7 +152,7 @@ export function GeneralSettings() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-foreground">General</h2>
-          <p className="text-sm text-muted-foreground">Regional, currency, and date preferences</p>
+          <p className="text-sm text-muted-foreground">Regional, currency, date, and language preferences</p>
         </div>
         <Button onClick={handleSave} disabled={isSaving} size="sm" className="gap-2">
           <Save className="h-4 w-4" />
@@ -157,6 +161,65 @@ export function GeneralSettings() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
+        {/* Language & Regional Localization */}
+        <Card className="md:col-span-2 border-primary/20 bg-card shadow-xs">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Languages className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">{t('language_settings', 'Language & Regional Localization')}</CardTitle>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                {t('current_language', 'Current Language')}: {language.toUpperCase()}
+              </span>
+            </div>
+            <CardDescription className="text-xs">
+              {t('language_settings_desc', 'Select your preferred language for the FishGate application interface. Changes apply immediately across all modules.')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {languages.map((opt) => {
+                const isSelected = opt.code === language;
+                return (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    onClick={() => {
+                      setLanguage(opt.code as SupportedLanguage);
+                      toast({
+                        title: opt.nativeName,
+                        description: t('language_updated_success', 'Language preference updated successfully.'),
+                      });
+                    }}
+                    className={cn(
+                      'flex items-center justify-between p-3.5 rounded-xl border text-left transition-all',
+                      isSelected
+                        ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30 shadow-xs'
+                        : 'border-border/80 bg-background/60 hover:bg-muted text-foreground'
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl leading-none">{opt.flag}</span>
+                      <div>
+                        <p className="font-semibold text-sm text-foreground leading-tight">{opt.nativeName}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{opt.name}</p>
+                        <p className="text-[10px] text-muted-foreground/80">{opt.region}</p>
+                      </div>
+                    </div>
+                    {isSelected ? (
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                    ) : (
+                      <span className="h-4 w-4 rounded-full border border-border" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
         {/* Regional */}
         <Card>
           <CardHeader className="pb-4">

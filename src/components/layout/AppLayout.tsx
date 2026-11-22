@@ -11,6 +11,7 @@ import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useUserRole } from '@/hooks/useUserRole';
 import { MfaReminderBanner } from '@/components/security/MfaReminderBanner';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { LanguageToggle } from '@/components/shared/LanguageToggle';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { useInboundSlaAlert } from '@/hooks/useInboundSlaAlert';
 
@@ -82,6 +83,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             </div>
 
             <div className="flex items-center gap-1">
+              <LanguageToggle />
               <ThemeToggle />
               <Button
                 variant="ghost"

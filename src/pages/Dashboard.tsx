@@ -26,6 +26,7 @@ import { summarizeVendorPayments, useVendorPayments } from '@/hooks/useVendorPay
 import { useVendors } from '@/hooks/useVendors';
 import { useAdministrationSnapshot, useCompanyDirectory } from '@/hooks/useControlPlane';
 import { useMyCompanies } from '@/hooks/useCompanies';
+import { useI18n } from '@/contexts/useI18n';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -41,6 +42,7 @@ export default function Dashboard() {
   const { formatCurrency } = useSettings();
   const { profile, user } = useAuth();
   const { companies, activeCompanyId } = useActiveCompany();
+  const { t, language } = useI18n();
 
   const activeCompanyName = isSuperAdmin
     ? 'FishGate SaaS • Global Monitor'
@@ -49,7 +51,8 @@ export default function Dashboard() {
   const activeVendors = vendors.filter((vendor) => vendor.status === 'active').length;
   const vendorPaymentTotals = summarizeVendorPayments(vendorPayments);
   const aiEnabled = entitlements['ai.assistant.enabled'];
-  const dateLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const localeMap: Record<string, string> = { rw: 'rw-RW', fr: 'fr-FR', sw: 'sw-KE', en: 'en-US' };
+  const dateLabel = new Date().toLocaleDateString(localeMap[language] || 'en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 pb-6">
@@ -69,12 +72,14 @@ export default function Dashboard() {
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/65">{activeCompanyName}</p>
             )}
             <h1 className="mt-1 text-2xl font-bold sm:text-3xl text-white">
-              {isSuperAdmin ? 'FishGate Global SaaS Command Center' : `Good to see you, ${displayName}`}
+              {isSuperAdmin
+                ? t('dashboard_super_admin_title', 'FishGate Global SaaS Command Center')
+                : `${t('greeting_good_day', 'Good to see you')}, ${displayName}`}
             </h1>
             <p className="mt-2 max-w-xl text-sm text-slate-300 leading-relaxed">
               {isSuperAdmin
-                ? `${dateLabel}. Real-time monitoring across all customer organizations, properties, tenants, invoices, leases, and system operations.`
-                : `${dateLabel}. Here is the operational picture across your properties, tenants, collections, and upcoming work.`}
+                ? `${dateLabel}. ${t('dashboard_super_admin_subtitle', 'Real-time monitoring across all customer organizations, properties, tenants, invoices, leases, and system operations.')}`
+                : `${dateLabel}. ${t('dashboard_subtitle_pm', 'Here is the operational picture across your properties, tenants, collections, and upcoming work.')}`}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -82,19 +87,19 @@ export default function Dashboard() {
               <>
                 <Button variant="secondary" size="sm" onClick={() => navigate('/super-admin/control-plane')} className="gap-1.5 shadow-sm font-medium">
                   <ShieldCheck className="h-4 w-4 text-primary" />
-                  Control Plane
+                  {t('workspace_control_plane', 'Control Plane')}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => navigate('/reports')} className="gap-1.5 bg-white/10 hover:bg-white/20 border-white/20 text-white">
-                  Platform Reports
+                  {t('nav_reports', 'Platform Reports')}
                 </Button>
                 <Button size="sm" onClick={() => navigate('/marketplace/crm')} className="gap-1.5 shadow-sm">
-                  CRM Pipeline
+                  {t('workspace_crm', 'CRM Pipeline')}
                 </Button>
               </>
             ) : (
               <>
-                <Button variant="secondary" size="sm" onClick={() => navigate('/reports')}>View reports</Button>
-                <Button size="sm" onClick={() => navigate('/invoices?add=true')}>Create invoice</Button>
+                <Button variant="secondary" size="sm" onClick={() => navigate('/reports')}>{t('btn_view_reports', 'View reports')}</Button>
+                <Button size="sm" onClick={() => navigate('/invoices?add=true')}>{t('btn_create_invoice', 'Create invoice')}</Button>
               </>
             )}
           </div>

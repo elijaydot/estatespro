@@ -30,6 +30,7 @@ import { useWorkspaceNavigation } from '@/hooks/useWorkspaceNavigation';
 import type { StaffWorkspaceId } from '@/lib/workspaceNavigation';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { LanguageToggle } from '@/components/shared/LanguageToggle';
+import { useI18n } from '@/contexts/useI18n';
 
 type QuickAddType = 'property' | 'unit' | 'tenant' | 'lease' | 'invoice';
 
@@ -59,6 +60,7 @@ export function AppHeader() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { role } = useUserRole();
   const { user, profile, logout } = useAuth();
+  const { t } = useI18n();
   const { companies, activeCompanyId, setActiveCompanyId } = useActiveCompany();
   const { availableWorkspaceIds, currentWorkspaceId, getLandingPath } = useWorkspaceNavigation();
   const [scopeOpen, setScopeOpen] = useState(false);
@@ -77,9 +79,9 @@ export function AppHeader() {
   }, [companies, companySearchQuery]);
 
   const activeScopeName = useMemo(() => {
-    if (activeCompanyId === 'all') return 'All Organizations (Global Seer)';
-    return companies.find((c) => c.id === activeCompanyId)?.name || 'Select Organization';
-  }, [companies, activeCompanyId]);
+    if (activeCompanyId === 'all') return t('all_organizations', 'All Organizations (Global Seer)');
+    return companies.find((c) => c.id === activeCompanyId)?.name || t('select_organization', 'Select Organization');
+  }, [companies, activeCompanyId, t]);
 
   const handleQuickAddClick = (type: QuickAddType) => {
     // Navigate to the respective page with add dialog state
@@ -145,17 +147,17 @@ export function AppHeader() {
   };
 
   const roleLabel = role === 'super_admin'
-    ? 'Super Admin'
+    ? t('role_super_admin', 'Super Admin')
     : role === 'property_manager'
-      ? 'Property Manager'
+      ? t('role_property_manager', 'Property Manager')
       : role === 'landlord'
-        ? 'Landlord'
-        : 'Tenant';
+        ? t('role_landlord', 'Landlord')
+        : t('role_tenant', 'Tenant');
   const workspacePresentation: Record<StaffWorkspaceId, { name: string; icon: typeof Building; color: string }> = {
-    'property-management': { name: 'Property Management', icon: Building, color: 'bg-blue-600' },
-    marketplace: { name: 'Marketplace', icon: Store, color: 'bg-amber-500' },
-    crm: { name: 'CRM', icon: BriefcaseBusiness, color: 'bg-emerald-600' },
-    'control-plane': { name: 'Control Plane', icon: Radar, color: 'bg-slate-700' },
+    'property-management': { name: t('workspace_pm', 'Property Management'), icon: Building, color: 'bg-blue-600' },
+    marketplace: { name: t('workspace_marketplace', 'Marketplace'), icon: Store, color: 'bg-amber-500' },
+    crm: { name: t('workspace_crm', 'Marketplace CRM'), icon: BriefcaseBusiness, color: 'bg-emerald-600' },
+    'control-plane': { name: t('workspace_control_plane', 'Control Plane'), icon: Radar, color: 'bg-slate-700' },
   };
   const workspaces = availableWorkspaceIds.map((id) => ({ id, ...workspacePresentation[id] }));
   const currentWorkspace = workspacePresentation[currentWorkspaceId];
@@ -185,7 +187,7 @@ export function AppHeader() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64 p-2">
-          <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">Workspaces</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">{t('workspaces', 'Workspaces')}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {workspaces.map((workspace) => (
             <DropdownMenuItem
@@ -212,7 +214,7 @@ export function AppHeader() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               ref={searchInputRef}
-              placeholder="Search…"
+              placeholder={t('header_search_placeholder', 'Search…')}
               className="h-10 rounded-[10px] pl-10 pr-14 bg-background border border-border focus-visible:ring-2 focus-visible:ring-ring"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -282,7 +284,7 @@ export function AppHeader() {
               <div className="p-3 border-b border-border bg-muted/40 space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-bold text-foreground tracking-wide uppercase">
-                    {role === 'super_admin' ? 'Select Platform Scope' : 'Select Organization'}
+                    {role === 'super_admin' ? t('select_platform_scope', 'Select Platform Scope') : t('select_organization', 'Select Organization')}
                   </p>
                   <span className="text-[10px] text-muted-foreground font-medium px-1.5 py-0.5 rounded bg-background border border-border">
                     {companies.length} {companies.length === 1 ? 'org' : 'orgs'}
@@ -293,7 +295,7 @@ export function AppHeader() {
                   <Input
                     value={companySearchQuery}
                     onChange={(e) => setCompanySearchQuery(e.target.value)}
-                    placeholder="Search organizations..."
+                    placeholder={t('search_organizations', 'Search organizations...')}
                     className="h-8 pl-8 pr-7 text-xs bg-background"
                     autoFocus
                   />
@@ -331,7 +333,7 @@ export function AppHeader() {
                         </span>
                         <div className="min-w-0">
                           <p className="font-semibold text-xs leading-tight flex items-center gap-1.5">
-                            All Organizations
+                            {t('all_organizations', 'All Organizations')}
                             <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold">
                               Global Seer
                             </span>
@@ -401,31 +403,31 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button size="sm" className="h-10 gap-2 rounded-[10px] px-4 shadow-xs">
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Quick Add</span>
+              <span className="hidden sm:inline">{t('quick_add', 'Quick Add')}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48 bg-popover">
-            <DropdownMenuLabel>Create New</DropdownMenuLabel>
+            <DropdownMenuLabel>{t('create_new', 'Create New')}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => handleQuickAddClick('property')}>
               <Building className="h-4 w-4 mr-2" />
-              Property
+              {t('quick_add_property', 'Property')}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleQuickAddClick('unit')}>
               <Home className="h-4 w-4 mr-2" />
-              Unit
+              {t('quick_add_unit', 'Unit')}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleQuickAddClick('tenant')}>
               <Users className="h-4 w-4 mr-2" />
-              Tenant
+              {t('quick_add_tenant', 'Tenant')}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleQuickAddClick('lease')}>
               <FileText className="h-4 w-4 mr-2" />
-              Lease
+              {t('quick_add_lease', 'Lease')}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleQuickAddClick('invoice')}>
               <Receipt className="h-4 w-4 mr-2" />
-              Invoice
+              {t('quick_add_invoice', 'Invoice')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -433,7 +435,7 @@ export function AppHeader() {
         {role === 'super_admin' ? (
           <Badge className="hidden xl:flex h-8 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-3 font-semibold items-center gap-1.5 shadow-sm">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            Super Admin (Global Seer)
+            {roleLabel}
           </Badge>
         ) : (
           <Badge variant="outline" className="hidden xl:flex h-8 rounded-full border-border bg-muted/60 px-3 text-foreground">
@@ -473,10 +475,10 @@ export function AppHeader() {
               <span className="block text-xs font-normal text-muted-foreground">{roleLabel}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => navigate('/settings')}>Settings</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => navigate('/settings')}>{t('nav_settings', 'Settings')}</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void logout()} className="text-destructive focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
-              Sign out
+              {t('nav_logout', 'Sign out')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

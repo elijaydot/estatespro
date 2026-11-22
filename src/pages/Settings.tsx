@@ -77,8 +77,8 @@ const tabs: SettingsTabItem[] = [
     label: "General",
     pillar: "Organization",
     icon: Globe,
-    description: "Regional & currency",
-    keywords: ["currency", "rwf", "usd", "kes", "timezone", "kigali", "region", "date format", "country"],
+    description: "Language, regional & currency",
+    keywords: ["language", "locale", "ururimi", "kinyarwanda", "french", "swahili", "english", "currency", "rwf", "usd", "kes", "timezone", "kigali", "region", "date format", "country"],
   },
   {
     id: "company",

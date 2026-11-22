@@ -12,7 +12,7 @@ const LANGUAGE_STORAGE_KEY = 'fishgate_preferred_language';
 interface I18nContextType {
   language: SupportedLanguage;
   setLanguage: (lang: SupportedLanguage) => void;
-  t: (key: TranslationKey, fallback?: string) => string;
+  t: (key: TranslationKey | string, fallback?: string) => string;
   languages: LanguageOption[];
   currentLanguageOption: LanguageOption;
 }
@@ -47,12 +47,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = language;
   }, [language]);
 
-  const t = (key: TranslationKey, fallback?: string): string => {
-    const langDict = translations[language] || translations.en;
+  const t = (key: TranslationKey | string, fallback?: string): string => {
+    const langDict = (translations[language] || translations.en) as Record<string, string>;
     if (key in langDict) {
       return langDict[key];
     }
-    const enDict = translations.en;
+    const enDict = translations.en as Record<string, string>;
     if (key in enDict) {
       return enDict[key];
     }

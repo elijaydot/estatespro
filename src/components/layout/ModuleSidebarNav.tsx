@@ -32,12 +32,18 @@ import {
   type ModuleNavItem,
   type ModuleNavGroup,
 } from '@/lib/moduleNavigationConfig';
+import {
+  NAV_ITEM_TRANSLATION_MAP,
+  NAV_GROUP_TRANSLATION_MAP,
+  WORKSPACE_TRANSLATION_MAP,
+} from '@/lib/i18n';
 import type { StaffWorkspaceId } from '@/lib/workspaceNavigation';
 import { useSaasAccess } from '@/hooks/useSaasAccess';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsInternalMarketplaceReviewer } from '@/hooks/useMarketplace';
 import { useAuth } from '@/contexts/useAuth';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useI18n } from '@/contexts/useI18n';
 import { useSuperAdminOverride } from '@/hooks/useSuperAdminOverride';
 import { useOpenOperationalAlertCount } from '@/hooks/useOperationalAlerts';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
@@ -65,6 +71,7 @@ export function ModuleSidebarNav({
   const navigate = useNavigate();
   const { user, profile, logout } = useAuth();
   const { role } = useUserRole();
+  const { t } = useI18n();
   const { companies, activeCompanyId, setActiveCompanyId } = useActiveCompany();
   const { entitlements, isTrialing, isTrialExpired, trialDaysRemaining } = useSaasAccess();
   const { canOverride, overrideEnabled, setOverrideEnabled } = useSuperAdminOverride();
@@ -78,13 +85,37 @@ export function ModuleSidebarNav({
 
   const config = WORKSPACE_MODULE_CONFIGS[workspaceId] || WORKSPACE_MODULE_CONFIGS['property-management'];
 
+  const translateItem = (item: { id: string; label: string; shortLabel?: string }) => {
+    const key = NAV_ITEM_TRANSLATION_MAP[item.id];
+    if (key) {
+      return t(key, item.shortLabel || item.label);
+    }
+    return item.shortLabel || item.label;
+  };
+
+  const translateGroup = (group: { id: string; title: string }) => {
+    const key = NAV_GROUP_TRANSLATION_MAP[group.id];
+    if (key) {
+      return t(key, group.title);
+    }
+    return group.title;
+  };
+
+  const translateWorkspace = (wsId: StaffWorkspaceId, fallback: string) => {
+    const key = WORKSPACE_TRANSLATION_MAP[wsId];
+    if (key) {
+      return t(key, fallback);
+    }
+    return fallback;
+  };
+
   // Communication items
   const communicationItems: ModuleNavItem[] = useMemo(() => {
     const items: ModuleNavItem[] = [
       {
         id: 'global-messages',
-        label: 'Messages',
-        shortLabel: 'Messages',
+        label: t('nav_messages', 'Messages'),
+        shortLabel: t('nav_messages', 'Messages'),
         href: '/messages',
         icon: MessageSquare,
         description: 'Direct messages with tenants, vendors, and staff.',
@@ -95,8 +126,8 @@ export function ModuleSidebarNav({
     if (role === 'landlord' || role === 'property_manager' || role === 'super_admin') {
       items.push({
         id: 'global-broadcasts',
-        label: 'Broadcasts',
-        shortLabel: 'Broadcasts',
+        label: t('nav_broadcasts', 'Broadcasts'),
+        shortLabel: t('nav_broadcasts', 'Broadcasts'),
         href: '/broadcasts',
         icon: Megaphone,
         description: 'Portfolio-wide and estate-wide tenant announcements.',
@@ -106,8 +137,8 @@ export function ModuleSidebarNav({
 
     items.push({
       id: 'global-notifications',
-      label: 'Notifications',
-      shortLabel: 'Notifications',
+      label: t('nav_notifications', 'Notifications'),
+      shortLabel: t('nav_notifications', 'Notifications'),
       href: '/notifications',
       icon: Bell,
       description: 'System alerts, task updates, and event alerts.',
@@ -115,15 +146,15 @@ export function ModuleSidebarNav({
     });
 
     return items;
-  }, [role]);
+  }, [role, t]);
 
   const communicationGroup: ModuleNavGroup = useMemo(() => ({
     id: 'group-communication',
-    title: 'Communication',
+    title: t('group_communication', 'Communication'),
     icon: MessageSquare,
     description: 'Tenant messages, broadcast announcements, and notification logs.',
     items: communicationItems,
-  }), [communicationItems]);
+  }), [communicationItems, t]);
 
   // Combined groups
   const allGroups = useMemo(() => {
@@ -199,9 +230,10 @@ export function ModuleSidebarNav({
 
   const getRoleLabel = (r?: string) => {
     switch (r) {
-      case 'super_admin': return 'Super Admin • Global Seer';
-      case 'landlord': return 'Landlord';
-      case 'property_manager': return 'Property Manager';
+      case 'super_admin': return `${t('role_super_admin', 'Super Admin')} • Global Seer`;
+      case 'landlord': return t('role_landlord', 'Landlord');
+      case 'property_manager': return t('role_property_manager', 'Property Manager');
+      case 'tenant': return t('role_tenant', 'Tenant');
       default: return r || 'User';
     }
   };
@@ -209,13 +241,13 @@ export function ModuleSidebarNav({
   const getWorkspaceInfo = (id: StaffWorkspaceId) => {
     switch (id) {
       case 'property-management':
-        return { label: 'Property Management', shortLabel: 'PM', icon: Building2, href: '/dashboard', title: 'Property Management' };
+        return { label: translateWorkspace('property-management', 'Property Management'), shortLabel: 'PM', icon: Building2, href: '/dashboard', title: translateWorkspace('property-management', 'Property Management') };
       case 'marketplace':
-        return { label: 'Marketplace', shortLabel: 'Marketplace', icon: Store, href: '/marketplace/manage', title: 'Marketplace' };
+        return { label: translateWorkspace('marketplace', 'Marketplace'), shortLabel: 'Marketplace', icon: Store, href: '/marketplace/manage', title: translateWorkspace('marketplace', 'Marketplace') };
       case 'crm':
-        return { label: 'Marketplace CRM', shortLabel: 'CRM', icon: Flame, href: '/marketplace/crm', title: 'Marketplace CRM' };
+        return { label: translateWorkspace('crm', 'Marketplace CRM'), shortLabel: 'CRM', icon: Flame, href: '/marketplace/crm', title: translateWorkspace('crm', 'Marketplace CRM') };
       case 'control-plane':
-        return { label: 'Control Plane', shortLabel: 'Control Plane', icon: Radar, href: '/super-admin/control-plane', title: 'Control Plane' };
+        return { label: translateWorkspace('control-plane', 'Control Plane'), shortLabel: 'Control Plane', icon: Radar, href: '/super-admin/control-plane', title: translateWorkspace('control-plane', 'Control Plane') };
     }
   };
 
@@ -297,7 +329,7 @@ export function ModuleSidebarNav({
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={`Search ${config.shortName}...`}
+              placeholder={`${t('search_command', 'Search')} ${translateWorkspace(workspaceId, config.shortName)}...`}
               className="h-8 pl-8 pr-7 text-xs bg-sidebar-accent/30 border-sidebar-border/60 text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus-visible:ring-primary/40"
             />
             {searchQuery && (
@@ -334,10 +366,14 @@ export function ModuleSidebarNav({
                     key={item.id}
                     type="button"
                     onClick={() => handleSelectItem(item.href)}
-                    title={`${group.title}: ${item.label}`}
+                    title={`${translateGroup(group)}: ${translateItem(item)}`}
                     className={cn(
                       'relative flex h-9 w-9 items-center justify-center rounded-xl transition-all group',
                       isActive
+                        ? 'bg-primary text-primary-foreground shadow-md ring-2 ring-primary/40 font-semibold'
+                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                    )}
+                  >
                         ? 'bg-primary text-primary-foreground shadow-md ring-2 ring-primary/40 font-semibold'
                         : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
                     )}
@@ -364,7 +400,7 @@ export function ModuleSidebarNav({
         <div className="flex-1 overflow-y-auto px-2 py-2.5 space-y-3.5 text-sm scrollbar-thin scrollbar-thumb-sidebar-border">
           {filteredGroups.length === 0 ? (
             <div className="px-4 py-8 text-center text-xs text-sidebar-foreground/40 italic">
-              No matching features found in {config.name}.
+              No matching features found in {translateWorkspace(workspaceId, config.name)}.
             </div>
           ) : (
             filteredGroups.map((group) => {
@@ -394,7 +430,7 @@ export function ModuleSidebarNav({
                   >
                     <div className="flex items-center gap-2 truncate">
                       <GroupIcon className="h-3.5 w-3.5 text-sidebar-foreground/70 shrink-0" />
-                      <span className="truncate">{group.title}</span>
+                      <span className="truncate">{translateGroup(group)}</span>
                     </div>
                     {isExpanded ? (
                       <ChevronUp className="h-3.5 w-3.5 text-sidebar-foreground/50 shrink-0" />
@@ -430,7 +466,7 @@ export function ModuleSidebarNav({
                           >
                             <div className="flex items-center gap-2 truncate">
                               <ItemIcon className="h-3.5 w-3.5 shrink-0 opacity-80 group-hover:opacity-100" />
-                              <span className="truncate">{item.shortLabel || item.label}</span>
+                              <span className="truncate">{translateItem(item)}</span>
                             </div>
 
                             {item.id === 'pm-alerts' && openAlertCount > 0 && (
@@ -503,7 +539,7 @@ export function ModuleSidebarNav({
             <Link
               to="/support"
               onClick={onNavigate}
-              title="Support"
+              title={t('nav_support', 'Support')}
               className={cn(
                 'flex h-7 w-7 items-center justify-center rounded-lg transition-colors',
                 location.pathname === '/support'
@@ -516,7 +552,7 @@ export function ModuleSidebarNav({
             <Link
               to="/settings"
               onClick={onNavigate}
-              title="Settings"
+              title={t('nav_settings', 'Settings')}
               className={cn(
                 'flex h-7 w-7 items-center justify-center rounded-lg transition-colors',
                 location.pathname === '/settings'
@@ -547,7 +583,7 @@ export function ModuleSidebarNav({
               size="icon"
               onClick={() => void handleLogout()}
               className="h-6 w-6 text-sidebar-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
-              title="Sign out"
+              title={t('nav_logout', 'Sign out')}
             >
               <LogOut className="h-3 w-3" />
             </Button>
@@ -559,7 +595,7 @@ export function ModuleSidebarNav({
           {/* Switch Module Full-Width Rows (No text truncation) */}
           <div className="space-y-1">
             <p className="px-1 text-[10px] font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
-              Switch Module
+              {t('switch_module', 'Switch Module')}
             </p>
             <div className="flex flex-col gap-1">
               {availableWorkspaces.map((wsId) => {
@@ -617,7 +653,7 @@ export function ModuleSidebarNav({
               <div className="flex items-center justify-between gap-1 mb-1">
                 <span className="text-[11px] font-bold text-destructive flex items-center gap-1.5">
                   <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
-                  Trial Ended
+                  {t('nav_trial_ended', 'Trial Ended')}
                 </span>
                 <Badge variant="outline" className="text-[10px] font-mono border-destructive/40 text-destructive py-0 px-1.5 bg-destructive/5">
                   Locked
@@ -646,7 +682,7 @@ export function ModuleSidebarNav({
                   <Clock className={`h-3.5 w-3.5 animate-pulse shrink-0 ${
                     trialDaysRemaining <= 14 ? 'text-amber-500' : 'text-primary'
                   }`} />
-                  Free Trial
+                  {t('nav_trial_active', 'Free Trial')}
                 </span>
                 <Badge variant="outline" className={`text-[10px] font-mono py-0 px-1.5 ${
                   trialDaysRemaining <= 14
@@ -677,7 +713,7 @@ export function ModuleSidebarNav({
               )}
             >
               <CircleHelp className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">Support</span>
+              <span className="truncate">{t('nav_support', 'Support')}</span>
             </Link>
             <Link
               to="/settings"
@@ -690,7 +726,7 @@ export function ModuleSidebarNav({
               )}
             >
               <Settings className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">Settings</span>
+              <span className="truncate">{t('nav_settings', 'Settings')}</span>
             </Link>
           </div>
 
@@ -739,7 +775,7 @@ export function ModuleSidebarNav({
               size="icon"
               onClick={() => void handleLogout()}
               className="h-7 w-7 text-sidebar-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
-              title="Sign out"
+              title={t('nav_logout', 'Sign out')}
             >
               <LogOut className="h-3.5 w-3.5" />
             </Button>
