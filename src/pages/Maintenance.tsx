@@ -46,6 +46,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { useSettings } from '@/contexts/useSettings';
+import { useI18n } from '@/contexts/useI18n';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMyCompanies } from '@/hooks/useCompanies';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -180,6 +181,7 @@ const getPriorityBadge = (priority: string) => {
 export default function Maintenance() {
   const navigate = useNavigate();
   const { formatCurrency } = useSettings();
+  const { t } = useI18n();
   const { isSuperAdmin } = useUserRole();
   const { data: companiesList = [] } = useMyCompanies();
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
@@ -378,12 +380,12 @@ export default function Maintenance() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Maintenance</h1>
-          <p className="text-muted-foreground">Track and manage maintenance requests</p>
+          <h1 className="text-2xl font-bold text-foreground">{t('maintenance', 'Maintenance')}</h1>
+          <p className="text-muted-foreground">{t('page_maintenance_subtitle', 'Manage and track maintenance requests')}</p>
         </div>
         <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
           <Plus className="h-4 w-4" />
-          New Request
+          {t('action_new_request', 'New Request')}
         </Button>
       </div>
 
@@ -449,7 +451,7 @@ export default function Maintenance() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by title, description, property, or vendor..."
+              placeholder={t('page_maintenance_search', 'Search by title, description, property, or vendor...')}
               className="pl-10 h-11 border-border/70 bg-card/80"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -617,12 +619,12 @@ export default function Maintenance() {
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead>Title</TableHead>
-                  <TableHead>Unit / Property</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('th_property', 'Unit / Property')}</TableHead>
+                  <TableHead>{t('th_tenant', 'Tenant')}</TableHead>
+                  <TableHead>{t('th_priority', 'Priority')}</TableHead>
+                  <TableHead>{t('th_status', 'Status')}</TableHead>
+                  <TableHead>{t('th_date', 'Created')}</TableHead>
+                  <TableHead className="text-right">{t('th_actions', 'Actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -726,9 +728,9 @@ export default function Maintenance() {
       {!isLoading && filteredRequests.length === 0 && (
         <EmptyState
           icon={Wrench}
-          title="No maintenance requests found"
-          description="Try adjusting your search query or create a request."
-          action={<Button size="sm" onClick={() => setIsCreateOpen(true)}><Plus className="h-4 w-4" />New Request</Button>}
+          title={t('empty_no_records', 'No maintenance requests found')}
+          description={t('empty_search_prompt', 'Try adjusting your search query or create a request.')}
+          action={<Button size="sm" onClick={() => setIsCreateOpen(true)}><Plus className="h-4 w-4" />{t('action_new_request', 'New Request')}</Button>}
         />
       )}
 

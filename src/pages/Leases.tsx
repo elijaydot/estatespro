@@ -47,6 +47,7 @@ import { LeaseAttachments } from '@/components/leases/LeaseAttachments';
 import { DocumentIntelligence } from '@/components/ai/DocumentIntelligence';
 import { toast } from '@/components/ui/use-toast';
 import { useSettings } from '@/contexts/useSettings';
+import { useI18n } from '@/contexts/useI18n';
 import { useLeases, useCreateLease, useUpdateLease, useDeleteLease, useSignLease, useUploadSignature } from '@/hooks/useLeases';
 import { useProperties } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
@@ -182,6 +183,7 @@ const defaultLeaseTerms = `STANDARD RESIDENTIAL LEASE AGREEMENT
 export default function Leases() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency, settings } = useSettings();
+  const { t } = useI18n();
   const { isSuperAdmin } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
   const { data: companiesList = [] } = useMyCompanies();
@@ -502,12 +504,12 @@ export default function Leases() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Leases</h1>
-          <p className="text-muted-foreground mt-1">Manage lease agreements, signatures, and renewals</p>
+          <h1 className="text-3xl font-bold text-foreground">{t('leases', 'Leases')}</h1>
+          <p className="text-muted-foreground mt-1">{t('page_leases_subtitle', 'Manage lease agreements, signatures, and renewals')}</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="gap-2">
           <Plus className="h-4 w-4" />
-          Create Lease
+          {t('action_create_lease', 'Create Lease')}
         </Button>
       </div>
 
@@ -519,7 +521,7 @@ export default function Leases() {
                 <FileText className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total Leases</p>
+                <p className="text-sm text-muted-foreground">{t('status_total', 'Total')} {t('leases', 'Leases')}</p>
                 <p className="text-2xl font-bold">{stats.total}</p>
               </div>
             </div>
@@ -532,7 +534,7 @@ export default function Leases() {
                 <CheckCircle className="h-6 w-6 text-success" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Active</p>
+                <p className="text-sm text-muted-foreground">{t('status_active', 'Active')}</p>
                 <p className="text-2xl font-bold">{stats.active}</p>
               </div>
             </div>
@@ -545,7 +547,7 @@ export default function Leases() {
                 <Clock className="h-6 w-6 text-warning" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Pending Signature</p>
+                <p className="text-sm text-muted-foreground">{t('pending_signature', 'Pending Signature')}</p>
                 <p className="text-2xl font-bold">{stats.pending}</p>
               </div>
             </div>
@@ -558,7 +560,7 @@ export default function Leases() {
                 <RefreshCw className="h-6 w-6 text-destructive" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Expiring Soon</p>
+                <p className="text-sm text-muted-foreground">{t('expiring_soon', 'Expiring Soon')}</p>
                 <p className="text-2xl font-bold">{stats.expiringSoon}</p>
               </div>
             </div>
@@ -580,7 +582,7 @@ export default function Leases() {
         <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search leases by number, tenant, property..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+            <Input placeholder={t('page_leases_search', 'Search leases by number, tenant, property...')} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
           </div>
 
           {isSuperAdmin && companiesList.length > 0 && (
@@ -842,15 +844,15 @@ export default function Leases() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead>Lease #</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Property / Unit</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Rent</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>{t('th_lease_number', 'Lease #')}</TableHead>
+                  <TableHead>{t('th_tenant', 'Tenant')}</TableHead>
+                  <TableHead>{t('th_property', 'Property / Unit')}</TableHead>
+                  <TableHead>{t('th_duration', 'Duration')}</TableHead>
+                  <TableHead>{t('th_rent', 'Rent')}</TableHead>
+                  <TableHead>{t('th_status', 'Status')}</TableHead>
                   <TableHead>Renewal</TableHead>
                   <TableHead>Signatures</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right">{t('th_actions', 'Actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

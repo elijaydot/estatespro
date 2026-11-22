@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
+import { useI18n } from '@/contexts/useI18n';
 import { useUserRole } from '@/hooks/useUserRole';
 import {
   useHandlePendingListingRemoval,
@@ -51,6 +52,7 @@ const PAGE_SIZE = 6;
 export default function MarketplaceManage() {
   const { activeCompanyId, companies } = useActiveCompany();
   const { isLandlord, isPropertyManager, isSuperAdmin } = useUserRole();
+  const { t } = useI18n();
   const listingsQuery = useManagedMarketplaceListings(activeCompanyId);
   const verificationQuery = usePublisherVerification(activeCompanyId);
   const togglePublish = useToggleMarketplacePublish(activeCompanyId);
@@ -95,10 +97,10 @@ export default function MarketplaceManage() {
   return (
     <div className="space-y-6 pb-8">
       <PageHeader
-        eyebrow="Marketplace Operations"
-        title="Listings"
+        eyebrow={t('workspace_marketplace', 'Marketplace Operations')}
+        title={t('nav_marketplace_listings', 'Listings')}
         description={`Create, publish, and monitor marketplace inventory for ${companyName}.`}
-        action={<Button onClick={() => setIsCreateOpen(true)}><Plus className="mr-1.5 h-4 w-4" />Add listing</Button>}
+        action={<Button onClick={() => setIsCreateOpen(true)}><Plus className="mr-1.5 h-4 w-4" />{t('create_new', 'Add listing')}</Button>}
       />
 
       {!verificationQuery.isLoading && verificationState !== 'verified' && (

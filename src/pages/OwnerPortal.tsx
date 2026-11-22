@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useCompanyExecutiveReport } from '@/hooks/useCompanyExecutiveReport';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useSettings } from '@/contexts/useSettings';
+import { useI18n } from '@/contexts/useI18n';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 import { Pagination } from '@/components/shared/Pagination';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -20,6 +21,7 @@ export default function OwnerPortal() {
   const report = useCompanyExecutiveReport();
   const { setActiveCompanyId } = useActiveCompany();
   const { formatCurrency } = useSettings();
+  const { t } = useI18n();
   const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-owner-portal') as ViewMode) || 'table');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -59,27 +61,27 @@ export default function OwnerPortal() {
     <div className="mx-auto max-w-[1500px] space-y-6 pb-8 animate-fade-in">
       <header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase text-muted-foreground">Owner / Investor Portal</p>
-          <h1 className="mt-1 text-2xl font-bold text-foreground sm:text-3xl">Portfolio command view</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Financial performance, occupancy, and operating metrics across portfolio companies.</p>
+          <p className="text-xs font-semibold uppercase text-muted-foreground">{t('owner_portal_kicker', 'Owner / Investor Portal')}</p>
+          <h1 className="mt-1 text-2xl font-bold text-foreground sm:text-3xl">{t('owner_portal_title', 'Portfolio command view')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('owner_portal_subtitle', 'Financial performance, occupancy, and operating metrics across portfolio companies.')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline"><Link to="/reports"><FileText className="mr-2 h-4 w-4" />Reports</Link></Button>
-          <Button asChild variant="outline"><Link to="/account/billing"><CreditCard className="mr-2 h-4 w-4" />Account billing</Link></Button>
+          <Button asChild variant="outline"><Link to="/reports"><FileText className="mr-2 h-4 w-4" />{t('owner_btn_reports', 'Reports')}</Link></Button>
+          <Button asChild variant="outline"><Link to="/account/billing"><CreditCard className="mr-2 h-4 w-4" />{t('owner_btn_account_billing', 'Account billing')}</Link></Button>
         </div>
       </header>
 
       {report.isError ? (
-        <Card className="border-destructive/40"><CardContent className="py-8"><p className="font-medium">Portfolio data could not be loaded.</p><p className="mt-1 text-sm text-muted-foreground">Refresh the page or contact support if the problem persists.</p></CardContent></Card>
+        <Card className="border-destructive/40"><CardContent className="py-8"><p className="font-medium">{t('owner_error_loading', 'Portfolio data could not be loaded.')}</p><p className="mt-1 text-sm text-muted-foreground">{t('owner_error_hint', 'Refresh the page or contact support if the problem persists.')}</p></CardContent></Card>
       ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6" aria-label="Portfolio totals">
-        <Metric label="Properties" value={totals.properties.toLocaleString()} icon={Building2} />
-        <Metric label="Units" value={totals.units.toLocaleString()} icon={Building2} />
-        <Metric label="Occupancy" value={`${occupancy}%`} icon={Gauge} />
-        <Metric label="Collected" value={formatCurrency(totals.collected)} icon={Receipt} />
-        <Metric label="Outstanding" value={formatCurrency(totals.outstanding)} icon={CreditCard} attention={totals.outstanding > 0} />
-        <Metric label="Open maintenance" value={totals.maintenance.toLocaleString()} icon={Wrench} attention={totals.maintenance > 0} />
+        <Metric label={t('owner_metric_properties', 'Properties')} value={totals.properties.toLocaleString()} icon={Building2} />
+        <Metric label={t('owner_metric_units', 'Units')} value={totals.units.toLocaleString()} icon={Building2} />
+        <Metric label={t('owner_metric_occupancy', 'Occupancy')} value={`${occupancy}%`} icon={Gauge} />
+        <Metric label={t('owner_metric_collected', 'Collected')} value={formatCurrency(totals.collected)} icon={Receipt} />
+        <Metric label={t('owner_metric_outstanding', 'Outstanding')} value={formatCurrency(totals.outstanding)} icon={CreditCard} attention={totals.outstanding > 0} />
+        <Metric label={t('owner_metric_open_maintenance', 'Open maintenance')} value={totals.maintenance.toLocaleString()} icon={Wrench} attention={totals.maintenance > 0} />
       </section>
 
       {/* Tenant Demand & Pipeline Intelligence for Landlords */}
@@ -90,20 +92,20 @@ export default function OwnerPortal() {
               <TrendingUp className="h-5 w-5 text-cyan-400" />
               <div>
                 <CardTitle className="text-base font-semibold text-foreground">
-                  Tenant Acquisition Pipeline & Market Demand
+                  {t('owner_demand_title', 'Tenant Acquisition Pipeline & Market Demand')}
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Real-time sales velocity across your vacant properties, site visit schedules, and reservation holds.
+                  {t('owner_demand_subtitle', 'Real-time sales velocity across your vacant properties, site visit schedules, and reservation holds.')}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="border-cyan-500/40 text-cyan-400 text-xs">
-                🇷🇼 Kigali Market Spine
+                {t('owner_demand_badge', '🇷🇼 Kigali Market Spine')}
               </Badge>
               <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
                 <Link to="/marketplace/crm/leads">
-                  View Full Sales Funnel
+                  {t('action_view_funnel', 'View Full Sales Funnel')}
                   <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                 </Link>
               </Button>
@@ -113,24 +115,24 @@ export default function OwnerPortal() {
         <CardContent>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-lg border border-border/70 bg-card/70 p-3">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Active Inquiries</p>
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{t('owner_demand_inquiries', 'Active Inquiries')}</p>
               <p className="mt-1 text-xl font-bold text-foreground">24</p>
-              <p className="text-[10px] text-emerald-400 mt-0.5">+6 new this week</p>
+              <p className="text-[10px] text-emerald-400 mt-0.5">{t('owner_demand_new_week', '+6 new this week')}</p>
             </div>
             <div className="rounded-lg border border-border/70 bg-card/70 p-3">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Tours Scheduled</p>
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{t('owner_demand_tours', 'Tours Scheduled')}</p>
               <p className="mt-1 text-xl font-bold text-cyan-400">8</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Gasabo & Kicukiro units</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{t('owner_demand_districts', 'Gasabo & Kicukiro units')}</p>
             </div>
             <div className="rounded-lg border border-border/70 bg-card/70 p-3">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">In Negotiation</p>
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{t('owner_demand_negotiation', 'In Negotiation')}</p>
               <p className="mt-1 text-xl font-bold text-amber-300">5</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Quotes issued</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{t('owner_demand_quotes', 'Quotes issued')}</p>
             </div>
             <div className="rounded-lg border border-border/70 bg-card/70 p-3">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">48h Active Holds</p>
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{t('owner_demand_holds', '48h Active Holds')}</p>
               <p className="mt-1 text-xl font-bold text-emerald-400">3</p>
-              <p className="text-[10px] text-emerald-400/90 mt-0.5">Deposits pending confirmation</p>
+              <p className="text-[10px] text-emerald-400/90 mt-0.5">{t('owner_demand_deposits', 'Deposits pending confirmation')}</p>
             </div>
           </div>
         </CardContent>
@@ -139,7 +141,7 @@ export default function OwnerPortal() {
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 flex-wrap">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter portfolio companies..." />
+          <Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('owner_filter_placeholder', 'Filter portfolio companies...')} />
         </div>
         <ViewToggle view={view} onViewChange={setView} />
       </div>
@@ -147,8 +149,8 @@ export default function OwnerPortal() {
       {rows.length === 0 && (
         <EmptyState
           icon={Building2}
-          title="No companies found"
-          description="No accessible companies match this filter."
+          title={t('empty_no_records', 'No companies found')}
+          description={t('empty_search_prompt', 'No accessible companies match this filter.')}
         />
       )}
 
@@ -161,28 +163,28 @@ export default function OwnerPortal() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-semibold text-base text-foreground truncate">{row.company_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{row.company_email || row.company_address || 'No contact details'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{row.company_email || row.company_address || t('owner_no_contact', 'No contact details')}</p>
                   </div>
                   <Badge variant={row.open_maintenance_count > 0 ? 'destructive' : 'secondary'} className="shrink-0">
-                    {row.open_maintenance_count > 0 ? `${row.open_maintenance_count} issues` : 'Clear'}
+                    {row.open_maintenance_count > 0 ? `${row.open_maintenance_count} ${t('open_issues', 'issues')}` : t('status_clear', 'Clear')}
                   </Badge>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted/40 text-xs">
                   <div>
-                    <span className="text-muted-foreground block">Portfolio Scale</span>
-                    <span className="font-semibold text-foreground">{row.property_count} properties • {row.unit_count} units</span>
+                    <span className="text-muted-foreground block">{t('portfolio_scale', 'Portfolio Scale')}</span>
+                    <span className="font-semibold text-foreground">{row.property_count} {t('property_plural', 'properties')} • {row.unit_count} {t('unit_plural', 'units')}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground block">Occupancy Rate</span>
+                    <span className="text-muted-foreground block">{t('occupancy_rate', 'Occupancy Rate')}</span>
                     <span className="font-semibold text-foreground">{Number(row.occupancy_rate || 0).toFixed(1)}%</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground block">Collected</span>
+                    <span className="text-muted-foreground block">{t('owner_metric_collected', 'Collected')}</span>
                     <span className="font-semibold text-success">{formatCurrency(Number(row.total_collected || 0))}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground block">Outstanding</span>
+                    <span className="text-muted-foreground block">{t('owner_metric_outstanding', 'Outstanding')}</span>
                     <span className={Number(row.outstanding_balance || 0) > 0 ? "font-semibold text-destructive" : "font-semibold text-foreground"}>
                       {formatCurrency(Number(row.outstanding_balance || 0))}
                     </span>
@@ -192,12 +194,12 @@ export default function OwnerPortal() {
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60">
                   <Button asChild size="sm" variant="outline" className="text-xs">
                     <Link to="/properties" onClick={() => setActiveCompanyId(row.company_id)}>
-                      Properties <ArrowRight className="ml-1 h-3 w-3" />
+                      {t('properties', 'Properties')} <ArrowRight className="ml-1 h-3 w-3" />
                     </Link>
                   </Button>
                   <Button asChild size="sm" variant="outline" className="text-xs">
                     <Link to="/maintenance" onClick={() => setActiveCompanyId(row.company_id)}>
-                      Maintenance
+                      {t('maintenance', 'Maintenance')}
                     </Link>
                   </Button>
                 </div>
@@ -224,11 +226,11 @@ export default function OwnerPortal() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-foreground truncate">{row.company_name}</span>
                     <Badge variant={row.open_maintenance_count > 0 ? 'destructive' : 'secondary'} className="text-[10px]">
-                      {row.open_maintenance_count > 0 ? `${row.open_maintenance_count} open maintenance` : 'Clear'}
+                      {row.open_maintenance_count > 0 ? `${row.open_maintenance_count} ${t('owner_metric_open_maintenance', 'open maintenance')}` : t('status_clear', 'Clear')}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {row.property_count} properties • {row.unit_count} units ({Number(row.occupancy_rate || 0).toFixed(1)}% occupied)
+                    {row.property_count} {t('property_plural', 'properties')} • {row.unit_count} {t('unit_plural', 'units')} ({Number(row.occupancy_rate || 0).toFixed(1)}% {t('stat_occupied', 'occupied')})
                   </p>
                 </div>
 
@@ -236,19 +238,19 @@ export default function OwnerPortal() {
                   <div className="text-left sm:text-right text-xs">
                     <p className="font-semibold text-success">{formatCurrency(Number(row.total_collected || 0))}</p>
                     <p className={Number(row.outstanding_balance || 0) > 0 ? "text-destructive" : "text-muted-foreground"}>
-                      Due: {formatCurrency(Number(row.outstanding_balance || 0))}
+                      {t('stat_due', 'Due')}: {formatCurrency(Number(row.outstanding_balance || 0))}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-1.5">
                     <Button asChild size="sm" variant="outline" className="text-xs">
                       <Link to="/properties" onClick={() => setActiveCompanyId(row.company_id)}>
-                        Properties
+                        {t('properties', 'Properties')}
                       </Link>
                     </Button>
                     <Button asChild size="sm" variant="outline" className="text-xs">
                       <Link to="/maintenance" onClick={() => setActiveCompanyId(row.company_id)}>
-                        Maintenance
+                        {t('maintenance', 'Maintenance')}
                       </Link>
                     </Button>
                   </div>
@@ -273,13 +275,13 @@ export default function OwnerPortal() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead>Company</TableHead>
-                  <TableHead>Portfolio</TableHead>
-                  <TableHead>Occupancy</TableHead>
-                  <TableHead>Collected</TableHead>
-                  <TableHead>Outstanding</TableHead>
-                  <TableHead>Maintenance</TableHead>
-                  <TableHead className="text-right">Open</TableHead>
+                  <TableHead>{t('th_company', 'Company')}</TableHead>
+                  <TableHead>{t('th_portfolio', 'Portfolio')}</TableHead>
+                  <TableHead>{t('th_occupancy', 'Occupancy')}</TableHead>
+                  <TableHead>{t('th_collected', 'Collected')}</TableHead>
+                  <TableHead>{t('th_outstanding', 'Outstanding')}</TableHead>
+                  <TableHead>{t('th_maintenance', 'Maintenance')}</TableHead>
+                  <TableHead className="text-right">{t('action_open', 'Open')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -287,24 +289,24 @@ export default function OwnerPortal() {
                   <TableRow key={row.company_id} className="hover:bg-muted/30">
                     <TableCell>
                       <p className="font-medium">{row.company_name}</p>
-                      <p className="text-xs text-muted-foreground">{row.company_email || row.company_address || 'No company contact details'}</p>
+                      <p className="text-xs text-muted-foreground">{row.company_email || row.company_address || t('owner_no_contact', 'No company contact details')}</p>
                     </TableCell>
-                    <TableCell>{row.property_count} properties / {row.unit_count} units</TableCell>
+                    <TableCell>{row.property_count} {t('property_plural', 'properties')} / {row.unit_count} {t('unit_plural', 'units')}</TableCell>
                     <TableCell>{Number(row.occupancy_rate || 0).toFixed(1)}%</TableCell>
                     <TableCell className="text-success font-medium">{formatCurrency(Number(row.total_collected || 0))}</TableCell>
                     <TableCell className={Number(row.outstanding_balance || 0) > 0 ? "text-destructive font-medium" : "text-foreground"}>
                       {formatCurrency(Number(row.outstanding_balance || 0))}
                     </TableCell>
                     <TableCell>
-                      {row.open_maintenance_count > 0 ? <Badge variant="destructive">{row.open_maintenance_count} open</Badge> : <Badge variant="secondary">Clear</Badge>}
+                      {row.open_maintenance_count > 0 ? <Badge variant="destructive">{row.open_maintenance_count} {t('status_open', 'open')}</Badge> : <Badge variant="secondary">{t('status_clear', 'Clear')}</Badge>}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button asChild size="sm" variant="ghost">
-                          <Link to="/properties" onClick={() => setActiveCompanyId(row.company_id)}>Properties</Link>
+                          <Link to="/properties" onClick={() => setActiveCompanyId(row.company_id)}>{t('properties', 'Properties')}</Link>
                         </Button>
                         <Button asChild size="sm" variant="ghost">
-                          <Link to="/maintenance" onClick={() => setActiveCompanyId(row.company_id)}>Maintenance</Link>
+                          <Link to="/maintenance" onClick={() => setActiveCompanyId(row.company_id)}>{t('maintenance', 'Maintenance')}</Link>
                         </Button>
                       </div>
                     </TableCell>

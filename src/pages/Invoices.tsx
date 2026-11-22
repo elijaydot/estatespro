@@ -59,6 +59,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
 import { useSettings } from '@/contexts/useSettings';
+import { useI18n } from '@/contexts/useI18n';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMyCompanies } from '@/hooks/useCompanies';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -148,6 +149,7 @@ export default function Invoices() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency, settings } = useSettings();
+  const { t } = useI18n();
   const { isSuperAdmin } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
   const { data: companiesList = [] } = useMyCompanies();
@@ -486,12 +488,12 @@ export default function Invoices() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Invoices</h1>
-          <p className="text-muted-foreground">Manage and track tenant invoices</p>
+          <h1 className="text-2xl font-bold text-foreground">{t('invoices', 'Invoices')}</h1>
+          <p className="text-muted-foreground">{t('page_invoices_subtitle', 'Manage and track tenant invoices')}</p>
         </div>
         <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
           <Plus className="h-4 w-4" />
-          Create Invoice
+          {t('action_create_invoice', 'Create Invoice')}
         </Button>
       </div>
 
@@ -525,7 +527,7 @@ export default function Invoices() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by tenant, invoice number, or property..."
+              placeholder={t('page_invoices_search', 'Search by tenant, invoice number, or property...')}
               className="pl-10 h-11 border-border/70 bg-card/80"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -770,15 +772,15 @@ export default function Invoices() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Property / Unit</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Balance</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('th_invoice_number', 'Invoice #')}</TableHead>
+                  <TableHead>{t('th_tenant', 'Tenant')}</TableHead>
+                  <TableHead>{t('th_property', 'Property / Unit')}</TableHead>
+                  <TableHead>{t('th_type', 'Description')}</TableHead>
+                  <TableHead>{t('th_amount', 'Amount')}</TableHead>
+                  <TableHead>{t('th_outstanding', 'Balance')}</TableHead>
+                  <TableHead>{t('th_due_date', 'Due Date')}</TableHead>
+                  <TableHead>{t('th_status', 'Status')}</TableHead>
+                  <TableHead className="text-right">{t('th_actions', 'Actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

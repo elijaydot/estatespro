@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/contexts/useI18n';
 
 export interface PaginationProps {
   page: number;
@@ -22,6 +23,7 @@ export function Pagination({
   pageSizeOptions = [10, 25, 50, 100],
   className,
 }: PaginationProps) {
+  const { t } = useI18n();
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(Math.max(page, 1), pageCount);
   const first = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -42,16 +44,20 @@ export function Pagination({
     >
       <div className="flex items-center gap-2">
         <span>
-          Showing <strong className="font-semibold text-foreground">{first}</strong> to{' '}
-          <strong className="font-semibold text-foreground">{last}</strong> of{' '}
-          <strong className="font-semibold text-foreground">{total}</strong> records
+          {t('pagination_showing', 'Showing')}{' '}
+          <strong className="font-semibold text-foreground">{first}</strong>{' '}
+          {t('pagination_to', 'to')}{' '}
+          <strong className="font-semibold text-foreground">{last}</strong>{' '}
+          {t('pagination_of', 'of')}{' '}
+          <strong className="font-semibold text-foreground">{total}</strong>{' '}
+          {t('pagination_records', 'records')}
         </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         {onPageSizeChange && (
           <div className="flex items-center gap-1.5">
-            <span>Per page:</span>
+            <span>{t('pagination_per_page', 'Per page:')}</span>
             <select
               className="h-8 rounded-md border border-input bg-background px-2 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary"
               value={pageSize}
@@ -69,7 +75,7 @@ export function Pagination({
 
         <div className="flex items-center gap-1">
           <span className="mr-1 min-w-[70px] text-right font-medium">
-            Page {currentPage} of {pageCount}
+            {t('pagination_page', 'Page')} {currentPage} {t('pagination_of', 'of')} {pageCount}
           </span>
           <Button
             variant="outline"

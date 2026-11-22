@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useI18n } from '@/contexts/useI18n';
 import { useMyCompanies } from '@/hooks/useCompanies';
 import { useCreateVendor, useVendors, type VendorInput, type Vendor } from '@/hooks/useVendors';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
@@ -34,6 +35,7 @@ type VendorView = 'cards' | 'compact' | 'table';
 export default function Vendors() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isSuperAdmin } = useUserRole();
+  const { t } = useI18n();
   const { data: companiesList = [] } = useMyCompanies();
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -93,10 +95,10 @@ export default function Vendors() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Vendors</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Contractors, compliance documents, work orders, and payments.</p>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{t('vendors', 'Vendors')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('page_vendors_subtitle', 'Contractors, compliance documents, work orders, and payments.')}</p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)}><Plus className="mr-2 h-4 w-4" /> Add vendor</Button>
+        <Button onClick={() => setIsCreateOpen(true)}><Plus className="mr-2 h-4 w-4" /> {t('action_new_vendor', 'Add vendor')}</Button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -251,11 +253,11 @@ export default function Vendors() {
               <table className="w-full min-w-[760px] text-sm">
                 <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Vendor</th>
+                    <th className="px-4 py-3 font-medium">{t('vendors', 'Vendor')}</th>
                     <th className="px-4 py-3 font-medium">Service</th>
-                    <th className="px-4 py-3 font-medium">Contact</th>
+                    <th className="px-4 py-3 font-medium">{t('th_contact', 'Contact')}</th>
                     <th className="px-4 py-3 font-medium">Rating</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">{t('th_status', 'Status')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">

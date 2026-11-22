@@ -51,6 +51,7 @@ import { toast } from '@/components/ui/use-toast';
 import { useUnits, useCreateUnit, useDeleteUnit, type Unit } from '@/hooks/useUnits';
 import { useProperties, type Property } from '@/hooks/useProperties';
 import { useSettings } from '@/contexts/useSettings';
+import { useI18n } from '@/contexts/useI18n';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMyCompanies } from '@/hooks/useCompanies';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -103,6 +104,7 @@ export default function Units() {
   const navigate = useNavigate();
   const { activeCompanyId } = useActiveCompany();
   const { isSuperAdmin } = useUserRole();
+  const { t } = useI18n();
   const { data: companiesList = [] } = useMyCompanies();
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -220,14 +222,14 @@ export default function Units() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Units</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t('units', 'Units')}</h1>
           <p className="text-muted-foreground">
-            Manage individual units across all properties
+            {t('page_units_subtitle', 'Manage individual units across all properties')}
           </p>
         </div>
         <Button className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
           <Plus className="h-4 w-4" />
-          Add Unit
+          {t('action_add_unit', 'Add Unit')}
         </Button>
       </div>
 
@@ -237,7 +239,7 @@ export default function Units() {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search units by number, property, company, or tenant..."
+              placeholder={t('page_units_search', 'Search units by number, property, company, or tenant...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -311,7 +313,7 @@ export default function Units() {
                           navigate(`/units/${unit.id}`);
                         }}
                       >
-                        <Eye className="h-4 w-4 mr-2" /> View Details
+                        <Eye className="h-4 w-4 mr-2" /> {t('action_view_details', 'View Details')}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onSelect={(e) => {
@@ -319,7 +321,7 @@ export default function Units() {
                           navigate(`/units/${unit.id}?edit=true`);
                         }}
                       >
-                        <Edit className="h-4 w-4 mr-2" /> Edit Unit
+                        <Edit className="h-4 w-4 mr-2" /> {t('btn_edit', 'Edit Unit')}
                       </DropdownMenuItem>
                       {unit.status === 'vacant' && (
                         <DropdownMenuItem onSelect={() => setListingUnitId(unit.id)}>
@@ -331,7 +333,7 @@ export default function Units() {
                         className="text-destructive"
                         onSelect={() => handleDelete(unit)}
                       >
-                        <Trash2 className="h-4 w-4 mr-2" /> Delete
+                        <Trash2 className="h-4 w-4 mr-2" /> {t('btn_delete', 'Delete')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -427,7 +429,7 @@ export default function Units() {
 
                   <div className="flex items-center gap-2">
                     <Button size="sm" variant="outline" onClick={() => navigate(`/units/${unit.id}`)}>
-                      View
+                      {t('btn_view', 'View')}
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -437,10 +439,10 @@ export default function Units() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onSelect={() => navigate(`/units/${unit.id}`)}>
-                          <Eye className="h-4 w-4 mr-2" /> View Details
+                          <Eye className="h-4 w-4 mr-2" /> {t('action_view_details', 'View Details')}
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => navigate(`/units/${unit.id}?edit=true`)}>
-                          <Edit className="h-4 w-4 mr-2" /> Edit Unit
+                          <Edit className="h-4 w-4 mr-2" /> {t('btn_edit', 'Edit Unit')}
                         </DropdownMenuItem>
                         {unit.status === 'vacant' && (
                           <DropdownMenuItem onSelect={() => setListingUnitId(unit.id)}>
@@ -449,7 +451,7 @@ export default function Units() {
                         )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(unit)}>
-                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                          <Trash2 className="h-4 w-4 mr-2" /> {t('btn_delete', 'Delete')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -475,14 +477,14 @@ export default function Units() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead>Unit #</TableHead>
-                  <TableHead>Property</TableHead>
-                  <TableHead>Organization</TableHead>
-                  <TableHead>Layout</TableHead>
-                  <TableHead>Rent</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('th_unit', 'Unit #')}</TableHead>
+                  <TableHead>{t('th_property', 'Property')}</TableHead>
+                  <TableHead>{t('th_company', 'Organization')}</TableHead>
+                  <TableHead>{t('th_type', 'Layout')}</TableHead>
+                  <TableHead>{t('th_rent', 'Rent')}</TableHead>
+                  <TableHead>{t('th_tenant', 'Tenant')}</TableHead>
+                  <TableHead>{t('th_status', 'Status')}</TableHead>
+                  <TableHead className="text-right">{t('th_actions', 'Actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -573,9 +575,9 @@ export default function Units() {
       {!isLoading && filteredUnits.length === 0 && (
         <EmptyState
           icon={Home}
-          title="No units found"
-          description="Try adjusting your search or add a new unit."
-          action={<Button onClick={() => setIsAddDialogOpen(true)}><Plus className="h-4 w-4" />Add Unit</Button>}
+          title={t('empty_no_records', 'No units found')}
+          description={t('empty_search_prompt', 'Try adjusting your search or add a new unit.')}
+          action={<Button onClick={() => setIsAddDialogOpen(true)}><Plus className="h-4 w-4" />{t('action_add_unit', 'Add Unit')}</Button>}
         />
       )}
 

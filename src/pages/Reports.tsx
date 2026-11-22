@@ -41,6 +41,7 @@ import {
   AreaChart,
 } from 'recharts';
 import { useSettings } from '@/contexts/useSettings';
+import { useI18n } from '@/contexts/useI18n';
 import { useProperties } from '@/hooks/useProperties';
 import { useUnits } from '@/hooks/useUnits';
 import { useTenants } from '@/hooks/useTenants';
@@ -101,6 +102,7 @@ function ExecutiveCompanyDrilldown({
 
 export default function Reports() {
   const { formatCurrency, settings } = useSettings();
+  const { t } = useI18n();
   const [dateRange, setDateRange] = useState('6m');
   const [activeReport, setActiveReport] = useState('revenue');
   const [selectedExecutiveCompanyId, setSelectedExecutiveCompanyId] = useState<string | null>(null);
@@ -309,8 +311,8 @@ export default function Reports() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Reports & Analytics</h1>
-          <p className="text-muted-foreground mt-1">Comprehensive insights into your property portfolio</p>
+          <h1 className="text-3xl font-bold text-foreground">{t('reports', 'Reports & Analytics')}</h1>
+          <p className="text-muted-foreground mt-1">{t('page_reports_subtitle', 'Comprehensive insights into your property portfolio')}</p>
         </div>
         <div className="flex items-center gap-3">
           <Select value={dateRange} onValueChange={setDateRange}>
@@ -326,7 +328,7 @@ export default function Reports() {
           </Select>
           <Button onClick={handleExportReport} variant="outline" className="gap-2">
             <Download className="h-4 w-4" />
-            Export CSV
+            {t('action_export_csv', 'Export CSV')}
           </Button>
           {activeReport === 'executive' && (
             <Button onClick={handleExecutivePdf} variant="outline" className="gap-2" disabled={executiveRows.length === 0}>
@@ -343,7 +345,7 @@ export default function Reports() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Revenue</p>
+                <p className="text-sm text-muted-foreground">{t('status_revenue', 'Total Revenue')}</p>
                 <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
                 <p className="mt-1 text-xs text-muted-foreground">Completed payments recorded</p>
               </div>
@@ -358,7 +360,7 @@ export default function Reports() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Outstanding</p>
+                <p className="text-sm text-muted-foreground">{t('owner_metric_outstanding', 'Outstanding')}</p>
                 <p className="text-2xl font-bold">{formatCurrency(outstandingBalance)}</p>
                 <div className="flex items-center gap-1 mt-1">
                   <TrendingDown className="h-4 w-4 text-destructive" />
@@ -376,10 +378,10 @@ export default function Reports() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Occupancy Rate</p>
+                <p className="text-sm text-muted-foreground">{t('occupancy_rate', 'Occupancy Rate')}</p>
                 <p className="text-2xl font-bold">{occupancyRate.toFixed(1)}%</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {occupiedUnits} of {units.length} units
+                  {occupiedUnits} of {units.length} {t('unit_plural', 'units')}
                 </p>
               </div>
               <div className="p-3 rounded-xl bg-primary/10">

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { useI18n } from '@/contexts/useI18n';
 import { useNotifications, useMarkAsRead, useMarkAllAsRead, useDeleteNotification, useClearAllNotifications, useUnreadNotificationsCount, type Notification } from '@/hooks/useNotifications';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useBroadcastAnnouncements } from '@/hooks/useBroadcasts';
@@ -67,6 +68,7 @@ const typeColors = {
 
 export default function Notifications() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [announcementSearch, setAnnouncementSearch] = useState('');
   const [announcementDateFrom, setAnnouncementDateFrom] = useState('');
@@ -160,7 +162,7 @@ export default function Notifications() {
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Go back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div><h1 className="text-2xl font-semibold text-foreground">Notifications</h1><p className="mt-1 text-sm text-muted-foreground">Announcements and operational alerts, organized for quick review.</p></div>
+        <div><h1 className="text-2xl font-semibold text-foreground">{t('notifications', 'Notifications')}</h1><p className="mt-1 text-sm text-muted-foreground">{t('page_notifications_subtitle', 'Announcements and operational alerts, organized for quick review.')}</p></div>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-border/70 py-3 text-sm"><span><strong className="font-semibold">{announcements.length}</strong> announcements</span><span><strong className="font-semibold">{notifications.length}</strong> notifications</span><span className={unreadCount ? 'text-primary' : 'text-muted-foreground'}><strong className="font-semibold">{unreadCount}</strong> unread</span></div>

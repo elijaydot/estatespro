@@ -1,5 +1,6 @@
 import { ArrowLeft, PlayCircle, FileText, CircleHelp, Video, BookOpen, Mail, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useI18n } from '@/contexts/useI18n';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -13,6 +14,7 @@ const quickLinks = [
 
 export default function HelpSupport() {
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   return (
     <div className="space-y-6 animate-fade-in max-w-3xl mx-auto">
@@ -20,7 +22,7 @@ export default function HelpSupport() {
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Go back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">Help & Support</h1>
+        <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">{t('support', 'Help & Support')}</h1>
       </div>
 
       <Card className="overflow-hidden border-warning/30 bg-warning/10">

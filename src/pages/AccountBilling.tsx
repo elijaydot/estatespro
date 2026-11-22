@@ -20,6 +20,7 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { useI18n } from '@/contexts/useI18n';
 import { GoogleStyleBillingOverview } from '@/components/billing/GoogleStyleBillingOverview';
 
 type Company = { id: string; name: string };
@@ -72,6 +73,7 @@ function statusVariant(status: string): 'default' | 'secondary' | 'destructive' 
 export default function AccountBilling() {
   const { user } = useAuth();
   const { isSuperAdmin } = useUserRole();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
@@ -187,7 +189,7 @@ export default function AccountBilling() {
       <GoogleStyleBillingOverview />
 
       <header className="flex flex-wrap items-start justify-between gap-4 pt-6 border-t border-border">
-        <div><div className="flex items-center gap-2"><CreditCard className="h-5 w-5" /><h1 className="text-2xl font-semibold">Account Billing & Group Operations</h1></div><p className="mt-1 text-sm text-muted-foreground">Manage standalone companies and optional pooled subscriptions from one place.</p></div>
+        <div><div className="flex items-center gap-2"><CreditCard className="h-5 w-5" /><h1 className="text-2xl font-semibold">{t('billing', 'Account Billing & Group Operations')}</h1></div><p className="mt-1 text-sm text-muted-foreground">{t('page_billing_subtitle', 'Manage standalone companies and optional pooled subscriptions from one place.')}</p></div>
         <div className="flex gap-2"><Button variant="outline" size="icon" onClick={() => refresh()} title="Refresh billing data"><RefreshCw className="h-4 w-4" /></Button><Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogTrigger asChild><Button disabled={(data?.companies.length || 0) < 2}><Plus className="mr-2 h-4 w-4" />Create billing group</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>Create pooled billing group</DialogTitle><DialogDescription>Select at least two companies you own. Their standalone subscriptions will be paused and preserved.</DialogDescription></DialogHeader><div className="space-y-4"><div className="space-y-2"><Label htmlFor="group-name">Group name</Label><Input id="group-name" value={groupName} onChange={(event) => setGroupName(event.target.value)} /></div><div className="space-y-2"><Label>Unified plan</Label><Select value={createPlanId} onValueChange={setCreatePlanId}><SelectTrigger><SelectValue placeholder="Select a plan" /></SelectTrigger><SelectContent>{data?.plans.map((plan) => <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Companies</Label><div className="max-h-44 space-y-2 overflow-auto rounded-md border p-3">{data?.companies.map((company) => <label key={company.id} className="flex items-center gap-3 text-sm"><Checkbox checked={selectedCompanyIds.includes(company.id)} onCheckedChange={(checked) => setSelectedCompanyIds((current) => checked ? [...current, company.id] : current.filter((id) => id !== company.id))} />{company.name}</label>)}</div></div><div className="space-y-2"><Label htmlFor="create-reason">Reason</Label><Input id="create-reason" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Why are these companies pooling billing?" /></div></div><DialogFooter><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button onClick={createGroup} disabled={rpcMutation.isPending || selectedCompanyIds.length < 2}>Create group</Button></DialogFooter></DialogContent></Dialog></div>
       </header>
 

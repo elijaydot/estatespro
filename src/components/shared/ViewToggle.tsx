@@ -1,6 +1,7 @@
 import { LayoutGrid, List, Table2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/contexts/useI18n';
 
 export type ViewMode = 'cards' | 'compact' | 'table';
 
@@ -11,6 +12,8 @@ interface ViewToggleProps {
 }
 
 export function ViewToggle({ view, onViewChange, className }: ViewToggleProps) {
+  const { t } = useI18n();
+
   return (
     <div
       className={cn(
@@ -28,7 +31,7 @@ export function ViewToggle({ view, onViewChange, className }: ViewToggleProps) {
           'h-8 w-8 rounded-md transition-colors',
           view === 'cards' && 'bg-background shadow-xs text-foreground font-medium'
         )}
-        title="Card / Grid View"
+        title={t('view_card_grid', 'Card / Grid View')}
         onClick={() => onViewChange('cards')}
         aria-label="Card view"
       >
@@ -42,7 +45,7 @@ export function ViewToggle({ view, onViewChange, className }: ViewToggleProps) {
           'h-8 w-8 rounded-md transition-colors',
           view === 'compact' && 'bg-background shadow-xs text-foreground font-medium'
         )}
-        title="Compact / List View"
+        title={t('view_compact_list', 'Compact / List View')}
         onClick={() => onViewChange('compact')}
         aria-label="Compact view"
       >
@@ -56,7 +59,7 @@ export function ViewToggle({ view, onViewChange, className }: ViewToggleProps) {
           'h-8 w-8 rounded-md transition-colors',
           view === 'table' && 'bg-background shadow-xs text-foreground font-medium'
         )}
-        title="Data Table View"
+        title={t('view_data_table', 'Data Table View')}
         onClick={() => onViewChange('table')}
         aria-label="Table view"
       >

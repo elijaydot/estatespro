@@ -57,6 +57,7 @@ import { useProperties, type Property } from '@/hooks/useProperties';
 import { useUnits, type Unit } from '@/hooks/useUnits';
 import { useTenantInvites, type TenantInvite } from '@/hooks/useTenantInvites';
 import { useSettings } from '@/contexts/useSettings';
+import { useI18n } from '@/contexts/useI18n';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import { format, differenceInDays, isPast } from 'date-fns';
@@ -130,6 +131,7 @@ export default function Tenants() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatCurrency } = useSettings();
+  const { t } = useI18n();
   const { user } = useAuth();
   const { role, isSuperAdmin } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
@@ -373,25 +375,25 @@ export default function Tenants() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Tenants</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t('tenants', 'Tenants')}</h1>
           <p className="text-muted-foreground">
-            Manage tenant profiles and portal invitations
+            {t('page_tenants_subtitle', 'Manage tenant profiles and portal invitations')}
           </p>
         </div>
         <Button className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
           <Plus className="h-4 w-4" />
-          Add Tenant
+          {t('action_add_tenant', 'Add Tenant')}
         </Button>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="animate-fade-in">
         <TabsList>
-          <TabsTrigger value="tenants">All Tenants</TabsTrigger>
-          <TabsTrigger value="invites">Portal Invites</TabsTrigger>
+          <TabsTrigger value="tenants">{t('tenants', 'All Tenants')}</TabsTrigger>
+          <TabsTrigger value="invites">{t('portal_invites', 'Portal Invites')}</TabsTrigger>
           <TabsTrigger value="exits" className="gap-1.5">
             <LogOut className="h-3.5 w-3.5" />
-            Tenant Exits
+            {t('tenant_exits', 'Tenant Exits')}
             {tenantExits.filter(e => e.status !== 'completed').length > 0 && (
               <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1 text-xs flex items-center justify-center">
                 {tenantExits.filter(e => e.status !== 'completed').length}
@@ -407,7 +409,7 @@ export default function Tenants() {
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search tenants by name, email, or property..."
+                  placeholder={t('page_tenants_search', 'Search tenants by name, email, or property...')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -668,13 +670,13 @@ export default function Tenants() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/40">
-                      <TableHead>Tenant</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Property / Unit</TableHead>
-                      <TableHead>Portal Status</TableHead>
-                      <TableHead>Lease Status</TableHead>
-                      <TableHead>Balance</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>{t('th_tenant', 'Tenant')}</TableHead>
+                      <TableHead>{t('th_contact', 'Contact')}</TableHead>
+                      <TableHead>{t('th_property', 'Property / Unit')}</TableHead>
+                      <TableHead>{t('th_status', 'Portal Status')}</TableHead>
+                      <TableHead>{t('th_lease_number', 'Lease Status')}</TableHead>
+                      <TableHead>{t('th_outstanding', 'Balance')}</TableHead>
+                      <TableHead className="text-right">{t('th_actions', 'Actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

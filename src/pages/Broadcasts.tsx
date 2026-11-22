@@ -18,6 +18,7 @@ import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useMyCompanies } from '@/hooks/useCompanies';
 import { formatDistanceToNow } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useI18n } from '@/contexts/useI18n';
 import { useStepUpGuard } from '@/hooks/useStepUpGuard';
 import { logSecurityEvent } from '@/lib/security';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -58,6 +59,7 @@ const getErrorMessage = (error: unknown) => {
 export default function Broadcasts() {
   const { user } = useAuth();
   const { isManager, isSuperAdmin, isLoading: roleLoading } = useUserRole();
+  const { t } = useI18n();
   const { companies, activeCompanyId } = useActiveCompany();
   const { data: companiesList = [] } = useMyCompanies();
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
@@ -195,11 +197,11 @@ export default function Broadcasts() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Broadcasts</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Send targeted announcements and review delivery history across organizations.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{t('broadcasts', 'Broadcasts')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('page_broadcasts_subtitle', 'Send targeted announcements and review delivery history across organizations.')}</p>
         </div>
         <Button onClick={() => setComposerOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" />New broadcast
+          <Plus className="h-4 w-4" />{t('action_create_broadcast', 'New broadcast')}
         </Button>
       </div>
 

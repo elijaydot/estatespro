@@ -73,6 +73,7 @@ import { useBookings, useCreateBooking, useUpdateBooking, useDeleteBooking, Book
 import { useProperties, type Property } from '@/hooks/useProperties';
 import { useUnits, type Unit } from '@/hooks/useUnits';
 import { useSettings } from '@/contexts/useSettings';
+import { useI18n } from '@/contexts/useI18n';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
@@ -109,6 +110,7 @@ const PAYMENT_STATUS_CONFIG: Record<string, { label: string; variant: 'default' 
 };
 
 export default function Bookings() {
+  const { t } = useI18n();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -446,13 +448,13 @@ export default function Bookings() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Short-Let Bookings</h1>
-          <p className="text-muted-foreground mt-1">Manage guest reservations, calendar availability, and guest communications</p>
+          <h1 className="text-3xl font-bold text-foreground">{t('bookings', 'Short-Let Bookings')}</h1>
+          <p className="text-muted-foreground mt-1">{t('page_bookings_subtitle', 'Manage guest reservations, calendar availability, and guest communications')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => { resetForm(); setIsCreateOpen(true); }} className="gap-2">
             <Plus className="h-4 w-4" />
-            New Booking
+            {t('action_create_booking', 'New Booking')}
           </Button>
         </div>
       </div>

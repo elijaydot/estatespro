@@ -45,6 +45,7 @@ import {
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { toast } from '@/components/ui/use-toast';
 import { useSettings } from '@/contexts/useSettings';
+import { useI18n } from '@/contexts/useI18n';
 import { useRecurringBills, useCreateRecurringBill, useUpdateRecurringBill, useDeleteRecurringBill, type RecurringBill } from '@/hooks/useRecurringBills';
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
@@ -119,6 +120,7 @@ const defaultFormData: BillFormData = {
 
 export default function RecurringBills() {
   const { formatCurrency, settings } = useSettings();
+  const { t } = useI18n();
   const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-recurring-bills') as ViewMode) || 'table');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -252,12 +254,12 @@ export default function RecurringBills() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Recurring Bills</h1>
-          <p className="text-muted-foreground mt-1">Manage automated recurring charges for utilities, security, and services</p>
+          <h1 className="text-3xl font-bold text-foreground">{t('recurring_bills', 'Recurring Bills')}</h1>
+          <p className="text-muted-foreground mt-1">{t('page_recurring_subtitle', 'Manage automated recurring charges for utilities, security, and services')}</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="gap-2">
           <Plus className="h-4 w-4" />
-          Add Recurring Bill
+          {t('action_new_bill', 'Add Recurring Bill')}
         </Button>
       </div>
 
@@ -479,13 +481,13 @@ export default function RecurringBills() {
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead>Bill Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Amount</TableHead>
+                  <TableHead>{t('th_type', 'Type')}</TableHead>
+                  <TableHead>{t('th_amount', 'Amount')}</TableHead>
                   <TableHead>Frequency</TableHead>
-                  <TableHead>Property</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Active</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('th_property', 'Property')}</TableHead>
+                  <TableHead>{t('th_tenant', 'Tenant')}</TableHead>
+                  <TableHead>{t('status_active', 'Active')}</TableHead>
+                  <TableHead className="text-right">{t('th_actions', 'Actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

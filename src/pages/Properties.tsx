@@ -47,6 +47,7 @@ import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { toast } from '@/components/ui/use-toast';
 import { useProperties, useCreateProperty, useDeleteProperty, type Property } from '@/hooks/useProperties';
 import { useSettings } from '@/contexts/useSettings';
+import { useI18n } from '@/contexts/useI18n';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMyCompanies } from '@/hooks/useCompanies';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -91,6 +92,7 @@ export default function Properties() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { settings } = useSettings();
   const { isSuperAdmin } = useUserRole();
+  const { t } = useI18n();
   const { data: companiesList = [] } = useMyCompanies();
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -198,14 +200,14 @@ export default function Properties() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Properties</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t('properties', 'Properties')}</h1>
           <p className="text-muted-foreground">
-            Manage your estates and properties
+            {t('page_properties_subtitle', 'Manage your estates and properties')}
           </p>
         </div>
         <Button className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
           <Plus className="h-4 w-4" />
-          Add Property
+          {t('action_add_property', 'Add Property')}
         </Button>
       </div>
 
@@ -215,7 +217,7 @@ export default function Properties() {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search properties by name, city, or company..."
+              placeholder={t('page_properties_search', 'Search properties by name, city, or company...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -306,7 +308,7 @@ export default function Properties() {
                             navigate(`/properties/${property.id}`);
                           }}
                         >
-                          <Eye className="h-4 w-4 mr-2" /> View Details
+                          <Eye className="h-4 w-4 mr-2" /> {t('action_view_details', 'View Details')}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onSelect={(e) => {
@@ -314,14 +316,14 @@ export default function Properties() {
                             navigate(`/properties/${property.id}?edit=true`);
                           }}
                         >
-                          <Edit className="h-4 w-4 mr-2" /> Edit Property
+                          <Edit className="h-4 w-4 mr-2" /> {t('btn_edit', 'Edit Property')}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
                           onSelect={() => handleDelete(property)}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                          <Trash2 className="h-4 w-4 mr-2" /> {t('btn_delete', 'Delete')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -335,14 +337,14 @@ export default function Properties() {
                   <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border">
                     <div className="flex items-center gap-2">
                       <Home className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">{property.total_units} units</span>
+                      <span className="text-sm font-medium">{property.total_units} {t('unit_plural', 'units')}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-muted-foreground" />
                       <span className={`text-sm font-medium ${getOccupancyColor(property.occupied_units, property.total_units)}`}>
                         {property.total_units > 0 
                           ? Math.round((property.occupied_units / property.total_units) * 100) 
-                          : 0}% occupied
+                          : 0}% {t('stat_occupied', 'occupied')}
                       </span>
                     </div>
                   </div>
@@ -421,14 +423,14 @@ export default function Properties() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onSelect={() => navigate(`/properties/${property.id}`)}>
-                            <Eye className="h-4 w-4 mr-2" /> View Details
+                            <Eye className="h-4 w-4 mr-2" /> {t('action_view_details', 'View Details')}
                           </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => navigate(`/properties/${property.id}?edit=true`)}>
-                            <Edit className="h-4 w-4 mr-2" /> Edit Property
+                            <Edit className="h-4 w-4 mr-2" /> {t('btn_edit', 'Edit Property')}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(property)}>
-                            <Trash2 className="h-4 w-4 mr-2" /> Delete
+                            <Trash2 className="h-4 w-4 mr-2" /> {t('btn_delete', 'Delete')}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -455,13 +457,13 @@ export default function Properties() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead className="min-w-[200px]">Property</TableHead>
-                  <TableHead>Organization</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead className="text-center">Units</TableHead>
-                  <TableHead className="min-w-[140px]">Occupancy</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="min-w-[200px]">{t('th_property', 'Property')}</TableHead>
+                  <TableHead>{t('th_company', 'Organization')}</TableHead>
+                  <TableHead>{t('th_type', 'Type')}</TableHead>
+                  <TableHead>{t('th_location', 'Location')}</TableHead>
+                  <TableHead className="text-center">{t('units', 'Units')}</TableHead>
+                  <TableHead className="min-w-[140px]">{t('th_occupancy', 'Occupancy')}</TableHead>
+                  <TableHead className="text-right">{t('th_actions', 'Actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -529,14 +531,14 @@ export default function Properties() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onSelect={() => navigate(`/properties/${property.id}`)}>
-                              <Eye className="h-4 w-4 mr-2" /> View Details
+                              <Eye className="h-4 w-4 mr-2" /> {t('action_view_details', 'View Details')}
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => navigate(`/properties/${property.id}?edit=true`)}>
-                              <Edit className="h-4 w-4 mr-2" /> Edit Property
+                              <Edit className="h-4 w-4 mr-2" /> {t('btn_edit', 'Edit Property')}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(property)}>
-                              <Trash2 className="h-4 w-4 mr-2" /> Delete
+                              <Trash2 className="h-4 w-4 mr-2" /> {t('btn_delete', 'Delete')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -561,9 +563,9 @@ export default function Properties() {
       {!isLoading && filteredProperties.length === 0 && (
         <EmptyState
           icon={Building2}
-          title="No properties found"
-          description="Try adjusting your search or add a new property."
-          action={<Button onClick={() => setIsAddDialogOpen(true)}><Plus className="h-4 w-4" />Add Property</Button>}
+          title={t('empty_no_records', 'No properties found')}
+          description={t('empty_search_prompt', 'Try adjusting your search or add a new property.')}
+          action={<Button onClick={() => setIsAddDialogOpen(true)}><Plus className="h-4 w-4" />{t('action_add_property', 'Add Property')}</Button>}
         />
       )}
 

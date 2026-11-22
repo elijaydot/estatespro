@@ -56,6 +56,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
 import { useSettings } from '@/contexts/useSettings';
+import { useI18n } from '@/contexts/useI18n';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMyCompanies } from '@/hooks/useCompanies';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -169,6 +170,7 @@ const paymentMethodOptions = [
 export default function Payments() {
   const navigate = useNavigate();
   const { formatCurrency, settings } = useSettings();
+  const { t } = useI18n();
   const { isSuperAdmin } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
   const { data: companiesList = [] } = useMyCompanies();
@@ -438,12 +440,12 @@ export default function Payments() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Payments</h1>
-          <p className="text-muted-foreground">Track and record tenant payments</p>
+          <h1 className="text-2xl font-bold text-foreground">{t('payments', 'Payments')}</h1>
+          <p className="text-muted-foreground">{t('page_payments_subtitle', 'Track and record tenant payments')}</p>
         </div>
         <Button className="gap-2" onClick={() => setIsRecordOpen(true)}>
           <Plus className="h-4 w-4" />
-          Record Payment
+          {t('action_record_payment', 'Record Payment')}
         </Button>
       </div>
 
@@ -494,7 +496,7 @@ export default function Payments() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by tenant, receipt, or invoice..."
+              placeholder={t('page_payments_search', 'Search by tenant, receipt, or invoice...')}
               className="pl-10 h-11 border-border/70 bg-card/80"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -525,7 +527,7 @@ export default function Payments() {
             </Button>
             <Button variant="outline" className="w-full gap-2 sm:w-auto h-11" onClick={handleExport}>
               <Download className="h-4 w-4" />
-              Export
+              {t('action_export_csv', 'Export')}
             </Button>
           </div>
         </div>
@@ -662,14 +664,14 @@ export default function Payments() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead>Receipt #</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Invoice</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('th_receipt_number', 'Receipt #')}</TableHead>
+                  <TableHead>{t('th_date', 'Date')}</TableHead>
+                  <TableHead>{t('th_tenant', 'Tenant')}</TableHead>
+                  <TableHead>{t('invoices', 'Invoice')}</TableHead>
+                  <TableHead>{t('th_method', 'Method')}</TableHead>
+                  <TableHead>{t('th_amount', 'Amount')}</TableHead>
+                  <TableHead>{t('th_status', 'Status')}</TableHead>
+                  <TableHead className="text-right">{t('th_actions', 'Actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

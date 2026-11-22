@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
+import { useI18n } from '@/contexts/useI18n';
 import { useUserRole } from '@/hooks/useUserRole';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 import { Pagination } from '@/components/shared/Pagination';
@@ -52,6 +53,7 @@ type PmInvite = {
 
 export default function TeamManagement() {
   const { isLandlord, isSuperAdmin } = useUserRole();
+  const { t } = useI18n();
   const { data: companies, isLoading: loadingCompanies } = useMyCompanies();
   const { activeCompanyId, setActiveCompanyId, defaultCompanyId, setDefaultCompanyId } = useActiveCompany();
   const [inviteEmail, setInviteEmail] = useState('');
@@ -286,8 +288,8 @@ export default function TeamManagement() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Team Management</h1>
-          <p className="text-muted-foreground mt-1">Manage property managers and property assignments</p>
+          <h1 className="text-3xl font-bold text-foreground">{t('team', 'Team Management')}</h1>
+          <p className="text-muted-foreground mt-1">{t('page_team_subtitle', 'Manage property managers and property assignments')}</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full md:w-auto">
           <Dialog open={companyDialogOpen} onOpenChange={setCompanyDialogOpen}>
@@ -315,7 +317,7 @@ export default function TeamManagement() {
             <DialogTrigger asChild>
               <Button className="gap-2 w-full md:w-auto">
                 <UserPlus className="h-4 w-4" />
-                Invite Manager
+                {t('action_invite_member', 'Invite Manager')}
               </Button>
             </DialogTrigger>
             <DialogContent>

@@ -20,6 +20,7 @@ import {
   type OperationalAlertStatus,
 } from '@/hooks/useOperationalAlerts';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useI18n } from '@/contexts/useI18n';
 import { useMyCompanies } from '@/hooks/useCompanies';
 import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
 import { Pagination } from '@/components/shared/Pagination';
@@ -63,6 +64,7 @@ const formatDateSafe = (dateString?: string | null) => {
 
 export default function Alerts() {
   const { isSuperAdmin } = useUserRole();
+  const { t } = useI18n();
   const { data: companiesList = [] } = useMyCompanies();
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-alerts') as ViewMode) || 'cards');
@@ -116,8 +118,8 @@ export default function Alerts() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Operational Alerts</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Lease, vacancy, payment, and vendor compliance exceptions.</p>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{t('alerts', 'Operational Alerts')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('page_alerts_subtitle', 'Lease, vacancy, payment, and vendor compliance exceptions.')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline"><Link to="/settings?tab=alerts"><Settings2 className="mr-2 h-4 w-4" /> Thresholds</Link></Button>
