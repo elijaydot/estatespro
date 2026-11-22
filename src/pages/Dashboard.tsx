@@ -38,7 +38,7 @@ import { OccupancyChart } from '@/components/dashboard/OccupancyChart';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { DashboardAIInsightsPanel } from '@/components/dashboard/DashboardAIInsightsPanel';
 import { SmartSearchInsights } from '@/components/ai/SmartSearchInsights';
-import { FinancialIntelligence } from '@/components/ai/FinancialIntelligence';
+import { FinancialIntelligence } from '@/components/dashboard/FinancialIntelligence';
 import { PredictiveAnalytics } from '@/components/ai/PredictiveAnalytics';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useAuth } from '@/contexts/useAuth';

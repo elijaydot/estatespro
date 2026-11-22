@@ -54,7 +54,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { ApiAccessManagement } from '@/components/control-plane/ApiAccessManagement';
-import { PageContainer, PageHeader, PageActions } from '@/design-system/LayoutFramework';
+import { PageContainer, PageHeader, PageActions, PageInsights } from '@/design-system/LayoutFramework';
 
 type DraftChange = {
   entity: 'quota' | 'price' | 'entitlement' | 'plan';
@@ -520,14 +520,17 @@ export default function CatalogManagement() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-        </div>
-      </div>
+        </PageActions>
+      }
+    />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Plan quota coverage</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{quotaAssignments}/{expectedQuotaAssignments}</CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Plan entitlement coverage</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{entitlementAssignments}/{expectedEntitlementAssignments}</CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Add-on effects</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{(registry.data?.addons || []).reduce((sum, addon) => sum + (addon.saas_addon_quota_overrides?.length || 0) + (addon.saas_addon_entitlements?.length || 0), 0)}</CardContent></Card>
-      </div>
+    <PageInsights
+      items={[
+        { label: 'Plan Quota Coverage', value: `${quotaAssignments}/${expectedQuotaAssignments}`, status: 'neutral' },
+        { label: 'Plan Entitlement Coverage', value: `${entitlementAssignments}/${expectedEntitlementAssignments}`, status: 'neutral' },
+        { label: 'Add-on Effects', value: (registry.data?.addons || []).reduce((sum, addon) => sum + (addon.saas_addon_quota_overrides?.length || 0) + (addon.saas_addon_entitlements?.length || 0), 0), status: 'info' },
+      ]}
+    />
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
