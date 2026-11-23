@@ -408,11 +408,10 @@ export default function Dashboard() {
                       </div>
                       <Badge
                         variant="outline"
-                        className={`text-[10px] font-bold uppercase ${
-                          propRate >= 85
-                            ? 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300'
-                            : 'text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300'
-                        }`}
+                        className={`text-[10px] font-bold uppercase ${propRate >= 85
+                          ? 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300'
+                          : 'text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300'
+                          }`}
                       >
                         {propRate}% Occupied
                       </Badge>
@@ -501,13 +500,12 @@ export default function Dashboard() {
                 <div key={act.id} className="flex items-center justify-between p-5 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                   <div className="flex items-center gap-4 min-w-0">
                     <div
-                      className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        isPayment
-                          ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400'
-                          : isMaintenance
+                      className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${isPayment
+                        ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400'
+                        : isMaintenance
                           ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400'
                           : 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400'
-                      }`}
+                        }`}
                     >
                       {isPayment ? <CreditCard className="h-5 w-5" /> : isMaintenance ? <Wrench className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
                     </div>
