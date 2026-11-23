@@ -29,17 +29,16 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { data: unreadCount = 0 } = useUnreadNotificationsCount();
 
   const isSuperAdmin = role === 'super_admin';
-  const activeCompanyName = isSuperAdmin 
-    ? 'FishGate • Global Platform' 
+  const activeCompanyName = isSuperAdmin
+    ? 'FishGate • Global Platform'
     : (companies.find((company) => company.id === activeCompanyId)?.name || profile?.name || 'FishGate');
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans antialiased text-slate-900 dark:text-slate-100">
       {/* Desktop Persistent Sidebar */}
       <aside
-        className={`hidden lg:block fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-in-out ${
-          sidebarCollapsed ? 'w-16' : 'w-64'
-        }`}
+        className={`hidden lg:block fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'w-[72px]' : 'w-[280px]'
+          }`}
       >
         <AppSidebar
           collapsed={sidebarCollapsed}
@@ -49,9 +48,8 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       {/* Main Body Area */}
       <div
-        className={`flex min-h-screen flex-col transition-[margin] duration-300 ease-in-out ${
-          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
-        }`}
+        className={`flex min-h-screen flex-col transition-[margin] duration-300 ease-in-out ${sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-[280px]'
+          }`}
       >
         {/* Mobile Header Bar */}
         <header className="lg:hidden sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md px-4 py-2.5 dark:border-slate-800 dark:bg-slate-900/95">
