@@ -42,6 +42,7 @@ ALTER TABLE public.properties
   ADD COLUMN IF NOT EXISTS google_maps_url TEXT,
   ADD COLUMN IF NOT EXISTS landmark TEXT,
   ADD COLUMN IF NOT EXISTS time_zone TEXT DEFAULT 'Africa/Kigali',
+  ADD COLUMN IF NOT EXISTS upi TEXT,
 
   -- Step 3: Property Characteristics
   ADD COLUMN IF NOT EXISTS building_type TEXT DEFAULT 'Single Building',
@@ -62,6 +63,7 @@ ALTER TABLE public.properties
 
   -- Step 4: Ownership & Management
   ADD COLUMN IF NOT EXISTS owner_name TEXT,
+  ADD COLUMN IF NOT EXISTS owner_account_id UUID,
   ADD COLUMN IF NOT EXISTS ownership_type TEXT DEFAULT 'individual',
   ADD COLUMN IF NOT EXISTS management_company TEXT,
   ADD COLUMN IF NOT EXISTS property_manager TEXT,
@@ -79,6 +81,7 @@ ALTER TABLE public.properties
   ADD COLUMN IF NOT EXISTS insurance_provider TEXT,
   ADD COLUMN IF NOT EXISTS insurance_expiry DATE,
   ADD COLUMN IF NOT EXISTS insurance_amount NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS landlord_tin TEXT,
   ADD COLUMN IF NOT EXISTS tax_rate NUMERIC DEFAULT 15,
   ADD COLUMN IF NOT EXISTS cost_centre TEXT,
   ADD COLUMN IF NOT EXISTS accounting_reference TEXT,

@@ -63,26 +63,49 @@ export function AppSidebar({
     const pathname = url.pathname;
     const viewParam = url.searchParams.get('view');
     const tabParam = url.searchParams.get('tab');
+    const categoryParam = url.searchParams.get('category');
+    const domainParam = url.searchParams.get('domain');
+
+    if (location.pathname !== pathname) {
+      return false;
+    }
 
     if (pathname === '/dashboard') {
       if (viewParam === 'activity') {
-        return location.pathname === '/dashboard' && location.search.includes('view=activity');
+        return location.search.includes('view=activity');
       }
-      return location.pathname === '/dashboard' && !location.search.includes('view=activity');
+      return !location.search.includes('view=activity');
     }
 
     if (pathname === '/payments') {
       if (viewParam === 'collections') {
-        return location.pathname === '/payments' && location.search.includes('view=collections');
+        return location.search.includes('view=collections');
       }
-      return location.pathname === '/payments' && !location.search.includes('view=collections');
+      return !location.search.includes('view=collections');
+    }
+
+    if (pathname === '/maintenance') {
+      if (tabParam) {
+        return location.search.includes(`tab=${tabParam}`);
+      }
+      return !location.search.includes('tab=');
+    }
+
+    if (pathname === '/reports') {
+      if (categoryParam) {
+        return location.search.includes(`category=${categoryParam}`);
+      }
+      if (domainParam) {
+        return location.search.includes(`domain=${domainParam}`);
+      }
+      return !location.search.includes('category=') && !location.search.includes('domain=');
     }
 
     if (tabParam) {
-      return location.pathname === pathname && location.search.includes(`tab=${tabParam}`);
+      return location.search.includes(`tab=${tabParam}`);
     }
 
-    return location.pathname === pathname;
+    return true;
   };
 
   const getItemBadge = (item: IANavItem) => {

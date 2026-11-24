@@ -81,8 +81,17 @@ export function EditPropertyModal({
 
   useEffect(() => {
     if (property) {
+      const {
+        companies,
+        created_at,
+        updated_at,
+        user_id,
+        id: _pId,
+        ...cleanInitial
+      } = property as any;
+
       setFormData({
-        ...property,
+        ...cleanInitial,
         image_urls: property.image_urls || (property.image_url ? [property.image_url] : []),
         amenities: property.amenities || [],
         accessibility_features: property.accessibility_features || [],
@@ -161,9 +170,18 @@ export function EditPropertyModal({
     }
 
     try {
+      const {
+        companies,
+        created_at,
+        updated_at,
+        user_id,
+        id: _formId,
+        ...cleanData
+      } = formData as any;
+
       const payload: any = {
         id: property.id,
-        ...formData,
+        ...cleanData,
         image_url: formData.image_urls?.[0] || formData.image_url || null,
         completeness_score: completeness.score,
       };

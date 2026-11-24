@@ -182,7 +182,9 @@ export function useCreateProperty() {
     mutationFn: async (property: Omit<Property, 'id' | 'created_at' | 'updated_at' | 'user_id'> & { company_id?: string | null }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
-      if (!activeCompanyId) throw new Error('Select a company first');
+      if (!activeCompanyId || activeCompanyId === 'all') {
+        throw new Error('Please select a specific company before creating a property');
+      }
       if (property.company_id && property.company_id !== activeCompanyId) {
         throw new Error('Property company must match the active company');
       }
@@ -193,14 +195,23 @@ export function useCreateProperty() {
         requestedDelta: 1,
       });
 
+      const {
+        companies,
+        created_at,
+        updated_at,
+        user_id,
+        id: _ignoredId,
+        ...cleanFields
+      } = property as any;
+
       const { data, error } = await supabase
         .from('properties')
-        .insert({ ...property, user_id: user.id, company_id: activeCompanyId })
-        .select()
+        .insert({ ...cleanFields, user_id: user.id, company_id: activeCompanyId })
+        .select('*, companies:company_id(id, name)')
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Property;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
@@ -219,16 +230,32 @@ export function useUpdateProperty() {
   return useMutation({
     mutationFn: async ({ id, ...property }: Partial<Property> & { id: string }) => {
       if (!activeCompanyId) throw new Error('Select a company first');
-      const { data, error } = await supabase
+
+      // Strip joined relations and system fields that do not exist as writable columns on public.properties
+      const {
+        companies,
+        created_at,
+        updated_at,
+        user_id,
+        id: _ignoredId,
+        ...cleanFields
+      } = property as any;
+
+      let query = supabase
         .from('properties')
-        .update(property)
-        .eq('id', id)
-        .eq('company_id', activeCompanyId)
-        .select()
+        .update(cleanFields)
+        .eq('id', id);
+
+      if (activeCompanyId !== 'all') {
+        query = query.eq('company_id', activeCompanyId);
+      }
+
+      const { data, error } = await query
+        .select('*, companies:company_id(id, name)')
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Property;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
@@ -248,11 +275,17 @@ export function useDeleteProperty() {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!activeCompanyId) throw new Error('Select a company first');
-      const { error } = await supabase
+
+      let query = supabase
         .from('properties')
         .delete()
-        .eq('id', id)
-        .eq('company_id', activeCompanyId);
+        .eq('id', id);
+
+      if (activeCompanyId !== 'all') {
+        query = query.eq('company_id', activeCompanyId);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
     },
