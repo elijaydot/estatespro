@@ -64,7 +64,6 @@ import { useSettings } from '@/contexts/useSettings';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { useConfirmAction } from '@/components/ui/use-confirm-action';
 import { PageContainer } from '@/design-system/LayoutFramework';
-import { cn } from '@/lib/utils';
 
 type PropertyWithImages = Property & {
   image_urls?: string[] | null;
