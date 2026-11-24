@@ -37,6 +37,7 @@ const Properties = lazy(() => import("./pages/Properties"));
 const PropertyDetail = lazy(() => import("./pages/PropertyDetail"));
 const Units = lazy(() => import("./pages/Units"));
 const UnitDetail = lazy(() => import("./pages/UnitDetail"));
+const Occupancy = lazy(() => import("./pages/Occupancy"));
 const Tenants = lazy(() => import("./pages/Tenants"));
 const TenantDetail = lazy(() => import("./pages/TenantDetail"));
 const Payments = lazy(() => import("./pages/Payments"));
@@ -488,6 +489,8 @@ function AppRoutes() {
       <Route path="/properties/:id" element={<PrivateRoute>{withSuspense(<PropertyDetail />)}</PrivateRoute>} />
       <Route path="/units" element={<PrivateRoute>{withSuspense(<Units />)}</PrivateRoute>} />
       <Route path="/units/:id" element={<PrivateRoute>{withSuspense(<UnitDetail />)}</PrivateRoute>} />
+      <Route path="/occupancy" element={<PrivateRoute>{withSuspense(<Occupancy />)}</PrivateRoute>} />
+      <Route path="/operations/occupancy" element={<Navigate to="/occupancy" replace />} />
       <Route path="/tenants" element={<PrivateRoute>{withSuspense(<Tenants />)}</PrivateRoute>} />
       <Route path="/tenants/:id" element={<PrivateRoute>{withSuspense(<TenantDetail />)}</PrivateRoute>} />
       <Route path="/tenant-exit/:exitId" element={<PrivateRoute>{withSuspense(<TenantExitWorkflow />)}</PrivateRoute>} />

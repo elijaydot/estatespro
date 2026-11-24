@@ -23,6 +23,7 @@ export const STAFF_WORKSPACES: StaffWorkspace[] = [
       '/dashboard',
       '/properties',
       '/units',
+      '/occupancy',
       '/tenants',
       '/leases',
       '/maintenance',

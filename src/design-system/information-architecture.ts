@@ -116,13 +116,6 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
         icon: Home,
         description: 'Rentable units, floor plans, and status',
       },
-      {
-        id: 'occupancy',
-        label: 'Occupancy',
-        href: '/reports?category=occupancy',
-        icon: TrendingUp,
-        description: 'Capacity and physical occupancy trends',
-      },
     ],
   },
   {
@@ -151,13 +144,6 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
         href: '/messages',
         icon: MessageSquare,
         description: 'Direct messages and real-time chat with residents',
-      },
-      {
-        id: 'broadcasts',
-        label: 'Broadcasts',
-        href: '/broadcasts',
-        icon: Megaphone,
-        description: 'Broadcast SMS and email announcements to tenants',
       },
     ],
   },
@@ -201,8 +187,15 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
     id: 'operations',
     name: 'Operations',
     icon: Wrench,
-    description: 'Maintenance triage, contractor orders, and checklists',
+    description: 'Occupancy health, maintenance triage, contractor orders, and checklists',
     items: [
+      {
+        id: 'occupancy',
+        label: 'Occupancy',
+        href: '/occupancy',
+        icon: TrendingUp,
+        description: 'Occupancy health, vacancy management, and expiration timeline',
+      },
       {
         id: 'maintenance',
         label: 'Maintenance',
@@ -271,13 +264,6 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
     icon: LineChart,
     description: 'Portfolio analytics, revenue trends, and forecasts',
     items: [
-      {
-        id: 'revenue-insights',
-        label: 'Revenue Insights',
-        href: '/reports?domain=financial',
-        icon: TrendingUp,
-        description: 'Income realization and cashflow analysis',
-      },
       {
         id: 'analytics',
         label: 'Analytics',
