@@ -481,8 +481,8 @@ export default function PropertyDetail() {
                 completeness.score >= 80
                   ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                   : completeness.score >= 50
-                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                  : 'bg-muted text-muted-foreground border-border/60'
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                    : 'bg-muted text-muted-foreground border-border/60'
               )}
             >
               {completeness.score}%
