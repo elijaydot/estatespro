@@ -36,7 +36,6 @@ export function Level1DomainTabs({
         {REPORT_DOMAINS.map((domain) => {
           const Icon = domain.icon;
           const isActive = currentDomainId === domain.id;
-          const isAi = domain.id === 'ai';
 
           return (
             <button
@@ -54,15 +53,10 @@ export function Level1DomainTabs({
                   'h-4 w-4 transition-transform group-hover:scale-105',
                   isActive
                     ? 'text-primary-foreground'
-                    : isAi
-                    ? 'text-primary'
                     : 'text-muted-foreground group-hover:text-foreground'
                 )}
               />
-              <span>{domain.label}</span>
-              {isAi && !isActive && (
-                <span className="flex h-1.5 w-1.5 rounded-full bg-primary" />
-              )}
+              <span>{domain.title || domain.label}</span>
             </button>
           );
         })}

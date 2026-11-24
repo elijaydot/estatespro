@@ -5,7 +5,6 @@ import {
   Wrench,
   Building2,
   TrendingUp,
-  Sparkles,
   LineChart,
   PieChart,
   FileText,
@@ -17,15 +16,25 @@ import {
   CheckSquare,
   Building,
   ShieldCheck,
-  BarChart2,
-  AlertTriangle,
-  BrainCircuit,
-  Lightbulb,
-  ShieldAlert,
-  Zap,
+  Home,
+  Users,
+  Calendar,
+  Layers,
+  Target,
+  ArrowUpRight,
+  Sliders,
 } from 'lucide-react';
 
-export type ReportDomainId = 'overview' | 'financial' | 'operations' | 'portfolio' | 'forecasting' | 'ai';
+export type ReportCategoryId =
+  | 'overview'
+  | 'revenue'
+  | 'occupancy'
+  | 'operations'
+  | 'properties'
+  | 'planning';
+
+// Backward compatibility alias
+export type ReportDomainId = ReportCategoryId;
 
 export interface ReportItem {
   id: string;
@@ -36,288 +45,321 @@ export interface ReportItem {
   badge?: string;
 }
 
-export interface ReportDomain {
-  id: ReportDomainId;
+export interface ReportCategory {
+  id: ReportCategoryId;
+  title: string;
   label: string;
+  purpose: string;
   question: string;
   description: string;
   icon: LucideIcon;
-  defaultReportId?: string;
+  defaultReportId: string;
   reports: ReportItem[];
 }
 
-export const REPORT_DOMAINS: ReportDomain[] = [
+export const REPORT_CATEGORIES: ReportCategory[] = [
   {
-    id: 'overview',
-    label: 'Overview',
-    question: 'Where does my business stand today?',
-    description: 'Executive summary, active attention center, and cross-portfolio KPIs',
-    icon: LayoutDashboard,
-    reports: [],
-  },
-  {
-    id: 'financial',
-    label: 'Financial',
-    question: 'How much money am I making?',
-    description: 'Revenue realization, collection rate, aging receivables, and statutory tax',
+    id: 'revenue',
+    title: 'Revenue & Collections',
+    label: 'Revenue & Collections',
+    purpose: 'Understand income performance',
+    question: 'How is income performing?',
+    description: 'Realized rental income, collection turnaround, overdue aging receivables, and statutory tax compliance.',
     icon: DollarSign,
-    defaultReportId: 'revenue',
+    defaultReportId: 'revenue-summary',
     reports: [
       {
-        id: 'revenue',
-        label: 'Revenue Overview',
+        id: 'revenue-summary',
+        label: 'Revenue Summary',
         shortLabel: 'Revenue',
-        description: 'Monthly collected vs invoiced revenue realization',
+        description: 'Monthly collected vs invoiced revenue realization and growth',
         icon: LineChart,
       },
       {
-        id: 'collections',
-        label: 'Collections & Payments',
+        id: 'rent-collections',
+        label: 'Rent Collections',
         shortLabel: 'Collections',
-        description: 'Payment distribution and invoice settlement rates',
-        icon: PieChart,
+        description: 'Payment distribution and invoice settlement rates across payment rails',
+        icon: CreditCard,
       },
       {
-        id: 'rent-roll',
-        label: 'Audited Rent Roll',
-        shortLabel: 'Rent Roll',
-        description: 'Active lease schedule, monthly rents, and tenant obligations',
-        icon: FileText,
-      },
-      {
-        id: 'aging',
-        label: 'Aging & Collections',
-        shortLabel: 'Aging',
-        description: 'Accounts receivable overdue buckets and debtor ledger',
+        id: 'outstanding-balances',
+        label: 'Outstanding Balances',
+        shortLabel: 'Balances',
+        description: 'Unsettled invoices, payment aging buckets, and debtor ledger',
         icon: Clock,
       },
       {
-        id: 'vendor-payments',
-        label: 'Vendor Disbursements',
-        shortLabel: 'Vendors',
-        description: 'Contractor and vendor payouts linked to work orders',
-        icon: CreditCard,
+        id: 'payment-trends',
+        label: 'Payment Trends',
+        shortLabel: 'Trends',
+        description: 'Historical payment velocity and weekly collection momentum',
+        icon: TrendingUp,
+      },
+      {
+        id: 'property-revenue',
+        label: 'Property Revenue Comparison',
+        shortLabel: 'Property Revenue',
+        description: 'Realized revenue benchmarked across every managed estate',
+        icon: BarChart3,
       },
       {
         id: 'rra-tax',
         label: '🇷🇼 RRA Rental Income Tax',
         shortLabel: 'RRA Tax',
-        description: 'Official Rwanda Revenue Authority Art. 49 statutory schedule',
+        description: 'Official Rwanda Revenue Authority Art. 49 statutory tax schedule',
         icon: Receipt,
         badge: 'Statutory',
       },
     ],
   },
   {
-    id: 'operations',
-    label: 'Operations',
-    question: 'What needs my attention?',
-    description: 'Maintenance triage, cost variances, inspections, and work orders',
-    icon: Wrench,
-    defaultReportId: 'maintenance',
+    id: 'occupancy',
+    title: 'Occupancy & Leasing',
+    label: 'Occupancy & Leasing',
+    purpose: 'Understand portfolio utilization',
+    question: 'What is our portfolio utilization?',
+    description: 'Physical occupancy trends, vacancy durations, lease expiries, and resident turnover.',
+    icon: Home,
+    defaultReportId: 'occupancy-summary',
     reports: [
       {
-        id: 'maintenance',
-        label: 'Maintenance Triage',
-        shortLabel: 'Maintenance',
-        description: 'Request status, severity breakdown, and open ticket velocity',
-        icon: Wrench,
+        id: 'occupancy-summary',
+        label: 'Occupancy Summary',
+        shortLabel: 'Occupancy',
+        description: 'Capacity and occupied vs vacant units across every estate',
+        icon: Home,
       },
       {
-        id: 'maintenance-cost',
-        label: 'Maintenance Cost & Variances',
-        shortLabel: 'Costs',
-        description: 'Estimated vs actual expenses and property budget variances',
+        id: 'vacancy-analysis',
+        label: 'Vacancy Analysis',
+        shortLabel: 'Vacancies',
+        description: 'Unoccupied unit durations and unrealized monthly rent exposure',
         icon: BarChart3,
       },
       {
-        id: 'inspections',
-        label: 'Inspections & Turnover',
-        shortLabel: 'Inspections',
-        description: 'Move-in / move-out checklists and unit turnover readiness',
-        icon: ClipboardCheck,
+        id: 'lease-expiration',
+        label: 'Lease Expiration Forecast',
+        shortLabel: 'Expirations',
+        description: 'Upcoming lease milestones in 30, 60, 90, and 180-day buckets',
+        icon: Calendar,
+      },
+      {
+        id: 'lease-renewals',
+        label: 'Lease Renewals',
+        shortLabel: 'Renewals',
+        description: 'Active lease agreements, renewal terms, and retention rates',
+        icon: FileText,
+      },
+      {
+        id: 'tenant-turnover',
+        label: 'Tenant Turnover',
+        shortLabel: 'Turnover',
+        description: 'Resident move-in and exit trends with tenure analysis',
+        icon: Users,
+      },
+    ],
+  },
+  {
+    id: 'operations',
+    title: 'Operations & Maintenance',
+    label: 'Operations & Maintenance',
+    purpose: 'Understand operational performance',
+    question: 'How efficiently are issues resolved?',
+    description: 'Maintenance request turnaround, contractor orders, inspection checklists, and cost variances.',
+    icon: Wrench,
+    defaultReportId: 'maintenance-performance',
+    reports: [
+      {
+        id: 'maintenance-performance',
+        label: 'Maintenance Performance',
+        shortLabel: 'Performance',
+        description: 'Ticket volume, resolution rates, and operational turnaround speed',
+        icon: Wrench,
       },
       {
         id: 'work-orders',
-        label: 'Work Orders & Field Tasks',
+        label: 'Work Orders',
         shortLabel: 'Work Orders',
-        description: 'Contractor dispatch status and operational task backlog',
+        description: 'Contractor and vendor dispatch backlog and job statuses',
         icon: CheckSquare,
       },
+      {
+        id: 'inspections',
+        label: 'Inspection Results',
+        shortLabel: 'Inspections',
+        description: 'Move-in / move-out room condition checklists and asset audits',
+        icon: ClipboardCheck,
+      },
+      {
+        id: 'maintenance-costs',
+        label: 'Maintenance Cost Analysis',
+        shortLabel: 'Cost Analysis',
+        description: 'Estimated vs actual repair expenditures and property budget variances',
+        icon: DollarSign,
+      },
+      {
+        id: 'resolution-time',
+        label: 'Resolution Time Analysis',
+        shortLabel: 'Resolution Time',
+        description: 'Average days to complete maintenance requests by priority',
+        icon: Clock,
+      },
     ],
   },
   {
-    id: 'portfolio',
-    label: 'Portfolio',
-    question: 'How are my properties performing?',
-    description: 'Occupancy capacity, property yield efficiency, and enterprise benchmarking',
+    id: 'properties',
+    title: 'Property Performance',
+    label: 'Property Performance',
+    purpose: 'Compare assets',
+    question: 'Which properties yield highest return?',
+    description: 'Asset yield ranking, revenue per estate, occupancy benchmarks, and operational issues.',
     icon: Building2,
-    defaultReportId: 'occupancy',
+    defaultReportId: 'property-ranking',
     reports: [
       {
-        id: 'occupancy',
+        id: 'property-ranking',
+        label: 'Property Ranking',
+        shortLabel: 'Ranking',
+        description: 'Estates ordered by total monthly revenue and yield efficiency',
+        icon: Building2,
+      },
+      {
+        id: 'revenue-per-property',
+        label: 'Revenue per Property',
+        shortLabel: 'Revenue',
+        description: 'Detailed monthly revenue collection breakdown per property',
+        icon: LineChart,
+      },
+      {
+        id: 'occupancy-by-property',
         label: 'Occupancy by Property',
         shortLabel: 'Occupancy',
-        description: 'Capacity and occupied vs vacant units across every estate',
-        icon: BarChart3,
+        description: 'Capacity and occupied unit ratios across managed locations',
+        icon: Home,
       },
       {
-        id: 'occupancy-trend',
-        label: 'Occupancy Trajectory',
-        shortLabel: 'Trajectory',
-        description: 'Historical occupancy trend lines over time',
-        icon: TrendingUp,
+        id: 'issue-tracking',
+        label: 'Issue Tracking',
+        shortLabel: 'Issues',
+        description: 'Open maintenance and overdue invoices grouped by estate',
+        icon: Clock,
       },
       {
-        id: 'property-performance',
-        label: 'Asset Yield & Utilization',
-        shortLabel: 'Performance',
-        description: 'Average unit realization, annual potential, and yield tiers',
-        icon: Building,
-      },
-      {
-        id: 'executive',
-        label: 'All Companies Benchmark',
-        shortLabel: 'Enterprise',
-        description: 'Multi-organization executive scorecard and printable PDF',
+        id: 'benchmarking',
+        label: 'Performance Benchmarking',
+        shortLabel: 'Benchmark',
+        description: 'Cross-property yield and multi-company operational scorecard',
         icon: ShieldCheck,
-        badge: 'Enterprise',
       },
     ],
   },
   {
-    id: 'forecasting',
-    label: 'Forecasting',
-    question: 'What is likely to happen next?',
-    description: 'Forward cashflow modeling, vacancy exposure, and renewal likelihood',
+    id: 'planning',
+    title: 'Portfolio Planning',
+    label: 'Portfolio Planning',
+    purpose: 'Support future decisions',
+    question: 'What is our forward cashflow trajectory?',
+    description: 'Forward cashflow modeling, occupancy projections, budget planning, and capacity growth.',
     icon: TrendingUp,
-    defaultReportId: 'revenue-forecast',
+    defaultReportId: 'revenue-projection',
     reports: [
       {
-        id: 'revenue-forecast',
-        label: 'Forward Cashflow Trajectory',
-        shortLabel: 'Cashflow',
-        description: '30-day inflow projection and 90-day multi-scenario revenue model',
+        id: 'revenue-projection',
+        label: 'Revenue Projection',
+        shortLabel: 'Projection',
+        description: '30-day and 90-day forward cashflow projections based on active leases',
         icon: TrendingUp,
       },
       {
-        id: 'occupancy-forecast',
-        label: 'Occupancy & Vacancy Risk',
-        shortLabel: 'Occupancy',
-        description: 'Projected occupancy rates and vacant unit revenue exposure',
-        icon: BarChart2,
+        id: 'occupancy-outlook',
+        label: 'Occupancy Outlook',
+        shortLabel: 'Outlook',
+        description: 'Forward occupancy trajectory considering upcoming lease expirations',
+        icon: LineChart,
       },
       {
-        id: 'maintenance-forecast',
-        label: 'Predictive Maintenance Spend',
-        shortLabel: 'Maintenance',
-        description: 'Predicted component wear, plumbing risks, and budget allocation',
-        icon: Wrench,
+        id: 'budget-planning',
+        label: 'Budget Planning',
+        shortLabel: 'Budget',
+        description: 'Annualized revenue run-rate and operating expense budget envelope',
+        icon: Target,
       },
       {
-        id: 'risk-forecast',
-        label: 'Lease Renewal & Default Risk',
-        shortLabel: 'Renewals',
-        description: 'Resident renewal scoring and proactive retention insights',
-        icon: AlertTriangle,
-      },
-    ],
-  },
-  {
-    id: 'ai',
-    label: 'AI Insights',
-    question: 'What recommendations do you have?',
-    description: 'Executive Copilot summary, prioritized recommendations, and risk alerts',
-    icon: Sparkles,
-    defaultReportId: 'copilot-summary',
-    reports: [
-      {
-        id: 'copilot-summary',
-        label: 'Copilot Strategic Brief',
-        shortLabel: 'Strategic Brief',
-        description: 'Comprehensive financial, lease, and operational intelligence synthesis',
-        icon: BrainCircuit,
+        id: 'growth-forecast',
+        label: 'Growth Forecast',
+        shortLabel: 'Growth',
+        description: 'Portfolio expansion capacity, yield potential, and unit trajectory',
+        icon: ArrowUpRight,
       },
       {
-        id: 'recommendations',
-        label: 'Actionable Recommendations',
-        shortLabel: 'Recommendations',
-        description: 'High-impact operational and collection improvement opportunities',
-        icon: Lightbulb,
-      },
-      {
-        id: 'risk-detection',
-        label: 'Risk & Exposure Detection',
-        shortLabel: 'Risks',
-        description: 'At-risk tenants, default probability, and uncollected rent aging',
-        icon: ShieldAlert,
-      },
-      {
-        id: 'optimization',
-        label: 'Revenue & Yield Optimization',
-        shortLabel: 'Optimization',
-        description: 'Unit pricing optimization, shortlet conversion, and turnover speed',
-        icon: Zap,
+        id: 'capacity-analysis',
+        label: 'Capacity Analysis',
+        shortLabel: 'Capacity',
+        description: 'Maximum rentable unit capacity and physical portfolio density',
+        icon: Layers,
       },
     ],
   },
 ];
 
-export function resolveDomainAndReport(
-  requestedDomain?: string | null,
+// For backward compatibility with existing code
+export const REPORT_DOMAINS = REPORT_CATEGORIES;
+
+export function resolveCategoryAndReport(
+  requestedCategory?: string | null,
   requestedReport?: string | null,
   legacyTab?: string | null
-): { domainId: ReportDomainId; reportId: string } {
+): { categoryId: ReportCategoryId; reportId: string } {
+  // Legacy alias mapping
+  let categoryKey = requestedCategory || '';
+  if (categoryKey === 'financial') categoryKey = 'revenue';
+  if (categoryKey === 'portfolio') categoryKey = 'properties';
+  if (categoryKey === 'forecasting') categoryKey = 'planning';
+  if (categoryKey === 'ai' || categoryKey === 'ai-insights') categoryKey = 'planning';
+
   // Legacy tab mapping
-  if (legacyTab && !requestedDomain && !requestedReport) {
+  if (legacyTab && !requestedCategory && !requestedReport) {
     switch (legacyTab) {
       case 'overview':
-        return { domainId: 'overview', reportId: '' };
+        return { categoryId: 'overview', reportId: '' };
       case 'revenue':
-        return { domainId: 'financial', reportId: 'revenue' };
       case 'payments':
-        return { domainId: 'financial', reportId: 'collections' };
       case 'rent-roll':
-        return { domainId: 'financial', reportId: 'rent-roll' };
       case 'aging':
-        return { domainId: 'financial', reportId: 'aging' };
       case 'vendor-payments':
-        return { domainId: 'financial', reportId: 'vendor-payments' };
       case 'rra-tax':
-        return { domainId: 'financial', reportId: 'rra-tax' };
+        return { categoryId: 'revenue', reportId: legacyTab === 'revenue' ? 'revenue-summary' : legacyTab };
       case 'maintenance':
-        return { domainId: 'operations', reportId: 'maintenance' };
       case 'maintenance-cost':
-        return { domainId: 'operations', reportId: 'maintenance-cost' };
+      case 'work-orders':
+      case 'inspections':
+        return { categoryId: 'operations', reportId: legacyTab === 'maintenance' ? 'maintenance-performance' : legacyTab };
       case 'occupancy':
-        return { domainId: 'portfolio', reportId: 'occupancy' };
       case 'occupancy-trend':
-        return { domainId: 'portfolio', reportId: 'occupancy-trend' };
-      case 'executive':
-        return { domainId: 'portfolio', reportId: 'executive' };
+        return { categoryId: 'occupancy', reportId: 'occupancy-summary' };
       case 'forecasts':
       case 'forecasting':
-        return { domainId: 'forecasting', reportId: 'revenue-forecast' };
-      case 'portfolio':
-        return { domainId: 'portfolio', reportId: 'property-performance' };
-      case 'ai':
-      case 'ai-insights':
-        return { domainId: 'ai', reportId: 'copilot-summary' };
+        return { categoryId: 'planning', reportId: 'revenue-projection' };
       default:
         break;
     }
   }
 
-  const validDomain = REPORT_DOMAINS.find((d) => d.id === requestedDomain);
-  const domainId = validDomain ? validDomain.id : 'overview';
-
-  if (domainId === 'overview') {
-    return { domainId: 'overview', reportId: '' };
+  if (categoryKey === 'overview' || (!categoryKey && !requestedReport)) {
+    return { categoryId: 'overview', reportId: '' };
   }
 
-  const domain = REPORT_DOMAINS.find((d) => d.id === domainId)!;
-  const validReport = domain.reports.find((r) => r.id === requestedReport);
-  const reportId = validReport ? validReport.id : domain.defaultReportId || domain.reports[0]?.id || '';
+  const category = REPORT_CATEGORIES.find((c) => c.id === categoryKey);
+  if (!category) {
+    return { categoryId: 'overview', reportId: '' };
+  }
 
-  return { domainId, reportId };
+  const validReport = category.reports.find((r) => r.id === requestedReport);
+  const reportId = validReport ? validReport.id : category.defaultReportId;
+
+  return { categoryId: category.id, reportId };
 }
+
+// Backward compatibility function
+export const resolveDomainAndReport = resolveCategoryAndReport;
