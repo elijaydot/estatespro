@@ -77,6 +77,7 @@ import {
 import { toast } from '@/components/ui/use-toast';
 import { useUnits, useDeleteUnit, type Unit } from '@/hooks/useUnits';
 import { useProperties } from '@/hooks/useProperties';
+import { useTenants } from '@/hooks/useTenants';
 import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
 import { useSettings } from '@/contexts/useSettings';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
@@ -103,10 +104,37 @@ export default function Units() {
   const confirmAction = useConfirmAction();
 
   // Queries
-  const { data: units = [], isLoading } = useUnits();
+  const { data: rawUnits = [], isLoading, error: unitsError, refetch: refetchUnits } = useUnits();
   const { data: properties = [] } = useProperties();
   const { data: maintenanceRequests = [] } = useMaintenanceRequests();
+  const { data: allTenants = [] } = useTenants();
   const deleteUnit = useDeleteUnit();
+
+  // Seamlessly merge and enrich units with tenant relations if not directly populated
+  const units = useMemo(() => {
+    return rawUnits.map((u) => {
+      const hasTenants = Array.isArray(u.tenants) && u.tenants.length > 0;
+      const matchedTenants = hasTenants
+        ? u.tenants!
+        : allTenants
+            .filter((t) => t.unit_id === u.id)
+            .map((t) => ({
+              id: t.id,
+              name: t.name,
+              email: t.email,
+              phone: t.phone,
+              status: t.status,
+              lease_start_date: t.move_in_date,
+              lease_end_date: t.lease_end_date,
+              balance: t.balance,
+            }));
+
+      return {
+        ...u,
+        tenants: matchedTenants,
+      };
+    });
+  }, [rawUnits, allTenants]);
 
   // Navigation & View States
   const [view, setView] = useState<ViewMode>(
@@ -352,10 +380,11 @@ export default function Units() {
 
       // Unit Type Filter
       if (selectedTypeFilter !== 'all') {
-        if (selectedTypeFilter === '1bed' && u.bedrooms !== 1) return false;
-        if (selectedTypeFilter === '2bed' && u.bedrooms !== 2) return false;
-        if (selectedTypeFilter === '3bed' && (u.bedrooms || 0) < 3) return false;
-        if (selectedTypeFilter === 'studio' && (u.bedrooms || 0) !== 0) return false;
+        const ut = (u.unit_type || '').toLowerCase();
+        if (selectedTypeFilter === '1bed' && u.bedrooms !== 1 && !ut.includes('1')) return false;
+        if (selectedTypeFilter === '2bed' && u.bedrooms !== 2 && !ut.includes('2')) return false;
+        if (selectedTypeFilter === '3bed' && (u.bedrooms || 0) < 3 && !ut.includes('3') && !ut.includes('4')) return false;
+        if (selectedTypeFilter === 'studio' && (u.bedrooms || 0) !== 0 && !ut.includes('studio')) return false;
       }
 
       // Status Filter
@@ -911,6 +940,24 @@ export default function Units() {
           </Select>
         </div>
 
+        {/* Query Error Notice */}
+        {unitsError && (
+          <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-800 dark:text-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="font-bold">Notice: </span>
+              <span>{(unitsError as Error)?.message || 'Could not load all units from database.'}</span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => refetchUnits()}
+              className="h-7 text-xs border-rose-500/30 shrink-0 self-start sm:self-auto"
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+
         {/* Loading Spinner */}
         {isLoading && (
           <div className="py-16 text-center">
@@ -934,6 +981,8 @@ export default function Units() {
                 setSelectedPropertyFilter('all');
                 setSelectedTypeFilter('all');
                 setSelectedStatusFilter('all');
+                setSelectedBedroomsFilter('all');
+                setSelectedOrgFilter('all');
                 setSavedView('all');
               }}
               className="text-xs"

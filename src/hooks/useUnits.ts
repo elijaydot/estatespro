@@ -96,6 +96,7 @@ export interface Unit {
     email?: string | null;
     phone?: string | null;
     status?: string | null;
+    move_in_date?: string | null;
     lease_start_date?: string | null;
     lease_end_date?: string | null;
     balance?: number | null;
@@ -121,27 +122,96 @@ export function useUnits(propertyId?: string) {
         ? 'properties:property_id(id, name, company_id, companies:company_id(id, name))'
         : 'properties:property_id!inner(id, name, company_id, companies:company_id(id, name))';
 
-      let query = supabase
+      // Stage 1: Rich relational query (using move_in_date, NOT non-existent lease_start_date)
+      try {
+        let query = supabase
+          .from('units')
+          .select(`
+            *,
+            ${propertiesRelation},
+            tenants(id, name, email, phone, status, move_in_date, lease_end_date, balance),
+            maintenance_requests(id, title, status, priority, created_at)
+          `);
+
+        if (!isGlobal) {
+          query = query.eq('properties.company_id', activeCompanyId);
+        }
+
+        if (propertyId) {
+          query = query.eq('property_id', propertyId);
+        }
+
+        const { data, error } = await query.order('unit_number', { ascending: true });
+        if (!error && data && data.length > 0) {
+          return data as Unit[];
+        }
+        if (error) {
+          console.warn('Stage 1 useUnits query notice:', error.message);
+        }
+      } catch (err) {
+        console.warn('Stage 1 useUnits exception:', err);
+      }
+
+      // Stage 2: Standard relational query with properties (without child embeds)
+      try {
+        let query = supabase
+          .from('units')
+          .select(`
+            *,
+            ${propertiesRelation}
+          `);
+
+        if (!isGlobal) {
+          query = query.eq('properties.company_id', activeCompanyId);
+        }
+
+        if (propertyId) {
+          query = query.eq('property_id', propertyId);
+        }
+
+        const { data, error } = await query.order('unit_number', { ascending: true });
+        if (!error && data && data.length > 0) {
+          return data as Unit[];
+        }
+        if (error) {
+          console.warn('Stage 2 useUnits query notice:', error.message);
+        }
+      } catch (err) {
+        console.warn('Stage 2 useUnits exception:', err);
+      }
+
+      // Stage 3: Property ID in-list query (resolves company properties first)
+      try {
+        let propQuery = supabase.from('properties').select('id');
+        if (!isGlobal) {
+          propQuery = propQuery.eq('company_id', activeCompanyId);
+        }
+        const { data: propRows } = await propQuery;
+        const validPropIds = (propRows || []).map((p) => p.id);
+
+        if (validPropIds.length > 0) {
+          let directQuery = supabase
+            .from('units')
+            .select('*, properties:property_id(id, name, company_id)')
+            .in('property_id', propertyId ? [propertyId] : validPropIds);
+
+          const { data, error } = await directQuery.order('unit_number', { ascending: true });
+          if (!error && data) {
+            return data as Unit[];
+          }
+        }
+      } catch (err) {
+        console.warn('Stage 3 useUnits exception:', err);
+      }
+
+      // Stage 4: Broadest fallback (all accessible units ordered by unit_number)
+      const { data, error } = await supabase
         .from('units')
-        .select(`
-          *,
-          ${propertiesRelation},
-          tenants(id, name, email, phone, status, lease_start_date, lease_end_date, balance),
-          maintenance_requests(id, title, status, priority, created_at)
-        `);
-
-      if (!isGlobal) {
-        query = query.eq('properties.company_id', activeCompanyId);
-      }
-
-      if (propertyId) {
-        query = query.eq('property_id', propertyId);
-      }
-
-      const { data, error } = await query.order('unit_number', { ascending: true });
+        .select('*, properties:property_id(id, name, company_id)')
+        .order('unit_number', { ascending: true });
 
       if (error) throw error;
-      return data as Unit[];
+      return (data || []) as Unit[];
     },
     enabled: Boolean(activeCompanyId),
   });
@@ -159,21 +229,34 @@ export function useUnit(id: string) {
         ? 'properties:property_id(id, name, address, city, company_id, companies:company_id(id, name))'
         : 'properties:property_id!inner(id, name, address, city, company_id, companies:company_id(id, name))';
 
-      let query = supabase
-        .from('units')
-        .select(`
-          *,
-          ${propertiesRelation},
-          tenants(id, name, email, phone, status, lease_start_date, lease_end_date, balance),
-          maintenance_requests(id, title, status, priority, created_at)
-        `)
-        .eq('id', id);
+      // Stage 1: Rich relational query
+      try {
+        let query = supabase
+          .from('units')
+          .select(`
+            *,
+            ${propertiesRelation},
+            tenants(id, name, email, phone, status, move_in_date, lease_end_date, balance),
+            maintenance_requests(id, title, status, priority, created_at)
+          `)
+          .eq('id', id);
 
-      if (!isGlobal) {
-        query = query.eq('properties.company_id', activeCompanyId);
+        if (!isGlobal) {
+          query = query.eq('properties.company_id', activeCompanyId);
+        }
+
+        const { data, error } = await query.single();
+        if (!error && data) return data as Unit;
+      } catch (err) {
+        console.warn('Stage 1 useUnit exception:', err);
       }
 
-      const { data, error } = await query.single();
+      // Stage 2: Fallback query without child relations
+      const { data, error } = await supabase
+        .from('units')
+        .select('*, properties:property_id(id, name, address, city, company_id)')
+        .eq('id', id)
+        .single();
 
       if (error) throw error;
       return data as Unit;
