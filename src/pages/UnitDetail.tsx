@@ -53,6 +53,7 @@ import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { GenerateDescriptionButton } from '@/components/ai/GenerateDescriptionButton';
 import { useConfirmAction } from '@/components/ui/use-confirm-action';
 import { PageContainer, PageHeader, PageActions, PageInsights } from '@/design-system/LayoutFramework';
+import { EditUnitModal } from '@/components/units/EditUnitModal';
 
 type UnitWithRelations = Unit & {
   properties?: {
@@ -422,153 +423,12 @@ export default function UnitDetail() {
         </div>
       </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={(open) => !open && closeEdit()}>
-        <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Unit</DialogTitle>
-            <DialogDescription>Update all unit details below.</DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>Unit Photos (up to 10)</Label>
-              <MultiImageUpload
-                values={formData.image_urls}
-                onChange={(urls) => setFormData({ ...formData, image_urls: urls, image_url: urls[0] || '' })}
-                folder="units"
-                maxImages={10}
-              />
-            </div>
-
-            <h4 className="font-medium text-sm text-muted-foreground">Basic Information</h4>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="unitNumber">Unit Number *</Label>
-                <Input 
-                  id="unitNumber" 
-                  value={formData.unit_number}
-                  onChange={(e) => setFormData({ ...formData, unit_number: e.target.value })}
-                  placeholder="e.g., 101" 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="unitFloor">Floor *</Label>
-                <Input 
-                  id="unitFloor" 
-                  type="number" 
-                  value={formData.floor}
-                  onChange={(e) => setFormData({ ...formData, floor: parseInt(e.target.value) || 1 })}
-                  min="0" 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Status *</Label>
-                <SearchableSelect
-                  options={statusOptions}
-                  value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
-                  placeholder="Select status..."
-                  searchPlaceholder="Search status..."
-                />
-              </div>
-            </div>
-
-            <h4 className="font-medium text-sm text-muted-foreground pt-2">Unit Specifications</h4>
-            <div className="grid grid-cols-4 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="unitBeds">Bedrooms</Label>
-                <Input 
-                  id="unitBeds" 
-                  type="number" 
-                  value={formData.bedrooms}
-                  onChange={(e) => setFormData({ ...formData, bedrooms: parseInt(e.target.value) || 0 })}
-                  min="0" 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="unitBaths">Bathrooms</Label>
-                <Input 
-                  id="unitBaths" 
-                  type="number" 
-                  value={formData.bathrooms}
-                  onChange={(e) => setFormData({ ...formData, bathrooms: parseInt(e.target.value) || 0 })}
-                  min="0" 
-                  step="0.5" 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="unitSqft">Square Feet</Label>
-                <Input 
-                  id="unitSqft" 
-                  type="number" 
-                  value={formData.sqft}
-                  onChange={(e) => setFormData({ ...formData, sqft: parseInt(e.target.value) || 0 })}
-                  min="0" 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="unitRent">Monthly Rent ({settings.currencySymbol || 'RWF'})</Label>
-                <Input 
-                  id="unitRent" 
-                  type="number" 
-                  value={formData.rent_amount}
-                  onChange={(e) => setFormData({ ...formData, rent_amount: parseInt(e.target.value) || 0 })}
-                  min="0" 
-                  step="0.01" 
-                />
-              </div>
-            </div>
-
-            <h4 className="font-medium text-sm text-muted-foreground pt-2">Amenities</h4>
-            <div className="grid gap-2">
-              <Label htmlFor="unitAmenities">Amenities (comma-separated)</Label>
-              <Input 
-                id="unitAmenities" 
-                value={formData.amenities}
-                onChange={(e) => setFormData({ ...formData, amenities: e.target.value })}
-                placeholder="Air Conditioning, Parking, Washer/Dryer, Balcony"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="unitDesc">Description</Label>
-                <GenerateDescriptionButton
-                  type="unit"
-                  data={{
-                    unit_number: formData.unit_number,
-                    property_name: unit?.property_id || '',
-                    bedrooms: formData.bedrooms,
-                    bathrooms: formData.bathrooms,
-                    sqft: formData.sqft,
-                    floor: formData.floor,
-                    rent_amount: formData.rent_amount,
-                    amenities: formData.amenities.split(',').map((a: string) => a.trim()).filter(Boolean),
-                  }}
-                  onGenerated={(desc) => setFormData({ ...formData, description: desc })}
-                />
-              </div>
-              <Textarea 
-                id="unitDesc" 
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={4} 
-                placeholder="Describe the unit features, views, finishes, etc."
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={closeEdit}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={updateUnit.isPending}>
-              {updateUnit.isPending ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Section-based Edit Unit Modal */}
+      <EditUnitModal
+        unit={unit as any}
+        open={isEditOpen}
+        onOpenChange={(open) => !open && closeEdit()}
+      />
     </PageContainer>
   );
 }

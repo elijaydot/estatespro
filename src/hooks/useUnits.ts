@@ -4,6 +4,14 @@ import { toast } from '@/components/ui/use-toast';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { assertQuotaAvailable, getCompanyIdForProperty } from '@/lib/saasGuards';
 
+export interface UnitDocument {
+  id: string;
+  title: string;
+  type: string;
+  url: string;
+  uploadedAt: string;
+}
+
 export interface Unit {
   id: string;
   property_id: string;
@@ -21,6 +29,84 @@ export interface Unit {
   created_at: string;
   updated_at: string;
   user_id: string;
+
+  // Step 1: Basic Information
+  unit_code?: string | null;
+  building_name?: string | null;
+  wing?: string | null;
+  unit_type?: string | null;
+  unit_category?: string | null;
+  documents?: UnitDocument[] | null;
+
+  // Step 2: Specifications
+  toilets?: number | null;
+  floor_area_sqm?: number | null;
+  has_balcony?: boolean | null;
+  parking_spaces?: number | null;
+  furnishing_status?: string | null;
+  accessibility_features?: string[] | null;
+  utilities_included?: string[] | null;
+  view_type?: string | null;
+
+  // Step 3: Rental Information
+  market_rent?: number | null;
+  security_deposit?: number | null;
+  currency?: string | null;
+  billing_frequency?: string | null;
+  late_fee_rules?: Record<string, any> | null;
+  revenue_target?: number | null;
+  pricing_notes?: string | null;
+
+  // Step 4: Occupancy Settings
+  available_from?: string | null;
+  max_occupants?: number | null;
+  occupancy_type?: string | null;
+  preferred_tenant_type?: string | null;
+  notice_period_days?: number | null;
+  move_in_rules?: string | null;
+
+  // Step 5: Lease Defaults
+  default_lease_term_months?: number | null;
+  renewal_rules?: Record<string, any> | null;
+  lease_category?: string | null;
+  lease_templates?: Record<string, any>[] | null;
+  required_documents?: string[] | null;
+
+  // Step 6: Operations
+  maintenance_responsibility?: string | null;
+  inspection_frequency?: string | null;
+  cleaning_schedule?: string | null;
+  risk_rating?: string | null;
+  operational_notes?: string | null;
+
+  // Step 7: Data Quality
+  completeness_score?: number | null;
+  metadata?: Record<string, any> | null;
+
+  // Relations
+  properties?: {
+    id: string;
+    name: string;
+    company_id?: string;
+    companies?: { id: string; name: string } | null;
+  } | null;
+  tenants?: {
+    id: string;
+    name: string | null;
+    email?: string | null;
+    phone?: string | null;
+    status?: string | null;
+    lease_start_date?: string | null;
+    lease_end_date?: string | null;
+    balance?: number | null;
+  }[] | null;
+  maintenance_requests?: {
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    created_at: string;
+  }[] | null;
 }
 
 export function useUnits(propertyId?: string) {
@@ -39,7 +125,9 @@ export function useUnits(propertyId?: string) {
         .from('units')
         .select(`
           *,
-          ${propertiesRelation}
+          ${propertiesRelation},
+          tenants(id, name, email, phone, status, lease_start_date, lease_end_date, balance),
+          maintenance_requests(id, title, status, priority, created_at)
         `);
 
       if (!isGlobal) {
@@ -53,7 +141,7 @@ export function useUnits(propertyId?: string) {
       const { data, error } = await query.order('unit_number', { ascending: true });
 
       if (error) throw error;
-      return data;
+      return data as Unit[];
     },
     enabled: Boolean(activeCompanyId),
   });
@@ -75,7 +163,9 @@ export function useUnit(id: string) {
         .from('units')
         .select(`
           *,
-          ${propertiesRelation}
+          ${propertiesRelation},
+          tenants(id, name, email, phone, status, lease_start_date, lease_end_date, balance),
+          maintenance_requests(id, title, status, priority, created_at)
         `)
         .eq('id', id);
 
@@ -86,7 +176,7 @@ export function useUnit(id: string) {
       const { data, error } = await query.single();
 
       if (error) throw error;
-      return data;
+      return data as Unit;
     },
     enabled: Boolean(id && activeCompanyId),
   });
@@ -107,14 +197,25 @@ export function useCreateUnit() {
         requestedDelta: 1,
       });
 
+      const {
+        properties,
+        tenants,
+        maintenance_requests,
+        created_at,
+        updated_at,
+        user_id,
+        id: _ignoredId,
+        ...cleanFields
+      } = unit as any;
+
       const { data, error } = await supabase
         .from('units')
-        .insert({ ...unit, user_id: user.id })
+        .insert({ ...cleanFields, user_id: user.id })
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Unit;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['units'] });
@@ -131,15 +232,27 @@ export function useUpdateUnit() {
 
   return useMutation({
     mutationFn: async ({ id, ...unit }: Partial<Unit> & { id: string }) => {
+      // Strip joined relations and system fields so PostgREST never fails on schema cache
+      const {
+        properties,
+        tenants,
+        maintenance_requests,
+        created_at,
+        updated_at,
+        user_id,
+        id: _ignoredId,
+        ...cleanFields
+      } = unit as any;
+
       const { data, error } = await supabase
         .from('units')
-        .update(unit)
+        .update(cleanFields)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Unit;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['units'] });
