@@ -48,6 +48,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { EditPropertyModal } from '@/components/properties/EditPropertyModal';
+import { calculatePropertyCompleteness } from '@/lib/propertyProfileCompleteness';
+import { cn } from '@/lib/utils';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { toast } from '@/components/ui/use-toast';
@@ -147,6 +150,11 @@ export default function PropertyDetail() {
   const confirmAction = useConfirmAction();
   const propertyWithImages = property as PropertyWithImages | undefined;
   const unitRows = allUnits as UnitRow[];
+
+  const completeness = useMemo(
+    () => (property ? calculatePropertyCompleteness(property) : null),
+    [property]
+  );
 
   // Form state for edit
   const [formData, setFormData] = useState({
@@ -463,6 +471,67 @@ export default function PropertyDetail() {
           </div>
         </div>
       </div>
+
+      {/* Asset Profile Completeness Card */}
+      {completeness && (
+        <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div
+              className={cn(
+                'h-12 w-12 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border',
+                completeness.score >= 80
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                  : completeness.score >= 50
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                  : 'bg-muted text-muted-foreground border-border/60'
+              )}
+            >
+              {completeness.score}%
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-foreground">
+                  Property Asset Profile Quality
+                </span>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'text-[10px] font-semibold',
+                    completeness.score >= 80
+                      ? 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                      : 'border-amber-500/30 text-amber-600 dark:text-amber-400'
+                  )}
+                >
+                  {completeness.score >= 80 ? 'Enterprise Complete' : 'Recommendations Pending'}
+                </Badge>
+              </div>
+              {completeness.missingItems.length > 0 ? (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Missing:{' '}
+                  {completeness.missingItems.slice(0, 4).map((m) => m.label).join(', ')}
+                  {completeness.missingItems.length > 4 && ` +${completeness.missingItems.length - 4} more`}
+                </p>
+              ) : (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
+                  All essential portfolio, ownership, compliance and financial specifications complete.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openEdit}
+              className="gap-1.5 text-xs h-8 border-border/80"
+            >
+              <Edit className="h-3.5 w-3.5" />
+              <span>Complete Profile</span>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* 2. MIDDLE SECTION: 4 HEALTH METRICS CARDS (24px padding) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -883,130 +952,12 @@ export default function PropertyDetail() {
         </Tabs>
       </div>
 
-      {/* EDIT PROPERTY MODAL */}
-      <Dialog open={isEditOpen} onOpenChange={(open) => !open && closeEdit()}>
-        <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Property</DialogTitle>
-            <DialogDescription>Update all property details below.</DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>Property Photos (up to 10)</Label>
-              <MultiImageUpload
-                values={formData.image_urls}
-                onChange={(urls) => setFormData({ ...formData, image_urls: urls, image_url: urls[0] || '' })}
-                folder="properties"
-                maxImages={10}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="propertyName">Property Name *</Label>
-                <Input 
-                  id="propertyName" 
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Sunset Apartments" 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Property Type *</Label>
-                <SearchableSelect
-                  options={propertyTypeOptions}
-                  value={formData.type}
-                  onValueChange={(value) => setFormData({ ...formData, type: value })}
-                  placeholder="Select type..."
-                  searchPlaceholder="Search types..."
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="address">Address *</Label>
-              <Input 
-                id="address" 
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="Street address" 
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="city">City *</Label>
-                <Input 
-                  id="city" 
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  placeholder="Kigali" 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="state">State / Province</Label>
-                <Input 
-                  id="state" 
-                  value={formData.state}
-                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                  placeholder="Kigali City" 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="zipCode">Postal Code</Label>
-                <Input 
-                  id="zipCode" 
-                  value={formData.zip_code}
-                  onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
-                  placeholder="0000" 
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="country">Country</Label>
-                <Input 
-                  id="country" 
-                  value={formData.country}
-                  onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                  placeholder="Rwanda" 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="totalUnits">Total Units</Label>
-                <Input 
-                  id="totalUnits" 
-                  type="number" 
-                  min="1" 
-                  value={formData.total_units}
-                  onChange={(e) => setFormData({ ...formData, total_units: parseInt(e.target.value) || 1 })}
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea 
-                id="description" 
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Property details, amenities, location benefits..." 
-                rows={3}
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={closeEdit}>Cancel</Button>
-            <Button onClick={handleSave} disabled={updateProperty.isPending}>
-              {updateProperty.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* EDIT PROPERTY ASSET PROFILE MODAL */}
+      <EditPropertyModal
+        property={property}
+        open={isEditOpen}
+        onOpenChange={(open) => !open && closeEdit()}
+      />
     </PageContainer>
   );
 }

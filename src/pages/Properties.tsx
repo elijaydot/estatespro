@@ -48,6 +48,9 @@ import { toast } from '@/components/ui/use-toast';
 import { useProperties, useCreateProperty, useDeleteProperty, type Property } from '@/hooks/useProperties';
 import { useSettings } from '@/contexts/useSettings';
 import { useI18n } from '@/contexts/useI18n';
+import { AddPropertyWizard } from '@/components/properties/AddPropertyWizard';
+import { EditPropertyModal } from '@/components/properties/EditPropertyModal';
+import { calculatePropertyCompleteness } from '@/lib/propertyProfileCompleteness';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMyCompanies } from '@/hooks/useCompanies';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -138,6 +141,7 @@ export default function Properties() {
   const createProperty = useCreateProperty();
   const deleteProperty = useDeleteProperty();
   const confirmAction = useConfirmAction();
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
 
   const filteredProperties = properties.filter((property) => {
     if (selectedOrgFilter !== 'all' && property.company_id !== selectedOrgFilter) {
@@ -303,6 +307,18 @@ export default function Properties() {
                           🏢 {property.companies.name}
                         </span>
                       )}
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <span
+                          className={cn(
+                            'text-[10px] font-bold px-2 py-0.5 rounded-full border',
+                            calculatePropertyCompleteness(property).score >= 80
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                          )}
+                        >
+                          {calculatePropertyCompleteness(property).score}% Complete
+                        </span>
+                      </div>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -322,10 +338,10 @@ export default function Properties() {
                         <DropdownMenuItem
                           onSelect={(e) => {
                             e.preventDefault();
-                            navigate(`/properties/${property.id}?edit=true`);
+                            setEditingProperty(property);
                           }}
                         >
-                          <Edit className="h-4 w-4 mr-2" /> {t('btn_edit', 'Edit Property')}
+                          <Edit className="h-4 w-4 mr-2" /> Edit Asset Profile
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -434,8 +450,8 @@ export default function Properties() {
                           <DropdownMenuItem onSelect={() => navigate(`/properties/${property.id}`)}>
                             <Eye className="h-4 w-4 mr-2" /> {t('action_view_details', 'View Details')}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => navigate(`/properties/${property.id}?edit=true`)}>
-                            <Edit className="h-4 w-4 mr-2" /> {t('btn_edit', 'Edit Property')}
+                          <DropdownMenuItem onSelect={() => setEditingProperty(property)}>
+                            <Edit className="h-4 w-4 mr-2" /> Edit Asset Profile
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(property)}>
@@ -542,8 +558,8 @@ export default function Properties() {
                             <DropdownMenuItem onSelect={() => navigate(`/properties/${property.id}`)}>
                               <Eye className="h-4 w-4 mr-2" /> {t('action_view_details', 'View Details')}
                             </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => navigate(`/properties/${property.id}?edit=true`)}>
-                              <Edit className="h-4 w-4 mr-2" /> {t('btn_edit', 'Edit Property')}
+                            <DropdownMenuItem onSelect={() => setEditingProperty(property)}>
+                              <Edit className="h-4 w-4 mr-2" /> Edit Asset Profile
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(property)}>
@@ -578,140 +594,21 @@ export default function Properties() {
         />
       )}
 
-      {/* Add Property Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add New Property</DialogTitle>
-            <DialogDescription>
-              Enter the details for the new property. You can add units after creating the property.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid lg:grid-cols-2 gap-6 py-4">
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label>Property Photos (up to 10)</Label>
-                <MultiImageUpload
-                  values={formData.image_urls}
-                  onChange={(urls) => setFormData({ ...formData, image_urls: urls, image_url: urls[0] || '' })}
-                  folder="properties"
-                  maxImages={10}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="name">Property Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Sunset Apartments"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label>Property Type *</Label>
-                  <SearchableSelect
-                    options={propertyTypeOptions}
-                    value={formData.type}
-                    onValueChange={(value) => setFormData({ ...formData, type: value })}
-                    placeholder="Select type..."
-                    searchPlaceholder="Search types..."
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="units">Total Units</Label>
-                  <Input
-                    id="units"
-                    type="number"
-                    value={formData.total_units}
-                    onChange={(e) => setFormData({ ...formData, total_units: parseInt(e.target.value) || 1 })}
-                    min={1}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="address">Street Address *</Label>
-                <Input
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="123 Main Street"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="city">City *</Label>
-                  <Input
-                    id="city"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    placeholder="Kigali"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="state">State/Province</Label>
-                  <Input
-                    id="state"
-                    value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                    placeholder="Kigali City"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="zip">ZIP Code</Label>
-                  <Input
-                    id="zip"
-                    value={formData.zip_code}
-                    onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
-                    placeholder="00000"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="country">Country</Label>
-                  <Input
-                    id="country"
-                    value={formData.country}
-                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                    placeholder="Rwanda"
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Describe the property..."
-                  rows={3}
-                />
-              </div>
-            </div>
-            <PropertyPreviewCard
-              name={formData.name}
-              type={formData.type}
-              address={formData.address}
-              city={formData.city}
-              state={formData.state}
-              zipCode={formData.zip_code}
-              country={formData.country}
-              totalUnits={formData.total_units}
-              description={formData.description}
-              imageUrl={formData.image_url}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} disabled={createProperty.isPending}>
-              {createProperty.isPending ? 'Creating...' : 'Create Property'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* 7-Step Add Property Onboarding Wizard */}
+      <AddPropertyWizard
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        onSuccess={(newProp) => {
+          navigate(`/properties/${newProp.id}`);
+        }}
+      />
+
+      {/* Section-based Edit Property Modal */}
+      <EditPropertyModal
+        property={editingProperty}
+        open={Boolean(editingProperty)}
+        onOpenChange={(open) => !open && setEditingProperty(null)}
+      />
     </PageContainer>
   );
 }

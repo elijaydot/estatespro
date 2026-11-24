@@ -4,6 +4,27 @@ import { toast } from '@/components/ui/use-toast';
 import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { assertQuotaAvailable } from '@/lib/saasGuards';
 
+export interface PropertyEmergencyContact {
+  name: string;
+  phone: string;
+  relationship: string;
+  email?: string;
+}
+
+export interface PropertyManagementContacts {
+  phone?: string;
+  email?: string;
+  officeHours?: string;
+}
+
+export interface PropertyDocument {
+  id: string;
+  title: string;
+  type: string;
+  url: string;
+  uploadedAt: string;
+}
+
 export interface Property {
   id: string;
   name: string;
@@ -23,6 +44,83 @@ export interface Property {
   user_id: string;
   company_id?: string;
   companies?: { id: string; name: string } | null;
+
+  // Step 1: Basic Information
+  portfolio_name?: string | null;
+  property_code?: string | null;
+  category?: string | null;
+  status?: string | null;
+  opening_date?: string | null;
+  documents?: PropertyDocument[] | null;
+
+  // Step 2: Location & Address
+  province?: string | null;
+  district?: string | null;
+  sector?: string | null;
+  cell?: string | null;
+  village?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  google_maps_url?: string | null;
+  landmark?: string | null;
+  time_zone?: string | null;
+  upi?: string | null;
+
+  // Step 3: Characteristics
+  building_type?: string | null;
+  property_usage?: string | null;
+  number_of_buildings?: number | null;
+  number_of_floors?: number | null;
+  residential_units?: number | null;
+  commercial_units?: number | null;
+  parking_spaces?: number | null;
+  land_area?: number | null;
+  gross_floor_area?: number | null;
+  year_built?: number | null;
+  construction_status?: string | null;
+  amenities?: string[] | null;
+  accessibility_features?: string[] | null;
+  security_features?: string[] | null;
+  utilities?: string[] | null;
+
+  // Step 4: Ownership & Management
+  owner_name?: string | null;
+  owner_account_id?: string | null;
+  ownership_type?: string | null;
+  management_company?: string | null;
+  property_manager?: string | null;
+  management_contacts?: PropertyManagementContacts | null;
+  emergency_contacts?: PropertyEmergencyContact[] | null;
+  ownership_notes?: string | null;
+
+  // Step 5: Financial Profile
+  currency?: string | null;
+  revenue_target?: number | null;
+  operating_budget?: number | null;
+  acquisition_cost?: number | null;
+  market_value?: number | null;
+  insurance_policy_number?: string | null;
+  insurance_provider?: string | null;
+  insurance_expiry?: string | null;
+  insurance_amount?: number | null;
+  landlord_tin?: string | null;
+  tax_rate?: number | null;
+  cost_centre?: string | null;
+  accounting_reference?: string | null;
+  financial_notes?: string | null;
+
+  // Step 6: Operational Settings
+  maintenance_strategy?: string | null;
+  inspection_frequency?: string | null;
+  lease_rules?: Record<string, any> | null;
+  target_occupancy_rate?: number | null;
+  operational_notes?: string | null;
+  property_policies?: Record<string, any> | null;
+  risk_classification?: string | null;
+
+  // Step 7: Data Quality
+  completeness_score?: number | null;
+  metadata?: Record<string, any> | null;
 }
 
 export function useProperties() {

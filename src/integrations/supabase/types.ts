@@ -4497,63 +4497,249 @@ export type Database = {
       }
       properties: {
         Row: {
+          accessibility_features: string[] | null
+          accounting_reference: string | null
+          acquisition_cost: number | null
           address: string
+          amenities: string[] | null
+          building_type: string | null
+          category: string | null
+          cell: string | null
           city: string
+          commercial_units: number | null
           company_id: string | null
+          completeness_score: number | null
+          construction_status: string | null
+          cost_centre: string | null
           country: string
           created_at: string
+          currency: string | null
           description: string | null
+          district: string | null
+          documents: Json | null
+          emergency_contacts: Json | null
+          financial_notes: string | null
+          google_maps_url: string | null
+          gross_floor_area: number | null
           id: string
           image_url: string | null
           image_urls: string[] | null
+          inspection_frequency: string | null
+          insurance_amount: number | null
+          insurance_expiry: string | null
+          insurance_policy_number: string | null
+          insurance_provider: string | null
+          land_area: number | null
+          landlord_tin: string | null
+          landmark: string | null
+          latitude: number | null
+          lease_rules: Json | null
+          longitude: number | null
+          maintenance_strategy: string | null
+          management_company: string | null
+          management_contacts: Json | null
+          market_value: number | null
+          metadata: Json | null
           name: string
+          number_of_buildings: number | null
+          number_of_floors: number | null
           occupied_units: number
+          opening_date: string | null
+          operating_budget: number | null
+          operational_notes: string | null
           owner_account_id: string | null
+          owner_name: string | null
+          ownership_notes: string | null
+          ownership_type: string | null
+          parking_spaces: number | null
+          portfolio_name: string | null
+          property_code: string | null
+          property_manager: string | null
+          property_policies: Json | null
+          property_usage: string | null
+          province: string | null
+          residential_units: number | null
+          revenue_target: number | null
+          risk_classification: string | null
+          sector: string | null
+          security_features: string[] | null
           state: string
+          status: string | null
+          target_occupancy_rate: number | null
+          tax_rate: number | null
+          time_zone: string | null
           total_units: number
           type: string
           updated_at: string
+          upi: string | null
           user_id: string
+          utilities: string[] | null
+          village: string | null
+          year_built: number | null
           zip_code: string
         }
         Insert: {
+          accessibility_features?: string[] | null
+          accounting_reference?: string | null
+          acquisition_cost?: number | null
           address: string
+          amenities?: string[] | null
+          building_type?: string | null
+          category?: string | null
+          cell?: string | null
           city: string
+          commercial_units?: number | null
           company_id?: string | null
+          completeness_score?: number | null
+          construction_status?: string | null
+          cost_centre?: string | null
           country?: string
           created_at?: string
+          currency?: string | null
           description?: string | null
+          district?: string | null
+          documents?: Json | null
+          emergency_contacts?: Json | null
+          financial_notes?: string | null
+          google_maps_url?: string | null
+          gross_floor_area?: number | null
           id?: string
           image_url?: string | null
           image_urls?: string[] | null
+          inspection_frequency?: string | null
+          insurance_amount?: number | null
+          insurance_expiry?: string | null
+          insurance_policy_number?: string | null
+          insurance_provider?: string | null
+          land_area?: number | null
+          landlord_tin?: string | null
+          landmark?: string | null
+          latitude?: number | null
+          lease_rules?: Json | null
+          longitude?: number | null
+          maintenance_strategy?: string | null
+          management_company?: string | null
+          management_contacts?: Json | null
+          market_value?: number | null
+          metadata?: Json | null
           name: string
+          number_of_buildings?: number | null
+          number_of_floors?: number | null
           occupied_units?: number
+          opening_date?: string | null
+          operating_budget?: number | null
+          operational_notes?: string | null
           owner_account_id?: string | null
+          owner_name?: string | null
+          ownership_notes?: string | null
+          ownership_type?: string | null
+          parking_spaces?: number | null
+          portfolio_name?: string | null
+          property_code?: string | null
+          property_manager?: string | null
+          property_policies?: Json | null
+          property_usage?: string | null
+          province?: string | null
+          residential_units?: number | null
+          revenue_target?: number | null
+          risk_classification?: string | null
+          sector?: string | null
+          security_features?: string[] | null
           state: string
+          status?: string | null
+          target_occupancy_rate?: number | null
+          tax_rate?: number | null
+          time_zone?: string | null
           total_units?: number
           type?: string
           updated_at?: string
+          upi?: string | null
           user_id: string
+          utilities?: string[] | null
+          village?: string | null
+          year_built?: number | null
           zip_code: string
         }
         Update: {
+          accessibility_features?: string[] | null
+          accounting_reference?: string | null
+          acquisition_cost?: number | null
           address?: string
+          amenities?: string[] | null
+          building_type?: string | null
+          category?: string | null
+          cell?: string | null
           city?: string
+          commercial_units?: number | null
           company_id?: string | null
+          completeness_score?: number | null
+          construction_status?: string | null
+          cost_centre?: string | null
           country?: string
           created_at?: string
+          currency?: string | null
           description?: string | null
+          district?: string | null
+          documents?: Json | null
+          emergency_contacts?: Json | null
+          financial_notes?: string | null
+          google_maps_url?: string | null
+          gross_floor_area?: number | null
           id?: string
           image_url?: string | null
           image_urls?: string[] | null
+          inspection_frequency?: string | null
+          insurance_amount?: number | null
+          insurance_expiry?: string | null
+          insurance_policy_number?: string | null
+          insurance_provider?: string | null
+          land_area?: number | null
+          landlord_tin?: string | null
+          landmark?: string | null
+          latitude?: number | null
+          lease_rules?: Json | null
+          longitude?: number | null
+          maintenance_strategy?: string | null
+          management_company?: string | null
+          management_contacts?: Json | null
+          market_value?: number | null
+          metadata?: Json | null
           name?: string
+          number_of_buildings?: number | null
+          number_of_floors?: number | null
           occupied_units?: number
+          opening_date?: string | null
+          operating_budget?: number | null
+          operational_notes?: string | null
           owner_account_id?: string | null
+          owner_name?: string | null
+          ownership_notes?: string | null
+          ownership_type?: string | null
+          parking_spaces?: number | null
+          portfolio_name?: string | null
+          property_code?: string | null
+          property_manager?: string | null
+          property_policies?: Json | null
+          property_usage?: string | null
+          province?: string | null
+          residential_units?: number | null
+          revenue_target?: number | null
+          risk_classification?: string | null
+          sector?: string | null
+          security_features?: string[] | null
           state?: string
+          status?: string | null
+          target_occupancy_rate?: number | null
+          tax_rate?: number | null
+          time_zone?: string | null
           total_units?: number
           type?: string
           updated_at?: string
+          upi?: string | null
           user_id?: string
+          utilities?: string[] | null
+          village?: string | null
+          year_built?: number | null
           zip_code?: string
         }
         Relationships: [
