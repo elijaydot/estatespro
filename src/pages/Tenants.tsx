@@ -141,7 +141,8 @@ export default function Tenants() {
   const { user } = useAuth();
   const { role, isSuperAdmin } = useUserRole();
   const { activeCompanyId } = useActiveCompany();
-  const { data: companiesList = [] } = useMyCompanies();
+  const { data: rawCompaniesList } = useMyCompanies();
+  const companiesList = Array.isArray(rawCompaniesList) ? rawCompaniesList : [];
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-tenants') as ViewMode) || 'table');

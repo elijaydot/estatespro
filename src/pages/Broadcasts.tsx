@@ -61,13 +61,16 @@ export default function Broadcasts() {
   const { user } = useAuth();
   const { isManager, isSuperAdmin, isLoading: roleLoading } = useUserRole();
   const { t } = useI18n();
-  const { companies, activeCompanyId } = useActiveCompany();
-  const { data: companiesList = [] } = useMyCompanies();
+  const { companies = [], activeCompanyId } = useActiveCompany();
+  const { data: rawCompaniesList } = useMyCompanies();
+  const companiesList = Array.isArray(rawCompaniesList) ? rawCompaniesList : [];
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-broadcasts') as ViewMode) || 'table');
   const [search, setSearch] = useState('');
-  const { data: broadcasts = [], isLoading } = useBroadcastAnnouncements();
-  const { data: properties = [] } = useProperties();
+  const { data: rawBroadcasts, isLoading } = useBroadcastAnnouncements();
+  const broadcasts = Array.isArray(rawBroadcasts) ? rawBroadcasts : [];
+  const { data: rawProperties } = useProperties();
+  const properties = Array.isArray(rawProperties) ? rawProperties : [];
 
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
@@ -88,8 +91,8 @@ export default function Broadcasts() {
   const selectedPropertyId = propertyId === 'all' ? undefined : propertyId;
   const selectedUnitId = unitId === 'all' ? undefined : unitId;
 
-  const { data: units = [] } = useUnits(selectedPropertyId);
-  const unitRows = units as UnitRow[];
+  const { data: rawUnits } = useUnits(selectedPropertyId);
+  const unitRows = Array.isArray(rawUnits) ? (rawUnits as UnitRow[]) : [];
   const sendBroadcast = useSendBroadcast();
   const updateBroadcast = useUpdateBroadcast();
   const deleteBroadcast = useDeleteBroadcast();

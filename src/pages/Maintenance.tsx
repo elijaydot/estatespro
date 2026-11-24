@@ -17,6 +17,11 @@ import {
   DollarSign,
   ClipboardList,
   CheckSquare,
+  Columns3,
+  CheckCircle2,
+  ArrowRight,
+  LayoutGrid,
+  Table2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -202,10 +207,13 @@ export default function Maintenance() {
   const { formatCurrency } = useSettings();
   const { t } = useI18n();
   const { isSuperAdmin } = useUserRole();
-  const { data: companiesList = [] } = useMyCompanies();
+  const { data: rawCompaniesList } = useMyCompanies();
+  const companiesList = Array.isArray(rawCompaniesList) ? rawCompaniesList : [];
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-maintenance') as ViewMode) || 'table');
+  const [view, setView] = useState<'board' | 'cards' | 'compact' | 'table'>(
+    () => (localStorage.getItem('estatepro-view-maintenance') as any) || 'board'
+  );
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -512,8 +520,174 @@ export default function Maintenance() {
           )}
         </div>
 
-        <ViewToggle view={view} onViewChange={setView} />
+        <div className="inline-flex items-center gap-0.5 rounded-lg border border-border/80 bg-muted/40 p-0.5 shadow-xs">
+          <Button
+            type="button"
+            size="sm"
+            variant={view === 'board' ? 'secondary' : 'ghost'}
+            className={cn('h-8 gap-1.5 px-2.5 text-xs rounded-md', view === 'board' && 'bg-background shadow-xs font-semibold text-foreground')}
+            onClick={() => setView('board')}
+          >
+            <Columns3 className="h-3.5 w-3.5" />
+            Board
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={view === 'cards' ? 'secondary' : 'ghost'}
+            className={cn('h-8 gap-1.5 px-2.5 text-xs rounded-md', view === 'cards' && 'bg-background shadow-xs font-semibold text-foreground')}
+            onClick={() => setView('cards')}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            Cards
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={view === 'table' ? 'secondary' : 'ghost'}
+            className={cn('h-8 gap-1.5 px-2.5 text-xs rounded-md', view === 'table' && 'bg-background shadow-xs font-semibold text-foreground')}
+            onClick={() => setView('table')}
+          >
+            <Table2 className="h-3.5 w-3.5" />
+            Table
+          </Button>
+        </div>
       </FilterBar>
+
+      {/* 0. Linear-Inspired Kanban Board View */}
+      {!isLoading && view === 'board' && displayedRequests.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+          {[
+            {
+              id: 'submitted',
+              title: 'Requested',
+              color: 'bg-amber-500',
+              items: displayedRequests.filter((r) => r.status === 'submitted'),
+              emptyText: '✅ All incoming requests triaged',
+              nextStatus: 'in_progress',
+              nextLabel: 'Start Work',
+            },
+            {
+              id: 'in_progress',
+              title: 'In Progress',
+              color: 'bg-blue-500',
+              items: displayedRequests.filter((r) => r.status === 'in_progress'),
+              emptyText: 'No tasks currently underway',
+              nextStatus: 'completed',
+              nextLabel: 'Complete',
+            },
+            {
+              id: 'completed',
+              title: 'Completed',
+              color: 'bg-emerald-500',
+              items: displayedRequests.filter((r) => r.status === 'completed'),
+              emptyText: 'No completed tasks in this view',
+              nextStatus: 'in_progress',
+              nextLabel: 'Reopen',
+            },
+            {
+              id: 'cancelled',
+              title: 'Cancelled',
+              color: 'bg-slate-400',
+              items: displayedRequests.filter((r) => r.status === 'cancelled'),
+              emptyText: 'No cancelled requests',
+              nextStatus: 'submitted',
+              nextLabel: 'Restore',
+            },
+          ].map((column) => (
+            <div
+              key={column.id}
+              className="rounded-2xl border border-border/80 bg-muted/20 p-3.5 sm:p-4 flex flex-col space-y-3 min-h-[380px]"
+            >
+              {/* Column Header */}
+              <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                <div className="flex items-center gap-2">
+                  <span className={cn('h-2.5 w-2.5 rounded-full', column.color)} />
+                  <span className="font-bold text-xs uppercase tracking-wider text-foreground">
+                    {column.title}
+                  </span>
+                </div>
+                <Badge variant="outline" className="font-mono text-[11px] px-2 py-0 h-5">
+                  {column.items.length}
+                </Badge>
+              </div>
+
+              {/* Column Cards */}
+              <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[calc(100vh-280px)]">
+                {column.items.map((request) => (
+                  <Card
+                    key={request.id}
+                    className="p-3.5 rounded-xl border border-border/80 shadow-xs hover:border-primary/40 hover:shadow-sm transition-all bg-card space-y-2.5 group"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-semibold text-xs text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-2">
+                        {request.title}
+                      </h4>
+                      {getPriorityBadge(request.priority)}
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground line-clamp-2">
+                      {request.description}
+                    </p>
+
+                    <div className="pt-2 border-t border-border/50 text-[10px] text-muted-foreground space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="truncate font-medium text-foreground">
+                          {request.properties?.name || 'Property'} {request.units ? `• Unit ${request.units.unit_number}` : ''}
+                        </span>
+                        {request.actual_cost != null ? (
+                          <span className="font-mono font-semibold text-foreground">
+                            {formatCurrency(request.actual_cost)}
+                          </span>
+                        ) : request.estimated_cost != null ? (
+                          <span className="font-mono text-muted-foreground">
+                            {formatCurrency(request.estimated_cost)} est.
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] pt-0.5">
+                        <span className="text-muted-foreground truncate">
+                          {request.vendors?.name ? `Vendor: ${request.vendors.name}` : request.assigned_to ? `Assigned: ${request.assigned_to}` : 'Unassigned'}
+                        </span>
+                        <span>{format(new Date(request.created_at), 'MMM dd')}</span>
+                      </div>
+                    </div>
+
+                    {/* Quick One-Click Status Transition Button */}
+                    <div className="pt-1 flex items-center justify-between gap-1.5">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEdit(request)}
+                        className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={column.id === 'completed' ? 'outline' : 'default'}
+                        onClick={() => handleStatusChange(request.id, column.nextStatus, request.status)}
+                        className="h-7 px-2.5 text-[11px] gap-1"
+                      >
+                        <span>{column.nextLabel}</span>
+                        <ArrowRight className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+
+                {column.items.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground/80 flex flex-col items-center justify-center min-h-[160px] gap-1.5">
+                    <CheckCircle2 className="h-5 w-5 text-muted-foreground/40" />
+                    <span>{column.emptyText}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* 1. Cards / Grid View */}
       {!isLoading && view === 'cards' && paginatedRequests.length > 0 && (

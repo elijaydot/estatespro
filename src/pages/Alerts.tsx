@@ -66,7 +66,8 @@ const formatDateSafe = (dateString?: string | null) => {
 export default function Alerts() {
   const { isSuperAdmin } = useUserRole();
   const { t } = useI18n();
-  const { data: companiesList = [] } = useMyCompanies();
+  const { data: rawCompaniesList } = useMyCompanies();
+  const companiesList = Array.isArray(rawCompaniesList) ? rawCompaniesList : [];
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('estatepro-view-alerts') as ViewMode) || 'cards');
   const [page, setPage] = useState(1);
@@ -76,7 +77,8 @@ export default function Alerts() {
   const [severity, setSeverity] = useState<OperationalAlert['severity'] | 'all'>('all');
   const [search, setSearch] = useState('');
 
-  const { data: alerts = [], isLoading, error, refetch } = useOperationalAlerts();
+  const { data: rawAlerts, isLoading, error, refetch } = useOperationalAlerts();
+  const alerts = Array.isArray(rawAlerts) ? rawAlerts : [];
   const acknowledge = useAcknowledgeOperationalAlert();
   const acknowledgeMany = useAcknowledgeOperationalAlerts();
   const dismiss = useDismissOperationalAlert();

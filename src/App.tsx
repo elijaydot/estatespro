@@ -577,6 +577,7 @@ function AppRoutes() {
       <Route path="/guest-booking-portal" element={<PrivateRoute>{withSuspense(<GuestBookingPortal />)}</PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute>{withSuspense(<Notifications />)}</PrivateRoute>} />
       <Route path="/alerts" element={<PrivateRoute>{withSuspense(<Alerts />)}</PrivateRoute>} />
+      <Route path="/triggers" element={<PrivateRoute>{withSuspense(<Alerts />)}</PrivateRoute>} />
       <Route path="/vendors" element={<PrivateRoute>{withSuspense(<Vendors />)}</PrivateRoute>} />
       <Route path="/vendors/:id" element={<PrivateRoute>{withSuspense(<VendorDetail />)}</PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute>{withSuspense(<Reports />)}</PrivateRoute>} />

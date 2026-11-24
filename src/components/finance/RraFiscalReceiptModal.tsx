@@ -59,8 +59,8 @@ export function RraFiscalReceiptModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl md:max-w-2xl max-w-[95vw] w-full max-h-[88vh] flex flex-col p-0 overflow-hidden bg-card text-foreground border border-border/80 shadow-2xl rounded-2xl">
-        <DialogHeader className="shrink-0 bg-emerald-600/10 border-b border-emerald-500/20 px-5 sm:px-6 py-3.5">
+      <DialogContent className="sm:max-w-xl md:max-w-2xl max-w-[95vw] w-full h-[84vh] max-h-[620px] flex flex-col p-0 gap-0 overflow-hidden bg-card text-foreground border border-border/80 shadow-2xl rounded-2xl">
+        <DialogHeader className="shrink-0 bg-emerald-600/10 border-b border-emerald-500/20 px-5 sm:px-6 py-3.5 pr-12">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-emerald-500 shrink-0" />
@@ -78,7 +78,7 @@ export function RraFiscalReceiptModal({
         </DialogHeader>
 
         {/* Paper receipt presentation - flex-1 min-h-0 overflow-y-auto guarantees footer CTA is never clipped */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 font-mono text-xs space-y-3.5 bg-background/50 border-b border-border/60">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 font-mono text-xs space-y-3.5 bg-background/50">
           <div className="text-center space-y-0.5">
             <p className="font-bold text-sm tracking-wider text-foreground">REPUBLIKA Y'U RWANDA</p>
             <p className="text-[11px] text-muted-foreground font-medium">RWANDA REVENUE AUTHORITY</p>
@@ -167,31 +167,31 @@ export function RraFiscalReceiptModal({
           </div>
         </div>
 
-        <DialogFooter className="shrink-0 p-3.5 sm:p-4 bg-card flex flex-row items-center justify-between gap-2 border-t border-border/40">
+        <DialogFooter className="shrink-0 p-3 sm:p-4 bg-card/95 backdrop-blur-sm border-t border-border/80 flex flex-row items-center justify-between gap-2 z-20">
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={handleShareWhatsApp}
-              className="gap-1.5 text-xs text-emerald-500 hover:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+              className="gap-1 sm:gap-1.5 text-xs text-emerald-500 hover:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
             >
               <MessageCircle className="h-3.5 w-3.5" />
-              WhatsApp
+              <span className="hidden xs:inline">WhatsApp</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={handleVerifyOnline}
               disabled={verifying}
-              className="gap-1.5 text-xs"
+              className="gap-1 sm:gap-1.5 text-xs"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${verifying ? 'animate-spin' : ''}`} />
-              Verify RRA
+              <span className="hidden xs:inline">Verify RRA</span>
             </Button>
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5" onClick={handlePrint}>
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white gap-1 sm:gap-1.5" onClick={handlePrint}>
               <Printer className="h-3.5 w-3.5" />
               Print Receipt
             </Button>
