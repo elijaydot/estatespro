@@ -482,6 +482,7 @@ function AppRoutes() {
       <Route path="/api/docs" element={withSuspense(<ApiDocs />)} />
 
       <Route path="/dashboard" element={<PrivateRoute>{withSuspense(<Dashboard />)}</PrivateRoute>} />
+      <Route path="/activity" element={<Navigate to="/dashboard?view=activity" replace />} />
       <Route path="/team" element={<PrivateRoute>{withSuspense(<TeamManagement />)}</PrivateRoute>} />
       <Route path="/properties" element={<PrivateRoute>{withSuspense(<Properties />)}</PrivateRoute>} />
       <Route path="/properties/:id" element={<PrivateRoute>{withSuspense(<PropertyDetail />)}</PrivateRoute>} />
