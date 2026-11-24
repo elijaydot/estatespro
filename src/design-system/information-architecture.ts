@@ -110,13 +110,6 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
         description: 'All estate properties, yield efficiency, and cards',
       },
       {
-        id: 'properties-list',
-        label: 'Properties',
-        href: '/properties?view=list',
-        icon: Building,
-        description: 'Searchable directory of managed estates',
-      },
-      {
         id: 'units',
         label: 'Units',
         href: '/units',
@@ -126,7 +119,7 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
       {
         id: 'occupancy',
         label: 'Occupancy',
-        href: '/reports?domain=portfolio',
+        href: '/reports?category=occupancy',
         icon: TrendingUp,
         description: 'Capacity and physical occupancy trends',
       },

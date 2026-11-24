@@ -51,6 +51,7 @@ import { useI18n } from '@/contexts/useI18n';
 import { AddPropertyWizard } from '@/components/properties/AddPropertyWizard';
 import { EditPropertyModal } from '@/components/properties/EditPropertyModal';
 import { calculatePropertyCompleteness } from '@/lib/propertyProfileCompleteness';
+import { cn } from '@/lib/utils';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMyCompanies } from '@/hooks/useCompanies';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
