@@ -34,6 +34,7 @@ import {
   Calendar,
   FileText,
   SlidersHorizontal,
+  Info,
 } from 'lucide-react';
 import {
   AreaChart,
