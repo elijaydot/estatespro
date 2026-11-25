@@ -51,6 +51,7 @@ const Alerts = lazy(() => import("./pages/Alerts"));
 const Vendors = lazy(() => import("./pages/Vendors"));
 const VendorDetail = lazy(() => import("./pages/VendorDetail"));
 const Reports = lazy(() => import("./pages/Reports"));
+const Communications = lazy(() => import("./pages/Communications"));
 const MessagesPageV2 = lazy(() => import("./pages/MessagesPageV2"));
 const Bookings = lazy(() => import("./pages/Bookings"));
 const GuestBookingPortal = lazy(() => import("./pages/GuestBookingPortal"));
@@ -500,7 +501,8 @@ function AppRoutes() {
       <Route path="/payments" element={<PrivateRoute>{withSuspense(<Payments />)}</PrivateRoute>} />
       <Route path="/maintenance" element={<PrivateRoute>{withSuspense(<MaintenancePage />)}</PrivateRoute>} />
       <Route path="/recurring-bills" element={<PrivateRoute>{withSuspense(<RecurringBills />)}</PrivateRoute>} />
-      <Route path="/messages" element={<PrivateRoute>{withSuspense(<MessagesPageV2 />)}</PrivateRoute>} />
+      <Route path="/communications" element={<PrivateRoute>{withSuspense(<Communications />)}</PrivateRoute>} />
+      <Route path="/messages" element={<PrivateRoute>{withSuspense(<Communications />)}</PrivateRoute>} />
       <Route path="/bookings" element={<PrivateRoute>{withSuspense(<Bookings />)}</PrivateRoute>} />
       <Route
         path="/marketplace/manage"

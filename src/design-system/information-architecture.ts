@@ -141,9 +141,9 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
       {
         id: 'communications',
         label: 'Communications',
-        href: '/messages',
+        href: '/communications',
         icon: MessageSquare,
-        description: 'Direct messages and real-time chat with residents',
+        description: 'Resident conversation hub, emails, announcements and engagement',
       },
     ],
   },
