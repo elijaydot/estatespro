@@ -23,13 +23,16 @@ export function openPrintHtml(html: string, title: string = 'Document'): void {
   const htmlBlob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const htmlUrl = URL.createObjectURL(htmlBlob);
 
-  const printWindow = window.open(htmlUrl, '_blank', 'noopener,noreferrer');
+  const printWindow = window.open(htmlUrl, '_blank');
   if (printWindow) {
     printWindow.addEventListener(
       'load',
       () => {
         setTimeout(() => {
-          printWindow.print();
+          try {
+            printWindow.focus();
+            printWindow.print();
+          } catch (_) {}
           URL.revokeObjectURL(htmlUrl);
         }, 400);
       },
@@ -249,12 +252,21 @@ export function generateLeaseHtml(lease: any, branding?: { companyName?: string;
       color: #94a3b8;
     }
     @media print {
-      body { padding: 0; }
+      .no-print { display: none !important; }
+      body { padding: 0 !important; }
       @page { margin: 1.6cm; }
     }
   </style>
 </head>
 <body>
+  <div class="no-print" style="position: sticky; top: 0; z-index: 1000; background: #0f172a; color: #ffffff; padding: 12px 24px; margin: -40px -48px 24px -48px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="font-weight: 600; font-size: 14px;">FishGate Official Lease Agreement</div>
+    <div style="display: flex; gap: 8px;">
+      <button onclick="window.print()" style="background: #2563eb; color: #ffffff; border: none; padding: 8px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Print / Save as PDF</button>
+      <button onclick="window.close()" style="background: #334155; color: #ffffff; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 500; cursor: pointer; font-size: 13px;">Close</button>
+    </div>
+  </div>
+
   <div class="header">
     <div class="company-title">${escapeHtml(companyName)}</div>
     <h1>RESIDENTIAL LEASE AGREEMENT</h1>
@@ -356,6 +368,13 @@ export function generateLeaseHtml(lease: any, branding?: { companyName?: string;
   <div class="footer">
     FishGate Digital Lease Record • Reference ${escapeHtml(leaseNumber)} • Generated ${format(new Date(), 'PPpp')}
   </div>
+  <script>
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        try { window.print(); } catch(e) {}
+      }, 500);
+    });
+  </script>
 </body>
 </html>`;
 }
@@ -478,12 +497,21 @@ export function generateInvoiceHtml(invoice: any, branding?: { companyName?: str
       padding-top: 16px;
     }
     @media print {
-      body { padding: 0; }
+      .no-print { display: none !important; }
+      body { padding: 0 !important; }
       @page { margin: 1.5cm; }
     }
   </style>
 </head>
 <body>
+  <div class="no-print" style="position: sticky; top: 0; z-index: 1000; background: #0f172a; color: #ffffff; padding: 12px 24px; margin: -40px -40px 24px -40px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="font-weight: 600; font-size: 14px;">FishGate Official Tax Invoice</div>
+    <div style="display: flex; gap: 8px;">
+      <button onclick="window.print()" style="background: #2563eb; color: #ffffff; border: none; padding: 8px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Print / Save as PDF</button>
+      <button onclick="window.close()" style="background: #334155; color: #ffffff; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 500; cursor: pointer; font-size: 13px;">Close</button>
+    </div>
+  </div>
+
   <div class="header">
     <div class="brand">
       <h2>${escapeHtml(companyName)}</h2>
@@ -565,6 +593,13 @@ export function generateInvoiceHtml(invoice: any, branding?: { companyName?: str
   <div class="footer">
     FishGate Billing System • Generated ${format(new Date(), 'PPpp')}
   </div>
+  <script>
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        try { window.print(); } catch(e) {}
+      }, 500);
+    });
+  </script>
 </body>
 </html>`;
 }
@@ -654,12 +689,21 @@ export function generateReceiptHtml(payment: any, branding?: { companyName?: str
       color: #94a3b8;
     }
     @media print {
-      body { padding: 0; }
+      .no-print { display: none !important; }
+      body { padding: 0 !important; }
       @page { margin: 1.5cm; }
     }
   </style>
 </head>
 <body>
+  <div class="no-print" style="position: sticky; top: 0; z-index: 1000; background: #0f172a; color: #ffffff; padding: 12px 24px; margin: -40px -40px 24px -40px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="font-weight: 600; font-size: 14px;">FishGate Official Receipt</div>
+    <div style="display: flex; gap: 8px;">
+      <button onclick="window.print()" style="background: #16a34a; color: #ffffff; border: none; padding: 8px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Print / Save as PDF</button>
+      <button onclick="window.close()" style="background: #334155; color: #ffffff; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 500; cursor: pointer; font-size: 13px;">Close</button>
+    </div>
+  </div>
+
   <div class="receipt-card">
     <div class="header">
       <div>
@@ -698,6 +742,13 @@ export function generateReceiptHtml(payment: any, branding?: { companyName?: str
       FishGate Verified Digital Receipt • Valid for statutory tax & tenant record retention
     </div>
   </div>
+  <script>
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        try { window.print(); } catch(e) {}
+      }, 500);
+    });
+  </script>
 </body>
 </html>`;
 }
