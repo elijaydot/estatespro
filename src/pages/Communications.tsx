@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { PageContainer } from '@/design-system/LayoutFramework';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMessages, useSendMessage, useMarkAsRead, type Message } from '@/hooks/useMessages';
@@ -346,6 +347,30 @@ export default function Communications() {
     const targetTenant = tenants.find((t) => t.email === params.recipientEmail);
     const recipientId = targetTenant ? targetTenant.id : selectedThread?.tenantId || (tenants[0]?.id ?? '');
 
+    // 1. Dispatch actual email externally via Supabase Edge Function with Resend!
+    let emailSentSuccess = false;
+    try {
+      const { data, error } = await supabase.functions.invoke('send-email', {
+        body: {
+          to: params.recipientEmail,
+          subject: params.subject,
+          content: params.content,
+          cc: params.cc,
+          bcc: params.bcc,
+          fromName: selectedThread?.propertyName || 'FishGate Property Management',
+        },
+      });
+
+      if (!error && data?.success) {
+        emailSentSuccess = true;
+      } else if (error) {
+        console.warn('send-email edge function warning:', error);
+      }
+    } catch (edgeErr) {
+      console.warn('Could not reach send-email edge function:', edgeErr);
+    }
+
+    // 2. Log in timeline as well
     let body = `<!--TYPE:EMAIL-->${params.content}`;
     if (params.cc || params.bcc) {
       body += `\n\n[Email Meta: CC: ${params.cc || 'None'} | BCC: ${params.bcc || 'None'}]`;
@@ -362,6 +387,13 @@ export default function Communications() {
 
     if (targetTenant) {
       setActiveThreadId(targetTenant.id);
+    }
+
+    if (emailSentSuccess) {
+      toast({
+        title: 'Email Dispatched',
+        description: `Official email sent to ${params.recipientEmail} via Resend.`,
+      });
     }
   };
 

@@ -303,8 +303,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending email to:", tenant.email);
 
+    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "FishGate Leases <notifications@fishgatepro.com>";
+
     const emailResponse = await resend.emails.send({
-      from: "FishGate Leases <notifications@fishgatepro.com>",
+      from: fromEmail,
       to: [tenant.email],
       subject,
       html: htmlContent,

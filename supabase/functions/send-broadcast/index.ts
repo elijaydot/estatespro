@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { Resend } from 'https://esm.sh/resend@2.0.0';
 import {
   buildCorsHeaders,
   checkRateLimit,
@@ -155,10 +156,19 @@ Deno.serve(async (req) => {
     }
 
     const recipients = new Set<string>();
+    const recipientEmails = new Set<string>();
 
     if (targetRole === 'all' || targetRole === 'landlord') {
       if (company?.owner_id) {
         recipients.add(company.owner_id);
+        const { data: ownerProfile } = await adminClient
+          .from('profiles')
+          .select('email')
+          .eq('id', company.owner_id)
+          .maybeSingle();
+        if (ownerProfile?.email) {
+          recipientEmails.add(ownerProfile.email);
+        }
       }
     }
 
@@ -184,13 +194,24 @@ Deno.serve(async (req) => {
       }
 
       const { data: managers } = await managersQuery;
-      (managers || []).forEach((manager) => recipients.add(manager.user_id));
+      const managerUserIds = (managers || []).map((m) => m.user_id);
+      managerUserIds.forEach((id) => recipients.add(id));
+
+      if (managerUserIds.length > 0) {
+        const { data: managerProfiles } = await adminClient
+          .from('profiles')
+          .select('email')
+          .in('id', managerUserIds);
+        (managerProfiles || []).forEach((p) => {
+          if (p.email) recipientEmails.add(p.email);
+        });
+      }
     }
 
     if (targetRole === 'all' || targetRole === 'tenant') {
       let tenantsQuery = adminClient
         .from('tenants')
-        .select('tenant_user_id, property_id, unit_id')
+        .select('tenant_user_id, property_id, unit_id, email, name')
         .not('tenant_user_id', 'is', null);
 
       if (unitId) {
@@ -215,6 +236,9 @@ Deno.serve(async (req) => {
       (tenants || []).forEach((tenant) => {
         if (tenant.tenant_user_id) {
           recipients.add(tenant.tenant_user_id);
+        }
+        if (tenant.email) {
+          recipientEmails.add(tenant.email);
         }
       });
     }
@@ -244,8 +268,50 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Dispatch broadcast email via Resend if RESEND_API_KEY is configured
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    let emailsDispatched = 0;
+    if (resendApiKey && recipientEmails.size > 0) {
+      try {
+        const resend = new Resend(resendApiKey);
+        const fromEmail =
+          Deno.env.get('RESEND_FROM_EMAIL') ||
+          `${company?.name || 'FishGate'} <notifications@fishgatepro.com>`;
+
+        const emailRecipientsList = Array.from(recipientEmails);
+        // Batch in groups of up to 50 recipients
+        for (let i = 0; i < emailRecipientsList.length; i += 50) {
+          const batch = emailRecipientsList.slice(i, i + 50);
+          await resend.emails.send({
+            from: fromEmail,
+            to: batch,
+            subject: `Announcement: ${title}`,
+            html: `
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <h2 style="color: #0f172a; margin-top: 0; font-size: 20px;">${title}</h2>
+                <div style="font-size: 14px; color: #334155; line-height: 1.6; white-space: pre-wrap; margin: 20px 0;">
+                  ${message}
+                </div>
+                <p style="font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 16px; margin-bottom: 0;">
+                  Official announcement from ${company?.name || 'FishGate Property Management'}.
+                </p>
+              </div>
+            `,
+          });
+          emailsDispatched += batch.length;
+        }
+      } catch (emailErr) {
+        console.error('Failed to dispatch broadcast emails via Resend:', emailErr);
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, broadcast, recipients: recipientList.length }),
+      JSON.stringify({
+        success: true,
+        broadcast,
+        recipients: recipientList.length,
+        emailsDispatched,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

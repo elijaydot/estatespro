@@ -213,7 +213,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailsSent = [];
-    const fromEmail = `${companyName} <billing@fishgatepro.com>`;
+    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || `${companyName} <billing@fishgatepro.com>`;
     const replyTo = branding.companyEmail ? [branding.companyEmail] : undefined;
 
     // Send to tenant

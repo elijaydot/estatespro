@@ -152,8 +152,10 @@ const handler = async (req: Request): Promise<Response> => {
       const propertyName = property?.name || 'Your Property';
       const unitNumber = unit?.unit_number || '';
 
+      const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "FishGate Maintenance <notifications@fishgatepro.com>";
+
       await resend.emails.send({
-        from: "FishGate Maintenance <notifications@fishgatepro.com>",
+        from: fromEmail,
         to: [tenant.email],
         subject: `Maintenance Request ${statusLabel} - ${request.title}`,
         html: `

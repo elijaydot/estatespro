@@ -209,7 +209,7 @@ serve(async (req) => {
 			});
 
 			const companyName = branding.companyName || "FishGate";
-			const fromEmail = `${companyName} <bookings@fishgatepro.com>`;
+			const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || `${companyName} <bookings@fishgatepro.com>`;
 			const replyTo = branding.companyEmail ? [branding.companyEmail] : undefined;
 
 			const actionBase = `${appUrl}/bookings/guest-action?token=${encodeURIComponent(token)}`;

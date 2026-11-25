@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
         html: string;
         cc?: string[];
       } = {
-        from: "FishGate <noreply@fishgatepro.com>",
+        from: Deno.env.get("RESEND_FROM_EMAIL") || "FishGate <noreply@fishgatepro.com>",
         to: toEmails.map(e => e.email),
         subject: `Thank You & Tenancy Summary - ${property?.name || 'Your Property'}`,
         html: emailHtml,

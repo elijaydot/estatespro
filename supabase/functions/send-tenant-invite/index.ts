@@ -194,8 +194,9 @@ const handler = async (req: Request): Promise<Response> => {
       : "";
 
     // Send email
+    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || `${companyName} <notifications@fishgatepro.com>`;
     const emailResponse = await resend.emails.send({
-      from: `${companyName} <notifications@fishgatepro.com>`,
+      from: fromEmail,
       to: [email],
       subject: `You're invited to access your tenant portal`,
       html: `

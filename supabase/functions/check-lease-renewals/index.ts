@@ -128,8 +128,9 @@ Deno.serve(async (req) => {
         // Send email notification if Resend is configured
         if (resend && lease.tenants?.email) {
           // Email to tenant
+          const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'FishGate <noreply@fishgatepro.com>';
           await resend.emails.send({
-            from: 'FishGate <noreply@fishgatepro.com>',
+            from: fromEmail,
             to: [lease.tenants.email],
             subject: `Lease Renewal Reminder - ${lease.properties?.name}`,
             html: `
