@@ -32,6 +32,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { downloadInvoicePdf } from '@/lib/pdfService';
 
 type PortalInvoice = {
   id: string;
@@ -176,27 +177,15 @@ export default function TenantInvoices() {
   const handleDownloadPdf = async (invoiceId: string) => {
     setDownloadingId(invoiceId);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
-        body: { invoiceId },
+      const targetInvoice = invoices.find((inv) => inv.id === invoiceId);
+      await downloadInvoicePdf({
+        invoiceId,
+        invoiceData: targetInvoice,
       });
-
-      if (error) throw new Error(error.message || 'Failed to generate PDF');
-
-      const html = typeof data === 'string' ? data : await new Response(data).text();
-      const htmlBlob = new Blob([html], { type: 'text/html' });
-      const htmlUrl = URL.createObjectURL(htmlBlob);
-
-      const printWindow = window.open(htmlUrl, '_blank', 'noopener,noreferrer');
-      if (printWindow) {
-        printWindow.addEventListener('load', () => {
-          setTimeout(() => {
-            printWindow.print();
-            URL.revokeObjectURL(htmlUrl);
-          }, 500);
-        }, { once: true });
-      } else {
-        URL.revokeObjectURL(htmlUrl);
-      }
+      toast({
+        title: 'Invoice Ready',
+        description: 'Invoice document opened. Print or save as PDF.',
+      });
     } catch (error: unknown) {
       console.error('Error downloading PDF:', error);
       toast({ title: 'Error', description: getErrorMessage(error, 'Failed to generate invoice PDF'), variant: 'destructive' });

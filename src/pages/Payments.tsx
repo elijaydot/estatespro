@@ -55,6 +55,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
+import { downloadReceiptPdf } from '@/lib/pdfService';
 import { useSettings } from '@/contexts/useSettings';
 import { useI18n } from '@/contexts/useI18n';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -412,21 +413,21 @@ export default function Payments() {
     if (!paymentId) return;
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-receipt-pdf', {
-        body: { paymentId, companyId: activeCompanyId },
+      await downloadReceiptPdf({
+        paymentId,
+        companyId: activeCompanyId,
+        paymentData: payment,
       });
-
-      if (error) throw new Error(error.message);
-
-      const html = typeof data === 'string' ? data : await new Response(data).text();
-      const blob = new Blob([html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const win = window.open(url, '_blank', 'noopener,noreferrer');
-      if (win) {
-        win.addEventListener('load', () => setTimeout(() => { win.print(); URL.revokeObjectURL(url); }, 500), { once: true });
-      }
+      toast({
+        title: 'Receipt Ready',
+        description: 'Payment receipt opened. Print or save as PDF.',
+      });
     } catch (err: unknown) {
-      toast({ title: 'Error', description: 'Failed to generate PDF', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to generate receipt',
+        variant: 'destructive',
+      });
     }
   };
 

@@ -58,6 +58,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
+import { downloadInvoicePdf } from '@/lib/pdfService';
 import { useSettings } from '@/contexts/useSettings';
 import { useI18n } from '@/contexts/useI18n';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -397,27 +398,16 @@ export default function Invoices() {
   const handleDownloadPdf = async (invoiceId: string) => {
     setDownloadingId(invoiceId);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
-        body: { invoiceId, companyId: activeCompanyId },
+      const targetInvoice = invoiceRows.find((i) => i.id === invoiceId);
+      await downloadInvoicePdf({
+        invoiceId,
+        companyId: activeCompanyId,
+        invoiceData: targetInvoice,
       });
-
-      if (error) throw new Error(error.message || 'Failed to generate PDF');
-
-      const html = typeof data === 'string' ? data : await new Response(data).text();
-      const htmlBlob = new Blob([html], { type: 'text/html' });
-      const htmlUrl = URL.createObjectURL(htmlBlob);
-
-      const printWindow = window.open(htmlUrl, '_blank', 'noopener,noreferrer');
-      if (printWindow) {
-        printWindow.addEventListener('load', () => {
-          setTimeout(() => {
-            printWindow.print();
-            URL.revokeObjectURL(htmlUrl);
-          }, 500);
-        }, { once: true });
-      } else {
-        URL.revokeObjectURL(htmlUrl);
-      }
+      toast({
+        title: 'Invoice Ready',
+        description: 'Invoice document opened. Print or save as PDF.',
+      });
     } catch (err: unknown) {
       console.error('Error downloading PDF:', err);
       toast({

@@ -42,6 +42,7 @@ import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
+import { downloadReceiptPdf } from '@/lib/pdfService';
 import { useTenantPortalData } from '@/hooks/useTenantPortalData';
 import { useSettings } from '@/contexts/useSettings';
 import { supabase } from '@/integrations/supabase/client';
@@ -224,20 +225,32 @@ export default function TenantPayments() {
     toast({ title: 'Export complete', description: 'Downloaded payment history as CSV.' });
   };
 
-  const handleDownloadReceipt = (payment: TenantPayment) => {
-    downloadCsv(`receipt-${payment.id.slice(0, 8)}.csv`, [
-      {
-        payment_id: payment.id,
-        date: format(new Date(payment.created_at), 'yyyy-MM-dd'),
-        description: payment.invoices?.description || 'Payment',
-        method: payment.method,
-        amount: payment.amount,
-        status: payment.status || 'completed',
-        downloaded_at: new Date().toISOString(),
-      },
-    ]);
-
-    toast({ title: 'Receipt downloaded', description: `Downloaded receipt for payment.` });
+  const handleDownloadReceipt = async (payment: TenantPayment) => {
+    try {
+      await downloadReceiptPdf({
+        paymentId: payment.id,
+        paymentData: {
+          ...payment,
+          tenants: portalData?.tenant,
+          properties: portalData?.property,
+        },
+      });
+      toast({ title: 'Receipt Ready', description: 'Official payment receipt opened. Print or save as PDF.' });
+    } catch {
+      // Fallback to CSV if print fails
+      downloadCsv(`receipt-${payment.id.slice(0, 8)}.csv`, [
+        {
+          payment_id: payment.id,
+          date: format(new Date(payment.created_at), 'yyyy-MM-dd'),
+          description: payment.invoices?.description || 'Payment',
+          method: payment.method,
+          amount: payment.amount,
+          status: payment.status || 'completed',
+          downloaded_at: new Date().toISOString(),
+        },
+      ]);
+      toast({ title: 'Receipt downloaded', description: `Downloaded receipt for payment as CSV.` });
+    }
   };
 
   const handleViewRraReceipt = (payment: TenantPayment) => {

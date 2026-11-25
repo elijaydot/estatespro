@@ -26,6 +26,7 @@ import { toast } from '@/components/ui/use-toast';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatusPill } from '@/components/shared/StatusPill';
+import { downloadLeasePdf } from '@/lib/pdfService';
 
 type LeaseView = {
   id: string;
@@ -52,27 +53,14 @@ export default function TenantLease() {
   const handleDownloadPdf = async (leaseId: string) => {
     setDownloading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-lease-pdf', {
-        body: { leaseId },
+      await downloadLeasePdf({
+        leaseId,
+        leaseData: lease,
       });
-
-      if (error) throw new Error(error.message || 'Failed to generate PDF');
-
-      const html = typeof data === 'string' ? data : await new Response(data).text();
-      const htmlBlob = new Blob([html], { type: 'text/html' });
-      const htmlUrl = URL.createObjectURL(htmlBlob);
-
-      const printWindow = window.open(htmlUrl, '_blank', 'noopener,noreferrer');
-      if (printWindow) {
-        printWindow.addEventListener('load', () => {
-          setTimeout(() => {
-            printWindow.print();
-            URL.revokeObjectURL(htmlUrl);
-          }, 500);
-        }, { once: true });
-      } else {
-        URL.revokeObjectURL(htmlUrl);
-      }
+      toast({
+        title: 'Document Ready',
+        description: 'Lease agreement opened. Print or save as PDF.',
+      });
     } catch (error: unknown) {
       console.error('Error downloading PDF:', error);
       toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });

@@ -112,6 +112,7 @@ import {
   LEASE_TYPES,
   type LeaseStatusValue,
 } from '@/lib/leaseHealthModel';
+import { downloadLeasePdf } from '@/lib/pdfService';
 import { calculateRraLeaseFilingDeadline } from '@/lib/rraCompliance';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -641,37 +642,22 @@ export default function Leases() {
     });
   };
 
-  // PDF Generator Trigger
-  const handleDownloadPdf = async (leaseId: string) => {
+  // PDF Generator Trigger (Resilient Hybrid Engine)
+  const handleDownloadPdf = async (leaseId: string, preloadedLease?: Lease) => {
     try {
-      const { data, error } = await supabase.functions.invoke('generate-lease-pdf', {
-        body: { leaseId, companyId: activeCompanyId },
+      const lease = preloadedLease || leases.find((l) => l.id === leaseId);
+      await downloadLeasePdf({
+        leaseId,
+        companyId: activeCompanyId,
+        leaseData: lease,
       });
-
-      if (error) throw new Error(error.message || 'Failed to generate PDF');
-
-      const html = typeof data === 'string' ? data : await new Response(data).text();
-      const htmlBlob = new Blob([html], { type: 'text/html' });
-      const htmlUrl = URL.createObjectURL(htmlBlob);
-
-      const printWindow = window.open(htmlUrl, '_blank', 'noopener,noreferrer');
-      if (printWindow) {
-        printWindow.addEventListener(
-          'load',
-          () => {
-            setTimeout(() => {
-              printWindow.print();
-              URL.revokeObjectURL(htmlUrl);
-            }, 500);
-          },
-          { once: true }
-        );
-      } else {
-        URL.revokeObjectURL(htmlUrl);
-      }
+      toast({
+        title: 'Document Ready',
+        description: 'Lease agreement loaded. Print or save as PDF via your browser dialog.',
+      });
     } catch (err: unknown) {
       toast({
-        title: 'Error',
+        title: 'Document Generation Notice',
         description: err instanceof Error ? err.message : 'Failed to generate PDF',
         variant: 'destructive',
       });

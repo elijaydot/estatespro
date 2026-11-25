@@ -49,6 +49,7 @@ import {
 } from '@/lib/leaseHealthModel';
 import { calculateRraLeaseFilingDeadline } from '@/lib/rraCompliance';
 import { LeaseAttachments } from '@/components/leases/LeaseAttachments';
+import { downloadLeasePdf } from '@/lib/pdfService';
 import { format, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
@@ -59,7 +60,7 @@ interface LeaseWorkspaceModalProps {
   lease: Lease | null;
   onEdit?: (lease: Lease) => void;
   onSign?: (lease: Lease) => void;
-  onDownloadPdf?: (leaseId: string) => void;
+  onDownloadPdf?: (leaseId: string, lease?: Lease) => void;
   onBilingualModal?: (lease: Lease) => void;
   onDeleteSuccess?: () => void;
 }
@@ -165,17 +166,21 @@ export function LeaseWorkspaceModal({
                 </Button>
               )}
 
-              {onDownloadPdf && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-xs font-medium gap-1"
-                  onClick={() => onDownloadPdf(lease.id)}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  PDF
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs font-medium gap-1"
+                onClick={() => {
+                  if (onDownloadPdf) {
+                    onDownloadPdf(lease.id, lease);
+                  } else {
+                    downloadLeasePdf({ leaseId: lease.id, leaseData: lease });
+                  }
+                }}
+              >
+                <Download className="h-3.5 w-3.5" />
+                PDF
+              </Button>
 
               {onEdit && (
                 <Button
