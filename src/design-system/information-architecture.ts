@@ -170,9 +170,9 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
       {
         id: 'transactions',
         label: 'Transactions',
-        href: '/invoices',
+        href: '/transactions',
         icon: FileText,
-        description: 'Invoices, credit notes, and statement history',
+        description: 'Track all financial activity across collections, expenses, adjustments and transfers',
       },
     ],
   },

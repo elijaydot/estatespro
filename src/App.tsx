@@ -42,6 +42,7 @@ const Tenants = lazy(() => import("./pages/Tenants"));
 const TenantDetail = lazy(() => import("./pages/TenantDetail"));
 const Collections = lazy(() => import("./pages/Collections"));
 const Expenses = lazy(() => import("./pages/Expenses"));
+const Transactions = lazy(() => import("./pages/Transactions"));
 const Payments = lazy(() => import("./pages/Payments"));
 const Invoices = lazy(() => import("./pages/Invoices"));
 const MaintenancePage = lazy(() => import("./pages/Maintenance"));
@@ -508,6 +509,8 @@ function AppRoutes() {
       <Route path="/expenses" element={<PrivateRoute>{withSuspense(<Expenses />)}</PrivateRoute>} />
       <Route path="/finance/expenses" element={<Navigate to="/expenses" replace />} />
       <Route path="/recurring-bills" element={<Navigate to="/expenses" replace />} />
+      <Route path="/transactions" element={<PrivateRoute>{withSuspense(<Transactions />)}</PrivateRoute>} />
+      <Route path="/finance/transactions" element={<Navigate to="/transactions" replace />} />
       <Route path="/communications" element={<PrivateRoute>{withSuspense(<Communications />)}</PrivateRoute>} />
       <Route path="/messages" element={<PrivateRoute>{withSuspense(<Communications />)}</PrivateRoute>} />
       <Route path="/bookings" element={<PrivateRoute>{withSuspense(<Bookings />)}</PrivateRoute>} />

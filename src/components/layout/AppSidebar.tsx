@@ -73,6 +73,9 @@ export function AppSidebar({
       if (pathname === '/expenses' && location.pathname === '/recurring-bills') {
         return true;
       }
+      if (pathname === '/transactions' && location.pathname === '/invoices') {
+        return true;
+      }
       return false;
     }
 
