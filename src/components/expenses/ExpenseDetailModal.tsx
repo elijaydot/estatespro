@@ -2,6 +2,7 @@
 // FishGate Design Constitution v1.0 - Comprehensive Expense Detail & Management Workspace
 
 import { useState, useMemo, useEffect } from 'react';
+import { format } from 'date-fns';
 import {
   Dialog,
   DialogContent,
