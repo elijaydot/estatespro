@@ -70,6 +70,9 @@ export function AppSidebar({
       if (pathname === '/collections' && location.pathname === '/payments') {
         return true;
       }
+      if (pathname === '/expenses' && location.pathname === '/recurring-bills') {
+        return true;
+      }
       return false;
     }
 

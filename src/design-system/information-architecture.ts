@@ -163,9 +163,9 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
       {
         id: 'expenses',
         label: 'Expenses',
-        href: '/recurring-bills',
+        href: '/expenses',
         icon: Receipt,
-        description: 'Recurring utility bills and operating expenses',
+        description: 'Operational spending, budgets, vendors and financial controls',
       },
       {
         id: 'transactions',
