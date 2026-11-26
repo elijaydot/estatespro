@@ -67,6 +67,9 @@ export function AppSidebar({
     const domainParam = url.searchParams.get('domain');
 
     if (location.pathname !== pathname) {
+      if (pathname === '/collections' && location.pathname === '/payments') {
+        return true;
+      }
       return false;
     }
 
@@ -75,13 +78,6 @@ export function AppSidebar({
         return location.search.includes('view=activity');
       }
       return !location.search.includes('view=activity');
-    }
-
-    if (pathname === '/payments') {
-      if (viewParam === 'collections') {
-        return location.search.includes('view=collections');
-      }
-      return !location.search.includes('view=collections');
     }
 
     if (pathname === '/maintenance') {

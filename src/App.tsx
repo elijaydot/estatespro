@@ -40,6 +40,7 @@ const UnitDetail = lazy(() => import("./pages/UnitDetail"));
 const Occupancy = lazy(() => import("./pages/Occupancy"));
 const Tenants = lazy(() => import("./pages/Tenants"));
 const TenantDetail = lazy(() => import("./pages/TenantDetail"));
+const Collections = lazy(() => import("./pages/Collections"));
 const Payments = lazy(() => import("./pages/Payments"));
 const Invoices = lazy(() => import("./pages/Invoices"));
 const MaintenancePage = lazy(() => import("./pages/Maintenance"));
@@ -498,7 +499,10 @@ function AppRoutes() {
       <Route path="/tenant-inventory-baseline/:tenantId" element={<PrivateRoute>{withSuspense(<TenantInventoryBaseline />)}</PrivateRoute>} />
       <Route path="/leases" element={<PrivateRoute>{withSuspense(<Leases />)}</PrivateRoute>} />
       <Route path="/invoices" element={<PrivateRoute>{withSuspense(<Invoices />)}</PrivateRoute>} />
-      <Route path="/payments" element={<PrivateRoute>{withSuspense(<Payments />)}</PrivateRoute>} />
+      <Route path="/collections" element={<PrivateRoute>{withSuspense(<Collections />)}</PrivateRoute>} />
+      <Route path="/finance/collections" element={<Navigate to="/collections" replace />} />
+      <Route path="/rent-collection" element={<Navigate to="/collections" replace />} />
+      <Route path="/payments" element={<Navigate to="/collections" replace />} />
       <Route path="/maintenance" element={<PrivateRoute>{withSuspense(<MaintenancePage />)}</PrivateRoute>} />
       <Route path="/recurring-bills" element={<PrivateRoute>{withSuspense(<RecurringBills />)}</PrivateRoute>} />
       <Route path="/communications" element={<PrivateRoute>{withSuspense(<Communications />)}</PrivateRoute>} />

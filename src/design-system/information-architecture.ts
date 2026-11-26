@@ -154,18 +154,11 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
     description: 'Rental collections, payouts, and ledger',
     items: [
       {
-        id: 'rent-collection',
-        label: 'Rent Collection',
-        href: '/payments?view=collections',
+        id: 'collections',
+        label: 'Collections',
+        href: '/collections',
         icon: CreditCard,
-        description: 'Arrears tracking and MoMo/Card collections',
-      },
-      {
-        id: 'payments',
-        label: 'Payments',
-        href: '/payments',
-        icon: RotateCcw,
-        description: 'Settled receipts and official RRA EBM compliance',
+        description: 'Rent collection, incoming payments, arrears, receipts and payment plans',
       },
       {
         id: 'expenses',
@@ -325,6 +318,6 @@ export const MOBILE_PRIMARY_NAV = [
   { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { id: 'properties', label: 'Properties', href: '/properties', icon: Building2 },
   { id: 'residents', label: 'Residents', href: '/tenants', icon: Users },
-  { id: 'finance', label: 'Finance', href: '/payments?view=collections', icon: CreditCard },
+  { id: 'finance', label: 'Finance', href: '/collections', icon: CreditCard },
   { id: 'more', label: 'More', href: '#menu', icon: Sliders },
 ] as const;
