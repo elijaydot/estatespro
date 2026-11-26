@@ -5,9 +5,11 @@ import { cn } from '@/lib/utils';
 import { useI18n } from '@/contexts/useI18n';
 
 export interface PaginationProps {
-  page: number;
-  pageSize: number;
-  total: number;
+  page?: number;
+  currentPage?: number;
+  pageSize?: number;
+  total?: number;
+  totalCount?: number;
   onPageChange: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
   pageSizeOptions?: number[];
@@ -16,24 +18,43 @@ export interface PaginationProps {
 
 export function Pagination({
   page,
-  pageSize,
+  currentPage: propCurrentPage,
+  pageSize = 10,
   total,
+  totalCount: propTotalCount,
   onPageChange,
   onPageSizeChange,
   pageSizeOptions = [10, 25, 50, 100],
   className,
 }: PaginationProps) {
   const { t } = useI18n();
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const currentPage = Math.min(Math.max(page, 1), pageCount);
-  const first = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const last = Math.min(currentPage * pageSize, total);
+
+  const safeTotal = Number.isFinite(total)
+    ? Math.max(0, Number(total))
+    : Number.isFinite(propTotalCount)
+    ? Math.max(0, Number(propTotalCount))
+    : 0;
+
+  const safePageSize = Number.isFinite(pageSize) && Number(pageSize) > 0 ? Number(pageSize) : 10;
+  const pageCount = Math.max(1, Math.ceil(safeTotal / safePageSize));
+
+  const rawPage = Number.isFinite(page)
+    ? Number(page)
+    : Number.isFinite(propCurrentPage)
+    ? Number(propCurrentPage)
+    : 1;
+
+  const currentPage = Math.min(Math.max(rawPage, 1), pageCount);
+  const first = safeTotal === 0 ? 0 : (currentPage - 1) * safePageSize + 1;
+  const last = Math.min(currentPage * safePageSize, safeTotal);
 
   useEffect(() => {
-    if (page !== currentPage) onPageChange(currentPage);
-  }, [currentPage, onPageChange, page]);
+    if (Number.isFinite(currentPage) && rawPage !== currentPage) {
+      onPageChange(currentPage);
+    }
+  }, [currentPage, onPageChange, rawPage]);
 
-  if (total === 0) return null;
+  if (safeTotal === 0) return null;
 
   return (
     <div
@@ -49,7 +70,7 @@ export function Pagination({
           {t('pagination_to', 'to')}{' '}
           <strong className="font-semibold text-foreground">{last}</strong>{' '}
           {t('pagination_of', 'of')}{' '}
-          <strong className="font-semibold text-foreground">{total}</strong>{' '}
+          <strong className="font-semibold text-foreground">{safeTotal}</strong>{' '}
           {t('pagination_records', 'records')}
         </span>
       </div>

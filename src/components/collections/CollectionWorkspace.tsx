@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Users,
   CreditCard,
@@ -64,13 +65,27 @@ export function CollectionWorkspace({
   onViewTenantLease,
   currency = 'RWF',
 }: CollectionWorkspaceProps) {
-  const [activeTab, setActiveTab] = useState<'accounts' | 'payments' | 'outstanding' | 'plans' | 'receipts'>('accounts');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTab = searchParams.get('tab') || searchParams.get('view');
+  const validTabs = ['accounts', 'payments', 'outstanding', 'plans', 'receipts'] as const;
+  type TabType = typeof validTabs[number];
+
+  const initialTab: TabType = validTabs.includes(urlTab as any) ? (urlTab as TabType) : 'accounts';
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [propertyFilter, setPropertyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [methodFilter, setMethodFilter] = useState('all');
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
+
+  // Synchronize active tab when URL changes
+  useEffect(() => {
+    if (urlTab && validTabs.includes(urlTab as any) && urlTab !== activeTab) {
+      setActiveTab(urlTab as TabType);
+      setPage(1);
+    }
+  }, [urlTab]);
 
   // Extract unique properties for filter dropdown
   const propertyOptions = useMemo(() => {
@@ -81,11 +96,17 @@ export function CollectionWorkspace({
     return Array.from(set);
   }, [accounts]);
 
-  // Reset page on filter changes
+  // Handle Tab Change and update URL
   const handleTabChange = (val: string) => {
-    setActiveTab(val as any);
+    const nextTab = val as TabType;
+    setActiveTab(nextTab);
     setPage(1);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', nextTab);
+    setSearchParams(newParams, { replace: true });
   };
+
+  const safePage = Number.isFinite(page) && page > 0 ? page : 1;
 
   // 1. FILTERED ACCOUNTS
   const filteredAccounts = useMemo(() => {
@@ -316,7 +337,7 @@ export function CollectionWorkspace({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredAccounts.slice((page - 1) * pageSize, page * pageSize).map((acc) => {
+                  filteredAccounts.slice((safePage - 1) * pageSize, safePage * pageSize).map((acc) => {
                     const isOverdue = acc.currentBalance > 0;
                     return (
                       <TableRow key={acc.tenantId} className="hover:bg-slate-50/80 transition-colors">
@@ -407,10 +428,11 @@ export function CollectionWorkspace({
           </div>
           <div className="p-4 border-t border-slate-100 flex justify-end">
             <Pagination
-              currentPage={page}
-              totalCount={filteredAccounts.length}
+              page={safePage}
+              total={filteredAccounts.length}
               pageSize={pageSize}
               onPageChange={setPage}
+              onPageSizeChange={setPageSize}
             />
           </div>
         </TabsContent>
@@ -441,7 +463,7 @@ export function CollectionWorkspace({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredPayments.slice((page - 1) * pageSize, page * pageSize).map((p) => {
+                  filteredPayments.slice((safePage - 1) * pageSize, safePage * pageSize).map((p) => {
                     const isSuccess = p.status === 'completed';
                     return (
                       <TableRow key={p.id} className="hover:bg-slate-50/80 transition-colors">
@@ -508,10 +530,11 @@ export function CollectionWorkspace({
           </div>
           <div className="p-4 border-t border-slate-100 flex justify-end">
             <Pagination
-              currentPage={page}
-              totalCount={filteredPayments.length}
+              page={safePage}
+              total={filteredPayments.length}
               pageSize={pageSize}
               onPageChange={setPage}
+              onPageSizeChange={setPageSize}
             />
           </div>
         </TabsContent>
@@ -541,7 +564,7 @@ export function CollectionWorkspace({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredOutstanding.slice((page - 1) * pageSize, page * pageSize).map((item) => {
+                  filteredOutstanding.slice((safePage - 1) * pageSize, safePage * pageSize).map((item) => {
                     const isSevere = item.daysOverdue > 30;
                     return (
                       <TableRow key={item.tenantId} className="hover:bg-slate-50/80 transition-colors">
@@ -597,10 +620,11 @@ export function CollectionWorkspace({
           </div>
           <div className="p-4 border-t border-slate-100 flex justify-end">
             <Pagination
-              currentPage={page}
-              totalCount={filteredOutstanding.length}
+              page={safePage}
+              total={filteredOutstanding.length}
               pageSize={pageSize}
               onPageChange={setPage}
+              onPageSizeChange={setPageSize}
             />
           </div>
         </TabsContent>
@@ -631,7 +655,7 @@ export function CollectionWorkspace({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredPlans.slice((page - 1) * pageSize, page * pageSize).map((plan) => (
+                  filteredPlans.slice((safePage - 1) * pageSize, safePage * pageSize).map((plan) => (
                     <TableRow key={plan.id} className="hover:bg-slate-50/80 transition-colors">
                       <TableCell className="font-bold text-slate-900 text-xs">
                         {plan.tenantName}
@@ -683,10 +707,11 @@ export function CollectionWorkspace({
           </div>
           <div className="p-4 border-t border-slate-100 flex justify-end">
             <Pagination
-              currentPage={page}
-              totalCount={filteredPlans.length}
+              page={safePage}
+              total={filteredPlans.length}
               pageSize={pageSize}
               onPageChange={setPage}
+              onPageSizeChange={setPageSize}
             />
           </div>
         </TabsContent>
@@ -717,7 +742,7 @@ export function CollectionWorkspace({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredReceipts.slice((page - 1) * pageSize, page * pageSize).map((rec) => (
+                  filteredReceipts.slice((safePage - 1) * pageSize, safePage * pageSize).map((rec) => (
                     <TableRow key={rec.id} className="hover:bg-slate-50/80 transition-colors">
                       <TableCell className="font-mono text-xs font-bold text-blue-700">
                         {rec.receiptNumber}
@@ -774,10 +799,11 @@ export function CollectionWorkspace({
           </div>
           <div className="p-4 border-t border-slate-100 flex justify-end">
             <Pagination
-              currentPage={page}
-              totalCount={filteredReceipts.length}
+              page={safePage}
+              total={filteredReceipts.length}
               pageSize={pageSize}
               onPageChange={setPage}
+              onPageSizeChange={setPageSize}
             />
           </div>
         </TabsContent>
