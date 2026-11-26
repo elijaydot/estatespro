@@ -24,12 +24,17 @@ import {
   X,
   PieChart,
   ShieldAlert,
+  Eye,
+  Edit,
+  Printer,
+  Trash2,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Pagination } from '@/components/shared/Pagination';
 import { cn } from '@/lib/utils';
@@ -51,6 +56,10 @@ interface ExpenseWorkspaceProps {
   onRequestClarification: (expense: ExpenseRecord) => void;
   onRecordPaymentForVendor: (vendorId: string) => void;
   onViewExpenseDetail?: (expense: ExpenseRecord) => void;
+  onEditExpense?: (expense: ExpenseRecord) => void;
+  onMarkAsPaid?: (expense: ExpenseRecord) => void;
+  onPrintVoucher?: (expense: ExpenseRecord) => void;
+  onDeleteExpense?: (expenseId: string) => void;
   currency?: string;
 }
 
@@ -64,6 +73,10 @@ export function ExpenseWorkspace({
   onRequestClarification,
   onRecordPaymentForVendor,
   onViewExpenseDetail,
+  onEditExpense,
+  onMarkAsPaid,
+  onPrintVoucher,
+  onDeleteExpense,
   currency = 'RWF',
 }: ExpenseWorkspaceProps) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -413,7 +426,11 @@ export function ExpenseWorkspace({
                   </TableRow>
                 ) : (
                   filteredAllExpenses.slice((safePage - 1) * pageSize, safePage * pageSize).map((exp) => (
-                    <TableRow key={exp.id} className="hover:bg-slate-50/80 transition-colors">
+                    <TableRow
+                      key={exp.id}
+                      className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                      onClick={() => onViewExpenseDetail && onViewExpenseDetail(exp)}
+                    >
                       <TableCell className="font-mono text-xs font-bold text-blue-700">
                         {exp.reference}
                       </TableCell>
@@ -468,15 +485,93 @@ export function ExpenseWorkspace({
                       <TableCell className="text-xs text-slate-600">
                         {exp.submittedBy}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2.5 text-[11px] font-semibold text-slate-700"
-                          onClick={() => onViewExpenseDetail && onViewExpenseDetail(exp)}
-                        >
-                          Details
-                        </Button>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2.5 text-[11px] font-semibold text-slate-700 bg-white shadow-2xs gap-1"
+                            onClick={() => onViewExpenseDetail && onViewExpenseDetail(exp)}
+                          >
+                            <Eye className="w-3 h-3 text-blue-600" />
+                            Details
+                          </Button>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-slate-500 hover:text-slate-800"
+                              >
+                                <MoreVertical className="w-3.5 h-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44 text-xs font-medium">
+                              <DropdownMenuItem
+                                onClick={() => onViewExpenseDetail && onViewExpenseDetail(exp)}
+                                className="gap-2 cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-blue-600" />
+                                View Full Details
+                              </DropdownMenuItem>
+
+                              {onEditExpense && (
+                                <DropdownMenuItem
+                                  onClick={() => onEditExpense(exp)}
+                                  className="gap-2 cursor-pointer"
+                                >
+                                  <Edit className="w-3.5 h-3.5 text-slate-600" />
+                                  Edit Expense
+                                </DropdownMenuItem>
+                              )}
+
+                              {exp.paymentStatus === 'pending' && onMarkAsPaid && (
+                                <DropdownMenuItem
+                                  onClick={() => onMarkAsPaid(exp)}
+                                  className="gap-2 cursor-pointer text-emerald-700"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  Mark as Paid
+                                </DropdownMenuItem>
+                              )}
+
+                              {exp.approvalStatus === 'pending' && (
+                                <DropdownMenuItem
+                                  onClick={() => onApproveExpense(exp)}
+                                  className="gap-2 cursor-pointer text-amber-700"
+                                >
+                                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                  Review Approval
+                                </DropdownMenuItem>
+                              )}
+
+                              {onPrintVoucher && (
+                                <DropdownMenuItem
+                                  onClick={() => onPrintVoucher(exp)}
+                                  className="gap-2 cursor-pointer"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                  Print Voucher PDF
+                                </DropdownMenuItem>
+                              )}
+
+                              {onDeleteExpense && (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    if (confirm(`Are you sure you want to delete ${exp.reference}?`)) {
+                                      onDeleteExpense(exp.id);
+                                    }
+                                  }}
+                                  className="gap-2 cursor-pointer text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  Delete Entry
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

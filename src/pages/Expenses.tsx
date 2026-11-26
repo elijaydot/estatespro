@@ -28,6 +28,7 @@ import { useVendors, Vendor } from '@/hooks/useVendors';
 import { useVendorPayments } from '@/hooks/useVendorPayments';
 import { useRecurringBills } from '@/hooks/useRecurringBills';
 import { downloadCsv } from '@/lib/download';
+import { openPrintHtml } from '@/lib/pdfService';
 import { format, isThisMonth } from 'date-fns';
 
 // Specialized Expense Components
@@ -38,6 +39,7 @@ import { ExpenseBudgetPerformance } from '@/components/expenses/ExpenseBudgetPer
 import { ExpenseVendorOverview } from '@/components/expenses/ExpenseVendorOverview';
 import { ExpenseObservations } from '@/components/expenses/ExpenseObservations';
 import { ExpenseCreationWizard } from '@/components/expenses/ExpenseCreationWizard';
+import { ExpenseDetailModal } from '@/components/expenses/ExpenseDetailModal';
 import { AddVendorModal } from '@/components/expenses/AddVendorModal';
 import { ExpenseApprovalModal } from '@/components/expenses/ExpenseApprovalModal';
 import {
@@ -65,6 +67,8 @@ export default function Expenses() {
   const [addVendorOpen, setAddVendorOpen] = useState(false);
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
   const [selectedExpenseForApproval, setSelectedExpenseForApproval] = useState<ExpenseRecord | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<ExpenseRecord | null>(null);
 
   // Local/Augmented Expenses state
   const [localExpenses, setLocalExpenses] = useState<ExpenseRecord[]>([
@@ -615,6 +619,133 @@ export default function Expenses() {
     setApprovalModalOpen(true);
   };
 
+  const handleOpenExpenseDetail = (expense: ExpenseRecord) => {
+    setSelectedExpenseForDetail(expense);
+    setDetailModalOpen(true);
+  };
+
+  const handleUpdateExpense = (updated: ExpenseRecord) => {
+    setLocalExpenses((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    setSelectedExpenseForDetail(updated);
+  };
+
+  const handleDeleteExpense = (expenseId: string) => {
+    setLocalExpenses((prev) => prev.filter((e) => e.id !== expenseId));
+    toast({
+      title: 'Expense Deleted',
+      description: 'The operational expense record has been removed.',
+    });
+  };
+
+  const handleMarkAsPaid = (expense: ExpenseRecord) => {
+    const updated: ExpenseRecord = {
+      ...expense,
+      paymentStatus: 'paid',
+      hasReceipt: true,
+    };
+    handleUpdateExpense(updated);
+    toast({
+      title: 'Disbursement Cleared',
+      description: `${expense.reference} marked as settled and cleared.`,
+    });
+  };
+
+  const handlePrintVoucher = (expense: ExpenseRecord) => {
+    const companyName = activeCompany?.name || 'FishGate Real Estate Rwanda Ltd';
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Payment Voucher - ${expense.reference}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 40px; color: #1e293b; line-height: 1.5; }
+    .header { border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .title { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0; }
+    .ref { font-size: 14px; font-family: monospace; font-weight: 700; color: #2563eb; margin-top: 4px; }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; font-size: 13px; }
+    .meta-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+    .label { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
+    .value { font-weight: 600; color: #0f172a; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px; }
+    th { background: #f1f5f9; padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 1px solid #cbd5e1; }
+    td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+    .amount { font-size: 16px; font-weight: 800; color: #0f172a; }
+    .signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-top: 48px; padding-top: 24px; border-top: 1px dashed #cbd5e1; }
+    .sig-line { border-bottom: 1px solid #94a3b8; height: 36px; margin-bottom: 8px; }
+    .sig-label { font-size: 11px; color: #64748b; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1 class="title">OFFICIAL PAYMENT VOUCHER</h1>
+      <div class="ref">${expense.reference}</div>
+      <div style="font-size: 12px; color: #64748b; margin-top: 4px;">${companyName}</div>
+    </div>
+    <div style="text-align: right; font-size: 12px; color: #475569;">
+      <div><strong>Date:</strong> ${expense.expenseDate}</div>
+      <div><strong>Payment Status:</strong> ${expense.paymentStatus.toUpperCase()}</div>
+      <div><strong>Approval Status:</strong> ${expense.approvalStatus.toUpperCase()}</div>
+    </div>
+  </div>
+
+  <div class="meta-grid">
+    <div class="meta-box">
+      <div class="label">Payee / Beneficiary Vendor</div>
+      <div class="value" style="font-size: 15px;">${expense.vendorName}</div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Type: ${expense.vendorType || 'Contractor'}</div>
+      ${expense.invoiceNumber ? `<div style="font-size: 11px; color: #64748b;">Invoice Ref: ${expense.invoiceNumber}</div>` : ''}
+    </div>
+    <div class="meta-box">
+      <div class="label">Premises & Cost Center</div>
+      <div class="value">${expense.propertyName} ${expense.unitNumber ? `(Unit ${expense.unitNumber})` : ''}</div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Category: ${expense.category} ${expense.subcategory ? `• ${expense.subcategory}` : ''}</div>
+      <div style="font-size: 11px; color: #64748b;">Cost Center: ${expense.costCenter || 'Property Operations'}</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Description / Scope of Expenditure</th>
+        <th style="text-align: right;">Net Amount</th>
+        <th style="text-align: right;">Tax (${expense.taxType.replace('_', ' ').toUpperCase()})</th>
+        <th style="text-align: right;">Total Outlay</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <strong>${expense.title}</strong>
+          ${expense.description ? `<br><span style="font-size: 12px; color: #64748b;">${expense.description}</span>` : ''}
+        </td>
+        <td style="text-align: right;">${expense.currency} ${(expense.amount - expense.taxAmount).toLocaleString()}</td>
+        <td style="text-align: right;">${expense.currency} ${expense.taxAmount.toLocaleString()}</td>
+        <td style="text-align: right;" class="amount">${expense.currency} ${expense.amount.toLocaleString()}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="signatures">
+    <div>
+      <div class="sig-line"></div>
+      <div class="sig-label">Prepared By<br><strong>${expense.submittedBy}</strong></div>
+    </div>
+    <div>
+      <div class="sig-line"></div>
+      <div class="sig-label">Authorized By<br><strong>${expense.approverName || 'Financial Controller'}</strong></div>
+    </div>
+    <div>
+      <div class="sig-line"></div>
+      <div class="sig-label">Received / Beneficiary<br><strong>${expense.vendorName}</strong></div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    openPrintHtml(html, `Voucher-${expense.reference}`);
+  };
+
   const handleConfirmApprovalAction = async (
     expenseId: string,
     action: 'approve' | 'reject' | 'clarify',
@@ -788,12 +919,11 @@ export default function Expenses() {
             const v = rawVendors.find((vend) => vend.id === vendorId);
             handleOpenWizard();
           }}
-          onViewExpenseDetail={(exp) => {
-            toast({
-              title: `${exp.reference}: ${exp.title}`,
-              description: `Amount: ${currency} ${exp.amount.toLocaleString()} • Status: ${exp.approvalStatus.toUpperCase()} • Vendor: ${exp.vendorName}`,
-            });
-          }}
+          onViewExpenseDetail={handleOpenExpenseDetail}
+          onEditExpense={handleOpenExpenseDetail}
+          onMarkAsPaid={handleMarkAsPaid}
+          onPrintVoucher={handlePrintVoucher}
+          onDeleteExpense={handleDeleteExpense}
           currency={currency}
         />
 
@@ -850,6 +980,19 @@ export default function Expenses() {
         onOpenChange={setApprovalModalOpen}
         expense={selectedExpenseForApproval}
         onConfirmAction={handleConfirmApprovalAction}
+        currency={currency}
+      />
+
+      {/* Comprehensive Expense Detail & Management Modal */}
+      <ExpenseDetailModal
+        open={detailModalOpen}
+        onOpenChange={setDetailModalOpen}
+        expense={selectedExpenseForDetail}
+        properties={properties}
+        vendors={rawVendors}
+        onUpdateExpense={handleUpdateExpense}
+        onDeleteExpense={handleDeleteExpense}
+        onPrintVoucher={handlePrintVoucher}
         currency={currency}
       />
     </PageContainer>
