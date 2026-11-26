@@ -975,26 +975,30 @@ export default function Expenses() {
       />
 
       {/* Financial Governance Approval Modal */}
-      <ExpenseApprovalModal
-        open={approvalModalOpen}
-        onOpenChange={setApprovalModalOpen}
-        expense={selectedExpenseForApproval}
-        onConfirmAction={handleConfirmApprovalAction}
-        currency={currency}
-      />
+      {selectedExpenseForApproval && (
+        <ExpenseApprovalModal
+          open={approvalModalOpen}
+          onOpenChange={setApprovalModalOpen}
+          expense={selectedExpenseForApproval}
+          onConfirmAction={handleConfirmApprovalAction}
+          currency={currency}
+        />
+      )}
 
       {/* Comprehensive Expense Detail & Management Modal */}
-      <ExpenseDetailModal
-        open={detailModalOpen}
-        onOpenChange={setDetailModalOpen}
-        expense={selectedExpenseForDetail}
-        properties={properties}
-        vendors={rawVendors}
-        onUpdateExpense={handleUpdateExpense}
-        onDeleteExpense={handleDeleteExpense}
-        onPrintVoucher={handlePrintVoucher}
-        currency={currency}
-      />
+      {selectedExpenseForDetail && (
+        <ExpenseDetailModal
+          open={detailModalOpen}
+          onOpenChange={setDetailModalOpen}
+          expense={selectedExpenseForDetail}
+          properties={properties}
+          vendors={rawVendors}
+          onUpdateExpense={handleUpdateExpense}
+          onDeleteExpense={handleDeleteExpense}
+          onPrintVoucher={handlePrintVoucher}
+          currency={currency}
+        />
+      )}
     </PageContainer>
   );
 }

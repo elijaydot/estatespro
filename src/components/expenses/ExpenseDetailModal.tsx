@@ -85,6 +85,12 @@ export function ExpenseDetailModal({
   const [newDocName, setNewDocName] = useState('');
   const [newDocType, setNewDocType] = useState<ExpenseDocument['type']>('receipt');
 
+  const calculatedTax = useMemo(() => {
+    if (editTaxType === 'vat_18') return Math.round(editAmount * 0.18);
+    if (editTaxType === 'withholding_15') return Math.round(editAmount * 0.15);
+    return 0;
+  }, [editAmount, editTaxType]);
+
   // Initialize editable state whenever expense changes
   useEffect(() => {
     if (expense) {
@@ -105,12 +111,6 @@ export function ExpenseDetailModal({
   }, [expense]);
 
   if (!expense) return null;
-
-  const calculatedTax = useMemo(() => {
-    if (editTaxType === 'vat_18') return Math.round(editAmount * 0.18);
-    if (editTaxType === 'withholding_15') return Math.round(editAmount * 0.15);
-    return 0;
-  }, [editAmount, editTaxType]);
 
   const handleSaveChanges = () => {
     if (!editTitle.trim()) {
