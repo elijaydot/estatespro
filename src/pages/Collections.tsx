@@ -24,7 +24,7 @@ import { useTenants, Tenant } from '@/hooks/useTenants';
 import { useProperties } from '@/hooks/useProperties';
 import { useLeases } from '@/hooks/useLeases';
 import { downloadReceiptPdf } from '@/lib/pdfService';
-import { downloadCsv } from '@/lib/utils';
+import { downloadCsv } from '@/lib/download';
 import { format, isThisMonth } from 'date-fns';
 
 // Specialized Collections Components
