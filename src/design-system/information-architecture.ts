@@ -194,21 +194,7 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
         label: 'Maintenance',
         href: '/maintenance',
         icon: Wrench,
-        description: 'Resident tickets, triage pipeline, and logs',
-      },
-      {
-        id: 'work-orders',
-        label: 'Work Orders',
-        href: '/maintenance?tab=work-orders',
-        icon: CheckSquare,
-        description: 'Field dispatches, purchase orders, and quotes',
-      },
-      {
-        id: 'inspections',
-        label: 'Inspections',
-        href: '/maintenance?tab=inspections',
-        icon: ClipboardList,
-        description: 'Move-in/out condition checklists and audits',
+        description: 'Physical property operations, work orders, inspections, vendors and scheduling',
       },
       {
         id: 'tasks',

@@ -87,10 +87,7 @@ export function AppSidebar({
     }
 
     if (pathname === '/maintenance') {
-      if (tabParam) {
-        return location.search.includes(`tab=${tabParam}`);
-      }
-      return !location.search.includes('tab=');
+      return location.pathname === '/maintenance';
     }
 
     if (pathname === '/reports') {

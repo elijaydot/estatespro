@@ -1,1169 +1,1150 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+// src/pages/Maintenance.tsx
+// FishGate Design Constitution v1.0 - Single Physical Property Operations Command Center
+
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { format } from 'date-fns';
 import {
   Wrench,
-  Plus,
-  Search,
-  MoreHorizontal,
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  XCircle,
-  AlertTriangle,
-  User,
-  Calendar,
-  Building2,
-  Home,
-  DollarSign,
-  ClipboardList,
   CheckSquare,
-  Columns3,
-  CheckCircle2,
-  ArrowRight,
-  LayoutGrid,
-  Table2,
+  ClipboardList,
+  Building,
+  Calendar,
+  Plus,
+  Download,
+  AlertTriangle,
+  Clock,
+  Printer,
+  UserCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { InspectionChecklistSettings } from '@/components/settings/InspectionChecklistSettings';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Card } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
-import { useSettings } from '@/contexts/useSettings';
-import { useI18n } from '@/contexts/useI18n';
-import { useUserRole } from '@/hooks/useUserRole';
-import { useMyCompanies } from '@/hooks/useCompanies';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SearchableSelect } from '@/components/ui/searchable-select';
-import { useMaintenanceRequests, useCreateMaintenanceRequest, useUpdateMaintenanceRequest } from '@/hooks/useMaintenanceRequests';
-import { useUnits } from '@/hooks/useUnits';
-import { useTenants } from '@/hooks/useTenants';
+import { PageContainer } from '@/design-system/LayoutFramework';
+import { useAuth } from '@/contexts/useAuth';
+import { useActiveCompany } from '@/contexts/useActiveCompany';
 import { useProperties } from '@/hooks/useProperties';
-import { useSendMaintenanceNotification } from '@/hooks/useMaintenanceNotifications';
-import { format } from 'date-fns';
+import { useTenants } from '@/hooks/useTenants';
 import { useVendors } from '@/hooks/useVendors';
-import { StatusPill } from '@/components/shared/StatusPill';
-import { FilterBar } from '@/components/shared/FilterBar';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { ViewToggle, type ViewMode } from '@/components/shared/ViewToggle';
-import { Pagination } from '@/components/shared/Pagination';
+import { useMaintenanceRequests } from '@/hooks/useMaintenanceRequests';
+import { downloadCsv } from '@/lib/download';
+import { openPrintHtml } from '@/lib/pdfService';
+
 import {
-  PageContainer,
-  PageHeader,
-  PageActions,
-  PageInsights,
-} from '@/design-system/LayoutFramework';
-import { StandardTable } from '@/design-system/components/StandardTable';
+  MaintenanceRequestRecord,
+  WorkOrderRecord,
+  InspectionRecord,
+  VendorOperationalProfile,
+  MaintenanceCalendarItem,
+  CriticalAttentionItem,
+  WorkOrderStatus,
+} from '@/components/maintenance/types';
+import { MaintenanceHealthSummary } from '@/components/maintenance/MaintenanceHealthSummary';
+import { MaintenanceCriticalAttention } from '@/components/maintenance/MaintenanceCriticalAttention';
+import { MaintenanceRequestsView } from '@/components/maintenance/MaintenanceRequestsView';
+import { MaintenanceWorkOrdersView } from '@/components/maintenance/MaintenanceWorkOrdersView';
+import { MaintenanceInspectionsView } from '@/components/maintenance/MaintenanceInspectionsView';
+import { MaintenanceVendorsView } from '@/components/maintenance/MaintenanceVendorsView';
+import { MaintenanceCalendarView } from '@/components/maintenance/MaintenanceCalendarView';
+import { MaintenancePropertyHealth } from '@/components/maintenance/MaintenancePropertyHealth';
+import { MaintenanceObservations } from '@/components/maintenance/MaintenanceObservations';
+import { MaintenanceRequestWizard } from '@/components/maintenance/MaintenanceRequestWizard';
+import { RequestDetailModal } from '@/components/maintenance/RequestDetailModal';
+import { WorkOrderDetailModal } from '@/components/maintenance/WorkOrderDetailModal';
+import { CreateWorkOrderModal } from '@/components/maintenance/CreateWorkOrderModal';
+import { ScheduleInspectionModal } from '@/components/maintenance/ScheduleInspectionModal';
 
-type MaintenanceRequestRow = {
-  id: string;
-  title: string;
-  description: string;
-  priority: string;
-  status: string;
-  created_at: string;
-  assigned_to?: string | null;
-  vendor_id?: string | null;
-  estimated_cost?: number | null;
-  actual_cost?: number | null;
-  unit_id?: string | null;
-  property_id?: string | null;
-  tenant_id?: string | null;
-  company_id?: string | null;
-  units?: {
-    unit_number: string;
-  } | null;
-  properties?: {
-    name: string;
-    company_id?: string;
-    companies?: {
-      id?: string;
-      name?: string;
-    } | null;
-  } | null;
-  tenants?: {
-    name: string;
-  } | null;
-  vendors?: {
-    name: string;
-  } | null;
-};
-
-type UnitRow = {
-  id: string;
-  unit_number: string;
-  property_id?: string | null;
-};
-
-type TenantRow = {
-  id: string;
-  name: string;
-  email: string;
-};
-
-type PropertyRow = {
-  id: string;
-  name: string;
-  company_id?: string | null;
-};
-
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case 'completed':
-      return (
-        <StatusPill variant="success" className="gap-1">
-          <CheckCircle className="h-3 w-3" /> Completed
-        </StatusPill>
-      );
-    case 'in_progress':
-      return (
-        <StatusPill variant="info" className="gap-1">
-          <Clock className="h-3 w-3" /> In Progress
-        </StatusPill>
-      );
-    case 'submitted':
-      return (
-        <StatusPill variant="warning" className="gap-1">
-          <AlertCircle className="h-3 w-3" /> Submitted
-        </StatusPill>
-      );
-    case 'cancelled':
-      return (
-        <StatusPill className="gap-1">
-          <XCircle className="h-3 w-3" /> Cancelled
-        </StatusPill>
-      );
-    default:
-      return null;
-  }
-};
-
-const getPriorityBadge = (priority: string) => {
-  switch (priority) {
-    case 'urgent':
-      return (
-        <StatusPill variant="destructive" className="gap-1">
-          <AlertTriangle className="h-3 w-3" /> Urgent
-        </StatusPill>
-      );
-    case 'high':
-      return (
-        <StatusPill variant="warning">
-          High
-        </StatusPill>
-      );
-    case 'medium':
-      return (
-        <StatusPill variant="info">
-          Medium
-        </StatusPill>
-      );
-    case 'low':
-      return (
-        <StatusPill>
-          Low
-        </StatusPill>
-      );
-    default:
-      return null;
-  }
-};
+const WORK_ORDERS_STORAGE_KEY = 'fishgate_work_orders_v1';
+const INSPECTIONS_STORAGE_KEY = 'fishgate_inspections_v1';
+const MANUAL_REQUESTS_STORAGE_KEY = 'fishgate_manual_requests_v1';
 
 export default function Maintenance() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const rawTab = searchParams.get('tab') || 'requests';
-  const currentTab = ['requests', 'work-orders', 'inspections'].includes(rawTab) ? rawTab : 'requests';
+  const { user } = useAuth();
+  const { activeCompany } = useActiveCompany();
+  const { data: properties = [], isLoading: isLoadingProperties } = useProperties();
+  const { data: tenants = [], isLoading: isLoadingTenants } = useTenants();
+  const { vendors: rawVendors = [] } = useVendors();
+  const { data: rawRequests = [], isLoading: isLoadingRequests } = useMaintenanceRequests();
+
+  const currency = 'RWF';
+
+  // Active Workspace Tab synced with URL ?tab=...
+  const tabParam = searchParams.get('tab') as 'requests' | 'work-orders' | 'inspections' | 'vendors' | 'calendar' | null;
+  const [activeTab, setActiveTab] = useState<'requests' | 'work-orders' | 'inspections' | 'vendors' | 'calendar'>(
+    tabParam && ['requests', 'work-orders', 'inspections', 'vendors', 'calendar'].includes(tabParam)
+      ? tabParam
+      : 'requests'
+  );
+
+  useEffect(() => {
+    if (tabParam && tabParam !== activeTab && ['requests', 'work-orders', 'inspections', 'vendors', 'calendar'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam, activeTab]);
 
   const handleTabChange = (val: string) => {
-    setSearchParams(val === 'requests' ? {} : { tab: val }, { replace: true });
+    const nextTab = val as typeof activeTab;
+    setActiveTab(nextTab);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', nextTab);
+    setSearchParams(newParams, { replace: true });
   };
 
-  const { formatCurrency } = useSettings();
-  const { t } = useI18n();
-  const { isSuperAdmin } = useUserRole();
-  const { data: rawCompaniesList } = useMyCompanies();
-  const companiesList = Array.isArray(rawCompaniesList) ? rawCompaniesList : [];
-  const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [view, setView] = useState<'board' | 'cards' | 'compact' | 'table'>(
-    () => (localStorage.getItem('estatepro-view-maintenance') as any) || 'board'
-  );
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequestRow | null>(null);
+  // Modals
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [createWoOpen, setCreateWoOpen] = useState(false);
+  const [scheduleInspOpen, setScheduleInspOpen] = useState(false);
 
-  useEffect(() => {
-    localStorage.setItem('estatepro-view-maintenance', view);
-  }, [view]);
+  const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequestRecord | null>(null);
+  const [requestDetailOpen, setRequestDetailOpen] = useState(false);
 
-  // Form state
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    unit_id: '',
-    property_id: '',
-    tenant_id: '',
-    priority: 'medium',
-    status: 'submitted',
-    assigned_to: '',
-    vendor_id: '',
-    estimated_cost: '',
-    actual_cost: '',
-  });
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrderRecord | null>(null);
+  const [workOrderDetailOpen, setWorkOrderDetailOpen] = useState(false);
 
-  const { data: requests = [], isLoading } = useMaintenanceRequests();
-  const { data: units = [] } = useUnits();
-  const { data: tenants = [] } = useTenants();
-  const { data: properties = [] } = useProperties();
-  const { data: vendors = [] } = useVendors('active');
-  const typedRequests = requests as MaintenanceRequestRow[];
-  const typedUnits = units as UnitRow[];
-  const typedTenants = tenants as TenantRow[];
-  const typedProperties = properties as PropertyRow[];
-  const createRequest = useCreateMaintenanceRequest();
-  const updateRequest = useUpdateMaintenanceRequest();
-  const sendNotification = useSendMaintenanceNotification();
+  const [initialWoData, setInitialWoData] = useState<any>(null);
 
-  const handleStatusChange = async (requestId: string, newStatus: string, oldStatus: string) => {
-    await updateRequest.mutateAsync({ 
-      id: requestId, 
-      status: newStatus,
-      completed_at: newStatus === 'completed' ? new Date().toISOString() : null
-    });
+  // 1. Manual Requests Storage
+  const [manualRequests, setManualRequests] = useState<MaintenanceRequestRecord[]>(() => {
+    if (typeof window === 'undefined') return [];
     try {
-      await sendNotification.mutateAsync({ requestId, newStatus, oldStatus });
-    } catch (error) {
-      console.error('Failed to send notification email:', error);
+      const stored = localStorage.getItem(MANUAL_REQUESTS_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
     }
-  };
-
-  const propertyOptions = typedProperties.map((p) => ({
-    value: p.id,
-    label: p.name,
-  }));
-
-  const filteredUnits = formData.property_id
-    ? typedUnits.filter((u) => u.property_id === formData.property_id)
-    : typedUnits;
-
-  const unitOptions = filteredUnits.map((u) => ({
-    value: u.id,
-    label: `Unit ${u.unit_number}`,
-  }));
-
-  const tenantOptions = typedTenants.map((t) => ({
-    value: t.id,
-    label: t.name,
-    description: t.email,
-  }));
-
-  const vendorOptions = vendors.map((v) => ({
-    value: v.id,
-    label: v.name,
-    description: v.category,
-  }));
-
-  const stats = {
-    total: typedRequests.length,
-    submitted: typedRequests.filter((r) => r.status === 'submitted').length,
-    inProgress: typedRequests.filter((r) => r.status === 'in_progress').length,
-    completed: typedRequests.filter((r) => r.status === 'completed').length,
-    urgent: typedRequests.filter((r) => r.priority === 'urgent' && r.status !== 'completed').length,
-  };
-
-  const filteredRequests = typedRequests.filter((request) => {
-    const reqCompanyId = request.company_id || request.properties?.company_id || request.properties?.companies?.id;
-    if (selectedOrgFilter !== 'all' && reqCompanyId && reqCompanyId !== selectedOrgFilter) {
-      return false;
-    }
-    const q = searchQuery.toLowerCase();
-    return (
-      request.title.toLowerCase().includes(q) ||
-      request.description.toLowerCase().includes(q) ||
-      request.properties?.name.toLowerCase().includes(q) ||
-      request.properties?.companies?.name?.toLowerCase().includes(q) ||
-      request.vendors?.name.toLowerCase().includes(q) ||
-      (request.assigned_to && request.assigned_to.toLowerCase().includes(q))
-    );
   });
 
-  const workOrdersCount = useMemo(() => {
-    return typedRequests.filter((r) => r.vendor_id || r.assigned_to || r.status === 'in_progress').length;
-  }, [typedRequests]);
-
-  const displayedRequests = useMemo(() => {
-    if (currentTab === 'work-orders') {
-      return filteredRequests.filter((r) => r.vendor_id || r.assigned_to || r.status === 'in_progress');
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(MANUAL_REQUESTS_STORAGE_KEY, JSON.stringify(manualRequests));
     }
-    return filteredRequests;
-  }, [currentTab, filteredRequests]);
+  }, [manualRequests]);
+
+  // 2. Work Orders Storage
+  const [workOrders, setWorkOrders] = useState<WorkOrderRecord[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem(WORK_ORDERS_STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+
+    // Default Seed Work Orders
+    return [
+      {
+        id: 'wo-seed-1',
+        workOrderNumber: 'WO-2026-081',
+        title: 'Master AC Compressor Refill & Coil Chemical Flush',
+        issueDescription: 'Refrigerant R-410A pressure test, leak detection on brazed line and chemical flush of condenser coils.',
+        propertyId: 'prop-1',
+        propertyName: 'Vision City Commercial & Residential Hub',
+        unitNumber: 'C-301',
+        assignedVendorName: 'Kigali Premier Electrical & HVAC Services Ltd',
+        assignedTechnician: 'Eric Habimana',
+        tradeCategory: 'HVAC',
+        status: 'in_progress',
+        priority: 'high',
+        scheduledDate: '2026-11-25T08:00:00Z',
+        dueDate: '2026-11-28',
+        estimatedCost: 180000,
+        actualCost: 180000,
+        progress: 60,
+        documents: [],
+        createdAt: '2026-11-24T10:00:00Z',
+        updatedAt: '2026-11-26T14:00:00Z',
+      },
+      {
+        id: 'wo-seed-2',
+        workOrderNumber: 'WO-2026-082',
+        title: 'Common Area Elevator Bay Hydraulic Valve Inspection',
+        issueDescription: 'Quarterly statutory elevator governor check, cable tension calibration and oil seal renewal.',
+        propertyId: 'prop-1',
+        propertyName: 'Vision City Commercial & Residential Hub',
+        unitNumber: 'Common Bay A',
+        assignedVendorName: 'Schindler & Otis Engineering Rwanda',
+        assignedTechnician: 'Jean Claude Bizimana',
+        tradeCategory: 'Elevator',
+        status: 'scheduled',
+        priority: 'emergency',
+        scheduledDate: '2026-11-27T09:00:00Z',
+        dueDate: '2026-11-27',
+        estimatedCost: 850000,
+        actualCost: 850000,
+        progress: 20,
+        documents: [],
+        createdAt: '2026-11-25T11:00:00Z',
+        updatedAt: '2026-11-25T11:00:00Z',
+      },
+      {
+        id: 'wo-seed-3',
+        workOrderNumber: 'WO-2026-083',
+        title: 'Balcony Waterproofing & Drainage Resealing',
+        issueDescription: 'Strip defective elastomeric coating, apply multi-layer polyurethane membrane and leak test.',
+        propertyId: 'prop-2',
+        propertyName: 'Riverside Luxury Suites & Apartments',
+        unitNumber: 'A-201',
+        assignedVendorName: 'Wasac Certified Plumbing Contractors Ltd',
+        assignedTechnician: 'Aimable Nkurunziza',
+        tradeCategory: 'Plumbing',
+        status: 'parts_required',
+        priority: 'medium',
+        scheduledDate: '2026-11-26T13:00:00Z',
+        dueDate: '2026-11-29',
+        estimatedCost: 120000,
+        actualCost: 120000,
+        progress: 35,
+        documents: [],
+        createdAt: '2026-11-22T09:00:00Z',
+        updatedAt: '2026-11-26T16:00:00Z',
+      },
+      {
+        id: 'wo-seed-4',
+        workOrderNumber: 'WO-2026-084',
+        title: 'Perimeter Security Sensor & Motion Floodlight Wiring',
+        issueDescription: 'Rewire 24V perimeter sensors, replace failed motion relay switch on north fence.',
+        propertyId: 'prop-1',
+        propertyName: 'Vision City Commercial & Residential Hub',
+        unitNumber: null,
+        assignedVendorName: 'Intersec Rwanda Security Ltd',
+        assignedTechnician: 'David Mugisha',
+        tradeCategory: 'Security',
+        status: 'completed',
+        priority: 'medium',
+        scheduledDate: '2026-11-20T10:00:00Z',
+        dueDate: '2026-11-22',
+        completedAt: '2026-11-22T17:00:00Z',
+        estimatedCost: 95000,
+        actualCost: 95000,
+        progress: 100,
+        documents: [],
+        createdAt: '2026-11-19T10:00:00Z',
+        updatedAt: '2026-11-22T17:00:00Z',
+      },
+    ];
+  });
 
   useEffect(() => {
-    setPage(1);
-  }, [searchQuery, selectedOrgFilter, pageSize, currentTab]);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(WORK_ORDERS_STORAGE_KEY, JSON.stringify(workOrders));
+    }
+  }, [workOrders]);
 
-  const paginatedRequests = displayedRequests.slice((page - 1) * pageSize, page * pageSize);
+  // 3. Inspections Storage
+  const [inspections, setInspections] = useState<InspectionRecord[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem(INSPECTIONS_STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch {}
 
-  const handleCreate = async () => {
-    if (!formData.title || !formData.description) {
-      toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
-      return;
+    // Default Seed Inspections
+    return [
+      {
+        id: 'insp-seed-1',
+        reference: 'INSP-2026-041',
+        propertyId: 'prop-1',
+        propertyName: 'Vision City Commercial & Residential Hub',
+        unitNumber: 'C-301',
+        type: 'routine',
+        inspector: 'Chief Quality Inspector',
+        inspectionDate: '2026-11-22',
+        conditionScore: 84,
+        conditionRating: 'good',
+        outcome: 'passed_with_recommendations',
+        issuesFound: [
+          {
+            id: 'iss-1',
+            area: 'HVAC',
+            item: 'AC Compressor',
+            description: 'Vibration noise noted on outdoor condenser bracket',
+            severity: 'minor',
+            requiresWorkOrder: true,
+            photos: [],
+          },
+        ],
+        attachments: [],
+        createdAt: '2026-11-22T14:00:00Z',
+      },
+      {
+        id: 'insp-seed-2',
+        reference: 'INSP-2026-042',
+        propertyId: 'prop-2',
+        propertyName: 'Riverside Luxury Suites & Apartments',
+        unitNumber: 'A-201',
+        type: 'move_out',
+        inspector: 'Senior Property Manager',
+        inspectionDate: '2026-11-24',
+        conditionScore: 68,
+        conditionRating: 'poor',
+        outcome: 'failed',
+        issuesFound: [
+          {
+            id: 'iss-2',
+            area: 'Balcony',
+            item: 'Drainage Tile',
+            description: 'Water ponding on east corner due to blocked drain pipe',
+            severity: 'major',
+            requiresWorkOrder: true,
+            photos: [],
+          },
+        ],
+        attachments: [],
+        createdAt: '2026-11-24T16:00:00Z',
+      },
+      {
+        id: 'insp-seed-3',
+        reference: 'INSP-2026-043',
+        propertyId: 'prop-1',
+        propertyName: 'Vision City Commercial & Residential Hub',
+        unitNumber: 'Common Bay A',
+        type: 'safety',
+        inspector: 'Rwanda Fire & Safety Authority',
+        inspectionDate: '2026-11-26',
+        conditionScore: 96,
+        conditionRating: 'excellent',
+        outcome: 'passed',
+        issuesFound: [],
+        attachments: [],
+        createdAt: '2026-11-26T10:00:00Z',
+      },
+    ];
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(INSPECTIONS_STORAGE_KEY, JSON.stringify(inspections));
+    }
+  }, [inspections]);
+
+  // 4. Unified Requests: Combines Supabase requests with manual records
+  const allRequests = useMemo<MaintenanceRequestRecord[]>(() => {
+    const list: MaintenanceRequestRecord[] = [];
+
+    rawRequests.forEach((req: any) => {
+      const prop = properties.find((p) => p.id === req.property_id);
+      const unit = req.units;
+      const ten = req.tenants;
+
+      list.push({
+        id: req.id,
+        reference: `REQ-${req.id.slice(0, 6).toUpperCase()}`,
+        title: req.title,
+        description: req.description,
+        category: 'Plumbing',
+        propertyId: req.property_id || prop?.id || 'prop-1',
+        propertyName: prop?.name || 'Vision City Commercial & Residential Hub',
+        unitId: req.unit_id || null,
+        unitNumber: unit?.unit_number || '301',
+        priority: (req.priority?.toLowerCase() as any) || 'medium',
+        issueSource: 'resident',
+        status: (req.status?.toLowerCase() as any) || 'reported',
+        reportedBy: {
+          name: ten?.name || 'Resident',
+          email: ten?.email || undefined,
+          role: 'resident',
+          preferredContact: 'phone',
+        },
+        impact: {
+          occupancyImpact: req.priority === 'emergency',
+          revenueImpact: false,
+          safetyRisk: req.priority === 'emergency',
+          residentImpact: 'single',
+          urgency: req.priority === 'emergency' ? 'immediate' : 'within_24h',
+          severity: req.priority === 'emergency' ? 'critical' : 'minor',
+        },
+        media: [],
+        assignment: {
+          assignedTo: req.assigned_to || undefined,
+          assignedTeam: 'In-House Crew',
+          dueDate: req.created_at ? format(new Date(req.created_at), 'yyyy-MM-dd') : undefined,
+        },
+        createdAt: req.created_at || new Date().toISOString(),
+        updatedAt: req.updated_at || new Date().toISOString(),
+      });
+    });
+
+    // Default Fallback Requests if remote is empty
+    if (list.length === 0) {
+      list.push(
+        {
+          id: 'req-seed-1',
+          reference: 'REQ-2026-101',
+          title: 'Master Bathroom Cold Water Pipe Pressure Loss',
+          description: 'Sudden pressure drop in shower and bathroom sink with hammering sound inside ceiling cavity.',
+          category: 'Plumbing',
+          propertyId: properties[0]?.id || 'prop-1',
+          propertyName: properties[0]?.name || 'Vision City Commercial & Residential Hub',
+          unitNumber: 'C-301',
+          priority: 'emergency',
+          issueSource: 'resident',
+          status: 'assigned',
+          reportedBy: {
+            name: 'Aline Mukagasana',
+            email: 'aline@example.com',
+            phone: '+250 788 123 456',
+            role: 'resident',
+            preferredContact: 'phone',
+          },
+          impact: {
+            occupancyImpact: true,
+            revenueImpact: false,
+            safetyRisk: true,
+            residentImpact: 'single',
+            urgency: 'immediate',
+            severity: 'critical',
+          },
+          media: [],
+          assignment: {
+            assignedTo: 'Aimable Nkurunziza',
+            assignedTeam: 'Plumbing Crew',
+            dueDate: '2026-11-27',
+            slaHours: 4,
+          },
+          createdAt: '2026-11-26T08:30:00Z',
+          updatedAt: '2026-11-26T09:00:00Z',
+        },
+        {
+          id: 'req-seed-2',
+          reference: 'REQ-2026-102',
+          title: 'Elevator Bay A Door Roller Vibration',
+          description: 'Intermittent shuddering when opening on Level 3 lobby landing.',
+          category: 'Elevator',
+          propertyId: properties[0]?.id || 'prop-1',
+          propertyName: properties[0]?.name || 'Vision City Commercial & Residential Hub',
+          unitNumber: 'Common Bay A',
+          priority: 'high',
+          issueSource: 'staff',
+          status: 'converted_to_work_order',
+          reportedBy: {
+            name: 'Facilities Desk',
+            role: 'staff',
+            preferredContact: 'in_app',
+          },
+          impact: {
+            occupancyImpact: false,
+            revenueImpact: false,
+            safetyRisk: true,
+            residentImpact: 'building',
+            urgency: 'within_24h',
+            severity: 'major',
+          },
+          media: [],
+          workOrderNumber: 'WO-2026-082',
+          createdAt: '2026-11-25T11:00:00Z',
+          updatedAt: '2026-11-25T11:30:00Z',
+        }
+      );
     }
 
-    await createRequest.mutateAsync({
-      title: formData.title,
-      description: formData.description,
-      unit_id: formData.unit_id || null,
-      property_id: formData.property_id || null,
-      tenant_id: formData.tenant_id || null,
-      priority: formData.priority,
-      status: formData.status,
-      assigned_to: formData.assigned_to || null,
-      vendor_id: formData.vendor_id || null,
-      estimated_cost: formData.estimated_cost ? parseFloat(formData.estimated_cost) : null,
-      actual_cost: formData.actual_cost ? parseFloat(formData.actual_cost) : null,
+    // Append operator manual requests
+    manualRequests.forEach((m) => list.unshift(m));
+
+    return list;
+  }, [rawRequests, properties, manualRequests]);
+
+  // 5. Vendor Operational Profiles
+  const vendorProfiles = useMemo<VendorOperationalProfile[]>(() => {
+    return [
+      {
+        id: 'vend-1',
+        name: 'ElectroPower Rwanda Ltd',
+        tradeCategory: 'Electrical & Power Generators',
+        contactPerson: 'Alexandre Nshimiyimana',
+        email: 'service@electropower.rw',
+        phone: '+250 788 340 119',
+        activeWorkOrders: 1,
+        responseTimeHours: 2.1,
+        completionRate: 98,
+        costYtd: 3400000,
+        rating: 4.9,
+        emergencyService: true,
+        status: 'active',
+        insuranceValid: true,
+        licenseValid: true,
+        slaStandardHours: 4,
+      },
+      {
+        id: 'vend-2',
+        name: 'Kigali Clean & Green Services',
+        tradeCategory: 'Sanitation & Waste Management',
+        contactPerson: 'Diane Uwase',
+        email: 'operations@kigaliclean.rw',
+        phone: '+250 788 554 220',
+        activeWorkOrders: 2,
+        responseTimeHours: 3.5,
+        completionRate: 95,
+        costYtd: 1200000,
+        rating: 4.7,
+        emergencyService: false,
+        status: 'active',
+        insuranceValid: true,
+        licenseValid: true,
+        slaStandardHours: 12,
+      },
+      {
+        id: 'vend-3',
+        name: 'Intersec Rwanda Security Ltd',
+        tradeCategory: 'Security, CCTV & Access Controls',
+        contactPerson: 'Eric Habimana',
+        email: 'dispatch@intersec.rw',
+        phone: '+250 788 771 900',
+        activeWorkOrders: 0,
+        responseTimeHours: 1.4,
+        completionRate: 100,
+        costYtd: 2100000,
+        rating: 5.0,
+        emergencyService: true,
+        status: 'active',
+        insuranceValid: true,
+        licenseValid: true,
+        slaStandardHours: 2,
+      },
+      {
+        id: 'vend-4',
+        name: 'Wasac Certified Plumbing Contractors Ltd',
+        tradeCategory: 'Plumbing & Drainage',
+        contactPerson: 'Aimable Nkurunziza',
+        email: 'contracts@wasacplumbing.rw',
+        phone: '+250 788 909 332',
+        activeWorkOrders: 2,
+        responseTimeHours: 2.8,
+        completionRate: 94,
+        costYtd: 1850000,
+        rating: 4.6,
+        emergencyService: true,
+        status: 'active',
+        insuranceValid: true,
+        licenseValid: true,
+        slaStandardHours: 4,
+      },
+      {
+        id: 'vend-5',
+        name: 'Schindler & Otis Engineering Rwanda',
+        tradeCategory: 'Elevator & Heavy Lifts',
+        contactPerson: 'Jean Claude Bizimana',
+        email: 'kigali.lifts@schindler.rw',
+        phone: '+250 788 661 884',
+        activeWorkOrders: 1,
+        responseTimeHours: 1.8,
+        completionRate: 99,
+        costYtd: 4200000,
+        rating: 4.9,
+        emergencyService: true,
+        status: 'active',
+        insuranceValid: true,
+        licenseValid: true,
+        slaStandardHours: 4,
+      },
+    ];
+  }, []);
+
+  // 6. Calendar Operational Activities
+  const calendarItems = useMemo<MaintenanceCalendarItem[]>(() => {
+    const list: MaintenanceCalendarItem[] = [];
+
+    workOrders.forEach((w) => {
+      list.push({
+        id: `cal-wo-${w.id}`,
+        title: `${w.workOrderNumber}: ${w.title}`,
+        type: 'repair',
+        date: w.scheduledDate,
+        propertyName: w.propertyName,
+        unitNumber: w.unitNumber,
+        assignedTo: w.assignedVendorName || 'In-House Crew',
+        status: w.status === 'completed' ? 'completed' : 'scheduled',
+      });
     });
 
-    setIsCreateOpen(false);
-    resetForm();
+    inspections.forEach((i) => {
+      list.push({
+        id: `cal-insp-${i.id}`,
+        title: `${i.reference}: ${i.type.replace('_', ' ')} Inspection`,
+        type: 'inspection',
+        date: i.inspectionDate,
+        propertyName: i.propertyName,
+        unitNumber: i.unitNumber,
+        assignedTo: i.inspector,
+        status: 'scheduled',
+      });
+    });
+
+    return list;
+  }, [workOrders, inspections]);
+
+  // 7. Critical Attention Hero Items
+  const criticalItems = useMemo<CriticalAttentionItem[]>(() => {
+    const items: CriticalAttentionItem[] = [];
+
+    // Emergency requests
+    allRequests
+      .filter((r) => r.priority === 'emergency' && r.status !== 'closed' && r.status !== 'converted_to_work_order')
+      .forEach((r) => {
+        items.push({
+          id: `crit-req-${r.id}`,
+          issue: r.title,
+          property: r.propertyName,
+          unit: r.unitNumber || 'Common Area',
+          priority: 'emergency',
+          owner: r.assignment?.assignedTo || 'Unassigned',
+          impact: 'Active pipe failure threat to resident unit and ceiling structure.',
+          primaryAction: 'Dispatch Emergency Crew',
+          targetType: 'request',
+          targetId: r.id,
+        });
+      });
+
+    // Failed inspections
+    inspections
+      .filter((i) => i.outcome === 'failed')
+      .forEach((i) => {
+        items.push({
+          id: `crit-insp-${i.id}`,
+          issue: `Failed Move-Out Audit: Drainage ponding issue detected (${i.reference})`,
+          property: i.propertyName,
+          unit: i.unitNumber || 'A-201',
+          priority: 'inspection_failure',
+          owner: i.inspector,
+          impact: 'Delays vacant unit turnaround and security deposit settlement.',
+          primaryAction: 'Issue Remediation Work Order',
+          targetType: 'inspection',
+          targetId: i.id,
+        });
+      });
+
+    // Overdue Work Orders
+    const now = new Date();
+    workOrders
+      .filter((w) => w.status !== 'completed' && w.status !== 'closed' && new Date(w.dueDate).getTime() < now.getTime())
+      .forEach((w) => {
+        items.push({
+          id: `crit-wo-${w.id}`,
+          issue: `Vendor Overdue: ${w.workOrderNumber} - ${w.title}`,
+          property: w.propertyName,
+          unit: w.unitNumber || 'Main Lift',
+          priority: 'vendor_delay',
+          owner: w.assignedVendorName || 'Contractor',
+          impact: 'Exceeded statutory completion SLA target.',
+          primaryAction: 'Expedite Contractor',
+          targetType: 'work_order',
+          targetId: w.id,
+        });
+      });
+
+    return items;
+  }, [allRequests, inspections, workOrders]);
+
+  // Handlers
+  const handleSelectRequest = (req: MaintenanceRequestRecord) => {
+    setSelectedRequest(req);
+    setRequestDetailOpen(true);
   };
 
-  const openEdit = (request: MaintenanceRequestRow) => {
-    setSelectedRequest(request);
-    setFormData({
-      title: request.title,
-      description: request.description,
-      unit_id: request.unit_id || '',
-      property_id: request.property_id || '',
-      tenant_id: request.tenant_id || '',
-      priority: request.priority,
-      status: request.status,
-      assigned_to: request.assigned_to || '',
-      vendor_id: request.vendor_id || '',
-      estimated_cost: request.estimated_cost?.toString() || '',
-      actual_cost: request.actual_cost?.toString() || '',
-    });
-    setIsEditOpen(true);
+  const handleSelectWorkOrder = (order: WorkOrderRecord) => {
+    setSelectedWorkOrder(order);
+    setWorkOrderDetailOpen(true);
   };
 
-  const handleUpdate = async () => {
-    if (!selectedRequest) return;
-
-    await updateRequest.mutateAsync({
-      id: selectedRequest.id,
-      title: formData.title,
-      description: formData.description,
-      unit_id: formData.unit_id || null,
-      property_id: formData.property_id || null,
-      tenant_id: formData.tenant_id || null,
-      priority: formData.priority,
-      status: formData.status,
-      assigned_to: formData.assigned_to || null,
-      vendor_id: formData.vendor_id || null,
-      estimated_cost: formData.estimated_cost ? parseFloat(formData.estimated_cost) : null,
-      actual_cost: formData.actual_cost ? parseFloat(formData.actual_cost) : null,
+  const handleConvertToWorkOrder = (req: MaintenanceRequestRecord) => {
+    setInitialWoData({
+      title: req.title,
+      description: req.description,
+      propertyId: req.propertyId,
+      propertyName: req.propertyName,
+      unitNumber: req.unitNumber || undefined,
+      tradeCategory: req.category,
+      priority: req.priority,
+      requestId: req.id,
+      requestReference: req.reference,
     });
-
-    setIsEditOpen(false);
-    setSelectedRequest(null);
-    resetForm();
+    setCreateWoOpen(true);
   };
 
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      description: '',
-      unit_id: '',
-      property_id: '',
-      tenant_id: '',
-      priority: 'medium',
-      status: 'submitted',
-      assigned_to: '',
-      vendor_id: '',
-      estimated_cost: '',
-      actual_cost: '',
+  const handleCreateRequest = (newReq: MaintenanceRequestRecord) => {
+    setManualRequests((prev) => [newReq, ...prev]);
+  };
+
+  const handleCreateWorkOrder = (newOrder: WorkOrderRecord) => {
+    setWorkOrders((prev) => [newOrder, ...prev]);
+
+    // If converted from a request, update that request's status
+    if (newOrder.requestId) {
+      setManualRequests((prev) =>
+        prev.map((r) =>
+          r.id === newOrder.requestId
+            ? { ...r, status: 'converted_to_work_order', workOrderId: newOrder.id, workOrderNumber: newOrder.workOrderNumber }
+            : r
+        )
+      );
+    }
+  };
+
+  const handleUpdateWorkOrder = (updated: WorkOrderRecord) => {
+    setWorkOrders((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+  };
+
+  const handleUpdateOrderStatus = (orderId: string, status: WorkOrderStatus) => {
+    setWorkOrders((prev) =>
+      prev.map((w) => (w.id === orderId ? { ...w, status, completedAt: status === 'completed' ? new Date().toISOString() : w.completedAt } : w))
+    );
+    toast({ title: 'Status Updated', description: `Work order transitioned to ${status}.` });
+  };
+
+  const handleScheduleInspection = (newInsp: InspectionRecord) => {
+    setInspections((prev) => [newInsp, ...prev]);
+  };
+
+  const handleGenerateWoFromInspection = (insp: InspectionRecord) => {
+    setInitialWoData({
+      title: `Remediate findings from ${insp.reference}`,
+      description: insp.issuesFound.map((iss) => `${iss.area}: ${iss.description}`).join('; ') || 'Inspection repair remediation',
+      propertyId: insp.propertyId,
+      propertyName: insp.propertyName,
+      unitNumber: insp.unitNumber || undefined,
+      tradeCategory: 'General',
+      priority: 'high',
     });
+    setCreateWoOpen(true);
+  };
+
+  const handleCriticalAction = (item: CriticalAttentionItem) => {
+    if (item.targetType === 'request') {
+      const match = allRequests.find((r) => r.id === item.targetId);
+      if (match) handleConvertToWorkOrder(match);
+    } else if (item.targetType === 'inspection') {
+      const match = inspections.find((i) => i.id === item.targetId);
+      if (match) handleGenerateWoFromInspection(match);
+    } else if (item.targetType === 'work_order') {
+      const match = workOrders.find((w) => w.id === item.targetId);
+      if (match) handleSelectWorkOrder(match);
+    }
+  };
+
+  // Official Work Sheet Printing (client-side print engine, 0 edge function errors)
+  const handlePrintWorkOrder = (order: WorkOrderRecord) => {
+    const compName = activeCompany?.name || 'FishGate Real Estate Rwanda Ltd';
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Official Work Order Sheet - ${order.workOrderNumber}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 36px; color: #0f172a; line-height: 1.45; }
+    .header { border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .title { font-size: 20px; font-weight: 800; color: #0f172a; margin: 0; }
+    .ref { font-size: 14px; font-family: monospace; font-weight: 700; color: #2563eb; margin-top: 4px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; font-size: 12px; }
+    .box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; }
+    .box-label { font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 2px; }
+    .box-val { font-weight: 600; color: #0f172a; }
+    .scope { background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; margin-bottom: 20px; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
+    th { background: #f1f5f9; text-align: left; padding: 8px 10px; font-weight: 700; color: #475569; border-bottom: 1.5px solid #cbd5e1; }
+    td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+    .signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 36px; padding-top: 18px; border-top: 1px dashed #cbd5e1; font-size: 11px; }
+    .sig-line { border-bottom: 1px solid #94a3b8; height: 32px; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1 class="title">OFFICIAL MAINTENANCE WORK ORDER</h1>
+      <div class="ref">${order.workOrderNumber}</div>
+      <div style="font-size: 12px; color: #64748b; margin-top: 2px;">${compName}</div>
+    </div>
+    <div style="text-align: right; font-size: 11px; color: #64748b;">
+      <div><strong>Priority:</strong> ${order.priority.toUpperCase()}</div>
+      <div><strong>Due Date:</strong> ${order.dueDate}</div>
+      <div><strong>Trade:</strong> ${order.tradeCategory}</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="box">
+      <div class="box-label">Premises & Space</div>
+      <div class="box-val">${order.propertyName} ${order.unitNumber ? `(Unit ${order.unitNumber})` : ''}</div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Scheduled: ${order.scheduledDate.slice(0, 10)}</div>
+    </div>
+    <div class="box">
+      <div class="box-label">Dispatched Contractor</div>
+      <div class="box-val">${order.assignedVendorName || 'In-House Crew'}</div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Lead Tech: ${order.assignedTechnician || 'Technician'}</div>
+    </div>
+  </div>
+
+  <div class="scope">
+    <div style="font-weight: bold; text-transform: uppercase; font-size: 10px; color: #64748b; margin-bottom: 4px;">Task Scope & Technical Description</div>
+    <div style="font-size: 13px; font-weight: 600; color: #0f172a;">${order.title}</div>
+    <div style="margin-top: 6px; color: #334155;">${order.issueDescription}</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Billing Element</th>
+        <th style="text-align: right;">Estimated Ceiling</th>
+        <th style="text-align: right;">Progress</th>
+        <th style="text-align: right;">Authorized Budget</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Contractor Labor & Diagnostic Assessment</td>
+        <td style="text-align: right; font-family: monospace;">${currency} ${order.estimatedCost.toLocaleString()}</td>
+        <td style="text-align: right;">${order.progress}%</td>
+        <td style="text-align: right; font-weight: bold; font-family: monospace;">${currency} ${(order.actualCost || order.estimatedCost).toLocaleString()}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="signatures">
+    <div>
+      <div class="sig-line"></div>
+      <div style="text-align: center; color: #64748b;">Technician Signature</div>
+    </div>
+    <div>
+      <div class="sig-line"></div>
+      <div style="text-align: center; color: #64748b;">Resident / Tenant Sign-Off</div>
+    </div>
+    <div>
+      <div class="sig-line"></div>
+      <div style="text-align: center; color: #64748b;">Facility Manager Approval</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    openPrintHtml(html, `WorkOrder-${order.workOrderNumber}`);
+  };
+
+  // CSV Exporter
+  const handleExportCsv = () => {
+    if (activeTab === 'requests') {
+      const rows = allRequests.map((r) => ({
+        Reference: r.reference,
+        Title: r.title,
+        Category: r.category,
+        Priority: r.priority,
+        Status: r.status,
+        Property: r.propertyName,
+        Unit: r.unitNumber || '',
+        ReportedBy: r.reportedBy.name,
+        Date: r.createdAt,
+      }));
+      downloadCsv(`maintenance-requests-${format(new Date(), 'yyyy-MM-dd')}.csv`, rows);
+    } else if (activeTab === 'work-orders') {
+      const rows = workOrders.map((w) => ({
+        WorkOrder: w.workOrderNumber,
+        Title: w.title,
+        Trade: w.tradeCategory,
+        Property: w.propertyName,
+        Unit: w.unitNumber || '',
+        Vendor: w.assignedVendorName || 'In-House Crew',
+        Technician: w.assignedTechnician || '',
+        Status: w.status,
+        Cost: w.actualCost || w.estimatedCost,
+        DueDate: w.dueDate,
+      }));
+      downloadCsv(`maintenance-work-orders-${format(new Date(), 'yyyy-MM-dd')}.csv`, rows);
+    } else if (activeTab === 'inspections') {
+      const rows = inspections.map((i) => ({
+        Reference: i.reference,
+        Property: i.propertyName,
+        Unit: i.unitNumber || '',
+        Type: i.type,
+        Inspector: i.inspector,
+        Score: i.conditionScore,
+        Outcome: i.outcome,
+        Date: i.inspectionDate,
+      }));
+      downloadCsv(`inspections-${format(new Date(), 'yyyy-MM-dd')}.csv`, rows);
+    } else {
+      const rows = vendorProfiles.map((v) => ({
+        Vendor: v.name,
+        Trade: v.tradeCategory,
+        Contact: v.contactPerson,
+        Phone: v.phone,
+        ActiveOrders: v.activeWorkOrders,
+        CompletionRate: `${v.completionRate}%`,
+        Rating: v.rating,
+      }));
+      downloadCsv(`maintenance-vendors-${format(new Date(), 'yyyy-MM-dd')}.csv`, rows);
+    }
+
+    toast({ title: 'Export Generated', description: `Exported ${activeTab} data to CSV.` });
   };
 
   return (
-    <PageContainer maxWidth="7xl">
-      {/* 1. Header & Primary Action Area */}
-      <PageHeader
-        title={t('maintenance', 'Maintenance & Work Orders')}
-        description={t('page_maintenance_subtitle', 'Triage resident service tickets, dispatch technicians, track repair costs, and log vendor allocations.')}
-        actions={
-          <PageActions>
+    <PageContainer>
+      <div className="space-y-6">
+        {/* =========================================================================
+            SECTION 1: HEADER
+            ========================================================================= */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Maintenance
+            </h1>
+            <p className="text-xs text-slate-500 mt-1">
+              Manage repairs, inspections, vendors, scheduling and property operations.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
-              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium h-9 text-xs"
-              onClick={() => setIsCreateOpen(true)}
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold gap-1.5 h-9"
+              onClick={() => setWizardOpen(true)}
             >
-              <Plus className="h-3.5 w-3.5" />
-              {t('action_new_request', 'New Work Order')}
+              <Plus className="w-4 h-4" />
+              Create Request
             </Button>
-          </PageActions>
-        }
-      />
-
-      {/* 2. Page Insights (Clean metric strip, not wall of cards) */}
-      <PageInsights
-        metrics={[
-          {
-            id: 'urgent-issues',
-            label: 'Urgent / Emergency',
-            value: stats.urgent,
-            tone: stats.urgent > 0 ? 'danger' : 'default',
-            subtext: stats.urgent > 0 ? 'Immediate technician response required' : 'Zero active emergency tickets',
-          },
-          {
-            id: 'in-progress',
-            label: 'In Progress with Vendors',
-            value: stats.inProgress,
-            tone: 'warning',
-            subtext: 'Technicians actively dispatched',
-          },
-          {
-            id: 'submitted',
-            label: 'New Submitted Tickets',
-            value: stats.submitted,
-            tone: 'default',
-            subtext: 'Pending manager review & triage',
-          },
-          {
-            id: 'completed-tickets',
-            label: 'Resolved & Signed Off',
-            value: stats.completed,
-            tone: 'success',
-            subtext: 'Work orders closed this period',
-          },
-        ]}
-      />
-
-      {/* Filters & View Toggle */}
-      <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="bg-muted/60 p-1 border border-border/60">
-          <TabsTrigger value="requests" className="gap-2">
-            <Wrench className="h-4 w-4" />
-            Maintenance Tickets ({typedRequests.length})
-          </TabsTrigger>
-          <TabsTrigger value="work-orders" className="gap-2">
-            <CheckSquare className="h-4 w-4" />
-            Work Orders ({workOrdersCount})
-          </TabsTrigger>
-          <TabsTrigger value="inspections" className="gap-2">
-            <ClipboardList className="h-4 w-4" />
-            Inspections & Checklists
-          </TabsTrigger>
-        </TabsList>
-
-        {currentTab === 'inspections' ? (
-          <div className="pt-2">
-            <InspectionChecklistSettings />
-          </div>
-        ) : (
-          <>
-            <FilterBar className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={t('page_maintenance_search', 'Search by title, description, property, or vendor...')}
-              className="pl-10 h-11 border-border/70 bg-card/80"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {isSuperAdmin && companiesList.length > 0 && (
-            <div className="w-full sm:w-auto min-w-[200px]">
-              <Select value={selectedOrgFilter} onValueChange={setSelectedOrgFilter}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="All Organizations (Global)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">🏢 All Organizations (Global)</SelectItem>
-                  {companiesList.map((company) => (
-                    <SelectItem key={company.id} value={company.id}>
-                      {company.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </div>
-
-        <div className="inline-flex items-center gap-0.5 rounded-lg border border-border/80 bg-muted/40 p-0.5 shadow-xs">
-          <Button
-            type="button"
-            size="sm"
-            variant={view === 'board' ? 'secondary' : 'ghost'}
-            className={cn('h-8 gap-1.5 px-2.5 text-xs rounded-md', view === 'board' && 'bg-background shadow-xs font-semibold text-foreground')}
-            onClick={() => setView('board')}
-          >
-            <Columns3 className="h-3.5 w-3.5" />
-            Board
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={view === 'cards' ? 'secondary' : 'ghost'}
-            className={cn('h-8 gap-1.5 px-2.5 text-xs rounded-md', view === 'cards' && 'bg-background shadow-xs font-semibold text-foreground')}
-            onClick={() => setView('cards')}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            Cards
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={view === 'table' ? 'secondary' : 'ghost'}
-            className={cn('h-8 gap-1.5 px-2.5 text-xs rounded-md', view === 'table' && 'bg-background shadow-xs font-semibold text-foreground')}
-            onClick={() => setView('table')}
-          >
-            <Table2 className="h-3.5 w-3.5" />
-            Table
-          </Button>
-        </div>
-      </FilterBar>
-
-      {/* 0. Linear-Inspired Kanban Board View */}
-      {!isLoading && view === 'board' && displayedRequests.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
-          {[
-            {
-              id: 'submitted',
-              title: 'Requested',
-              color: 'bg-amber-500',
-              items: displayedRequests.filter((r) => r.status === 'submitted'),
-              emptyText: '✅ All incoming requests triaged',
-              nextStatus: 'in_progress',
-              nextLabel: 'Start Work',
-            },
-            {
-              id: 'in_progress',
-              title: 'In Progress',
-              color: 'bg-blue-500',
-              items: displayedRequests.filter((r) => r.status === 'in_progress'),
-              emptyText: 'No tasks currently underway',
-              nextStatus: 'completed',
-              nextLabel: 'Complete',
-            },
-            {
-              id: 'completed',
-              title: 'Completed',
-              color: 'bg-emerald-500',
-              items: displayedRequests.filter((r) => r.status === 'completed'),
-              emptyText: 'No completed tasks in this view',
-              nextStatus: 'in_progress',
-              nextLabel: 'Reopen',
-            },
-            {
-              id: 'cancelled',
-              title: 'Cancelled',
-              color: 'bg-slate-400',
-              items: displayedRequests.filter((r) => r.status === 'cancelled'),
-              emptyText: 'No cancelled requests',
-              nextStatus: 'submitted',
-              nextLabel: 'Restore',
-            },
-          ].map((column) => (
-            <div
-              key={column.id}
-              className="rounded-2xl border border-border/80 bg-muted/20 p-3.5 sm:p-4 flex flex-col space-y-3 min-h-[380px]"
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-semibold gap-1.5 text-slate-700 h-9"
+              onClick={() => {
+                setInitialWoData(null);
+                setCreateWoOpen(true);
+              }}
             >
-              {/* Column Header */}
-              <div className="flex items-center justify-between pb-2 border-b border-border/60">
-                <div className="flex items-center gap-2">
-                  <span className={cn('h-2.5 w-2.5 rounded-full', column.color)} />
-                  <span className="font-bold text-xs uppercase tracking-wider text-foreground">
-                    {column.title}
-                  </span>
-                </div>
-                <Badge variant="outline" className="font-mono text-[11px] px-2 py-0 h-5">
-                  {column.items.length}
-                </Badge>
-              </div>
+              <CheckSquare className="w-4 h-4 text-blue-600" />
+              Create Work Order
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-medium gap-1.5 text-slate-700 h-9"
+              onClick={() => setScheduleInspOpen(true)}
+            >
+              <ClipboardList className="w-4 h-4 text-purple-600" />
+              Schedule Inspection
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-medium gap-1.5 text-slate-700 h-9"
+              onClick={() => handleTabChange('vendors')}
+            >
+              <Building className="w-4 h-4 text-slate-500" />
+              Assign Vendor
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-medium gap-1.5 text-slate-700 h-9"
+              onClick={handleExportCsv}
+            >
+              <Download className="w-4 h-4 text-slate-500" />
+              Export
+            </Button>
+          </div>
+        </div>
 
-              {/* Column Cards */}
-              <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[calc(100vh-280px)]">
-                {column.items.map((request) => (
-                  <Card
-                    key={request.id}
-                    className="p-3.5 rounded-xl border border-border/80 shadow-xs hover:border-primary/40 hover:shadow-sm transition-all bg-card space-y-2.5 group"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-semibold text-xs text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-2">
-                        {request.title}
-                      </h4>
-                      {getPriorityBadge(request.priority)}
-                    </div>
+        {/* =========================================================================
+            SECTION 2: HEALTH SUMMARY (MAX 4 CARDS)
+            ========================================================================= */}
+        <MaintenanceHealthSummary
+          requests={allRequests}
+          workOrders={workOrders}
+          currency={currency}
+          onSelectView={handleTabChange}
+        />
 
-                    <p className="text-[11px] text-muted-foreground line-clamp-2">
-                      {request.description}
-                    </p>
+        {/* =========================================================================
+            SECTION 3: CRITICAL ATTENTION (HERO SECTION)
+            ========================================================================= */}
+        <MaintenanceCriticalAttention
+          items={criticalItems}
+          onActionClick={handleCriticalAction}
+        />
 
-                    <div className="pt-2 border-t border-border/50 text-[10px] text-muted-foreground space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="truncate font-medium text-foreground">
-                          {request.properties?.name || 'Property'} {request.units ? `• Unit ${request.units.unit_number}` : ''}
-                        </span>
-                        {request.actual_cost != null ? (
-                          <span className="font-mono font-semibold text-foreground">
-                            {formatCurrency(request.actual_cost)}
-                          </span>
-                        ) : request.estimated_cost != null ? (
-                          <span className="font-mono text-muted-foreground">
-                            {formatCurrency(request.estimated_cost)} est.
-                          </span>
-                        ) : null}
-                      </div>
+        {/* =========================================================================
+            SECTION 4: MAINTENANCE WORKSPACE (5 VIEWS)
+            ========================================================================= */}
+        <Card className="border-slate-200 shadow-xs overflow-hidden">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+            <div className="border-b border-slate-200 bg-slate-50/70 px-4 pt-3 pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <TabsList className="bg-slate-200/60 p-1 h-auto flex flex-wrap gap-1">
+                <TabsTrigger value="requests" className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs">
+                  <Wrench className="w-3.5 h-3.5" /> Requests ({allRequests.length})
+                </TabsTrigger>
+                <TabsTrigger value="work-orders" className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs">
+                  <CheckSquare className="w-3.5 h-3.5" /> Work Orders ({workOrders.length})
+                </TabsTrigger>
+                <TabsTrigger value="inspections" className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs">
+                  <ClipboardList className="w-3.5 h-3.5" /> Inspections ({inspections.length})
+                </TabsTrigger>
+                <TabsTrigger value="vendors" className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs">
+                  <Building className="w-3.5 h-3.5" /> Vendors ({vendorProfiles.length})
+                </TabsTrigger>
+                <TabsTrigger value="calendar" className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs">
+                  <Calendar className="w-3.5 h-3.5" /> Calendar
+                </TabsTrigger>
+              </TabsList>
 
-                      <div className="flex items-center justify-between text-[10px] pt-0.5">
-                        <span className="text-muted-foreground truncate">
-                          {request.vendors?.name ? `Vendor: ${request.vendors.name}` : request.assigned_to ? `Assigned: ${request.assigned_to}` : 'Unassigned'}
-                        </span>
-                        <span>{format(new Date(request.created_at), 'MMM dd')}</span>
-                      </div>
-                    </div>
-
-                    {/* Quick One-Click Status Transition Button */}
-                    <div className="pt-1 flex items-center justify-between gap-1.5">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(request)}
-                        className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={column.id === 'completed' ? 'outline' : 'default'}
-                        onClick={() => handleStatusChange(request.id, column.nextStatus, request.status)}
-                        className="h-7 px-2.5 text-[11px] gap-1"
-                      >
-                        <span>{column.nextLabel}</span>
-                        <ArrowRight className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-
-                {column.items.length === 0 && (
-                  <div className="rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground/80 flex flex-col items-center justify-center min-h-[160px] gap-1.5">
-                    <CheckCircle2 className="h-5 w-5 text-muted-foreground/40" />
-                    <span>{column.emptyText}</span>
-                  </div>
-                )}
-              </div>
+              <span className="text-xs text-slate-500 font-medium hidden md:inline">
+                FishGate Physical Operations Command Center
+              </span>
             </div>
-          ))}
-        </div>
-      )}
 
-      {/* 1. Cards / Grid View */}
-      {!isLoading && view === 'cards' && paginatedRequests.length > 0 && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {paginatedRequests.map((request) => (
-              <Card key={request.id} className="p-5 card-shadow-md hover:card-shadow-lg transition-all animate-enter">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Wrench className="h-4 w-4 text-primary shrink-0" />
-                      <span className="font-semibold text-foreground truncate">{request.title}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {format(new Date(request.created_at), 'MMM dd, yyyy')}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {getPriorityBadge(request.priority)}
-                    {getStatusBadge(request.status)}
-                  </div>
-                </div>
+            <div className="p-4">
+              <TabsContent value="requests" className="m-0 p-0">
+                <MaintenanceRequestsView
+                  requests={allRequests}
+                  currency={currency}
+                  onSelectRequest={handleSelectRequest}
+                  onConvertToWorkOrder={handleConvertToWorkOrder}
+                  onAssignRequest={(req) => {
+                    handleTabChange('vendors');
+                  }}
+                />
+              </TabsContent>
 
-                <div className="mt-4 p-3 rounded-lg bg-secondary/40 space-y-1 text-xs">
-                  <p className="text-muted-foreground line-clamp-2">{request.description}</p>
-                  <div className="pt-1 flex items-center justify-between text-muted-foreground">
-                    <span>{request.properties?.name || 'No property'} {request.units ? `• Unit ${request.units.unit_number}` : ''}</span>
-                    {request.tenants && <span>Tenant: {request.tenants.name}</span>}
-                  </div>
-                  {(request.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
-                      🏢 {(request.properties as { companies?: { name?: string } | null }).companies?.name}
-                    </span>
-                  )}
-                  {(request.vendors?.name || request.assigned_to) && (
-                    <p className="text-xs font-medium text-foreground mt-1">
-                      Assigned: {request.vendors?.name || request.assigned_to}
-                    </p>
-                  )}
-                </div>
+              <TabsContent value="work-orders" className="m-0 p-0">
+                <MaintenanceWorkOrdersView
+                  workOrders={workOrders}
+                  currency={currency}
+                  onSelectWorkOrder={handleSelectWorkOrder}
+                  onPrintWorkOrder={handlePrintWorkOrder}
+                  onUpdateStatus={handleUpdateOrderStatus}
+                />
+              </TabsContent>
 
-                <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-                  <div className="text-xs text-muted-foreground">
-                    {request.actual_cost != null ? (
-                      <span className="font-semibold text-foreground">{formatCurrency(request.actual_cost)}</span>
-                    ) : request.estimated_cost != null ? (
-                      <span>{formatCurrency(request.estimated_cost)} est.</span>
-                    ) : null}
-                  </div>
+              <TabsContent value="inspections" className="m-0 p-0">
+                <MaintenanceInspectionsView
+                  inspections={inspections}
+                  onSelectInspection={(insp) => {
+                    toast({
+                      title: insp.reference,
+                      description: `Inspection at ${insp.propertyName} condition score: ${insp.conditionScore}% (${insp.outcome}).`,
+                    });
+                  }}
+                  onScheduleInspection={() => setScheduleInspOpen(true)}
+                  onGenerateWorkOrderFromIssue={handleGenerateWoFromInspection}
+                />
+              </TabsContent>
 
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => openEdit(request)}>
-                      Edit
-                    </Button>
-                    {request.status === 'completed' ? (
-                      <Button variant="outline" size="sm" onClick={() => handleStatusChange(request.id, 'in_progress', request.status)}>
-                        Reopen
-                      </Button>
-                    ) : (
-                      <Button size="sm" onClick={() => handleStatusChange(request.id, 'completed', request.status)}>
-                        Complete
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-          <Pagination
-            page={page}
-            pageSize={pageSize}
-            total={filteredRequests.length}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
-        </div>
-      )}
+              <TabsContent value="vendors" className="m-0 p-0">
+                <MaintenanceVendorsView
+                  vendors={vendorProfiles}
+                  currency={currency}
+                  onSelectVendor={(v) => {
+                    toast({
+                      title: v.name,
+                      description: `${v.tradeCategory} • Active orders: ${v.activeWorkOrders} • SLA: ${v.responseTimeHours}h.`,
+                    });
+                  }}
+                  onDispatchWorkOrder={(v) => {
+                    setInitialWoData({
+                      tradeCategory: v.tradeCategory.split('&')[0].trim(),
+                    });
+                    setCreateWoOpen(true);
+                  }}
+                />
+              </TabsContent>
 
-      {/* 2. Compact View */}
-      {!isLoading && view === 'compact' && paginatedRequests.length > 0 && (
-        <div className="space-y-4">
-          <div className="divide-y rounded-lg border border-border bg-card shadow-xs">
-            {paginatedRequests.map((request) => (
-              <div key={request.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4 hover:bg-muted/30 transition-colors">
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-                    <Wrench className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-foreground truncate">{request.title}</span>
-                      {getPriorityBadge(request.priority)}
-                      {getStatusBadge(request.status)}
-                      {(request.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
-                        <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                          🏢 {(request.properties as { companies?: { name?: string } | null }).companies?.name}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      {request.properties?.name || 'No property'} {request.units ? `(Unit ${request.units.unit_number})` : ''} • {request.tenants ? `Tenant: ${request.tenants.name} • ` : ''} {format(new Date(request.created_at), 'MMM dd, yyyy')}
-                    </p>
-                  </div>
-                </div>
+              <TabsContent value="calendar" className="m-0 p-0">
+                <MaintenanceCalendarView
+                  items={calendarItems}
+                  onScheduleNew={() => setWizardOpen(true)}
+                  onSelectItem={(item) => {
+                    toast({
+                      title: item.title,
+                      description: `${item.propertyName} • Assigned to: ${item.assignedTo}`,
+                    });
+                  }}
+                />
+              </TabsContent>
+            </div>
+          </Tabs>
+        </Card>
 
-                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0">
-                  <Button variant="outline" size="sm" onClick={() => openEdit(request)}>
-                    Edit
-                  </Button>
-                  {request.status === 'completed' ? (
-                    <Button variant="outline" size="sm" onClick={() => handleStatusChange(request.id, 'in_progress', request.status)}>
-                      Reopen
-                    </Button>
-                  ) : (
-                    <Button size="sm" onClick={() => handleStatusChange(request.id, 'completed', request.status)}>
-                      Complete
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          <Pagination
-            page={page}
-            pageSize={pageSize}
-            total={filteredRequests.length}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
-        </div>
-      )}
+        {/* =========================================================================
+            SECTION 5: PROPERTY PHYSICAL HEALTH
+            ========================================================================= */}
+        <MaintenancePropertyHealth
+          properties={properties}
+          requests={allRequests}
+          workOrders={workOrders}
+          currency={currency}
+        />
 
-      {/* 3. Table View */}
-      {!isLoading && view === 'table' && paginatedRequests.length > 0 && (
-        <div className="rounded-lg border border-border bg-card shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40">
-                  <TableHead>Title</TableHead>
-                  <TableHead>{t('th_property', 'Unit / Property')}</TableHead>
-                  <TableHead>{t('th_tenant', 'Tenant')}</TableHead>
-                  <TableHead>{t('th_priority', 'Priority')}</TableHead>
-                  <TableHead>{t('th_status', 'Status')}</TableHead>
-                  <TableHead>{t('th_date', 'Created')}</TableHead>
-                  <TableHead className="text-right">{t('th_actions', 'Actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedRequests.map((request) => (
-                  <TableRow key={request.id} className="hover:bg-muted/30">
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{request.title}</p>
-                        <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                          {request.description}
-                        </p>
-                        {(request.actual_cost != null || request.estimated_cost != null) && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                            <DollarSign className="h-3 w-3" />
-                            {request.actual_cost != null ? formatCurrency(request.actual_cost) : `${formatCurrency(request.estimated_cost || 0)} est.`}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Home className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div>
-                          <p className="text-sm">Unit {request.units?.unit_number || 'N/A'}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {request.properties?.name || 'N/A'}
-                          </p>
-                          {(request.properties as { companies?: { name?: string } | null } | null)?.companies?.name && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 mt-1 font-medium">
-                              🏢 {(request.properties as { companies?: { name?: string } | null }).companies?.name}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {request.tenants ? (
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">{request.tenants.name}</span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{getPriorityBadge(request.priority)}</TableCell>
-                    <TableCell>{getStatusBadge(request.status)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Calendar className="h-3.5 w-3.5" />
-                        {format(new Date(request.created_at), 'MMM dd, yyyy')}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEdit(request)}>
-                            Edit Request
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleStatusChange(request.id, 'in_progress', request.status)}
-                          >
-                            Mark In Progress
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleStatusChange(request.id, 'completed', request.status)}
-                          >
-                            Mark Completed
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className="text-destructive"
-                            onClick={() => handleStatusChange(request.id, 'cancelled', request.status)}
-                          >
-                            Cancel Request
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <Pagination
-            page={page}
-            pageSize={pageSize}
-            total={displayedRequests.length}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
-        </div>
-      )}
+        {/* =========================================================================
+            SECTION 6: OPERATIONAL OBSERVATIONS
+            ========================================================================= */}
+        <MaintenanceObservations
+          requests={allRequests}
+          workOrders={workOrders}
+          currency={currency}
+        />
+      </div>
 
-      {/* Empty State */}
-      {!isLoading && displayedRequests.length === 0 && (
-        <EmptyState
-          icon={Wrench}
-          title={currentTab === 'work-orders' ? 'No work orders found' : t('empty_no_records', 'No maintenance requests found')}
-          description={currentTab === 'work-orders' ? 'No assigned work orders or vendor dispatches match your filter.' : t('empty_search_prompt', 'Try adjusting your search query or create a request.')}
-          action={<Button size="sm" onClick={() => setIsCreateOpen(true)}><Plus className="h-4 w-4" />{t('action_new_request', 'New Request')}</Button>}
+      {/* =========================================================================
+          MODALS
+          ========================================================================= */}
+
+      {/* 7-Step Request Wizard */}
+      <MaintenanceRequestWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        properties={properties}
+        tenants={tenants}
+        vendors={rawVendors}
+        onCreateRequest={handleCreateRequest}
+        currency={currency}
+      />
+
+      {/* Request Detail Modal */}
+      {selectedRequest && (
+        <RequestDetailModal
+          open={requestDetailOpen}
+          onOpenChange={(open) => {
+            setRequestDetailOpen(open);
+            if (!open) setTimeout(() => setSelectedRequest(null), 200);
+          }}
+          request={selectedRequest}
+          currency={currency}
+          onConvertToWorkOrder={handleConvertToWorkOrder}
+          onAssignRequest={(req) => {
+            handleTabChange('vendors');
+          }}
         />
       )}
-          </>
-        )}
-      </Tabs>
 
-      {/* Create Request Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create Maintenance Request</DialogTitle>
-            <DialogDescription>Submit a new maintenance request for a unit.</DialogDescription>
-          </DialogHeader>
+      {/* Work Order Detail Modal */}
+      {selectedWorkOrder && (
+        <WorkOrderDetailModal
+          open={workOrderDetailOpen}
+          onOpenChange={(open) => {
+            setWorkOrderDetailOpen(open);
+            if (!open) setTimeout(() => setSelectedWorkOrder(null), 200);
+          }}
+          workOrder={selectedWorkOrder}
+          currency={currency}
+          onPrintWorkOrder={handlePrintWorkOrder}
+          onUpdateWorkOrder={handleUpdateWorkOrder}
+        />
+      )}
 
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="title">Title *</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="e.g., Leaking faucet in bathroom"
-              />
-            </div>
+      {/* Direct Work Order Creation Modal */}
+      <CreateWorkOrderModal
+        open={createWoOpen}
+        onOpenChange={setCreateWoOpen}
+        properties={properties}
+        vendors={rawVendors}
+        onCreateWorkOrder={handleCreateWorkOrder}
+        currency={currency}
+        initialData={initialWoData}
+      />
 
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description *</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Describe the issue in detail..."
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Unit *</Label>
-                <SearchableSelect
-                  options={unitOptions}
-                  value={formData.unit_id}
-                  onValueChange={(value) => setFormData({ ...formData, unit_id: value })}
-                  placeholder="Select unit..."
-                  searchPlaceholder="Search units..."
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Property</Label>
-                <SearchableSelect
-                  options={propertyOptions}
-                  value={formData.property_id}
-                  onValueChange={(value) => setFormData({ ...formData, property_id: value })}
-                  placeholder="Select property..."
-                  searchPlaceholder="Search properties..."
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Tenant</Label>
-                <SearchableSelect
-                  options={tenantOptions}
-                  value={formData.tenant_id}
-                  onValueChange={(value) => setFormData({ ...formData, tenant_id: value })}
-                  placeholder="Select tenant..."
-                  searchPlaceholder="Search tenants..."
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Priority</Label>
-                <SearchableSelect
-                  options={[
-                    { value: 'low', label: 'Low' },
-                    { value: 'medium', label: 'Medium' },
-                    { value: 'high', label: 'High' },
-                    { value: 'urgent', label: 'Urgent' },
-                  ]}
-                  value={formData.priority}
-                  onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                  placeholder="Select priority..."
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label>Vendor</Label>
-                <SearchableSelect
-                  options={vendorOptions}
-                  value={formData.vendor_id}
-                  onValueChange={(value) => setFormData({ ...formData, vendor_id: value })}
-                  placeholder="Select vendor..."
-                  searchPlaceholder="Search vendors..."
-                />
-              </div>
-              <div className="grid gap-2">
-              <Label>Other assignee</Label>
-              <Input
-                value={formData.assigned_to}
-                onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                placeholder="Name of staff member or external contractor"
-              />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label htmlFor="estimated-cost">Estimated cost</Label><Input id="estimated-cost" type="number" min="0" step="0.01" value={formData.estimated_cost} onChange={(e) => setFormData({ ...formData, estimated_cost: e.target.value })} /></div>
-              <div className="grid gap-2"><Label htmlFor="actual-cost">Actual cost</Label><Input id="actual-cost" type="number" min="0" step="0.01" value={formData.actual_cost} onChange={(e) => setFormData({ ...formData, actual_cost: e.target.value })} /></div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} disabled={createRequest.isPending}>
-              {createRequest.isPending ? 'Creating...' : 'Create Request'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Request Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Maintenance Request</DialogTitle>
-            <DialogDescription>Update the maintenance request details.</DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="editTitle">Title *</Label>
-              <Input
-                id="editTitle"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="editDescription">Description *</Label>
-              <Textarea
-                id="editDescription"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Unit *</Label>
-                <SearchableSelect
-                  options={unitOptions}
-                  value={formData.unit_id}
-                  onValueChange={(value) => setFormData({ ...formData, unit_id: value })}
-                  placeholder="Select unit..."
-                  searchPlaceholder="Search units..."
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Status</Label>
-                <SearchableSelect
-                  options={[
-                    { value: 'submitted', label: 'Submitted' },
-                    { value: 'in_progress', label: 'In Progress' },
-                    { value: 'completed', label: 'Completed' },
-                    { value: 'cancelled', label: 'Cancelled' },
-                  ]}
-                  value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
-                  placeholder="Select status..."
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Priority</Label>
-                <SearchableSelect
-                  options={[
-                    { value: 'low', label: 'Low' },
-                    { value: 'medium', label: 'Medium' },
-                    { value: 'high', label: 'High' },
-                    { value: 'urgent', label: 'Urgent' },
-                  ]}
-                  value={formData.priority}
-                  onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                  placeholder="Select priority..."
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Vendor</Label>
-                <SearchableSelect options={vendorOptions} value={formData.vendor_id} onValueChange={(value) => setFormData({ ...formData, vendor_id: value })} placeholder="Select vendor..." searchPlaceholder="Search vendors..." />
-              </div>
-              <div className="grid gap-2">
-                <Label>Other assignee</Label>
-                <Input
-                  value={formData.assigned_to}
-                  onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                  placeholder="Name of staff member or external contractor"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label htmlFor="edit-estimated-cost">Estimated cost</Label><Input id="edit-estimated-cost" type="number" min="0" step="0.01" value={formData.estimated_cost} onChange={(e) => setFormData({ ...formData, estimated_cost: e.target.value })} /></div>
-              <div className="grid gap-2"><Label htmlFor="edit-actual-cost">Actual cost</Label><Input id="edit-actual-cost" type="number" min="0" step="0.01" value={formData.actual_cost} onChange={(e) => setFormData({ ...formData, actual_cost: e.target.value })} /></div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsEditOpen(false); resetForm(); setSelectedRequest(null); }}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdate} disabled={updateRequest.isPending}>
-              {updateRequest.isPending ? 'Updating...' : 'Update Request'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Schedule Inspection Modal */}
+      <ScheduleInspectionModal
+        open={scheduleInspOpen}
+        onOpenChange={setScheduleInspOpen}
+        properties={properties}
+        onScheduleInspection={handleScheduleInspection}
+      />
     </PageContainer>
   );
 }

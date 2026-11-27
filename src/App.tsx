@@ -506,6 +506,8 @@ function AppRoutes() {
       <Route path="/rent-collection" element={<Navigate to="/collections" replace />} />
       <Route path="/payments" element={<Navigate to="/collections" replace />} />
       <Route path="/maintenance" element={<PrivateRoute>{withSuspense(<MaintenancePage />)}</PrivateRoute>} />
+      <Route path="/work-orders" element={<Navigate to="/maintenance?tab=work-orders" replace />} />
+      <Route path="/inspections" element={<Navigate to="/maintenance?tab=inspections" replace />} />
       <Route path="/expenses" element={<PrivateRoute>{withSuspense(<Expenses />)}</PrivateRoute>} />
       <Route path="/finance/expenses" element={<Navigate to="/expenses" replace />} />
       <Route path="/recurring-bills" element={<Navigate to="/expenses" replace />} />
