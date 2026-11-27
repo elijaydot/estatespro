@@ -54,10 +54,15 @@ import { RequestDetailModal } from '@/components/maintenance/RequestDetailModal'
 import { WorkOrderDetailModal } from '@/components/maintenance/WorkOrderDetailModal';
 import { CreateWorkOrderModal } from '@/components/maintenance/CreateWorkOrderModal';
 import { ScheduleInspectionModal } from '@/components/maintenance/ScheduleInspectionModal';
+import { InspectionDetailModal } from '@/components/maintenance/InspectionDetailModal';
+import { VendorDetailModal } from '@/components/maintenance/VendorDetailModal';
+import { AddMaintenanceVendorModal } from '@/components/maintenance/AddMaintenanceVendorModal';
+import { AssignVendorModal } from '@/components/maintenance/AssignVendorModal';
 
 const WORK_ORDERS_STORAGE_KEY = 'fishgate_work_orders_v1';
 const INSPECTIONS_STORAGE_KEY = 'fishgate_inspections_v1';
 const MANUAL_REQUESTS_STORAGE_KEY = 'fishgate_manual_requests_v1';
+const VENDORS_STORAGE_KEY = 'fishgate_maintenance_vendors_v1';
 
 export default function Maintenance() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -102,6 +107,19 @@ export default function Maintenance() {
 
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrderRecord | null>(null);
   const [workOrderDetailOpen, setWorkOrderDetailOpen] = useState(false);
+
+  const [selectedInspection, setSelectedInspection] = useState<InspectionRecord | null>(null);
+  const [inspectionDetailOpen, setInspectionDetailOpen] = useState(false);
+
+  const [selectedVendor, setSelectedVendor] = useState<VendorOperationalProfile | null>(null);
+  const [vendorDetailOpen, setVendorDetailOpen] = useState(false);
+
+  const [addVendorOpen, setAddVendorOpen] = useState(false);
+
+  const [assignVendorOpen, setAssignVendorOpen] = useState(false);
+  const [assignPreselectedVendorId, setAssignPreselectedVendorId] = useState<string | null>(null);
+  const [assignPreselectedWorkOrderId, setAssignPreselectedWorkOrderId] = useState<string | null>(null);
+  const [assignPreselectedRequestId, setAssignPreselectedRequestId] = useState<string | null>(null);
 
   const [initialWoData, setInitialWoData] = useState<any>(null);
 
@@ -443,8 +461,14 @@ export default function Maintenance() {
     return list;
   }, [rawRequests, properties, manualRequests]);
 
-  // 5. Vendor Operational Profiles
-  const vendorProfiles = useMemo<VendorOperationalProfile[]>(() => {
+  // 5. Vendor Operational Profiles (with LocalStorage persistence)
+  const [vendorProfiles, setVendorProfiles] = useState<VendorOperationalProfile[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem(VENDORS_STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+
     return [
       {
         id: 'vend-1',
@@ -537,7 +561,17 @@ export default function Maintenance() {
         slaStandardHours: 4,
       },
     ];
-  }, []);
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(VENDORS_STORAGE_KEY, JSON.stringify(vendorProfiles));
+    }
+  }, [vendorProfiles]);
+
+  const handleAddVendor = (newVendor: VendorOperationalProfile) => {
+    setVendorProfiles((prev) => [newVendor, ...prev]);
+  };
 
   // 6. Calendar Operational Activities
   const calendarItems = useMemo<MaintenanceCalendarItem[]>(() => {
@@ -569,8 +603,21 @@ export default function Maintenance() {
       });
     });
 
+    allRequests.forEach((r) => {
+      list.push({
+        id: `cal-req-${r.id}`,
+        title: `${r.reference}: ${r.title}`,
+        type: 'repair',
+        date: r.assignment?.dueDate || r.createdAt.slice(0, 10),
+        propertyName: r.propertyName,
+        unitNumber: r.unitNumber,
+        assignedTo: r.assignment?.assignedTo || r.assignment?.vendorName || 'Unassigned',
+        status: r.status === 'closed' ? 'completed' : 'scheduled',
+      });
+    });
+
     return list;
-  }, [workOrders, inspections]);
+  }, [workOrders, inspections, allRequests]);
 
   // 7. Critical Attention Hero Items
   const criticalItems = useMemo<CriticalAttentionItem[]>(() => {
@@ -717,6 +764,115 @@ export default function Maintenance() {
     } else if (item.targetType === 'work_order') {
       const match = workOrders.find((w) => w.id === item.targetId);
       if (match) handleSelectWorkOrder(match);
+    }
+  };
+
+  const handleAssignConfirm = (payload: {
+    targetType: 'work_order' | 'request';
+    targetId: string;
+    vendor: VendorOperationalProfile;
+    technician: string;
+    scheduledDate: string;
+    instructions: string;
+  }) => {
+    if (payload.targetType === 'work_order') {
+      setWorkOrders((prev) =>
+        prev.map((w) =>
+          w.id === payload.targetId
+            ? {
+                ...w,
+                assignedVendorId: payload.vendor.id,
+                assignedVendorName: payload.vendor.name,
+                assignedTechnician: payload.technician,
+                scheduledDate: `${payload.scheduledDate}T09:00:00Z`,
+                tradeCategory: payload.vendor.tradeCategory.split('&')[0].trim(),
+                status: w.status === 'awaiting_approval' ? 'awaiting_approval' : 'scheduled',
+                technicianNotes: payload.instructions
+                  ? `${payload.instructions}\n${w.technicianNotes || ''}`
+                  : w.technicianNotes,
+                updatedAt: new Date().toISOString(),
+              }
+            : w
+        )
+      );
+
+      // Increment vendor active work orders
+      setVendorProfiles((prev) =>
+        prev.map((v) =>
+          v.id === payload.vendor.id ? { ...v, activeWorkOrders: v.activeWorkOrders + 1 } : v
+        )
+      );
+    } else {
+      // It's a request
+      setManualRequests((prev) =>
+        prev.map((r) =>
+          r.id === payload.targetId
+            ? {
+                ...r,
+                status: 'assigned',
+                assignment: {
+                  ...r.assignment,
+                  assignedTo: payload.technician,
+                  assignedTeam: payload.vendor.tradeCategory,
+                  vendorId: payload.vendor.id,
+                  vendorName: payload.vendor.name,
+                  dueDate: payload.scheduledDate,
+                },
+                notes: payload.instructions
+                  ? `${payload.instructions}\n${r.notes || ''}`
+                  : r.notes,
+                updatedAt: new Date().toISOString(),
+              }
+            : r
+        )
+      );
+    }
+  };
+
+  const handleSelectCalendarItem = (item: MaintenanceCalendarItem) => {
+    if (item.id.startsWith('cal-wo-')) {
+      const woId = item.id.replace('cal-wo-', '');
+      const match = workOrders.find((w) => w.id === woId);
+      if (match) {
+        setSelectedWorkOrder(match);
+        setWorkOrderDetailOpen(true);
+        return;
+      }
+    }
+
+    if (item.id.startsWith('cal-insp-')) {
+      const inspId = item.id.replace('cal-insp-', '');
+      const match = inspections.find((i) => i.id === inspId);
+      if (match) {
+        setSelectedInspection(match);
+        setInspectionDetailOpen(true);
+        return;
+      }
+    }
+
+    if (item.id.startsWith('cal-req-')) {
+      const reqId = item.id.replace('cal-req-', '');
+      const match = allRequests.find((r) => r.id === reqId);
+      if (match) {
+        setSelectedRequest(match);
+        setRequestDetailOpen(true);
+        return;
+      }
+    }
+
+    // Fallback matching
+    const fallbackWo = workOrders.find((w) => item.title.includes(w.workOrderNumber));
+    if (fallbackWo) {
+      setSelectedWorkOrder(fallbackWo);
+      setWorkOrderDetailOpen(true);
+      return;
+    }
+
+    const fallbackInsp = inspections.find((i) => item.title.includes(i.reference));
+    if (fallbackInsp) {
+      setSelectedInspection(fallbackInsp);
+      setInspectionDetailOpen(true);
+      return;
     }
   };
 
@@ -924,7 +1080,12 @@ export default function Maintenance() {
               variant="outline"
               size="sm"
               className="font-medium gap-1.5 text-slate-700 h-9"
-              onClick={() => handleTabChange('vendors')}
+              onClick={() => {
+                setAssignPreselectedVendorId(null);
+                setAssignPreselectedWorkOrderId(null);
+                setAssignPreselectedRequestId(null);
+                setAssignVendorOpen(true);
+              }}
             >
               <Building className="w-4 h-4 text-slate-500" />
               Assign Vendor
@@ -996,7 +1157,9 @@ export default function Maintenance() {
                   onSelectRequest={handleSelectRequest}
                   onConvertToWorkOrder={handleConvertToWorkOrder}
                   onAssignRequest={(req) => {
-                    handleTabChange('vendors');
+                    setAssignPreselectedRequestId(req.id);
+                    setAssignPreselectedWorkOrderId(null);
+                    setAssignVendorOpen(true);
                   }}
                 />
               </TabsContent>
@@ -1008,6 +1171,11 @@ export default function Maintenance() {
                   onSelectWorkOrder={handleSelectWorkOrder}
                   onPrintWorkOrder={handlePrintWorkOrder}
                   onUpdateStatus={handleUpdateOrderStatus}
+                  onAssignWorkOrder={(wo) => {
+                    setAssignPreselectedWorkOrderId(wo.id);
+                    setAssignPreselectedRequestId(null);
+                    setAssignVendorOpen(true);
+                  }}
                 />
               </TabsContent>
 
@@ -1015,10 +1183,8 @@ export default function Maintenance() {
                 <MaintenanceInspectionsView
                   inspections={inspections}
                   onSelectInspection={(insp) => {
-                    toast({
-                      title: insp.reference,
-                      description: `Inspection at ${insp.propertyName} condition score: ${insp.conditionScore}% (${insp.outcome}).`,
-                    });
+                    setSelectedInspection(insp);
+                    setInspectionDetailOpen(true);
                   }}
                   onScheduleInspection={() => setScheduleInspOpen(true)}
                   onGenerateWorkOrderFromIssue={handleGenerateWoFromInspection}
@@ -1030,17 +1196,14 @@ export default function Maintenance() {
                   vendors={vendorProfiles}
                   currency={currency}
                   onSelectVendor={(v) => {
-                    toast({
-                      title: v.name,
-                      description: `${v.tradeCategory} • Active orders: ${v.activeWorkOrders} • SLA: ${v.responseTimeHours}h.`,
-                    });
+                    setSelectedVendor(v);
+                    setVendorDetailOpen(true);
                   }}
                   onDispatchWorkOrder={(v) => {
-                    setInitialWoData({
-                      tradeCategory: v.tradeCategory.split('&')[0].trim(),
-                    });
-                    setCreateWoOpen(true);
+                    setAssignPreselectedVendorId(v.id);
+                    setAssignVendorOpen(true);
                   }}
+                  onAddVendorClick={() => setAddVendorOpen(true)}
                 />
               </TabsContent>
 
@@ -1048,12 +1211,7 @@ export default function Maintenance() {
                 <MaintenanceCalendarView
                   items={calendarItems}
                   onScheduleNew={() => setWizardOpen(true)}
-                  onSelectItem={(item) => {
-                    toast({
-                      title: item.title,
-                      description: `${item.propertyName} • Assigned to: ${item.assignedTo}`,
-                    });
-                  }}
+                  onSelectItem={handleSelectCalendarItem}
                 />
               </TabsContent>
             </div>
@@ -1107,7 +1265,9 @@ export default function Maintenance() {
           currency={currency}
           onConvertToWorkOrder={handleConvertToWorkOrder}
           onAssignRequest={(req) => {
-            handleTabChange('vendors');
+            setAssignPreselectedRequestId(req.id);
+            setAssignPreselectedWorkOrderId(null);
+            setAssignVendorOpen(true);
           }}
         />
       )}
@@ -1126,6 +1286,58 @@ export default function Maintenance() {
           onUpdateWorkOrder={handleUpdateWorkOrder}
         />
       )}
+
+      {/* Inspection Detail Modal */}
+      {selectedInspection && (
+        <InspectionDetailModal
+          open={inspectionDetailOpen}
+          onOpenChange={(open) => {
+            setInspectionDetailOpen(open);
+            if (!open) setTimeout(() => setSelectedInspection(null), 200);
+          }}
+          inspection={selectedInspection}
+          onGenerateWorkOrderFromIssue={handleGenerateWoFromInspection}
+        />
+      )}
+
+      {/* Vendor Detail Modal */}
+      {selectedVendor && (
+        <VendorDetailModal
+          open={vendorDetailOpen}
+          onOpenChange={(open) => {
+            setVendorDetailOpen(open);
+            if (!open) setTimeout(() => setSelectedVendor(null), 200);
+          }}
+          vendor={selectedVendor}
+          currency={currency}
+          onDispatchWorkOrder={(v) => {
+            setAssignPreselectedVendorId(v.id);
+            setAssignPreselectedWorkOrderId(null);
+            setAssignPreselectedRequestId(null);
+            setAssignVendorOpen(true);
+          }}
+        />
+      )}
+
+      {/* Add Contractor / Vendor Modal */}
+      <AddMaintenanceVendorModal
+        open={addVendorOpen}
+        onOpenChange={setAddVendorOpen}
+        onAddVendor={handleAddVendor}
+      />
+
+      {/* Assign & Dispatch Vendor Modal */}
+      <AssignVendorModal
+        open={assignVendorOpen}
+        onOpenChange={setAssignVendorOpen}
+        vendors={vendorProfiles}
+        workOrders={workOrders}
+        requests={allRequests}
+        preselectedVendorId={assignPreselectedVendorId}
+        preselectedWorkOrderId={assignPreselectedWorkOrderId}
+        preselectedRequestId={assignPreselectedRequestId}
+        onAssignConfirm={handleAssignConfirm}
+      />
 
       {/* Direct Work Order Creation Modal */}
       <CreateWorkOrderModal

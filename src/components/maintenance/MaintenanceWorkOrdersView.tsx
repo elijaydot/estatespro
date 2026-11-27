@@ -44,6 +44,7 @@ interface MaintenanceWorkOrdersViewProps {
   onSelectWorkOrder: (order: WorkOrderRecord) => void;
   onPrintWorkOrder: (order: WorkOrderRecord) => void;
   onUpdateStatus: (orderId: string, status: WorkOrderStatus) => void;
+  onAssignWorkOrder?: (order: WorkOrderRecord) => void;
 }
 
 export function MaintenanceWorkOrdersView({
@@ -52,6 +53,7 @@ export function MaintenanceWorkOrdersView({
   onSelectWorkOrder,
   onPrintWorkOrder,
   onUpdateStatus,
+  onAssignWorkOrder,
 }: MaintenanceWorkOrdersViewProps) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -312,6 +314,11 @@ export function MaintenanceWorkOrdersView({
                         <DropdownMenuItem onClick={() => onSelectWorkOrder(w)} className="gap-2">
                           <Eye className="w-3.5 h-3.5 text-slate-500" /> View Work Order
                         </DropdownMenuItem>
+                        {onAssignWorkOrder && w.status !== 'completed' && w.status !== 'closed' && (
+                          <DropdownMenuItem onClick={() => onAssignWorkOrder(w)} className="gap-2">
+                            <UserCheck className="w-3.5 h-3.5 text-slate-500" /> Assign Contractor
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => onPrintWorkOrder(w)} className="gap-2">
                           <Printer className="w-3.5 h-3.5 text-blue-600" /> Print Work Sheet
                         </DropdownMenuItem>

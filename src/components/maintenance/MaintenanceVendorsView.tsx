@@ -34,6 +34,7 @@ import {
   AlertTriangle,
   UserCheck,
   Wrench,
+  Plus,
 } from 'lucide-react';
 import { VendorOperationalProfile } from './types';
 
@@ -42,6 +43,7 @@ interface MaintenanceVendorsViewProps {
   currency?: string;
   onSelectVendor: (vendor: VendorOperationalProfile) => void;
   onDispatchWorkOrder: (vendor: VendorOperationalProfile) => void;
+  onAddVendorClick?: () => void;
 }
 
 export function MaintenanceVendorsView({
@@ -49,6 +51,7 @@ export function MaintenanceVendorsView({
   currency = 'RWF',
   onSelectVendor,
   onDispatchWorkOrder,
+  onAddVendorClick,
 }: MaintenanceVendorsViewProps) {
   const [search, setSearch] = useState('');
   const [tradeFilter, setTradeFilter] = useState('all');
@@ -129,6 +132,16 @@ export function MaintenanceVendorsView({
               Reset
             </Button>
           ) : null}
+
+          {onAddVendorClick && (
+            <Button
+              size="sm"
+              className="h-9 text-xs font-semibold gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={onAddVendorClick}
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Contractor
+            </Button>
+          )}
         </div>
       </div>
 
