@@ -76,6 +76,9 @@ export function AppSidebar({
       if (pathname === '/transactions' && location.pathname === '/invoices') {
         return true;
       }
+      if (pathname === '/tasks' && (location.pathname === '/marketplace/crm/tasks' || location.pathname === '/work')) {
+        return true;
+      }
       return false;
     }
 

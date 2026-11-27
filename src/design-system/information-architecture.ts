@@ -43,6 +43,7 @@ import {
   Shield,
   Settings,
   Sliders,
+  Calendar,
   type LucideIcon,
 } from 'lucide-react';
 import type { SaasEntitlementKey } from '@/hooks/useSaasAccess';
@@ -196,13 +197,34 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
         icon: Wrench,
         description: 'Physical property operations, work orders, inspections, vendors and scheduling',
       },
+    ],
+  },
+  {
+    id: 'work',
+    name: 'Work',
+    icon: CheckSquare,
+    description: 'Productivity, action management, and operational execution',
+    items: [
       {
         id: 'tasks',
         label: 'Tasks',
-        href: '/marketplace/crm/tasks',
-        icon: ListTodo,
-        entitlementKey: 'crm.leads.manage',
-        description: 'Operational team to-do items and deadlines',
+        href: '/tasks',
+        icon: CheckSquare,
+        description: 'Actionable work, responsibilities, and operational follow-ups',
+      },
+      {
+        id: 'work-calendar',
+        label: 'Calendar',
+        href: '/tasks?tab=calendar',
+        icon: Calendar,
+        description: 'Operational schedule, deadlines, and milestone planning',
+      },
+      {
+        id: 'approvals',
+        label: 'Approvals',
+        href: '/tasks?tab=approvals',
+        icon: UserCheck,
+        description: 'Operational authorizations, expenditure reviews, and sign-offs',
       },
     ],
   },
