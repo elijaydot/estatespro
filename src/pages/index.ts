@@ -10,6 +10,7 @@ export { default as Invoices } from './Invoices';
 export { default as Payments } from './Payments';
 export { default as Maintenance } from './Maintenance';
 export { default as Calendar } from './Calendar';
+export { default as Approvals } from './Approvals';
 export { default as Reports } from './Reports';
 export { default as Settings } from './Settings';
 export { default as Notifications } from './Notifications';

@@ -222,7 +222,7 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
       {
         id: 'approvals',
         label: 'Approvals',
-        href: '/tasks?tab=approvals',
+        href: '/approvals',
         icon: UserCheck,
         description: 'Operational authorizations, expenditure reviews, and sign-offs',
       },
