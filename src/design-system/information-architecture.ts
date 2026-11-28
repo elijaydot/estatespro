@@ -268,14 +268,14 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
       {
         id: 'analytics',
         label: 'Analytics',
-        href: '/reports?domain=portfolio',
+        href: '/analytics',
         icon: BarChart3,
         description: 'Asset utilization and yield benchmark',
       },
       {
         id: 'forecasts',
         label: 'Forecasts',
-        href: '/reports?domain=forecasting',
+        href: '/forecasts',
         icon: LineChart,
         description: 'Forward cashflow projections and vacancy risks',
       },

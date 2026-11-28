@@ -100,6 +100,8 @@ const MarketplaceCrmTasks = lazy(() => import("./pages/marketplace-crm/Tasks"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const CalendarPage = lazy(() => import("./pages/Calendar"));
 const ApprovalsPage = lazy(() => import("./pages/Approvals"));
+const AnalyticsPage = lazy(() => import("./pages/Analytics"));
+const ForecastsPage = lazy(() => import("./pages/Forecasts"));
 const MarketplaceCrmMeetings = lazy(() => import("./pages/marketplace-crm/Meetings"));
 const MarketplaceCrmCalls = lazy(() => import("./pages/marketplace-crm/Calls"));
 const MarketplaceCrmCampaigns = lazy(() => import("./pages/marketplace-crm/Campaigns"));
@@ -609,6 +611,11 @@ function AppRoutes() {
       <Route path="/vendors" element={<PrivateRoute>{withSuspense(<Vendors />)}</PrivateRoute>} />
       <Route path="/vendors/:id" element={<PrivateRoute>{withSuspense(<VendorDetail />)}</PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute>{withSuspense(<Reports />)}</PrivateRoute>} />
+      <Route path="/analytics" element={<PrivateRoute>{withSuspense(<AnalyticsPage />)}</PrivateRoute>} />
+      <Route path="/forecasts" element={<PrivateRoute>{withSuspense(<ForecastsPage />)}</PrivateRoute>} />
+      <Route path="/insights" element={<Navigate to="/analytics" replace />} />
+      <Route path="/insights/analytics" element={<Navigate to="/analytics" replace />} />
+      <Route path="/insights/forecasts" element={<Navigate to="/forecasts" replace />} />
       <Route path="/settings" element={<PrivateRoute>{withSuspense(<Settings />)}</PrivateRoute>} />
       <Route path="/owner-portal" element={<PrivateRoute><OwnerPortalRoute>{withSuspense(<OwnerPortal />)}</OwnerPortalRoute></PrivateRoute>} />
       <Route path="/account/billing" element={<PrivateRoute>{withSuspense(<AccountBilling />)}</PrivateRoute>} />
