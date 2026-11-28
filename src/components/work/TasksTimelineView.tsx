@@ -95,7 +95,7 @@ export function TasksTimelineView({ tasks, onSelectTask }: TasksTimelineViewProp
                 </span>
                 {isDateToday && (
                   <Badge className="bg-emerald-600 text-white text-[9px] font-bold">
-                    TODAY'S TARGET
+                    TODAY&apos;S TARGET
                   </Badge>
                 )}
                 {isDatePast && (

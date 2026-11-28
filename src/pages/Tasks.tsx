@@ -1,5 +1,6 @@
 // src/pages/Tasks.tsx
 // FishGate Design Constitution v1.0 - Work Module: Centralized Personal Work Hub & Operational Command Layer
+// Execution-Focused 8-Part Structure: Header -> My Day -> Focus Today -> My Tasks -> Team Tasks -> Upcoming Deadlines -> Recent Activity -> Work Observations
 
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -9,23 +10,17 @@ import {
   Plus,
   UserCheck,
   Download,
-  Calendar,
   ListTodo,
   Columns,
   List,
-  Milestone,
   CheckCircle2,
-  Users,
-  ShieldCheck,
-  Building,
-  Receipt,
-  FileText,
-  CreditCard,
-  Wrench,
+  X,
+  Filter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
 import { PageContainer } from '@/design-system/LayoutFramework';
 import { useAuth } from '@/contexts/useAuth';
@@ -43,13 +38,14 @@ import {
   TaskSource,
   TaskOwner,
 } from '@/components/work/types';
-import { TasksWorkSummary } from '@/components/work/TasksWorkSummary';
+import { TasksMyDay } from '@/components/work/TasksMyDay';
 import { TasksFocusToday } from '@/components/work/TasksFocusToday';
 import { TasksMyWorkView } from '@/components/work/TasksMyWorkView';
 import { TasksBoardView } from '@/components/work/TasksBoardView';
 import { TasksListView } from '@/components/work/TasksListView';
-import { TasksTimelineView } from '@/components/work/TasksTimelineView';
-import { TasksWorkloadView } from '@/components/work/TasksWorkloadView';
+import { TasksTeamTasks } from '@/components/work/TasksTeamTasks';
+import { TasksUpcomingDeadlines } from '@/components/work/TasksUpcomingDeadlines';
+import { TasksRecentActivity } from '@/components/work/TasksRecentActivity';
 import { TasksObservations } from '@/components/work/TasksObservations';
 import { CreateTaskWizard } from '@/components/work/CreateTaskWizard';
 import { TaskDetailModal } from '@/components/work/TaskDetailModal';
@@ -68,32 +64,16 @@ export default function Tasks() {
   const { data: maintenanceRequests = [] } = useMaintenanceRequests();
 
   // Active Workspace Tab synced with URL ?tab=...
-  const tabParam = searchParams.get('tab') as
-    | 'my-work'
-    | 'team'
-    | 'board'
-    | 'list'
-    | 'timeline'
-    | 'completed'
-    | 'calendar'
-    | 'approvals'
-    | null;
+  const tabParam = searchParams.get('tab') as 'my-work' | 'board' | 'list' | 'completed' | null;
 
-  const [activeTab, setActiveTab] = useState<
-    'my-work' | 'team' | 'board' | 'list' | 'timeline' | 'completed' | 'calendar' | 'approvals'
-  >(
-    tabParam &&
-      ['my-work', 'team', 'board', 'list', 'timeline', 'completed', 'calendar', 'approvals'].includes(tabParam)
+  const [activeTab, setActiveTab] = useState<'my-work' | 'board' | 'list' | 'completed'>(
+    tabParam && ['my-work', 'board', 'list', 'completed'].includes(tabParam)
       ? tabParam
       : 'my-work'
   );
 
   useEffect(() => {
-    if (
-      tabParam &&
-      tabParam !== activeTab &&
-      ['my-work', 'team', 'board', 'list', 'timeline', 'completed', 'calendar', 'approvals'].includes(tabParam)
-    ) {
+    if (tabParam && tabParam !== activeTab && ['my-work', 'board', 'list', 'completed'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [tabParam, activeTab]);
@@ -113,8 +93,8 @@ export default function Tasks() {
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [taskToAssign, setTaskToAssign] = useState<TaskRecord | null>(null);
 
-  // Summary Filter State
-  const [summaryFilter, setSummaryFilter] = useState<string>('all');
+  // My Day Interactive Filter State ('all' | 'due_today' | 'overdue' | 'awaiting' | 'blocked' | 'upcoming')
+  const [myDayFilter, setMyDayFilter] = useState<string>('all');
 
   // Team Members Roster
   const teamMembers = useMemo<TaskOwner[]>(() => {
@@ -385,7 +365,7 @@ export default function Tasks() {
           : t
       )
     );
-    toast({ title: 'Status Updated', description: `Task transitioned to ${newStatus}.` });
+    toast({ title: 'Status Updated', description: `Task transitioned to ${newStatus.replace('_', ' ')}.` });
   };
 
   const handleToggleComplete = (taskId: string, currentStatus: TaskStatus) => {
@@ -440,20 +420,28 @@ export default function Tasks() {
     toast({ title: 'Tasks Exported', description: 'Exported operational tasks to CSV.' });
   };
 
-  // Filter tasks based on summary card selection if clicked
+  // Filter tasks based on My Day card selection
   const displayedTasks = useMemo(() => {
     const todayStr = new Date().toISOString().slice(0, 10);
-    if (summaryFilter === 'due_today') {
-      return tasks.filter((t) => t.dueDate === todayStr && t.status !== 'completed');
+    if (myDayFilter === 'due_today') {
+      return tasks.filter((t) => t.status !== 'completed' && t.status !== 'cancelled' && t.dueDate === todayStr);
     }
-    if (summaryFilter === 'overdue') {
-      return tasks.filter((t) => t.dueDate < todayStr && t.status !== 'completed');
+    if (myDayFilter === 'overdue') {
+      return tasks.filter((t) => t.status !== 'completed' && t.status !== 'cancelled' && t.dueDate < todayStr);
     }
-    if (summaryFilter === 'waiting') {
-      return tasks.filter((t) => t.status === 'waiting' || t.status === 'blocked' || t.status === 'under_review');
+    if (myDayFilter === 'awaiting') {
+      return tasks.filter((t) => (t.status === 'under_review' || t.status === 'in_progress') && t.status !== 'completed');
+    }
+    if (myDayFilter === 'blocked') {
+      return tasks.filter((t) => (t.status === 'blocked' || t.status === 'waiting') && t.status !== 'completed');
+    }
+    if (myDayFilter === 'upcoming') {
+      return tasks.filter((t) => t.status !== 'completed' && t.status !== 'cancelled' && t.dueDate > todayStr);
     }
     return tasks;
-  }, [tasks, summaryFilter]);
+  }, [tasks, myDayFilter]);
+
+  const currentUserName = user?.name || user?.email?.split('@')[0] || 'Operator';
 
   return (
     <PageContainer>
@@ -468,7 +456,7 @@ export default function Tasks() {
               <span>Tasks</span>
             </h1>
             <p className="text-xs text-slate-500 mt-1">
-              Manage work, responsibilities and operational follow-ups across FishGate.
+              Operational execution workspace: personal priorities, daily actions, and team follow-ups.
             </p>
           </div>
 
@@ -508,16 +496,17 @@ export default function Tasks() {
         </div>
 
         {/* =========================================================================
-            SECTION 2: WORK SUMMARY (MAX 4 CARDS)
+            SECTION 2: MY DAY (HERO SECTION)
             ========================================================================= */}
-        <TasksWorkSummary
+        <TasksMyDay
           tasks={tasks}
-          activeFilter={summaryFilter}
-          onFilterSelect={(k) => setSummaryFilter(summaryFilter === k ? 'all' : k)}
+          currentUserName={currentUserName}
+          activeFilter={myDayFilter}
+          onFilterSelect={(k) => setMyDayFilter(myDayFilter === k ? 'all' : k)}
         />
 
         {/* =========================================================================
-            SECTION 3: FOCUS TODAY (HERO SECTION)
+            SECTION 3: FOCUS TODAY (PRIORITY OPERATIONAL QUEUE)
             ========================================================================= */}
         <TasksFocusToday
           tasks={tasks}
@@ -526,52 +515,55 @@ export default function Tasks() {
         />
 
         {/* =========================================================================
-            SECTION 4: TASK WORKSPACE (VIEWS)
+            SECTION 4: MY TASKS (DAILY PERSONAL EXECUTION WORKSPACE)
             ========================================================================= */}
         <Card className="border-slate-200 shadow-xs overflow-hidden">
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <div className="border-b border-slate-200 bg-slate-50/70 px-4 pt-3 pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <TabsList className="bg-slate-200/60 p-1 h-auto flex flex-wrap gap-1">
-                <TabsTrigger
-                  value="my-work"
-                  className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs"
-                >
-                  <ListTodo className="w-3.5 h-3.5" /> My Work ({tasks.filter((t) => t.status !== 'completed').length})
-                </TabsTrigger>
-                <TabsTrigger
-                  value="board"
-                  className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs"
-                >
-                  <Columns className="w-3.5 h-3.5" /> Board View
-                </TabsTrigger>
-                <TabsTrigger
-                  value="list"
-                  className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs"
-                >
-                  <List className="w-3.5 h-3.5" /> List View ({tasks.length})
-                </TabsTrigger>
-                <TabsTrigger
-                  value="timeline"
-                  className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs"
-                >
-                  <Milestone className="w-3.5 h-3.5" /> Timeline
-                </TabsTrigger>
-                <TabsTrigger
-                  value="team"
-                  className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs"
-                >
-                  <Users className="w-3.5 h-3.5" /> Team Workload
-                </TabsTrigger>
-                <TabsTrigger
-                  value="completed"
-                  className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Completed ({tasks.filter((t) => t.status === 'completed').length})
-                </TabsTrigger>
-              </TabsList>
+              <div className="flex items-center gap-2 flex-wrap">
+                <TabsList className="bg-slate-200/60 p-1 h-auto flex flex-wrap gap-1">
+                  <TabsTrigger
+                    value="my-work"
+                    className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs"
+                  >
+                    <ListTodo className="w-3.5 h-3.5" /> My Tasks ({tasks.filter((t) => t.status !== 'completed').length})
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="board"
+                    className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs"
+                  >
+                    <Columns className="w-3.5 h-3.5" /> Board View
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="list"
+                    className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs"
+                  >
+                    <List className="w-3.5 h-3.5" /> List View ({tasks.length})
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="completed"
+                    className="text-xs font-semibold gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-xs"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Completed ({tasks.filter((t) => t.status === 'completed').length})
+                  </TabsTrigger>
+                </TabsList>
+
+                {myDayFilter !== 'all' && (
+                  <div className="flex items-center gap-1.5 bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded text-[11px] font-medium">
+                    <Filter className="w-3 h-3 text-blue-600" />
+                    <span>Filtered by: <strong className="capitalize">{myDayFilter.replace('_', ' ')}</strong></span>
+                    <button
+                      onClick={() => setMyDayFilter('all')}
+                      className="ml-1 text-blue-500 hover:text-blue-900 focus:outline-none"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <span className="text-xs text-slate-500 font-medium hidden md:inline">
-                FishGate Personal Work Hub
+                Execution Workspace
               </span>
             </div>
 
@@ -606,40 +598,10 @@ export default function Tasks() {
                 />
               </TabsContent>
 
-              {/* 4. Timeline View */}
-              <TabsContent value="timeline" className="m-0 p-0">
-                <TasksTimelineView
-                  tasks={displayedTasks}
-                  onSelectTask={handleSelectTask}
-                />
-              </TabsContent>
-
-              {/* 5. Team Workload View */}
-              <TabsContent value="team" className="m-0 p-0">
-                <TasksWorkloadView tasks={tasks} />
-              </TabsContent>
-
-              {/* 6. Completed Work View */}
+              {/* 4. Completed Work View */}
               <TabsContent value="completed" className="m-0 p-0">
                 <TasksListView
                   tasks={tasks.filter((t) => t.status === 'completed')}
-                  onSelectTask={handleSelectTask}
-                  onUpdateStatus={handleUpdateStatus}
-                  onAssignTask={handleQuickAssign}
-                />
-              </TabsContent>
-
-              {/* 7. Calendar View / Approvals tab redirects or renders Timeline */}
-              <TabsContent value="calendar" className="m-0 p-0">
-                <TasksTimelineView
-                  tasks={tasks}
-                  onSelectTask={handleSelectTask}
-                />
-              </TabsContent>
-
-              <TabsContent value="approvals" className="m-0 p-0">
-                <TasksListView
-                  tasks={tasks.filter((t) => t.source === 'approvals' || t.status === 'under_review')}
                   onSelectTask={handleSelectTask}
                   onUpdateStatus={handleUpdateStatus}
                   onAssignTask={handleQuickAssign}
@@ -650,12 +612,52 @@ export default function Tasks() {
         </Card>
 
         {/* =========================================================================
-            SECTION 5: PERSONAL PRODUCTIVITY & WORKLOAD SUMMARY
+            SECTION 5: TEAM TASKS (LIGHTWEIGHT DELEGATION & ACCOUNTABILITY VIEW)
             ========================================================================= */}
-        <TasksWorkloadView tasks={tasks} />
+        <Card className="p-4 border-slate-200 shadow-xs">
+          <div className="mb-3 pb-2 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Team Tasks & Accountability</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Delegate work, balance responsibilities, and monitor team commitments across properties.
+              </p>
+            </div>
+            <Badge variant="outline" className="text-xs bg-slate-50 text-slate-700">
+              {teamMembers.length} Members Active
+            </Badge>
+          </div>
+          <TasksTeamTasks
+            tasks={tasks}
+            teamMembers={teamMembers}
+            onSelectTask={handleSelectTask}
+            onQuickAssign={handleQuickAssign}
+            onUpdateStatus={handleUpdateStatus}
+          />
+        </Card>
 
         {/* =========================================================================
-            SECTION 6: WORK OBSERVATIONS (MAX 3, ZERO AI JARGON)
+            SECTIONS 6 & 7: UPCOMING DEADLINES & RECENT ACTIVITY (FORWARD SCHEDULE & AUDIT STREAM)
+            ========================================================================= */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Section 6: Upcoming Deadlines */}
+          <div>
+            <TasksUpcomingDeadlines
+              tasks={tasks}
+              onSelectTask={handleSelectTask}
+            />
+          </div>
+
+          {/* Section 7: Recent Activity */}
+          <div>
+            <TasksRecentActivity
+              tasks={tasks}
+              onSelectTask={handleSelectTask}
+            />
+          </div>
+        </div>
+
+        {/* =========================================================================
+            SECTION 8: WORK OBSERVATIONS (MAX 3, STRICTLY ZERO AI/COPILOT/ML BUZZWORDS)
             ========================================================================= */}
         <TasksObservations tasks={tasks} />
       </div>
