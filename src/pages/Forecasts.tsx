@@ -1,13 +1,14 @@
 // src/pages/Forecasts.tsx
 // FishGate Design Constitution v1.0 - Insights Module: Forecasts Workspace
-// Workspace Mode Architecture: Users choose an outlook mode; system reconfigures around that perspective.
-// Visible clutter reduced by > 60%; strictly one forward outlook displayed at a time.
-// Scenario Modeling is collapsible by default to prevent cognitive overload.
+// Controlled Workspace Expansion: Default state is completely calm with detailed forecast content hidden until an outlook is selected.
+// Toggle behavior: clicking an active card collapses the view back to overview.
+// Scenario planning is visible only when its related workspace is open.
 
 import { useState } from 'react';
 import { PageContainer } from '@/design-system/LayoutFramework';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
+import { LayoutGrid, Compass } from 'lucide-react';
 
 import { ForecastsHeader } from '@/components/forecasts/ForecastsHeader';
 import { ForecastsFutureOutlook } from '@/components/forecasts/ForecastsFutureOutlook';
@@ -21,21 +22,23 @@ import { ForecastsScenarioModal } from '@/components/forecasts/ForecastsScenario
 import { ForecastWorkspaceMode } from '@/components/forecasts/types';
 
 export default function ForecastsPage() {
-  const [activeMode, setActiveMode] = useState<ForecastWorkspaceMode>('revenue');
+  // Default state: null (no workspace open, calm executive overview)
+  const [activeMode, setActiveMode] = useState<ForecastWorkspaceMode | null>(null);
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState<boolean>(false);
 
   const handleExportForecast = () => {
+    const outlookName = activeMode ? activeMode.toUpperCase() : 'PLANNING_OVERVIEW';
     const exportData = [
-      { Outlook: activeMode.toUpperCase(), ExportDate: new Date().toISOString().slice(0, 10), Status: 'Forward Plan' },
+      { Outlook: outlookName, ExportDate: new Date().toISOString().slice(0, 10), Status: 'Forward Plan' },
       { Metric: 'Revenue Outlook (Q1 2027)', Value: 'RWF 33.2M / mo', Trajectory: '+5.4% Forward Growth', Status: 'Target Met' },
       { Metric: 'Occupancy Outlook', Value: '95.8%', Trajectory: '46 of 48 Units Occupied', Status: 'High Capacity' },
       { Metric: 'Lease Expirations (90d)', Value: '8 Leases', Trajectory: 'RWF 5.2M / mo at stake', Status: '87.5% Renewal Target' },
       { Metric: 'Maintenance Demand (Dec)', Value: '18 Work Orders', Trajectory: 'RWF 4.2M Budgeted Load', Status: 'All Vendors Confirmed' },
     ];
-    downloadCsv(exportData, `FishGate_${activeMode}_Forecast_${new Date().toISOString().slice(0, 10)}`);
+    downloadCsv(exportData, `FishGate_${outlookName}_Forecast_${new Date().toISOString().slice(0, 10)}`);
     toast({
       title: 'Forecast Exported',
-      description: `Downloaded comprehensive ${activeMode} forward plan CSV.`,
+      description: `Downloaded ${outlookName} forward plan CSV.`,
     });
   };
 
@@ -57,23 +60,36 @@ export default function ForecastsPage() {
           onCreateScenario={handleCreateScenario}
         />
 
-        {/* SECTION 2: FUTURE OUTLOOK (MAX 4 CARDS) */}
+        {/* SECTION 2: FUTURE OUTLOOK (VITAL HORIZONS) */}
         <ForecastsFutureOutlook />
 
-        {/* SECTION 3: WORKSPACE MODE ARCHITECTURE (PRIMARY OUTLOOK CARDS & PLANNING TAKEAWAY) */}
+        {/* SECTION 3: FORWARD PLANNING TAKEAWAY & WORKSPACE MODE CARDS */}
         <ForecastsWorkspaceCards
           activeMode={activeMode}
           onSelectMode={setActiveMode}
         />
 
-        {/* SECTION 4: DEDICATED OUTLOOK MODE VIEW (EXCLUSIVE CONTENT PER MODE) */}
-        <div className="pt-1">
-          {activeMode === 'revenue' && <RevenueOutlookMode />}
-          {activeMode === 'occupancy' && <OccupancyOutlookMode />}
-          {activeMode === 'lease' && <LeaseOutlookMode />}
-          {activeMode === 'maintenance' && <MaintenanceOutlookMode />}
-          {activeMode === 'workload' && <WorkloadOutlookMode />}
-        </div>
+        {/* SECTION 4: CONTROLLED WORKSPACE EXPANSION CONTENT */}
+        {activeMode === null ? (
+          /* EMPTY WORKSPACE GUIDANCE STATE (QUIET, CALM EXECUTIVE OVERVIEW) */
+          <div className="py-10 px-4 border border-dashed border-slate-200 rounded-lg bg-slate-50/40 text-center flex flex-col items-center justify-center space-y-2 transition-all duration-200">
+            <div className="p-2 rounded-full bg-slate-100 text-slate-400">
+              <LayoutGrid className="w-5 h-5" />
+            </div>
+            <p className="text-xs text-slate-500 font-medium max-w-md">
+              Select a workspace above to explore detailed analysis and planning information.
+            </p>
+          </div>
+        ) : (
+          /* DEDICATED OUTLOOK MODE VIEW (SMOOTH 200ms EXPANSION, STRICTLY ONE PERSPECTIVE) */
+          <div className="transition-all duration-200 ease-out space-y-6">
+            {activeMode === 'revenue' && <RevenueOutlookMode />}
+            {activeMode === 'occupancy' && <OccupancyOutlookMode />}
+            {activeMode === 'lease' && <LeaseOutlookMode />}
+            {activeMode === 'maintenance' && <MaintenanceOutlookMode />}
+            {activeMode === 'workload' && <WorkloadOutlookMode />}
+          </div>
+        )}
       </div>
 
       {/* Scenario Creation / Save Modal */}

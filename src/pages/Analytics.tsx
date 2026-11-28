@@ -1,12 +1,13 @@
 // src/pages/Analytics.tsx
 // FishGate Design Constitution v1.0 - Insights Module: Analytics Workspace
-// Workspace Mode Architecture: Users choose a perspective; system reconfigures around that perspective.
-// Visible clutter reduced by > 60%; strictly one perspective displayed at a time.
+// Controlled Workspace Expansion: Default state is completely calm with detailed reports hidden until a workspace is selected.
+// Toggle behavior: clicking an active card collapses the view back to overview.
 
 import { useState } from 'react';
 import { PageContainer } from '@/design-system/LayoutFramework';
 import { toast } from '@/components/ui/use-toast';
 import { downloadCsv } from '@/lib/download';
+import { LayoutGrid, Sparkles } from 'lucide-react';
 
 import { AnalyticsHeader } from '@/components/analytics/AnalyticsHeader';
 import { AnalyticsExecutiveUnderstanding } from '@/components/analytics/AnalyticsExecutiveUnderstanding';
@@ -21,7 +22,8 @@ import { AnalyticsComparisonModal } from '@/components/analytics/AnalyticsCompar
 import { AnalyticsWorkspaceMode, PropertyComparisonRow } from '@/components/analytics/types';
 
 export default function AnalyticsPage() {
-  const [activeMode, setActiveMode] = useState<AnalyticsWorkspaceMode>('portfolio');
+  // Default state: null (no workspace open, calm executive overview)
+  const [activeMode, setActiveMode] = useState<AnalyticsWorkspaceMode | null>(null);
   const [isComparisonOpen, setIsComparisonOpen] = useState<boolean>(false);
 
   const comparisonProperties: PropertyComparisonRow[] = [
@@ -61,24 +63,26 @@ export default function AnalyticsPage() {
   ];
 
   const handleExportAnalysis = () => {
+    const modeName = activeMode ? activeMode.toUpperCase() : 'PORTFOLIO_OVERVIEW';
     const summaryData = [
-      { Workspace: activeMode.toUpperCase(), ExportDate: new Date().toISOString().slice(0, 10), Status: 'Complete' },
+      { Workspace: modeName, ExportDate: new Date().toISOString().slice(0, 10), Status: 'Complete' },
       { Indicator: 'Portfolio Health', Value: '94.2%', Status: 'Optimal Capacity', Trend: '+1.8% QoQ' },
       { Indicator: 'Financial Health', Value: '99.4%', Status: 'Strong Realization', Trend: '101% of Target' },
       { Indicator: 'Operational Health', Value: '1.8 Days', Status: 'Healthy SLA', Trend: '-47% Turnaround' },
       { Indicator: 'Productivity Health', Value: '85.7%', Status: 'Disciplined Execution', Trend: '+6.4% Completion' },
     ];
-    downloadCsv(summaryData, `FishGate_${activeMode}_Analysis_${new Date().toISOString().slice(0, 10)}`);
+    downloadCsv(summaryData, `FishGate_${modeName}_Analysis_${new Date().toISOString().slice(0, 10)}`);
     toast({
       title: 'Analysis Exported',
-      description: `Downloaded comprehensive ${activeMode} workspace analysis CSV.`,
+      description: `Downloaded ${modeName} summary CSV.`,
     });
   };
 
   const handleSaveView = () => {
+    const viewTitle = activeMode ? activeMode.toUpperCase() : 'EXECUTIVE_OVERVIEW';
     toast({
       title: 'Analytics View Saved',
-      description: `Saved current workspace (${activeMode.toUpperCase()}) as default view.`,
+      description: `Saved current workspace (${viewTitle}) as default view.`,
     });
   };
 
@@ -99,23 +103,36 @@ export default function AnalyticsPage() {
         {/* SECTION 2: EXECUTIVE UNDERSTANDING (VITAL SIGNS) */}
         <AnalyticsExecutiveUnderstanding />
 
-        {/* SECTION 3: WORKSPACE MODE ARCHITECTURE (PRIMARY NAVIGATION & KEY TAKEAWAY) */}
+        {/* SECTION 3: KEY TAKEAWAY & PERFORMANCE WORKSPACES (PRIMARY NAVIGATION) */}
         <AnalyticsWorkspaceCards
           activeMode={activeMode}
           onSelectMode={setActiveMode}
         />
 
-        {/* SECTION 4: DEDICATED WORKSPACE MODE VIEW (EXCLUSIVE CONTENT PER MODE) */}
-        <div className="pt-1">
-          {activeMode === 'portfolio' && <PortfolioAnalyticsMode />}
-          {activeMode === 'residents' && <ResidentAnalyticsMode />}
-          {activeMode === 'finance' && <FinancialAnalyticsMode />}
-          {activeMode === 'operations' && <OperationsAnalyticsMode />}
-          {activeMode === 'team' && <TeamAnalyticsMode />}
-        </div>
+        {/* SECTION 4: CONTROLLED WORKSPACE EXPANSION CONTENT */}
+        {activeMode === null ? (
+          /* EMPTY WORKSPACE GUIDANCE STATE (QUIET, CALM EXECUTIVE OVERVIEW) */
+          <div className="py-10 px-4 border border-dashed border-slate-200 rounded-lg bg-slate-50/40 text-center flex flex-col items-center justify-center space-y-2 transition-all duration-200">
+            <div className="p-2 rounded-full bg-slate-100 text-slate-400">
+              <LayoutGrid className="w-5 h-5" />
+            </div>
+            <p className="text-xs text-slate-500 font-medium max-w-md">
+              Select a workspace above to explore detailed analysis and planning information.
+            </p>
+          </div>
+        ) : (
+          /* DEDICATED WORKSPACE MODE VIEW (SMOOTH 200ms EXPANSION, STRICTLY ONE PERSPECTIVE) */
+          <div className="transition-all duration-200 ease-out space-y-6">
+            {activeMode === 'portfolio' && <PortfolioAnalyticsMode />}
+            {activeMode === 'residents' && <ResidentAnalyticsMode />}
+            {activeMode === 'finance' && <FinancialAnalyticsMode />}
+            {activeMode === 'operations' && <OperationsAnalyticsMode />}
+            {activeMode === 'team' && <TeamAnalyticsMode />}
 
-        {/* SECTION 5: OPERATIONAL OBSERVATIONS */}
-        <AnalyticsObservations />
+            {/* Observations revealed alongside the active workspace */}
+            <AnalyticsObservations />
+          </div>
+        )}
       </div>
 
       {/* Cross-Property Comparison Modal */}
