@@ -1,12 +1,24 @@
 // src/components/analytics/types.ts
-// FishGate Design Constitution v1.0 - Analytics Module: Business Understanding Center
+// FishGate Design Constitution v1.0 - Analytics Module: Workspace Mode Architecture
 
-export type AnalyticsPerspective =
+export type AnalyticsWorkspaceMode =
   | 'portfolio'
-  | 'resident'
-  | 'financial'
-  | 'operational'
+  | 'residents'
+  | 'finance'
+  | 'operations'
   | 'team';
+
+// Backwards-compatibility alias
+export type AnalyticsPerspective = AnalyticsWorkspaceMode;
+
+export interface WorkspaceModeCardConfig {
+  id: AnalyticsWorkspaceMode;
+  title: string;
+  subtitle: string[];
+  keyMetric: string;
+  badgeText: string;
+  badgeClass: string;
+}
 
 export interface ExecutiveIndicator {
   id: string;
@@ -35,7 +47,7 @@ export interface TrendDriverItem {
 export interface AnalyticsRiskItem {
   id: string;
   title: string;
-  category: 'financial' | 'occupancy' | 'operational';
+  category: 'financial' | 'occupancy' | 'operational' | 'team';
   exposure: string;
   rootCause: string;
   consequence: string;
@@ -47,7 +59,7 @@ export interface AnalyticsRiskItem {
 export interface AnalyticsOpportunityItem {
   id: string;
   title: string;
-  category: 'growth' | 'cost_reduction';
+  category: 'growth' | 'cost_reduction' | 'resident' | 'team';
   estimatedGain: string;
   enabler: string;
   operationalAction: string;

@@ -1,12 +1,15 @@
 // src/components/forecasts/types.ts
-// FishGate Design Constitution v1.0 - Forecasts Module: Business Planning Workspace
+// FishGate Design Constitution v1.0 - Forecasts Module: Workspace Mode Architecture
 
-export type ForecastAreaType =
+export type ForecastWorkspaceMode =
   | 'revenue'
   | 'occupancy'
   | 'lease'
   | 'maintenance'
   | 'workload';
+
+// Compatibility alias
+export type ForecastAreaType = ForecastWorkspaceMode;
 
 export interface FutureOutlookIndicator {
   id: string;
@@ -23,7 +26,7 @@ export interface FutureOutlookIndicator {
 export interface ForecastRiskItem {
   id: string;
   title: string;
-  category: 'lease' | 'revenue' | 'maintenance' | 'vendor';
+  category: 'lease' | 'revenue' | 'maintenance' | 'vendor' | 'occupancy' | 'workload';
   horizon: string;
   severity: 'high' | 'medium' | 'low';
   impactDescription: string;
@@ -46,11 +49,11 @@ export interface OpportunityPlanningItem {
 }
 
 export interface ScenarioModelConfig {
-  occupancyDeltaPercent: number; // e.g. -5 to +5%
-  rentAdjustmentPercent: number; // e.g. -5 to +10%
-  opexChangePercent: number; // e.g. -10 to +20%
-  renewalRatePercent: number; // e.g. 70% to 100%
-  additionalUnitsPlanted: number; // e.g. 0 to 6 units
+  occupancyDeltaPercent: number;
+  rentAdjustmentPercent: number;
+  opexChangePercent: number;
+  renewalRatePercent: number;
+  additionalUnitsPlanted: number;
 }
 
 export interface ScenarioModelResult {

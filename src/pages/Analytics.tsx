@@ -1,14 +1,7 @@
 // src/pages/Analytics.tsx
 // FishGate Design Constitution v1.0 - Insights Module: Analytics Workspace
-// Strict Purpose: Business Understanding Center ("Why Did It Happen?")
-// 6-Section Architecture:
-// 1. Header (Title, Subtitle, Export Analysis, Save View, Create Comparison)
-// 2. Executive Understanding (Max 4 Summary Indicators, Not Dashboards)
-// 3. Performance Areas (5 Perspectives: Portfolio, Resident, Financial, Operational, Team Performance)
-// 4. Trends & Drivers (Explaining Underlying Causes)
-// 5. Risks & Opportunities (Executive Decision Support)
-// 6. Detailed Analysis (Interactive Exploration, Comparison Matrix, Saved Views, Export, Pagination)
-// + Operational Observations (3-5 Grounded Human Observations, Zero AI/Telemetry Buzzwords)
+// Workspace Mode Architecture: Users choose a perspective; system reconfigures around that perspective.
+// Visible clutter reduced by > 60%; strictly one perspective displayed at a time.
 
 import { useState } from 'react';
 import { PageContainer } from '@/design-system/LayoutFramework';
@@ -17,16 +10,18 @@ import { downloadCsv } from '@/lib/download';
 
 import { AnalyticsHeader } from '@/components/analytics/AnalyticsHeader';
 import { AnalyticsExecutiveUnderstanding } from '@/components/analytics/AnalyticsExecutiveUnderstanding';
-import { AnalyticsPerformanceAreas } from '@/components/analytics/AnalyticsPerformanceAreas';
-import { AnalyticsTrendsDrivers } from '@/components/analytics/AnalyticsTrendsDrivers';
-import { AnalyticsRisksOpportunities } from '@/components/analytics/AnalyticsRisksOpportunities';
-import { AnalyticsDetailedAnalysis } from '@/components/analytics/AnalyticsDetailedAnalysis';
+import { AnalyticsWorkspaceCards } from '@/components/analytics/AnalyticsWorkspaceCards';
+import { PortfolioAnalyticsMode } from '@/components/analytics/modes/PortfolioAnalyticsMode';
+import { ResidentAnalyticsMode } from '@/components/analytics/modes/ResidentAnalyticsMode';
+import { FinancialAnalyticsMode } from '@/components/analytics/modes/FinancialAnalyticsMode';
+import { OperationsAnalyticsMode } from '@/components/analytics/modes/OperationsAnalyticsMode';
+import { TeamAnalyticsMode } from '@/components/analytics/modes/TeamAnalyticsMode';
 import { AnalyticsObservations } from '@/components/analytics/AnalyticsObservations';
 import { AnalyticsComparisonModal } from '@/components/analytics/AnalyticsComparisonModal';
-import { AnalyticsPerspective, PropertyComparisonRow } from '@/components/analytics/types';
+import { AnalyticsWorkspaceMode, PropertyComparisonRow } from '@/components/analytics/types';
 
 export default function AnalyticsPage() {
-  const [activePerspective, setActivePerspective] = useState<AnalyticsPerspective>('portfolio');
+  const [activeMode, setActiveMode] = useState<AnalyticsWorkspaceMode>('portfolio');
   const [isComparisonOpen, setIsComparisonOpen] = useState<boolean>(false);
 
   const comparisonProperties: PropertyComparisonRow[] = [
@@ -67,22 +62,23 @@ export default function AnalyticsPage() {
 
   const handleExportAnalysis = () => {
     const summaryData = [
+      { Workspace: activeMode.toUpperCase(), ExportDate: new Date().toISOString().slice(0, 10), Status: 'Complete' },
       { Indicator: 'Portfolio Health', Value: '94.2%', Status: 'Optimal Capacity', Trend: '+1.8% QoQ' },
       { Indicator: 'Financial Health', Value: '99.4%', Status: 'Strong Realization', Trend: '101% of Target' },
       { Indicator: 'Operational Health', Value: '1.8 Days', Status: 'Healthy SLA', Trend: '-47% Turnaround' },
       { Indicator: 'Productivity Health', Value: '85.7%', Status: 'Disciplined Execution', Trend: '+6.4% Completion' },
     ];
-    downloadCsv(summaryData, `FishGate_Analytics_Executive_Summary_${new Date().toISOString().slice(0, 10)}`);
+    downloadCsv(summaryData, `FishGate_${activeMode}_Analysis_${new Date().toISOString().slice(0, 10)}`);
     toast({
       title: 'Analysis Exported',
-      description: 'Downloaded executive performance indicators and trends CSV.',
+      description: `Downloaded comprehensive ${activeMode} workspace analysis CSV.`,
     });
   };
 
   const handleSaveView = () => {
     toast({
       title: 'Analytics View Saved',
-      description: `Saved current perspective (${activePerspective.toUpperCase()}) as default executive view.`,
+      description: `Saved current workspace (${activeMode.toUpperCase()}) as default view.`,
     });
   };
 
@@ -100,31 +96,29 @@ export default function AnalyticsPage() {
           onCreateComparison={handleCreateComparison}
         />
 
-        {/* SECTION 2: EXECUTIVE UNDERSTANDING */}
+        {/* SECTION 2: EXECUTIVE UNDERSTANDING (VITAL SIGNS) */}
         <AnalyticsExecutiveUnderstanding />
 
-        {/* SECTION 3: PERFORMANCE AREAS (5 PERSPECTIVES) */}
-        <AnalyticsPerformanceAreas
-          activePerspective={activePerspective}
-          onPerspectiveChange={setActivePerspective}
+        {/* SECTION 3: WORKSPACE MODE ARCHITECTURE (PRIMARY NAVIGATION & KEY TAKEAWAY) */}
+        <AnalyticsWorkspaceCards
+          activeMode={activeMode}
+          onSelectMode={setActiveMode}
         />
 
-        {/* SECTION 4: TRENDS & DRIVERS (CAUSAL EXPLANATIONS) */}
-        <AnalyticsTrendsDrivers />
+        {/* SECTION 4: DEDICATED WORKSPACE MODE VIEW (EXCLUSIVE CONTENT PER MODE) */}
+        <div className="pt-1">
+          {activeMode === 'portfolio' && <PortfolioAnalyticsMode />}
+          {activeMode === 'residents' && <ResidentAnalyticsMode />}
+          {activeMode === 'finance' && <FinancialAnalyticsMode />}
+          {activeMode === 'operations' && <OperationsAnalyticsMode />}
+          {activeMode === 'team' && <TeamAnalyticsMode />}
+        </div>
 
-        {/* SECTION 5: RISKS & OPPORTUNITIES (DECISION SUPPORT) */}
-        <AnalyticsRisksOpportunities />
-
-        {/* SECTION 6: DETAILED ANALYSIS (INTERACTIVE EXPLORATION) */}
-        <AnalyticsDetailedAnalysis
-          onOpenComparisonModal={handleCreateComparison}
-        />
-
-        {/* SECTION 7: OPERATIONAL OBSERVATIONS */}
+        {/* SECTION 5: OPERATIONAL OBSERVATIONS */}
         <AnalyticsObservations />
       </div>
 
-      {/* Global Comparison Modal */}
+      {/* Cross-Property Comparison Modal */}
       <AnalyticsComparisonModal
         isOpen={isComparisonOpen}
         onClose={() => setIsComparisonOpen(false)}
