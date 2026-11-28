@@ -98,6 +98,7 @@ const MarketplaceCrmAccounts = lazy(() => import("./pages/marketplace-crm/Accoun
 const MarketplaceCrmDeals = lazy(() => import("./pages/marketplace-crm/Deals"));
 const MarketplaceCrmTasks = lazy(() => import("./pages/marketplace-crm/Tasks"));
 const Tasks = lazy(() => import("./pages/Tasks"));
+const CalendarPage = lazy(() => import("./pages/Calendar"));
 const MarketplaceCrmMeetings = lazy(() => import("./pages/marketplace-crm/Meetings"));
 const MarketplaceCrmCalls = lazy(() => import("./pages/marketplace-crm/Calls"));
 const MarketplaceCrmCampaigns = lazy(() => import("./pages/marketplace-crm/Campaigns"));
@@ -512,7 +513,8 @@ function AppRoutes() {
       <Route path="/tasks" element={<PrivateRoute>{withSuspense(<Tasks />)}</PrivateRoute>} />
       <Route path="/work" element={<Navigate to="/tasks" replace />} />
       <Route path="/work/tasks" element={<Navigate to="/tasks" replace />} />
-      <Route path="/calendar" element={<Navigate to="/tasks?tab=calendar" replace />} />
+      <Route path="/calendar" element={<PrivateRoute>{withSuspense(<CalendarPage />)}</PrivateRoute>} />
+      <Route path="/work/calendar" element={<Navigate to="/calendar" replace />} />
       <Route path="/approvals" element={<Navigate to="/tasks?tab=approvals" replace />} />
       <Route path="/expenses" element={<PrivateRoute>{withSuspense(<Expenses />)}</PrivateRoute>} />
       <Route path="/finance/expenses" element={<Navigate to="/expenses" replace />} />

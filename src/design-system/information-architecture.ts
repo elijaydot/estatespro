@@ -215,7 +215,7 @@ export const FISHGATE_IA_GROUPS: IANavGroup[] = [
       {
         id: 'work-calendar',
         label: 'Calendar',
-        href: '/tasks?tab=calendar',
+        href: '/calendar',
         icon: Calendar,
         description: 'Operational schedule, deadlines, and milestone planning',
       },
